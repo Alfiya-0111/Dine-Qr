@@ -3,6 +3,7 @@ import { auth, db } from "../firebaseConfig";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 export default function RestaurantSignup() {
   const [form, setForm] = useState({
@@ -10,6 +11,7 @@ export default function RestaurantSignup() {
     email: "",
     password: ""
   });
+const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
 
@@ -75,14 +77,27 @@ export default function RestaurantSignup() {
         />
 
         {/* Password */}
-        <input
-          type="password"
-          className="w-full mb-6 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2"
-          style={{ borderColor: "#D1D5DB", "--tw-ring-color": "#FCB53B" }}
-          placeholder="Password"
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-        />
+    {/* Password */}
+<div className="relative mb-6">
+  <input
+    type={showPassword ? "text" : "password"}
+    className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 pr-12"
+    style={{ borderColor: "#D1D5DB", "--tw-ring-color": "#FCB53B" }}
+    placeholder="Password"
+    value={form.password}
+    onChange={(e) => setForm({ ...form, password: e.target.value })}
+  />
+
+  <button
+    type="button"
+    onClick={() => setShowPassword(!showPassword)}
+    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#B45253]"
+  >
+    {showPassword ? <FaEyeSlash /> : <FaEye />}
+  </button>
+</div>
+
+
 
         {/* CTA Button */}
         <button
