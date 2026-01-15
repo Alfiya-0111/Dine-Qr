@@ -14,13 +14,19 @@ import { Link } from "react-router-dom";
 
 import Likes from "../components/Likes";
 import Rating from "../components/Rating";
-import Comments from "../components/Comments";   // ⭐ Add Comments
+import Comments from "../components/Comments";
+
+// ✅ Ranking Formula (unchanged)
+const rankingScore = (dish) => {
+  const likes = dish.likes || 0;
+  const rating = dish.avgRating || 0;
+  const reviews = dish.reviewCount || 0;
+  return likes * 3 + rating * 5 + reviews * 2;
+};
 
 export default function PublicMenu() {
   const [items, setItems] = useState([]);
   const [uid, setUid] = useState("");
-
-
 
   useEffect(() => {
     onAuthStateChanged(auth, (user) => {
@@ -34,8 +40,15 @@ export default function PublicMenu() {
   const loadData = async (id) => {
     const q = query(collection(db, "menu"), where("restaurantId", "==", id));
     const snap = await getDocs(q);
+
     let arr = [];
-    snap.forEach((d) => arr.push({ id: d.id, ...d.data() }));
+    snap.forEach((d) => {
+      const data = { id: d.id, ...d.data() };
+      data.score = rankingScore(data);
+      arr.push(data);
+    });
+
+    arr.sort((a, b) => b.score - a.score);
     setItems(arr);
   };
 
@@ -45,75 +58,61 @@ export default function PublicMenu() {
   };
 
   return (
-    <>
-      <h2>Menu Items</h2>
+    <div className="max-w-7xl mx-auto px-4 py-10">
+      {/* Heading */}
+      <h2 className="text-3xl font-bold text-center mb-10 text-[#8A244B]">
+        🍽 Our Menu
+      </h2>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 20 }}>
+      {/* Menu Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
         {items.map((item) => (
           <div
             key={item.id}
-            style={{
-              width: 260,
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              padding: 12,
-              background: "#fff",
-            }}
+            className="bg-white rounded-2xl shadow-md hover:shadow-xl transition flex flex-col overflow-hidden border"
           >
-            <h3>{item.name}</h3>
-            <p>₹{item.price}</p>
-
+            {/* Image */}
             {item.imageUrl && (
               <img
                 src={item.imageUrl}
-                width="230"
-                height="160"
-                style={{ borderRadius: 8, objectFit: "cover" }}
+                alt={item.name}
+                className="h-44 w-full object-cover"
               />
             )}
 
-            {/* ❤️ LIKE */}
-            <Likes restaurantId={uid} dishId={item.id} dish={item} />
+            {/* Content */}
+            <div className="p-4 flex flex-col flex-1">
+              <h3 className="text-lg font-semibold text-[#8A244B]">
+                {item.name}
+              </h3>
 
-            {/* ⭐ RATING */}
-            <Rating restaurantId={uid} dishId={item.id} />
+              <p className="text-[#B45253] font-bold mt-1 mb-2">
+                ₹{item.price}
+              </p>
 
-            {/* 💬 COMMENTS DIRECTLY INSIDE PUBLIC MENU */}
-            <div style={{ marginTop: 10 }}>
-              <Comments restaurantId={uid} dishId={item.id} />
+              {/* Ranking Badge */}
+              <span className="text-xs inline-block bg-[#FCB53B] text-white px-3 py-1 rounded-full w-fit mb-3">
+                🔥 Popular
+              </span>
+
+              {/* Likes */}
+              <div className="mb-2">
+                <Likes restaurantId={uid} dishId={item.id} dish={item} />
+              </div>
+
+              {/* Rating */}
+              <div className="mb-3">
+                <Rating restaurantId={uid} dishId={item.id} />
+              </div>
+
+              {/* Comments */}
+              <div className="mt-auto">
+                <Comments restaurantId={uid} dishId={item.id} />
+              </div>
             </div>
-
-            {/* ✏️ Edit + Delete buttons (admin only) */}
-            {/* <div
-              style={{
-                display: "flex",
-                gap: 10,
-                marginTop: 10,
-                justifyContent: "center",
-              }}
-            >
-              <Link to="/dashboard/add-item" state={{ editData: item }}>
-                <button
-                  style={{ background: "orange", padding: "5px 10px" }}
-                >
-                  Edit
-                </button>
-              </Link>
-
-              <button
-                style={{
-                  background: "red",
-                  color: "#fff",
-                  padding: "5px 10px",
-                }}
-                onClick={() => deleteItem(item.id)}
-              >
-                Delete
-              </button>
-            </div> */}
           </div>
         ))}
       </div>
-    </>
+    </div>
   );
 }

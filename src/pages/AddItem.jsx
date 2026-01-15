@@ -1,229 +1,256 @@
 import React, { useState, useEffect } from "react";
 import { auth, db, realtimeDB } from "../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import {
-  collection,
-  addDoc,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-} from "firebase/firestore";
+import { collection, addDoc, doc, updateDoc } from "firebase/firestore";
 import { ref, set as setRTDB, update as updateRTDB } from "firebase/database";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export default function AddItem() {
+  const defaultForm = {
+  name: "",
+  price: "",
+  description: "",
+  category: "Biryani",
+  vegType: "non-veg",
+  spiceLevel: "medium",
+  servingSize: "full",
+  prepTime: 15,
+  isHouseSpecial: false,
+  isChefPick: false,
+  dineIn: true,
+  delivery: true,
+};
+
   const navigate = useNavigate();
   const location = useLocation();
-  const editData = location.state?.editData || null; // ✅ get edit data
+  const editData = location.state?.editData || null;
+
+  const [userId, setUserId] = useState(null);
+  const [image, setImage] = useState(null);
+  const [preview, setPreview] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
     price: "",
     description: "",
+    category: "Biryani",
+    vegType: "non-veg",
+    spiceLevel: "medium",
+    servingSize: "full",
+    prepTime: 15,
+    isHouseSpecial: false,
+    isChefPick: false,
+    dineIn: true,
+    delivery: true,
   });
-  const [image, setImage] = useState(null);
-  const [preview, setPreview] = useState("");
-  const [userId, setUserId] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
 
   const IMGBB_API_KEY = "179294f40bc7235ace27ceac655be6b4";
 
-  /* ---------- Load user & prefill form if edit ---------- */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user) setUserId(user.uid);
     });
+
     if (editData) {
-      setForm({
-        name: editData.name,
-        price: editData.price,
-        description: editData.description,
-      });
+      setForm((prev) => ({
+        ...prev,
+        ...editData,
+        dineIn: editData.availableModes?.dineIn ?? true,
+        delivery: editData.availableModes?.delivery ?? true,
+      }));
       setPreview(editData.imageUrl || "");
     }
-    return unsub;
+
+    return () => unsub();
   }, [editData]);
 
-  /* ---------- Compress image ---------- */
-  const compressImage = (file) =>
-    new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const ctx = canvas.getContext("2d");
-          const maxDim = 1280;
-          let { width, height } = img;
-          if (width > maxDim || height > maxDim) {
-            if (width > height) {
-              height = (height * maxDim) / width;
-              width = maxDim;
-            } else {
-              width = (width * maxDim) / height;
-              height = maxDim;
-            }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          ctx.drawImage(img, 0, 0, width, height);
-          canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.8);
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    });
-
-  /* ---------- Upload image ---------- */
   const uploadToImgBB = async (file) => {
-    const compressed = await compressImage(file);
     const formData = new FormData();
-    formData.append("image", compressed, file.name);
-
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable)
-          setProgress(Math.round((e.loaded / e.total) * 100));
-      });
-      xhr.addEventListener("load", () => {
-        if (xhr.status === 200) {
-          const res = JSON.parse(xhr.responseText);
-          res.success
-            ? resolve(res.data.url)
-            : reject(new Error(res.error.message));
-        } else reject(new Error("Upload failed"));
-      });
-      xhr.addEventListener("error", () => reject(new Error("Network error")));
-      xhr.open("POST", `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`);
-      xhr.send(formData);
-    });
+    formData.append("image", file);
+    const res = await fetch(
+      `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`,
+      { method: "POST", body: formData }
+    );
+    const data = await res.json();
+    if (!data.success) throw new Error("Upload failed");
+    return data.data.url;
   };
 
-  /* ---------- Save (Add or Edit) ---------- */
   const handleSave = async () => {
     if (!form.name || !form.price || !form.description) {
-      alert("Please fill all fields.");
+      alert("Please fill all required fields");
       return;
     }
 
     let imageUrl = preview;
     if (image) {
       setUploading(true);
-      try {
-        imageUrl = await uploadToImgBB(image);
-      } catch (err) {
-        alert("Image upload failed.");
-        setUploading(false);
-        return;
-      }
+      imageUrl = await uploadToImgBB(image);
       setUploading(false);
     }
 
+    const payload = {
+      restaurantId: userId,
+      name: form.name,
+      price: Number(form.price),
+      description: form.description,
+      category: form.category,
+      vegType: form.vegType,
+      spiceLevel: form.spiceLevel,
+      servingSize: form.servingSize,
+      prepTime: form.prepTime,
+      isHouseSpecial: form.isHouseSpecial,
+      isChefPick: form.isChefPick,
+      availableModes: {
+        dineIn: form.dineIn,
+        delivery: form.delivery,
+      },
+      availableToday: true,
+      imageUrl,
+      stats: { likes: 0, orders: 0 },
+      updatedAt: Date.now(),
+    };
+
     if (editData) {
-      // ✅ UPDATE existing item
-      const docRef = doc(db, "menu", editData.id);
-      await updateDoc(docRef, {
-        ...form,
-        imageUrl,
-        updatedAt: Date.now(),
-      });
-
-      const rtdbRef = ref(realtimeDB, `restaurants/${userId}/menu/${editData.id}`);
-      await updateRTDB(rtdbRef, {
-        ...form,
-        imageUrl,
-        updatedAt: Date.now(),
-      });
-
-      alert("Item updated successfully!");
+      await updateDoc(doc(db, "menu", editData.id), payload);
+      await updateRTDB(
+        ref(realtimeDB, `restaurants/${userId}/menu/${editData.id}`),
+        payload
+      );
+      alert("Dish updated");
     } else {
-      // ✅ ADD new item
       const docRef = await addDoc(collection(db, "menu"), {
-        ...form,
-        restaurantId: userId,
-        imageUrl,
+        ...payload,
         createdAt: Date.now(),
-        likes: 0,
-        rating: 0,
       });
-
-      const rtdbRef = ref(realtimeDB, `restaurants/${userId}/menu/${docRef.id}`);
-      await setRTDB(rtdbRef, {
-        ...form,
-        imageUrl,
-        createdAt: Date.now(),
-        likes: {},
-      });
-      alert("Item added successfully!");
+      await setRTDB(
+        ref(realtimeDB, `restaurants/${userId}/menu/${docRef.id}`),
+        payload
+      );
+      alert("Dish added");
     }
 
-    navigate("/dashboard");
+    navigate("/dashboard", { state: { reload: true } });
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>{editData ? "Edit Menu Item" : "Add Menu Item"}</h2>
+    <div className="max-w-lg mx-auto p-6 bg-white rounded-2xl shadow-lg mt-10">
+      <h2 className="text-2xl font-bold mb-6 text-[#8A244B]">
+        {editData ? "Edit Dish" : "Add New Dish"}
+      </h2>
 
+      {/* Name */}
       <input
-        type="text"
+        className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253]"
         placeholder="Dish Name"
         value={form.name}
         onChange={(e) => setForm({ ...form, name: e.target.value })}
       />
-      <br />
-      <br />
 
+      {/* Price */}
       <input
         type="number"
+        className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253]"
         placeholder="Price"
         value={form.price}
         onChange={(e) => setForm({ ...form, price: e.target.value })}
       />
-      <br />
-      <br />
 
+      {/* Description */}
       <textarea
+        className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253]"
         placeholder="Description"
         value={form.description}
         onChange={(e) => setForm({ ...form, description: e.target.value })}
       />
-      <br />
-      <br />
 
+      {/* Category */}
+      <select
+        className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253]"
+        value={form.category}
+        onChange={(e) => setForm({ ...form, category: e.target.value })}
+      >
+        <option>Biryani</option>
+        <option>Starters</option>
+        <option>Main Course</option>
+        <option>Drinks</option>
+      </select>
+
+      {/* Veg Type */}
+      <select
+        className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253]"
+        value={form.vegType}
+        onChange={(e) => setForm({ ...form, vegType: e.target.value })}
+      >
+        <option value="veg">Veg</option>
+        <option value="non-veg">Non-Veg</option>
+      </select>
+
+      {/* Spice Level */}
+      <select
+        className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253]"
+        value={form.spiceLevel}
+        onChange={(e) => setForm({ ...form, spiceLevel: e.target.value })}
+      >
+        <option value="mild">Mild 🌶</option>
+        <option value="medium">Medium 🌶🌶</option>
+        <option value="spicy">Spicy 🌶🌶🌶</option>
+      </select>
+
+      {/* Options */}
+      <div className="flex flex-wrap gap-4 mb-4">
+        {[
+          { label: "⭐ House Special", key: "isHouseSpecial" },
+          { label: "👨‍🍳 Chef Pick", key: "isChefPick" },
+          { label: "🍽 Dine-In", key: "dineIn" },
+          { label: "🏠 Home Delivery", key: "delivery" },
+        ].map((opt) => (
+          <label key={opt.key} className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={form[opt.key]}
+              onChange={(e) => setForm({ ...form, [opt.key]: e.target.checked })}
+              className="accent-[#B45253]"
+            />
+            {opt.label}
+          </label>
+        ))}
+      </div>
+
+      {/* Image Preview */}
       {preview && (
         <img
           src={preview}
-          alt="Preview"
-          width="150"
-          height="150"
-          style={{ borderRadius: 8, marginBottom: 10 }}
+          alt="preview"
+          className="w-32 h-32 object-cover rounded-xl mb-4"
         />
       )}
-      <br />
 
+      {/* Image Upload */}
       <input
         type="file"
         accept="image/*"
+        className="mb-4"
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          setImage(file || null);
-          setProgress(0);
-          if (file) setPreview(URL.createObjectURL(file));
+          const f = e.target.files[0];
+          setImage(f);
+          setPreview(URL.createObjectURL(f));
         }}
       />
-      <br />
-      <br />
 
+      {/* Save Button */}
       <button
         onClick={handleSave}
         disabled={uploading}
-        style={{ opacity: uploading ? 0.7 : 1 }}
+        className={`w-full py-3 rounded-xl text-white font-semibold ${
+          uploading ? "bg-gray-400" : "bg-[#B45253] hover:bg-[#8A244B]"
+        } transition`}
       >
         {uploading
-          ? `Uploading… ${progress}%`
+          ? editData
+            ? "Updating…"
+            : "Adding…"
           : editData
           ? "Update Dish"
           : "Add Dish"}

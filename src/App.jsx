@@ -12,6 +12,7 @@ import MenuItems from "./pages/MenuItems";
 import FeedbackTab from "./components/FeedbackTab";
 import Signup from "./pages/Signup";
 import Login from "./pages/Login";
+import OwnerAnalytics from "./pages/OwnerAnalytics";
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />}>
             <Route path="menu" element={<MenuItems />} />
             <Route path="add-item" element={<AddItem />} />
+            <Route path="analytics" element={<OwnerAnalytics/>}/>
             <Route path="feedback" element={<FeedbackTab />} />
             <Route path="signup" element={<Signup/>}/>
             <Route path="login" element={<Login/>}/>

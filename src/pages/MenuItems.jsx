@@ -9,191 +9,156 @@ import {
   deleteDoc,
   doc,
 } from "firebase/firestore";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
-import FeedbackTab from "../components/FeedbackTab"; // ✅ Import new tab
 
-export default function Dashboard() {
-  const [showQR, setShowQR] = useState(false);
+export default function MenuItems() {
   const [items, setItems] = useState([]);
   const [userId, setUserId] = useState(null);
-  const [activeTab, setActiveTab] = useState("menu"); // ✅ track tab
+  const [showQR, setShowQR] = useState(false);
+  const [activeTab, setActiveTab] = useState("menu");
+  const location = useLocation();
+  const navigate = useNavigate();
 
+  /* --------- Load user & menu items --------- */
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUserId(user.uid);
         loadItems(user.uid);
       }
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
+  /* --------- Reload items when coming back from AddItem --------- */
+  useEffect(() => {
+    if (location.state?.reload && userId) {
+      loadItems(userId);
+      // reset state safely
+      navigate(".", { replace: true });
+    }
+  }, [location.state, userId, navigate]);
+
   const loadItems = async (uid) => {
-    try {
-      const q = query(collection(db, "menu"), where("restaurantId", "==", uid));
-      const snap = await getDocs(q);
-      const arr = [];
-      snap.forEach((docSnap) => arr.push({ id: docSnap.id, ...docSnap.data() }));
-      setItems(arr);
-    } catch (err) {
-      console.error("Error loading items:", err);
-    }
+    if (!uid) return;
+    const q = query(collection(db, "menu"), where("restaurantId", "==", uid));
+    const snap = await getDocs(q);
+    setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
   };
 
-  const getBaseURL = () => {
-    const origin = window.location.origin;
-    if (origin.includes("localhost") || origin.includes("127.0.0.1")) {
-      return `http://${window.location.hostname}:5173`;
-    }
-    return origin;
-  };
-
-  const menuURL = userId ? `${getBaseURL()}/menu/${userId}` : "";
+  const menuURL = userId ? `${window.location.origin}/menu/${userId}` : "";
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this dish?")) return;
-    try {
-      await deleteDoc(doc(db, "menu", id));
-      setItems(items.filter((item) => item.id !== id));
-      alert("Dish deleted successfully!");
-    } catch (error) {
-      console.error("Error deleting dish:", error);
-    }
+    if (!window.confirm("Delete this dish?")) return;
+    await deleteDoc(doc(db, "menu", id));
+    setItems((prev) => prev.filter((i) => i.id !== id));
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Dashboard</h2>
+    <div className="p-6 md:ml-56">
+      <h2 className="text-2xl font-bold mb-4 text-[#8A244B]">Owner Dashboard</h2>
 
-      {/* ✅ Tabs */}
-      <div style={{  marginBottom: 20 }}>
+      {/* Tabs */}
+      <div className="flex gap-4 mb-6">
         <button
           onClick={() => setActiveTab("menu")}
-          style={tabBtn(activeTab === "menu")}
+          className={`px-4 py-2 rounded-lg font-medium ${
+            activeTab === "menu"
+              ? "bg-[#B45253] text-white"
+              : "bg-gray-200 text-gray-700"
+          }`}
         >
-          🍽 Menu Items
+          🍽 Menu
         </button>
-        {/* <button
-          onClick={() => setActiveTab("feedback")}
-          style={tabBtn(activeTab === "feedback")}
-        >
-          💬 Comments & Ratings
-        </button> */}
+
+        <Link to="/dashboard/analytics">
+          <button
+            className={`px-4 py-2 rounded-lg font-medium ${
+              activeTab === "analytics"
+                ? "bg-[#B45253] text-white"
+                : "bg-gray-200 text-gray-700"
+            }`}
+          >
+            📊 Analytics
+          </button>
+        </Link>
       </div>
 
-      {/* ✅ Menu Tab */}
       {activeTab === "menu" && (
         <>
-          <div style={{ marginBottom: 20 }}>
-            {!showQR ? (
-              <button onClick={() => setShowQR(true)} style={btnStyle("#007bff")}>
-                Generate QR Code
-              </button>
-            ) : (
-              <button onClick={() => setShowQR(false)} style={btnStyle("#6c757d")}>
-                Hide QR Code
-              </button>
-            )}
-          </div>
+          {/* QR Button */}
+          <button
+            onClick={() => setShowQR(!showQR)}
+            className="px-4 py-2 rounded-lg bg-[#FCB53B] text-white font-semibold mb-4 hover:opacity-90 transition"
+          >
+            {showQR ? "Hide QR" : "Generate QR"}
+          </button>
 
-          {showQR && userId && (
-            <div style={{ marginTop: 10, textAlign: "center" }}>
-              <h3>Your Restaurant QR</h3>
-              <QRCodeSVG value={menuURL} size={200} />
-              <p style={{ marginTop: 10 }}>
-                <a href={menuURL} target="_blank" rel="noreferrer">
-                  {menuURL}
-                </a>
-              </p>
+          {/* QR Code */}
+          {showQR && (
+            <div className="flex flex-col items-center mb-6">
+              <QRCodeSVG value={menuURL} size={180} />
+              <p className="mt-2 text-sm break-all text-gray-700">{menuURL}</p>
             </div>
           )}
 
-          {/* <Link to="/dashboard/add-item">
-            <button style={btnStyle("green")}>Add New Dish</button>
-          </Link> */}
+          {/* Menu Table */}
+          <div className="overflow-x-auto bg-white rounded-xl shadow p-4">
+            <table className="min-w-full table-auto">
+              <thead>
+                <tr className="bg-[#B45253] text-white">
+                  <th className="px-4 py-2 text-left">Dish</th>
+                  <th className="px-4 py-2 text-left">Price</th>
+                  <th className="px-4 py-2 text-left">Category</th>
+                  <th className="px-4 py-2 text-left">Image</th>
+                  <th className="px-4 py-2 text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id} className="border-b hover:bg-gray-50">
+                    <td className="px-4 py-2 font-semibold text-[#8A244B]">
+                      {item.name}
+                    </td>
+                    <td className="px-4 py-2">₹{item.price}</td>
+                    <td className="px-4 py-2">{item.category}</td>
+                    <td className="px-4 py-2">
+                      {item.imageUrl && (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="h-16 w-16 object-cover rounded"
+                        />
+                      )}
+                    </td>
+                    <td className="px-4 py-2 flex gap-2">
+                      <Link
+                        to="/dashboard/add-item"
+                        state={{ editData: item }}
+                      >
+                        <button className="bg-[#FCB53B] text-white px-3 py-1 rounded hover:opacity-90 transition">
+                          Edit
+                        </button>
+                      </Link>
+                      <button
+                        onClick={() => handleDelete(item.id)}
+                        className="bg-[#B45253] text-white px-3 py-1 rounded hover:opacity-90 transition"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
-          <div
-            style={{
-              marginTop: 30,
-              display: "flex",
-              justifyContent: "center",
-              flexWrap: "wrap",
-              gap: "20px",
-            }}
-          >
-            {items.length === 0 ? (
-              <p>No items added yet.</p>
-            ) : (
-              items.map((item) => (
-                <div
-                  key={item.id}
-                  style={{
-                    width: "220px",
-                    border: "1px solid #ccc",
-                    borderRadius: "8px",
-                    padding: 10,
-                    textAlign: "center",
-                    background: "#fafafa",
-                  }}
-                >
-                  <h3 style={{ margin: "5px 0" }}>{item.name}</h3>
-                  <p style={{ margin: "5px 0" }}>₹{item.price}</p>
-                  <p style={{ margin: "5px 0" }}>{item.description}</p>
-
-                  {item.imageUrl && (
-                    <img
-                      src={item.imageUrl}
-                      alt={item.name}
-                      height="200"
-                      width="200"
-                      style={{
-                        borderRadius: "8px",
-                        objectFit: "cover",
-                        marginBottom: 10,
-                      }}
-                    />
-                  )}
-
-                  <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                    <Link to="/dashboard/add-item" state={{ editData: item }}>
-                      <button style={btnStyle("#ffc107")}>✏️ Edit</button>
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(item.id)}
-                      style={btnStyle("#dc3545")}
-                    >
-                      🗑️ Delete
-                    </button>
-                  </div>
-                </div>
-              ))
+            {items.length === 0 && (
+              <p className="mt-4 text-gray-500">No dishes added yet.</p>
             )}
           </div>
         </>
       )}
-
-      {/* ✅ Feedback Tab */}
-      {activeTab === "feedback" && <FeedbackTab restaurantId={userId} />}
     </div>
   );
 }
-
-/* ---------- Styles ---------- */
-const btnStyle = (bg) => ({
-  background: bg,
-  color: "#fff",
-  border: "none",
-  padding: "8px 16px",
-  borderRadius: "6px",
-  cursor: "pointer",
-});
-
-const tabBtn = (isActive) => ({
-  padding: "8px 16px",
-  border: "none",
-  borderRadius: "6px",
-  cursor: "pointer",
-  background: isActive ? "#007bff" : "#e0e0e0",
-  color: isActive ? "#fff" : "#000",
-});
