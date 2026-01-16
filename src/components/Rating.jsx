@@ -71,10 +71,9 @@ export default function Rating({ restaurantId, dishId }) {
         </span>
       ))}
 
-      <div style={{ marginTop: 5 }}>
-        ⭐ <strong>{average}</strong> / 5
-        <span style={{ color: "#666" }}> ({totalRatings} ratings)</span>
-      </div>
+    <div className="flex items-center gap-1 text-sm text-gray-700">
+      ⭐ <strong>{average || 0}</strong>
+    </div>
     </div>
   );
 }

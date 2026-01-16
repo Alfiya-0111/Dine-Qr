@@ -40,20 +40,13 @@ export default function Likes({ restaurantId, dishId, dish }) {
   };
 
   return (
-    <div style={{ marginTop: 10 }}>
-      <button
-        onClick={toggleLike}
-        style={{
-          background: likedByMe ? "red" : "#ddd",
-          color: likedByMe ? "white" : "black",
-          borderRadius: "6px",
-          padding: "6px 12px",
-          border: "none",
-          cursor: "pointer",
-        }}
-      >
-        ❤️ {likesCount}
-      </button>
-    </div>
+    <button
+      onClick={toggleLike}
+      className={`flex items-center gap-1 text-sm transition ${
+        likedByMe ? "text-red-500" : "text-gray-600"
+      } hover:scale-110`}
+    >
+      ❤️ <span>{likesCount}</span>
+    </button>
   );
 }
