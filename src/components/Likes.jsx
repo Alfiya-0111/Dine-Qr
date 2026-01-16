@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { realtimeDB } from "../firebaseConfig";  // ✅ correct import
+import { realtimeDB } from "../firebaseConfig";
 import { ref, onValue, set, remove } from "firebase/database";
 import { getAuth } from "firebase/auth";
+import { requireLogin } from "../utils/requireLogin";
 
-export default function Likes({ restaurantId, dishId, dish }) {
+export default function Likes({ restaurantId, dishId }) {
   const auth = getAuth();
   const user = auth.currentUser;
 
@@ -11,9 +12,12 @@ export default function Likes({ restaurantId, dishId, dish }) {
   const [likedByMe, setLikedByMe] = useState(false);
 
   useEffect(() => {
-    const likesRef = ref(realtimeDB, `restaurants/${restaurantId}/menu/${dishId}/likes`);
+    const likesRef = ref(
+      realtimeDB,
+      `restaurants/${restaurantId}/menu/${dishId}/likes`
+    );
 
-    const unsubscribe = onValue(likesRef, (snap) => {
+    const unsub = onValue(likesRef, (snap) => {
       if (snap.exists()) {
         const data = snap.val();
         setLikesCount(Object.keys(data).length);
@@ -24,19 +28,18 @@ export default function Likes({ restaurantId, dishId, dish }) {
       }
     });
 
-    return () => unsubscribe();
+    return () => unsub();
   }, [restaurantId, dishId, user?.uid]);
 
   const toggleLike = () => {
-    if (!user) return alert("Login to like");
+    if (!requireLogin()) return; // 🔥 LOGIN POPUP
 
-    const likeRef = ref(realtimeDB, `restaurants/${restaurantId}/menu/${dishId}/likes/${user.uid}`);
+    const likeRef = ref(
+      realtimeDB,
+      `restaurants/${restaurantId}/menu/${dishId}/likes/${user.uid}`
+    );
 
-    if (likedByMe) {
-      remove(likeRef); // unlike
-    } else {
-      set(likeRef, true); // like
-    }
+    likedByMe ? remove(likeRef) : set(likeRef, true);
   };
 
   return (

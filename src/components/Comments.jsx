@@ -23,17 +23,19 @@ export default function Comments({ dishId }) {
   }, [dishId]);
 
   // ✅ PUBLIC COMMENT (login NOT required)
-  const addComment = async () => {
-    if (!text.trim()) return;
+ const addComment = async () => {
+  if (!requireLogin()) return; // 🔥 LOGIN POPUP
+  if (!text.trim()) return;
 
-    await addDoc(collection(db, "menu", dishId, "comments"), {
-      text,
-      userId: auth.currentUser?.uid || null,
-      createdAt: serverTimestamp(),
-    });
+  await addDoc(collection(db, "menu", dishId, "comments"), {
+    text,
+    userId: auth.currentUser.uid,
+    createdAt: serverTimestamp(),
+  });
 
-    setText("");
-  };
+  setText("");
+};
+
 
   // 🔒 LOGIN REQUIRED
   const editComment = async (id, oldText) => {
