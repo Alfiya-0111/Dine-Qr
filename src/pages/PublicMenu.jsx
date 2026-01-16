@@ -2,117 +2,85 @@
 import React, { useEffect, useState } from "react";
 import { auth, db } from "../firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  deleteDoc,
-  doc,
-} from "firebase/firestore";
-import { Link } from "react-router-dom";
+import { collection, getDocs, query, where } from "firebase/firestore";
 
 import Likes from "../components/Likes";
 import Rating from "../components/Rating";
 import Comments from "../components/Comments";
+import OrderModal from "../pages/OrderModal";
+import { requireLogin } from "../utils/requireLogin";
 
-// ✅ Ranking Formula (unchanged)
-const rankingScore = (dish) => {
-  const likes = dish.likes || 0;
-  const rating = dish.avgRating || 0;
-  const reviews = dish.reviewCount || 0;
-  return likes * 3 + rating * 5 + reviews * 2;
-};
+// ⭐ Ranking
+const rankingScore = (dish) =>
+  (dish.likes || 0) * 3 +
+  (dish.avgRating || 0) * 5 +
+  (dish.reviewCount || 0) * 2;
 
 export default function PublicMenu() {
   const [items, setItems] = useState([]);
-  const [uid, setUid] = useState("");
+  const [selectedItem, setSelectedItem] = useState(null);
 
   useEffect(() => {
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUid(user.uid);
-        loadData(user.uid);
-      }
-    });
+    onAuthStateChanged(auth, () => loadData());
   }, []);
 
-  const loadData = async (id) => {
-    const q = query(collection(db, "menu"), where("restaurantId", "==", id));
-    const snap = await getDocs(q);
-
-    let arr = [];
-    snap.forEach((d) => {
-      const data = { id: d.id, ...d.data() };
-      data.score = rankingScore(data);
-      arr.push(data);
-    });
-
+  const loadData = async () => {
+    const snap = await getDocs(collection(db, "menu"));
+    const arr = snap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+      score: rankingScore(d.data()),
+    }));
     arr.sort((a, b) => b.score - a.score);
     setItems(arr);
   };
 
-  const deleteItem = async (id) => {
-    await deleteDoc(doc(db, "menu", id));
-    setItems(items.filter((x) => x.id !== id));
+  // 🔒 ORDER CLICK
+  const handleOrderClick = (item) => {
+    if (!requireLogin()) return;
+    setSelectedItem(item);
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-10">
-      {/* Heading */}
-      <h2 className="text-3xl font-bold text-center mb-10 text-[#8A244B]">
-        🍽 Our Menu
+    <div className="max-w-7xl mx-auto px-4 py-12">
+      <h2 className="text-4xl font-bold text-center mb-10 text-[#8A244B]">
+        Discover Our Menu 🍴
       </h2>
 
-      {/* Menu Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
         {items.map((item) => (
-          <div
-            key={item.id}
-            className="bg-white rounded-2xl shadow-md hover:shadow-xl transition flex flex-col overflow-hidden border"
-          >
-            {/* Image */}
-            {item.imageUrl && (
-              <img
-                src={item.imageUrl}
-                alt={item.name}
-                className="h-44 w-full object-cover"
-              />
-            )}
+          <div key={item.id} className="bg-white rounded-3xl shadow p-4 flex flex-col">
+            <img
+              src={item.imageUrl}
+              alt={item.name}
+              className="h-40 w-full object-cover rounded-xl mb-3"
+            />
 
-            {/* Content */}
-            <div className="p-4 flex flex-col flex-1">
-              <h3 className="text-lg font-semibold text-[#8A244B]">
-                {item.name}
-              </h3>
+            <h3 className="font-bold text-lg">{item.name}</h3>
+            <p className="text-sm text-gray-500 mb-2">₹{item.price}</p>
 
-              <p className="text-[#B45253] font-bold mt-1 mb-2">
-                ₹{item.price}
-              </p>
+            <Likes dishId={item.id} />
+            <Rating dishId={item.id} />
 
-              {/* Ranking Badge */}
-              <span className="text-xs inline-block bg-[#FCB53B] text-white px-3 py-1 rounded-full w-fit mb-3">
-                🔥 Popular
-              </span>
+            {/* ✅ ORDER NOW */}
+            <button
+              onClick={() => handleOrderClick(item)}
+              className="mt-3 bg-[#8A244B] text-white py-2 rounded-xl font-semibold"
+            >
+              Order Now 🍽️
+            </button>
 
-              {/* Likes */}
-              <div className="mb-2">
-                <Likes restaurantId={uid} dishId={item.id} dish={item} />
-              </div>
-
-              {/* Rating */}
-              <div className="mb-3">
-                <Rating restaurantId={uid} dishId={item.id} />
-              </div>
-
-              {/* Comments */}
-              <div className="mt-auto">
-                <Comments restaurantId={uid} dishId={item.id} />
-              </div>
-            </div>
+            <Comments dishId={item.id} />
           </div>
         ))}
       </div>
+
+      {selectedItem && (
+        <OrderModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+        />
+      )}
     </div>
   );
 }

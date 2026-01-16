@@ -1,270 +1,93 @@
 import React, { useEffect, useState } from "react";
+import { db, auth } from "../firebaseConfig";
 import {
-  ref,
-  onValue,
-  push,
-  update,
-  remove,
-  runTransaction,
-} from "firebase/database";
-import { auth, realtimeDB } from "../firebaseConfig";
-import { onAuthStateChanged } from "firebase/auth";
-import { Link, useNavigate } from "react-router-dom";
+  collection,
+  addDoc,
+  deleteDoc,
+  updateDoc,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+} from "firebase/firestore";
+import { requireLogin } from "../utils/requireLogin";
 
-export default function Comments({ restaurantId, dishId }) {
-  const [user, setUser] = useState(null);
-  const [comments, setComments] = useState([]);
+export default function Comments({ dishId }) {
   const [text, setText] = useState("");
-  const [editingId, setEditingId] = useState(null);
-  const [editText, setEditText] = useState("");
-  const [likes, setLikes] = useState(0);
-  const [ratings, setRatings] = useState([]);
+  const [comments, setComments] = useState([]);
 
-  const navigate = useNavigate();
-  const likeKey = `liked_${restaurantId}_${dishId}`;
-
-  /* 🔐 AUTH + DATA LOAD */
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
-
-    // COMMENTS
-    const commentsRef = ref(
-      realtimeDB,
-      `restaurants/${restaurantId}/menu/${dishId}/comments`
-    );
-    onValue(commentsRef, (snap) => {
-      const data = snap.val();
-      setComments(data ? Object.entries(data) : []);
+    const ref = collection(db, "menu", dishId, "comments");
+    return onSnapshot(ref, (snap) => {
+      setComments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
+  }, [dishId]);
 
-    // LIKES
-    const likesRef = ref(
-      realtimeDB,
-      `restaurants/${restaurantId}/menu/${dishId}/likes`
-    );
-    onValue(likesRef, (snap) => {
-      const val = snap.val();
-      setLikes(typeof val === "number" ? val : 0);
-    });
-
-    // RATINGS
-    const ratingsRef = ref(
-      realtimeDB,
-      `restaurants/${restaurantId}/menu/${dishId}/ratings`
-    );
-    onValue(ratingsRef, (snap) => {
-      const data = snap.val();
-      setRatings(data ? Object.values(data) : []);
-    });
-
-    return () => unsub();
-  }, [restaurantId, dishId]);
-
-  /* ➕ ADD COMMENT (LOGIN REQUIRED) */
+  // ✅ PUBLIC COMMENT (login NOT required)
   const addComment = async () => {
-    if (!user) {
-      alert("Please login first");
-      navigate("/login");
-      return;
-    }
     if (!text.trim()) return;
 
-    await push(
-      ref(realtimeDB, `restaurants/${restaurantId}/menu/${dishId}/comments`),
-      {
-        text,
-        userId: user.uid,
-        userName: user.email,
-        createdAt: Date.now(),
-      }
-    );
+    await addDoc(collection(db, "menu", dishId, "comments"), {
+      text,
+      userId: auth.currentUser?.uid || null,
+      createdAt: serverTimestamp(),
+    });
+
     setText("");
   };
 
-  /* ✏️ EDIT COMMENT (LOGIN REQUIRED) */
-  const startEdit = (id, comment) => {
-    if (!user) {
-      alert("Please login first");
-      navigate("/login");
-      return;
-    }
-    if (comment.userId !== user.uid) return;
+  // 🔒 LOGIN REQUIRED
+  const editComment = async (id, oldText) => {
+    if (!requireLogin()) return;
 
-    setEditingId(id);
-    setEditText(comment.text);
-  };
+    const newText = prompt("Edit comment", oldText);
+    if (!newText) return;
 
-  const updateComment = async (id, comment) => {
-    if (!user) {
-      alert("Please login first");
-      navigate("/login");
-      return;
-    }
-    if (comment.userId !== user.uid) return;
-
-    await update(
-      ref(
-        realtimeDB,
-        `restaurants/${restaurantId}/menu/${dishId}/comments/${id}`
-      ),
-      { text: editText }
-    );
-    setEditingId(null);
-    setEditText("");
-  };
-
-  /* 🗑 DELETE COMMENT (LOGIN REQUIRED) */
-  const deleteComment = async (id, comment) => {
-    if (!user) {
-      alert("Please login first");
-      navigate("/login");
-      return;
-    }
-    if (comment.userId !== user.uid) return;
-
-    if (!window.confirm("Delete this comment?")) return;
-
-    await remove(
-      ref(
-        realtimeDB,
-        `restaurants/${restaurantId}/menu/${dishId}/comments/${id}`
-      )
-    );
-  };
-
-  /* ❤️ LIKE */
-  const likeDish = async () => {
-    if (localStorage.getItem(likeKey)) {
-      alert("You already liked this 👍");
-      return;
-    }
-
-    const likesRef = ref(
-      realtimeDB,
-      `restaurants/${restaurantId}/menu/${dishId}/likes`
-    );
-
-    await runTransaction(likesRef, (current) => {
-      return typeof current === "number" ? current + 1 : 1;
+    await updateDoc(doc(db, "menu", dishId, "comments", id), {
+      text: newText,
     });
-
-    localStorage.setItem(likeKey, "true");
   };
 
-  /* ⭐ RATING */
-  const submitRating = async (value) => {
-    await push(
-      ref(
-        realtimeDB,
-        `restaurants/${restaurantId}/menu/${dishId}/ratings`
-      ),
-      { rating: value, createdAt: Date.now() }
-    );
+  const deleteComment = async (id) => {
+    if (!requireLogin()) return;
+    await deleteDoc(doc(db, "menu", dishId, "comments", id));
   };
-
-  const avgRating =
-    ratings.length > 0
-      ? (
-          ratings.reduce((s, r) => s + Number(r.rating || 0), 0) /
-          ratings.length
-        ).toFixed(1)
-      : "No ratings";
 
   return (
-    <div style={{ marginTop: 20 }}>
-      {/* ❤️ LIKE + ⭐ RATING */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          background: "#f9f9f9",
-          padding: 10,
-          borderRadius: 8,
-        }}
-      >
-        <button onClick={likeDish}>❤️ {likes}</button>
-
-        <div>
-          ⭐ {avgRating}
-          <div>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <span
-                key={n}
-                onClick={() => submitRating(n)}
-                style={{ cursor: "pointer", marginLeft: 6 }}
-              >
-                {n}⭐
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* COMMENT INPUT */}
-      <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
+    <div className="mt-4">
+      <div className="flex gap-2 mb-3">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Write a comment..."
-          style={{ flex: 1 }}
+          className="flex-1 border rounded-lg px-3 py-1"
         />
-        <button onClick={addComment}>Post</button>
+        <button
+          onClick={addComment}
+          className="bg-[#8A244B] text-white px-3 rounded-lg"
+        >
+          Post
+        </button>
       </div>
 
-      {!user && (
-        <p style={{ fontSize: 13, color: "red" }}>
-          Please <Link to="/login">login</Link> to comment
-        </p>
-      )}
-
-      {/* COMMENTS LIST */}
-      <div style={{ marginTop: 10 }}>
-        {comments.map(([id, c]) => {
-          const isOwner = user && c.userId === user.uid;
-
-          return (
-            <div
-              key={id}
-              style={{
-                background: "#f5f5f5",
-                padding: 8,
-                borderRadius: 6,
-                marginBottom: 6,
-              }}
+      {comments.map((c) => (
+        <div key={c.id} className="flex justify-between text-sm mb-1">
+          <span>{c.text}</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => editComment(c.id, c.text)}
+              className="text-blue-500 text-xs"
             >
-              {editingId === id ? (
-                <>
-                  <input
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                  />
-                  <button onClick={() => updateComment(id, c)}>
-                    Save
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p>💬 {c.text}</p>
-
-                  {isOwner && (
-                    <>
-                      <button onClick={() => startEdit(id, c)}>
-                        ✏ Edit
-                      </button>
-                      <button
-                        onClick={() => deleteComment(id, c)}
-                        style={{ color: "red" }}
-                      >
-                        🗑 Delete
-                      </button>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              Edit
+            </button>
+            <button
+              onClick={() => deleteComment(c.id)}
+              className="text-red-500 text-xs"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

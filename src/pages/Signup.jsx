@@ -21,9 +21,15 @@ export default function Signup() {
     <div style={{ maxWidth: 300, margin: "50px auto" }}>
       <h2>Signup</h2>
       <input placeholder="Email" onChange={e => setEmail(e.target.value)} />
-      <input placeholder="Password" type="password" onChange={e => setPassword(e.target.value)} />
+      <input
+        placeholder="Password"
+        type="password"
+        onChange={e => setPassword(e.target.value)}
+      />
       <button onClick={signup}>Signup</button>
-      <p>Already have account? <Link to="/login">Login</Link></p>
+      <p>
+        Already have account? <Link to="/login">Login</Link>
+      </p>
     </div>
   );
 }
