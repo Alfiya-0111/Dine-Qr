@@ -1,12 +1,14 @@
 import { ref, onValue, update } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
-import { getAuth } from "firebase/auth";
+import { getAuth } from "firebase/auth"; // ✅ MISSING IMPORT
 import { useEffect, useState } from "react";
-import { requireLogin } from "../utils/requireLogin";
+import { useRequireLogin } from "../utils/requireLogin"; // ✅ CORRECT HOOK
 
 export default function Rating({ restaurantId, dishId }) {
-  const auth = getAuth();
+  const auth = getAuth(); // ✅ NOW DEFINED
   const user = auth.currentUser;
+
+  const requireLogin = useRequireLogin(); // ✅
 
   const [myRating, setMyRating] = useState(0);
   const [average, setAverage] = useState(0);
@@ -18,7 +20,11 @@ export default function Rating({ restaurantId, dishId }) {
     );
 
     const unsub = onValue(ratingRef, (snap) => {
-      if (!snap.exists()) return;
+      if (!snap.exists()) {
+        setAverage(0);
+        setMyRating(0);
+        return;
+      }
 
       const data = snap.val();
       let total = 0;
@@ -39,7 +45,7 @@ export default function Rating({ restaurantId, dishId }) {
   }, [restaurantId, dishId, user?.uid]);
 
   const giveRating = (stars) => {
-    if (!requireLogin()) return; // 🔥 LOGIN POPUP
+    if (!requireLogin()) return; // 🔐 LOGIN POPUP
 
     update(
       ref(

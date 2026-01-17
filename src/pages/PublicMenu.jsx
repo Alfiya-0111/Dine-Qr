@@ -9,15 +9,17 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { useParams } from "react-router-dom";
-
 import Likes from "../components/Likes";
 import Rating from "../components/Rating";
 import Comments from "../components/Comments";
 import OrderModal from "../pages/OrderModal";
-import { requireLogin } from "../utils/requireLogin";
+import { useRequireLogin } from "../utils/requireLogin"; // ✅ FIX
+import LoginModal from "../components/LoginModal";
 
 export default function PublicMenu() {
   const { restaurantId } = useParams();
+
+  const requireLogin = useRequireLogin(); // ✅ hook use
 
   const [items, setItems] = useState([]);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -47,7 +49,7 @@ export default function PublicMenu() {
   };
 
   const handleOrderClick = (item) => {
-    if (!requireLogin()) return;
+    if (!requireLogin()) return; // 🔐 login popup
     setSelectedItem(item);
   };
 
@@ -61,30 +63,19 @@ export default function PublicMenu() {
         Discover our delicious dishes 🍴
       </p>
 
-      {items.length === 0 && (
-        <p className="text-center text-gray-500">
-          No dishes available 🍽️
-        </p>
-      )}
-
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
         {items.map((item) => (
-          <div
-            key={item.id}
-            className="bg-white rounded-3xl shadow overflow-hidden"
-          >
-            {/* IMAGE */}
+          <div key={item.id} className="bg-white rounded-3xl shadow overflow-hidden">
             <img
               src={item.imageUrl}
               alt={item.name}
               className="h-44 w-full object-cover"
             />
 
-            <div className="p-4 flex flex-col">
+            <div className="p-4">
               <h3 className="font-bold text-lg">{item.name}</h3>
               <p className="text-sm text-gray-500 mb-2">₹{item.price}</p>
 
-              {/* ❤️ 💬 ⭐ INSTAGRAM STYLE BAR */}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-4">
                   <Likes
@@ -93,12 +84,12 @@ export default function PublicMenu() {
                   />
 
                   <button
-                    onClick={() =>
+                    onClick={() => {
+                      if (!requireLogin()) return;
                       document
                         .getElementById(`comments-${item.id}`)
-                        ?.scrollIntoView({ behavior: "smooth" })
-                    }
-                    className="text-sm text-gray-600 hover:text-[#8A244B]"
+                        ?.scrollIntoView({ behavior: "smooth" });
+                    }}
                   >
                     💬 Comment
                   </button>
@@ -117,7 +108,6 @@ export default function PublicMenu() {
                 Order Now 🍽️
               </button>
 
-              {/* COMMENTS */}
               <div id={`comments-${item.id}`} className="mt-2">
                 <Comments dishId={item.id} />
               </div>
@@ -132,6 +122,8 @@ export default function PublicMenu() {
           onClose={() => setSelectedItem(null)}
         />
       )}
+
+      <LoginModal /> {/* 🔥 global modal */}
     </div>
   );
 }

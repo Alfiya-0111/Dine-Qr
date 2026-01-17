@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { db, auth } from "../firebaseConfig";
 import {
   collection,
@@ -9,35 +9,40 @@ import {
   onSnapshot,
   serverTimestamp,
 } from "firebase/firestore";
-import { requireLogin } from "../utils/requireLogin";
+import { useRequireLogin } from "../utils/requireLogin";
 
 export default function Comments({ dishId }) {
-  const [text, setText] = useState("");
-  const [comments, setComments] = useState([]);
+  const requireLogin = useRequireLogin(); // ✅ login guard
 
+  const [text, setText] = useState("");        // ✅ FIX
+  const [comments, setComments] = useState([]); // ✅ FIX
+
+  // 🔄 LOAD COMMENTS
   useEffect(() => {
     const ref = collection(db, "menu", dishId, "comments");
-    return onSnapshot(ref, (snap) => {
-      setComments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+    const unsub = onSnapshot(ref, (snap) => {
+      setComments(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
+
+    return () => unsub();
   }, [dishId]);
 
-  // ✅ PUBLIC COMMENT (login NOT required)
- const addComment = async () => {
-  if (!requireLogin()) return; // 🔥 LOGIN POPUP
-  if (!text.trim()) return;
+  // ➕ ADD COMMENT (LOGIN REQUIRED)
+  const addComment = async () => {
+    if (!requireLogin()) return;
+    if (!text.trim()) return;
 
-  await addDoc(collection(db, "menu", dishId, "comments"), {
-    text,
-    userId: auth.currentUser.uid,
-    createdAt: serverTimestamp(),
-  });
+    await addDoc(collection(db, "menu", dishId, "comments"), {
+      text,
+      userId: auth.currentUser.uid,
+      createdAt: serverTimestamp(),
+    });
 
-  setText("");
-};
+    setText("");
+  };
 
-
-  // 🔒 LOGIN REQUIRED
+  // ✏️ EDIT COMMENT
   const editComment = async (id, oldText) => {
     if (!requireLogin()) return;
 
@@ -49,6 +54,7 @@ export default function Comments({ dishId }) {
     });
   };
 
+  // 🗑 DELETE COMMENT
   const deleteComment = async (id) => {
     if (!requireLogin()) return;
     await deleteDoc(doc(db, "menu", dishId, "comments", id));
@@ -56,6 +62,7 @@ export default function Comments({ dishId }) {
 
   return (
     <div className="mt-4">
+      {/* INPUT */}
       <div className="flex gap-2 mb-3">
         <input
           value={text}
@@ -71,23 +78,27 @@ export default function Comments({ dishId }) {
         </button>
       </div>
 
+      {/* COMMENTS LIST */}
       {comments.map((c) => (
         <div key={c.id} className="flex justify-between text-sm mb-1">
           <span>{c.text}</span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => editComment(c.id, c.text)}
-              className="text-blue-500 text-xs"
-            >
-              Edit
-            </button>
-            <button
-              onClick={() => deleteComment(c.id)}
-              className="text-red-500 text-xs"
-            >
-              Delete
-            </button>
-          </div>
+
+          {c.userId === auth.currentUser?.uid && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => editComment(c.id, c.text)}
+                className="text-blue-500 text-xs"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => deleteComment(c.id)}
+                className="text-red-500 text-xs"
+              >
+                Delete
+              </button>
+            </div>
+          )}
         </div>
       ))}
     </div>

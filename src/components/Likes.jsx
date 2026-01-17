@@ -2,11 +2,13 @@ import React, { useEffect, useState } from "react";
 import { realtimeDB } from "../firebaseConfig";
 import { ref, onValue, set, remove } from "firebase/database";
 import { getAuth } from "firebase/auth";
-import { requireLogin } from "../utils/requireLogin";
+import { useRequireLogin } from "../utils/requireLogin";
 
 export default function Likes({ restaurantId, dishId }) {
   const auth = getAuth();
   const user = auth.currentUser;
+
+  const requireLogin = useRequireLogin();
 
   const [likesCount, setLikesCount] = useState(0);
   const [likedByMe, setLikedByMe] = useState(false);
@@ -32,7 +34,7 @@ export default function Likes({ restaurantId, dishId }) {
   }, [restaurantId, dishId, user?.uid]);
 
   const toggleLike = () => {
-    if (!requireLogin()) return; // 🔥 LOGIN POPUP
+    if (!requireLogin()) return;
 
     const likeRef = ref(
       realtimeDB,

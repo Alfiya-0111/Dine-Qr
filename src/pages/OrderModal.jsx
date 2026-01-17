@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { auth, db } from "../firebaseConfig";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { requireLogin } from "../utils/requireLogin";
+import { useRequireLogin } from "../utils/requireLogin";
 
 export default function OrderModal({ item, onClose }) {
   const [qty, setQty] = useState(1);
   const total = item.price * qty;
+
+  const requireLogin = useRequireLogin(); // ✅ hook use
 
   const handleOrder = async () => {
     if (!requireLogin()) return;
@@ -32,32 +34,16 @@ export default function OrderModal({ item, onClose }) {
         <h2 className="text-xl font-bold mb-1">{item.name}</h2>
         <p className="text-gray-500 mb-4">₹{item.price}</p>
 
-        {/* Quantity */}
         <div className="flex items-center gap-6 mb-4 justify-center">
-          <button
-            onClick={() => setQty(q => Math.max(1, q - 1))}
-            className="px-3 py-1 border rounded"
-          >
-            ➖
-          </button>
+          <button onClick={() => setQty(q => Math.max(1, q - 1))}>➖</button>
           <span className="font-bold text-lg">{qty}</span>
-          <button
-            onClick={() => setQty(q => q + 1)}
-            className="px-3 py-1 border rounded"
-          >
-            ➕
-          </button>
+          <button onClick={() => setQty(q => q + 1)}>➕</button>
         </div>
 
-        <p className="font-bold text-center mb-4">
-          Total: ₹{total}
-        </p>
+        <p className="font-bold text-center mb-4">Total: ₹{total}</p>
 
-        {/* 🔳 ADMIN QR */}
         <div className="border rounded-xl p-3 mb-4 text-center">
-          <p className="text-sm text-gray-500 mb-2">
-            Scan this QR to pay
-          </p>
+          <p className="text-sm text-gray-500 mb-2">Scan this QR to pay</p>
           <img
             src="https://YOUR_ADMIN_QR_IMAGE_URL"
             alt="QR Code"
@@ -66,13 +52,9 @@ export default function OrderModal({ item, onClose }) {
         </div>
 
         <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 border rounded-xl py-2"
-          >
+          <button onClick={onClose} className="flex-1 border rounded-xl py-2">
             Cancel
           </button>
-
           <button
             onClick={handleOrder}
             className="flex-1 bg-[#8A244B] text-white rounded-xl py-2"
