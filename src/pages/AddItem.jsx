@@ -19,6 +19,8 @@ export default function AddItem() {
   isChefPick: false,
   dineIn: true,
   delivery: true,
+  inStock: true,
+  isNew: false,
 };
 
   const navigate = useNavigate();
@@ -43,6 +45,7 @@ export default function AddItem() {
     isChefPick: false,
     dineIn: true,
     delivery: true,
+     inStock: true,
   });
 
   const IMGBB_API_KEY = "179294f40bc7235ace27ceac655be6b4";
@@ -101,12 +104,14 @@ export default function AddItem() {
       servingSize: form.servingSize,
       prepTime: form.prepTime,
       isHouseSpecial: form.isHouseSpecial,
+       isNew: form.isNew,
       isChefPick: form.isChefPick,
       availableModes: {
         dineIn: form.dineIn,
         delivery: form.delivery,
       },
       availableToday: true,
+       inStock: form.inStock,
       imageUrl,
       stats: { likes: 0, orders: 0 },
       updatedAt: Date.now(),
@@ -197,6 +202,26 @@ export default function AddItem() {
         <option value="medium">Medium 🌶🌶</option>
         <option value="spicy">Spicy 🌶🌶🌶</option>
       </select>
+<label className="flex items-center gap-2 mb-4">
+  <input
+    type="checkbox"
+    checked={form.inStock}
+    onChange={(e) =>
+      setForm({ ...form, inStock: e.target.checked })
+    }
+    className="accent-[#B45253]"
+  />
+  🟢 In Stock
+</label>
+ <label className="flex items-center gap-2 mb-4">
+  <input
+    type="checkbox"
+    checked={form.isNew}
+    onChange={(e) => setForm({ ...form, isNew: e.target.checked })}
+    className="accent-[#B45253]"
+  />
+  🆕 Mark as New Dish
+</label>
 
       {/* Options */}
       <div className="flex flex-wrap gap-4 mb-4">

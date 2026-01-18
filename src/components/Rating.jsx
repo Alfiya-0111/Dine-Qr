@@ -3,6 +3,8 @@ import { realtimeDB } from "../firebaseConfig";
 import { getAuth } from "firebase/auth";
 import { useEffect, useState } from "react";
 import { useRequireLogin } from "../utils/requireLogin";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "../firebaseConfig";
 
 export default function Rating({ restaurantId, dishId }) {
   const auth = getAuth();
@@ -60,7 +62,18 @@ export default function Rating({ restaurantId, dishId }) {
 
     return () => unsub();
   }, [restaurantId, dishId, user?.uid]);
+const updateAvgInFirestore = async (avg) => {
+  const dishRef = doc(db, "menu", dishId);
 
+  await updateDoc(dishRef, {
+    avgRating: Number(avg),
+  });
+};
+useEffect(() => {
+  if (average !== "0.0") {
+    updateAvgInFirestore(average);
+  }
+}, [average]);
   const giveRating = (stars) => {
     if (!requireLogin()) return;
 
