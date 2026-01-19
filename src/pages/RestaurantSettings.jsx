@@ -18,6 +18,27 @@ export default function RestaurantSettings() {
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
+  const [categories, setCategories] = useState([]);
+const [newCategory, setNewCategory] = useState("");
+useEffect(() => {
+  if (!restaurantId) return;
+
+  const catRef = dbRef(
+    realtimeDB,
+    `restaurants/${restaurantId}/categories`
+  );
+
+  onValue(catRef, (snap) => {
+    if (snap.exists()) {
+      setCategories(
+        Object.entries(snap.val()).map(([id, data]) => ({
+          id,
+          ...data,
+        }))
+      );
+    }
+  });
+}, [restaurantId]);
 
   // 🔄 Load existing data
   useEffect(() => {
@@ -36,6 +57,23 @@ export default function RestaurantSettings() {
       }
     });
   }, [restaurantId]);
+const addCategory = async () => {
+  if (!newCategory.trim()) return;
+
+  const id = Date.now();
+  await set(
+    dbRef(
+      realtimeDB,
+      `restaurants/${restaurantId}/categories/${id}`
+    ),
+    {
+      name: newCategory,
+      order: categories.length + 1,
+    }
+  );
+
+  setNewCategory("");
+};
 
   // 🖼️ Upload logo to imgbb
   const uploadToImgbb = async (file) => {
@@ -131,6 +169,35 @@ export default function RestaurantSettings() {
           className="block w-full text-sm"
         />
       </div>
+<div className="mt-8">
+  <h3 className="font-bold mb-2">Categories</h3>
+
+  <div className="flex gap-2 mb-3">
+    <input
+      value={newCategory}
+      onChange={(e) => setNewCategory(e.target.value)}
+      placeholder="Add category"
+      className="border px-3 py-2 rounded"
+    />
+    <button
+      onClick={addCategory}
+      className="bg-[#8A244B] text-white px-4 rounded"
+    >
+      Add
+    </button>
+  </div>
+
+  <div className="flex flex-wrap gap-2">
+    {categories.map((c) => (
+      <span
+        key={c.id}
+        className="px-3 py-1 bg-gray-200 rounded-full text-sm"
+      >
+        {c.name}
+      </span>
+    ))}
+  </div>
+</div>
 
       {/* About Us */}
       <div className="mb-4">

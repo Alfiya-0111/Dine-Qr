@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ref } from "firebase/database";
 import { db, realtimeDB } from "../firebaseConfig";
 import { ref as rtdbRef, onValue } from "firebase/database";
+import { useCart } from "../context/CartContext";
 import {
   collection,
   getDocs,
@@ -19,10 +20,15 @@ import OrderModal from "../pages/OrderModal";
 import { useRequireLogin } from "../utils/requireLogin";
 import LoginModal from "../components/LoginModal";
 import NewItemsSlider from "../components/Slider";
+import BottomCart from "../components/BottomCart";
+import CartItem from "../components/CartItem";
+import CartSidebar from "../components/CartSidebar";
 
 export default function PublicMenu() {
   const { restaurantId } = useParams();
   const requireLogin = useRequireLogin();
+const [categories, setCategories] = useState([]);
+const [activeCategory, setActiveCategory] = useState("all");
 
   const [restaurantSettings, setRestaurantSettings] = useState(null);
   const [restaurantName, setRestaurantName] = useState("");
@@ -38,10 +44,31 @@ const [trendingDishIds, setTrendingDishIds] = useState([]);
   const [showSort, setShowSort] = useState(false);
   const [sort, setSort] = useState("rating");
   const [filter, setFilter] = useState("");
-
+const { cart, addToCart } = useCart();
+const [openCart, setOpenCart] = useState(false);
   const newItems = items.filter((i) => i.isNew).slice(0, 10);
 
   /* ================= LOAD DATA ================= */
+  
+useEffect(() => {
+  console.log("CART:", cart);
+}, [cart]);
+useEffect(() => {
+  const ref = rtdbRef(
+    realtimeDB,
+    `restaurants/${restaurantId}/categories`
+  );
+
+  onValue(ref, (snap) => {
+    if (snap.exists()) {
+      setCategories(
+        Object.entries(snap.val())
+          .map(([id, data]) => ({ id, ...data }))
+          .sort((a, b) => a.order - b.order)
+      );
+    }
+  });
+}, [restaurantId]);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -152,6 +179,11 @@ const aiRecommended = [...items]
   if (sort === "rating") filteredItems.sort((a, b) => (b.avgRating || 0) - (a.avgRating || 0));
   if (sort === "priceLow") filteredItems.sort((a, b) => a.price - b.price);
   if (sort === "priceHigh") filteredItems.sort((a, b) => b.price - a.price);
+if (activeCategory !== "all") {
+  filteredItems = filteredItems.filter((i) =>
+    i.categoryIds?.includes(activeCategory)
+  );
+}
 
   const handleOrderClick = (item) => {
     if (!requireLogin()) return;
@@ -161,35 +193,70 @@ const aiRecommended = [...items]
   return (
     <div className="max-w-7xl mx-auto px-4">
       {/* ===== HEADER ===== */}
-      <div className="sticky top-0 z-50 bg-white border-b">
-        <div className="flex justify-between items-center py-3">
-          <div className="flex items-center gap-3">
-            {restaurantSettings?.logo ? (
-              <img
-                src={restaurantSettings.logo}
-                alt="logo"
-                className="h-12 object-contain"
-              />
-            ) : (
-              <span className="font-bold text-lg text-[#8A244B]">
-                {restaurantSettings?.name || restaurantName}
-              </span>
-            )}
-          </div>
+     <div className="sticky top-0 z-50 bg-white border-b">
+  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-3 px-2">
 
-          <div className="flex gap-4 text-sm font-medium">
-            {["menu", "about", "contact"].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={activeTab === tab ? "text-[#8A244B]" : "text-gray-500"}
-              >
-                {tab.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+    {/* LOGO */}
+    <div className="flex items-center gap-3">
+      {restaurantSettings?.logo ? (
+        <img
+          src={restaurantSettings.logo}
+          alt="logo"
+          className="h-10 md:h-12 object-contain"
+        />
+      ) : (
+        <span className="font-bold text-lg md:text-xl text-[#8A244B]">
+          {restaurantSettings?.name || restaurantName}
+        </span>
+      )}
+    </div>
+
+    {/* CATEGORIES */}
+    <div className="flex gap-3 overflow-x-auto pb-2 snap-x mt-2 md:mt-0 sm:overflow-auto">
+      <button
+        onClick={() => setActiveCategory("all")}
+        className={`px-4 py-2 rounded-full whitespace-nowrap snap-start ${
+          activeCategory === "all"
+            ? "bg-[#8A244B] text-white"
+            : "bg-gray-200"
+        }`}
+      >
+        All
+      </button>
+
+      {categories.map((c) => (
+        <button
+          key={c.id}
+          onClick={() => setActiveCategory(c.id)}
+          className={`px-4 py-2 rounded-full whitespace-nowrap snap-start ${
+            activeCategory === c.id
+              ? "bg-[#8A244B] text-white"
+              : "bg-gray-200"
+          }`}
+        >
+          {c.name}
+        </button>
+      ))}
+    </div>
+
+    {/* TABS */}
+    <div className="flex justify-end gap-4 text-sm font-medium">
+      {["menu", "about", "contact"].map((tab) => (
+        <button
+          key={tab}
+          onClick={() => setActiveTab(tab)}
+          className={`uppercase tracking-wide ${
+            activeTab === tab ? "text-[#8A244B]" : "text-gray-500"
+          }`}
+        >
+          {tab}
+        </button>
+      ))}
+    </div>
+
+  </div>
+</div>
+
 
       {/* ===== MENU ===== */}
       {activeTab === "menu" && (
@@ -331,89 +398,117 @@ const aiRecommended = [...items]
   </div>
 ) : (
   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6">
-    {filteredItems.map((item) => (
-      <div
-        key={item.id}
-        className="bg-white rounded-3xl shadow-md hover:shadow-xl transition overflow-hidden"
-      >
-        <div className="relative">
-          <img
-            src={item.imageUrl}
-            alt={item.name}
-            className="h-44 w-full object-cover"
-          />
-          {trendingDishIds.includes(item.id) && (
-  <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full shadow">
-    🔥 Trending
-  </span>
-)}
-{aiRecommended.some((d) => d.id === item.id) && (
-  <span className="absolute top-2 left-2 bg-purple-600 text-white text-xs px-3 py-1 rounded-full shadow">
-    🌟 AI Recommended
-  </span>
-)}
+   {filteredItems.map((item) => {
+  const isDrink =
+    item.category?.toLowerCase() === "drinks" ||
+    item.categoryIds?.some((id) => {
+      const cat = categories.find((c) => c.id === id);
+      return cat?.name?.toLowerCase() === "drinks";
+    });
 
-          {item.inStock === false && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg">
-              Out of Stock 🚫
-            </div>
-          )}
+  return (
+    <div
+      key={item.id}
+      className="bg-white rounded-3xl shadow-md hover:shadow-xl transition overflow-hidden"
+    >
+      <div className="relative">
+        <img
+          src={item.imageUrl}
+          alt={item.name}
+          className="h-44 w-full object-cover"
+        />
 
-          {item.spiceLevel && (
-            <span
-              className={`absolute bottom-2 right-2 text-white text-xs px-2 py-1 rounded-full ${
-                item.spiceLevel === "mild"
-                  ? "bg-green-500"
-                  : item.spiceLevel === "medium"
-                  ? "bg-orange-500"
-                  : "bg-red-600"
-              }`}
-            >
-              {item.spiceLevel === "mild" && "🌶 Mild"}
-              {item.spiceLevel === "medium" && "🌶🌶 Medium"}
-              {item.spiceLevel === "spicy" && "🌶🌶🌶 Spicy"}
-            </span>
-          )}
+        {trendingDishIds.includes(item.id) && (
+          <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full shadow">
+            🔥 Trending
+          </span>
+        )}
 
+        {aiRecommended.some((d) => d.id === item.id) && (
+          <span className="absolute top-2 left-2 bg-purple-600 text-white text-xs px-3 py-1 rounded-full shadow">
+            🌟 AI Recommended
+          </span>
+        )}
+
+        {item.inStock === false && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg">
+            Out of Stock 🚫
+          </div>
+        )}
+
+        {item.spiceLevel && (
+          <span
+            className={`absolute bottom-2 right-2 text-white text-xs px-2 py-1 rounded-full ${
+              item.spiceLevel === "mild"
+                ? "bg-green-500"
+                : item.spiceLevel === "medium"
+                ? "bg-orange-500"
+                : "bg-red-600"
+            }`}
+          >
+            {item.spiceLevel === "mild" && "🌶 Mild"}
+            {item.spiceLevel === "medium" && "🌶🌶 Medium"}
+            {item.spiceLevel === "spicy" && "🌶🌶🌶 Spicy"}
+          </span>
+        )}
+
+        {/* Veg / Non-Veg / Drink Badge */}
+        {!isDrink ? (
           <span
             className={`absolute top-2 right-2 w-3 h-3 rounded-full ${
               item.vegType === "veg" ? "bg-green-500" : "bg-red-500"
             }`}
           />
-        </div>
-
-        <div className="p-4">
-          <h3 className="font-bold text-lg truncate">{item.name}</h3>
-          <p className="text-gray-500">₹{item.price}</p>
-
-          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-            {item.description}
-          </p>
-
-          <Likes restaurantId={item.restaurantId} dishId={item.id} />
-          <Rating restaurantId={item.restaurantId} dishId={item.id} />
-
-          <button
-            disabled={item.inStock === false}
-            onClick={() => handleOrderClick(item)}
-            className={`mt-4 w-full py-2 rounded-xl font-semibold ${
-              item.inStock === false
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-[#8A244B] hover:bg-[#741d3f] text-white"
-            }`}
-          >
-            {item.inStock === false ? "Out of Stock" : "Order Now 🍽️"}
-          </button>
-
-          <details className="mt-3">
-            <summary className="cursor-pointer text-sm text-gray-500">
-              View reviews
-            </summary>
-            <Comments dishId={item.id} />
-          </details>
-        </div>
+        ) : (
+          <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+            <span className="text-white text-xs">🍹</span>
+          </span>
+        )}
       </div>
-    ))}
+
+      <div className="p-4">
+        <h3 className="font-bold text-lg truncate">{item.name}</h3>
+        <p className="text-gray-500">₹{item.price}</p>
+
+        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+          {item.description}
+        </p>
+
+        <Likes restaurantId={item.restaurantId} dishId={item.id} />
+        <Rating restaurantId={item.restaurantId} dishId={item.id} />
+
+ <div className="flex gap-2 mt-4">
+  <button
+    onClick={() => handleOrderClick(item)}
+    className="flex-1 bg-[#8A244B] text-white py-2 rounded-xl"
+  >
+    Order Now 🍽️
+  </button>
+
+<button
+  onClick={() => {
+    if (!requireLogin()) return;
+    addToCart(item);
+  }}
+  className="flex-1 border border-[#8A244B] text-[#8A244B] py-2 rounded-xl"
+>
+  Add to Cart 🛒
+</button>
+</div>
+
+
+
+        <details className="mt-3">
+          <summary className="cursor-pointer text-sm text-gray-500">
+            View reviews
+          </summary>
+          <Comments dishId={item.id} />
+        </details>
+      </div>
+    </div>
+  );
+})}
+
   </div>
 )}
 
@@ -437,7 +532,23 @@ const aiRecommended = [...items]
           <p>📍 {restaurantSettings?.contact?.address}</p>
         </div>
       )}
+      <button
+  onClick={() => setOpenCart(true)}
+  className="relative hidden md:block"
+>
+  🛒
+  {cart.length > 0 && (
+    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 rounded-full">
+      {cart.length}
+    </span>
+  )}
+</button>
 
+{cart.length > 0 && (
+  <BottomCart onOpen={() => setOpenCart(true)} />
+)}
+{/* <CartItem open={openCart} onClose={() => setOpenCart(false)} /> */}
+<CartSidebar open={openCart} onClose={() => setOpenCart(false)} />
       {selectedItem && (
         <OrderModal item={selectedItem} onClose={() => setSelectedItem(null)} />
       )}
