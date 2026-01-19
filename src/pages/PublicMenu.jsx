@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { db } from "../firebaseConfig";
+import { ref } from "firebase/database";
+import { db, realtimeDB } from "../firebaseConfig";
+import { ref as rtdbRef, onValue } from "firebase/database";
 import {
   collection,
   getDocs,
@@ -9,6 +11,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { useParams } from "react-router-dom";
+
 import Likes from "../components/Likes";
 import Rating from "../components/Rating";
 import Comments from "../components/Comments";
@@ -21,24 +24,64 @@ export default function PublicMenu() {
   const { restaurantId } = useParams();
   const requireLogin = useRequireLogin();
 
+  const [restaurantSettings, setRestaurantSettings] = useState(null);
+  const [restaurantName, setRestaurantName] = useState("");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [selectedItem, setSelectedItem] = useState(null);
-  const [restaurantName, setRestaurantName] = useState("");
-const [search, setSearch] = useState("");
-const [listening, setListening] = useState(false);
+  const [activeTab, setActiveTab] = useState("menu");
+const [trendingDishIds, setTrendingDishIds] = useState([]);
+  const [search, setSearch] = useState("");
+  const [listening, setListening] = useState(false);
+
   const [showSort, setShowSort] = useState(false);
-  const [sort, setSort] = useState("");
+  const [sort, setSort] = useState("rating");
   const [filter, setFilter] = useState("");
-const newItems = items
-  .filter(i => i.isNew)
-  .sort((a, b) => b.createdAt - a.createdAt)
-  .slice(0, 10);
+
+  const newItems = items.filter((i) => i.isNew).slice(0, 10);
+
+  /* ================= LOAD DATA ================= */
+
   useEffect(() => {
     if (!restaurantId) return;
+
     loadRestaurantInfo();
-    loadData();
+    loadMenu();
+
+    const settingsRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}`);
+    const unsubscribe = onValue(settingsRef, (snap) => {
+      if (snap.exists()) setRestaurantSettings(snap.val());
+    });
+
+    return () => unsubscribe();
   }, [restaurantId]);
+useEffect(() => {
+  const ordersRef = ref(realtimeDB, "orders");
+
+  onValue(ordersRef, (snap) => {
+    const data = snap.val();
+    if (!data) return;
+
+    const last24h = Date.now() - 24 * 60 * 60 * 1000;
+    const countMap = {};
+
+    Object.values(data).forEach((order) => {
+      if (order.createdAt >= last24h) {
+        countMap[order.dishId] =
+          (countMap[order.dishId] || 0) + 1;
+      }
+    });
+
+    // 🔥 Top dish IDs
+    const sorted = Object.entries(countMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3) // top 3 trending
+      .map(([dishId]) => dishId);
+
+    setTrendingDishIds(sorted);
+  });
+}, []);
 
   const loadRestaurantInfo = async () => {
     const ref = doc(db, "restaurants", restaurantId);
@@ -46,7 +89,7 @@ const newItems = items
     if (snap.exists()) setRestaurantName(snap.data().restaurantName);
   };
 
-  const loadData = async () => {
+  const loadMenu = async () => {
     setLoading(true);
     const q = query(
       collection(db, "menu"),
@@ -56,65 +99,57 @@ const newItems = items
     setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     setLoading(false);
   };
-const startVoiceSearch = () => {
-  if (!("webkitSpeechRecognition" in window)) {
-    alert("Voice search not supported in this browser");
-    return;
-  }
 
-  const recognition = new window.webkitSpeechRecognition();
-  recognition.lang = "en-IN"; // Indian English
-  recognition.continuous = false;
-  recognition.interimResults = false;
+  /* ================= VOICE SEARCH ================= */
 
-  setListening(true);
+  const startVoiceSearch = () => {
+    if (!("webkitSpeechRecognition" in window)) {
+      alert("Voice search not supported");
+      return;
+    }
 
-  recognition.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
-    setSearch(transcript);
-    setListening(false);
+    const recognition = new window.webkitSpeechRecognition();
+    recognition.lang = "en-IN";
+    setListening(true);
+
+    recognition.onresult = (e) => {
+      setSearch(e.results[0][0].transcript);
+      setListening(false);
+    };
+
+    recognition.onerror = recognition.onend = () => setListening(false);
+    recognition.start();
   };
 
-  recognition.onerror = () => {
-    setListening(false);
-  };
+  /* ================= FILTER + SORT ================= */
 
-  recognition.onend = () => {
-    setListening(false);
-  };
-
-  recognition.start();
-};
-
-  /* ================= FILTER + SORT LOGIC (UNCHANGED) ================= */
   let filteredItems = [...items];
 
-  if (filter === "veg") filteredItems = filteredItems.filter(i => i.vegType === "veg");
-  if (filter === "nonveg") filteredItems = filteredItems.filter(i => i.vegType === "non-veg");
-if (filter === "spicy") {
-  filteredItems = filteredItems.filter(
-    i =>
-      i.spiceLevel === "medium" ||
-      i.spiceLevel === "spicy"
-  );
-}
-if (search.trim() !== "") {
-  filteredItems = filteredItems.filter(item =>
-    item.name.toLowerCase().includes(search.toLowerCase()) ||
-    item.description?.toLowerCase().includes(search.toLowerCase())
-  );
-}
-
-  if (filter === "chef") filteredItems = filteredItems.filter(i => i.isChefPick);
-  if (filter === "special") filteredItems = filteredItems.filter(i => i.isHouseSpecial);
-  if (filter === "delivery") filteredItems = filteredItems.filter(i => i.availableModes?.delivery);
-  if (filter === "under100") filteredItems = filteredItems.filter(i => i.price <= 100);
-  if (filter === "quick") filteredItems = filteredItems.filter(i => i.prepTime <= 15);
-  if (filter === "instock") filteredItems = filteredItems.filter(i => i.inStock !== false);
-
-  if (!sort || sort === "rating") {
-    filteredItems.sort((a, b) => (b.avgRating || 0) - (a.avgRating || 0));
+  if (search.trim()) {
+    filteredItems = filteredItems.filter(
+      (i) =>
+        i.name?.toLowerCase().includes(search.toLowerCase()) ||
+        i.description?.toLowerCase().includes(search.toLowerCase())
+    );
   }
+// 🤖 AI Recommended Logic (Top 3 with min 4 rating)
+const aiRecommended = [...items]
+  .filter((i) => (i.avgRating || 0) >= 4)
+  .sort((a, b) => (b.avgRating || 0) - (a.avgRating || 0))
+  .slice(0, 3);
+
+
+  if (filter === "veg") filteredItems = filteredItems.filter((i) => i.vegType === "veg");
+  if (filter === "nonveg") filteredItems = filteredItems.filter((i) => i.vegType === "non-veg");
+  if (filter === "spicy") filteredItems = filteredItems.filter((i) => i.spiceLevel !== "mild");
+  if (filter === "chef") filteredItems = filteredItems.filter((i) => i.isChefPick);
+  if (filter === "special") filteredItems = filteredItems.filter((i) => i.isHouseSpecial);
+  if (filter === "delivery") filteredItems = filteredItems.filter((i) => i.availableModes?.delivery);
+  if (filter === "quick") filteredItems = filteredItems.filter((i) => i.prepTime <= 15);
+  if (filter === "under100") filteredItems = filteredItems.filter((i) => i.price <= 100);
+  if (filter === "instock") filteredItems = filteredItems.filter((i) => i.inStock !== false);
+
+  if (sort === "rating") filteredItems.sort((a, b) => (b.avgRating || 0) - (a.avgRating || 0));
   if (sort === "priceLow") filteredItems.sort((a, b) => a.price - b.price);
   if (sort === "priceHigh") filteredItems.sort((a, b) => b.price - a.price);
 
@@ -124,163 +159,282 @@ if (search.trim() !== "") {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
+    <div className="max-w-7xl mx-auto px-4">
+      {/* ===== HEADER ===== */}
+      <div className="sticky top-0 z-50 bg-white border-b">
+        <div className="flex justify-between items-center py-3">
+          <div className="flex items-center gap-3">
+            {restaurantSettings?.logo ? (
+              <img
+                src={restaurantSettings.logo}
+                alt="logo"
+                className="h-12 object-contain"
+              />
+            ) : (
+              <span className="font-bold text-lg text-[#8A244B]">
+                {restaurantSettings?.name || restaurantName}
+              </span>
+            )}
+          </div>
 
-      {/* HEADER */}
-      <div className="relative mb-10 text-center">
-        <h2 className="text-4xl font-extrabold text-[#8A244B]">
-          {restaurantName || "Restaurant Menu"}
-        </h2>
-        <p className="text-gray-500 mt-1">Fresh & highly rated dishes 🍽️</p>
-        <div className="flex justify-center mt-6">
-  <div className="relative w-full max-w-md flex items-center gap-2">
+          <div className="flex gap-4 text-sm font-medium">
+            {["menu", "about", "contact"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={activeTab === tab ? "text-[#8A244B]" : "text-gray-500"}
+              >
+                {tab.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ===== MENU ===== */}
+      {activeTab === "menu" && (
+        <>
+          <div className="text-center my-8">
+            <h2 className="text-4xl font-bold text-[#8A244B]">
+              {restaurantName}
+            </h2>
+            <p className="text-gray-500">Fresh & highly rated dishes 🍽️</p>
+
+            <button
+              onClick={() => setShowSort(true)}
+              className="mt-6 border px-5 py-2 rounded-full text-sm bg-white shadow hover:bg-gray-50"
+            >
+              Sort & Filter ⬇️
+            </button>
+          </div>
+
+          {/* SORT MODAL */}
+        {/* SORT & FILTER – Bottom Sheet (No Animation) */}
+{/* SORT & FILTER – Bottom Sheet (Same as first code) */}
+{showSort && (
+  <div className="fixed inset-0 z-50 bg-black/40 flex items-end">
     
-    {/* 🔍 SEARCH INPUT */}
-    <input
-      type="text"
-      placeholder="Search dishes by voice or text..."
-      value={search}
-      onChange={(e) => setSearch(e.target.value)}
-      className="flex-1 border border-gray-300 rounded-full px-5 py-3 pl-12 focus:outline-none focus:ring-2 focus:ring-[#8A244B]"
+    {/* Overlay */}
+    <div
+      className="absolute inset-0"
+      onClick={() => setShowSort(false)}
     />
 
-    {/* 🔍 ICON */}
-    <span className="absolute left-4 text-gray-400">🔍</span>
+    {/* Bottom Sheet */}
+    <div className="relative bg-white w-full rounded-t-3xl p-6">
+      
+      {/* Handle */}
+      <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4" />
 
-    {/* 🎤 MIC BUTTON */}
-    <button
-      onClick={startVoiceSearch}
-      className={`w-12 h-12 rounded-full flex items-center justify-center text-white text-xl transition
-        ${listening ? "bg-red-500 animate-pulse" : "bg-[#8A244B] hover:bg-[#741d3f]"}
-      `}
-      title="Voice Search"
-    >
-      🎤
-    </button>
-  </div>
-</div>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">Sort & Filter</h3>
+        <button onClick={() => setShowSort(false)}>✕</button>
+      </div>
 
-{!loading && filteredItems.length === 0 && (
-  <p className="text-center text-gray-400 col-span-full mt-10">
-    No dishes found 😔
-  </p>
-)}
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        {/* SORT */}
+        <button onClick={() => setSort("rating")} className="border rounded-lg py-2">
+          ⭐ Top Rated
+        </button>
+        <button onClick={() => setSort("priceLow")} className="border rounded-lg py-2">
+          💰 Low → High
+        </button>
+        <button onClick={() => setSort("priceHigh")} className="border rounded-lg py-2">
+          💸 High → Low
+        </button>
 
+        {/* FILTER */}
+        <button onClick={() => setFilter("veg")} className="border rounded-lg py-2">
+          🟢 Veg
+        </button>
+        <button onClick={() => setFilter("nonveg")} className="border rounded-lg py-2">
+          🔴 Non-Veg
+        </button>
+        <button onClick={() => setFilter("spicy")} className="border rounded-lg py-2">
+          🌶 Spicy
+        </button>
+        <button onClick={() => setFilter("chef")} className="border rounded-lg py-2">
+          👨‍🍳 Chef Pick
+        </button>
+        <button onClick={() => setFilter("special")} className="border rounded-lg py-2">
+          ⭐ House Special
+        </button>
+        <button onClick={() => setFilter("delivery")} className="border rounded-lg py-2">
+          🚚 Delivery
+        </button>
+        <button onClick={() => setFilter("quick")} className="border rounded-lg py-2">
+          ⚡ Quick
+        </button>
+        <button onClick={() => setFilter("under100")} className="border rounded-lg py-2">
+          💯 Under ₹100
+        </button>
+        <button onClick={() => setFilter("instock")} className="border rounded-lg py-2">
+          🟢 In Stock
+        </button>
+
+        {/* CLEAR */}
         <button
-          onClick={() => setShowSort(true)}
-          className="mt-6 border px-5 py-2 rounded-full text-sm bg-white shadow hover:bg-gray-50"
+          onClick={() => {
+            setSort("rating");
+            setFilter("");
+            setShowSort(false);
+          }}
+          className="col-span-2 text-red-500 border rounded-lg py-2"
         >
-          Sort & Filter ⬇️
+          Clear All
         </button>
       </div>
-<NewItemsSlider items={newItems} />
-      {/* GRID */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-        {loading
-          ? Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="animate-pulse bg-white rounded-3xl h-72 shadow" />
-            ))
-          : filteredItems.map((item) => (
-              <div key={item.id} className="bg-white rounded-3xl shadow-md hover:shadow-xl transition overflow-hidden">
-                <div className="relative">
-                  <img src={item.imageUrl} alt={item.name} className="h-44 w-full object-cover" />
-
-                  {item.inStock === false && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg">
-                      Out of Stock 🚫
-                    </div>
-                  )}
-{item.spiceLevel && (
-  <span
-    className={`absolute bottom-2 right-2 text-white text-xs px-2 py-1 rounded-full
-      ${
-        item.spiceLevel === "mild"
-          ? "bg-green-500"
-          : item.spiceLevel === "medium"
-          ? "bg-orange-500"
-          : "bg-red-600"
-      }`}
-  >
-    {item.spiceLevel === "mild" && "🌶 Mild"}
-    {item.spiceLevel === "medium" && "🌶🌶 Medium"}
-    {item.spiceLevel === "spicy" && "🌶🌶🌶 Spicy"}
-  </span>
+    </div>
+  </div>
 )}
 
-                  <span
-                    className={`absolute top-2 right-2 w-3 h-3 rounded-full ${
-                      item.vegType === "veg" ? "bg-green-500" : "bg-red-500"
-                    }`}
-                  />
-                </div>
 
-                <div className="p-4">
-                  <h3 className="font-bold text-lg truncate">{item.name}</h3>
-                  <p className="text-gray-500">₹{item.price}</p>
- <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-    {item.description}
-  </p>
-                  <Likes restaurantId={item.restaurantId} dishId={item.id} />
-                  <Rating restaurantId={item.restaurantId} dishId={item.id} />
 
-                  <button
-                    disabled={item.inStock === false}
-                    onClick={() => handleOrderClick(item)}
-                    className={`mt-4 w-full py-2 rounded-xl font-semibold ${
-                      item.inStock === false
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-[#8A244B] hover:bg-[#741d3f] text-white"
-                    }`}
-                  >
-                    {item.inStock === false ? "Out of Stock" : "Order Now 🍽️"}
-                  </button>
-
-                  <details className="mt-3">
-                    <summary className="cursor-pointer text-sm text-gray-500">
-                      View reviews
-                    </summary>
-                    <Comments dishId={item.id} />
-                  </details>
-                </div>
-              </div>
-            ))}
-      </div>
-
-      {/* SORT & FILTER MODAL */}
-      {showSort && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-end">
-          <div className="bg-white w-full rounded-t-3xl p-6">
-            <div className="flex justify-between mb-4">
-              <h3 className="text-lg font-semibold">Sort & Filter</h3>
-              <button onClick={() => setShowSort(false)}>✕</button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <button onClick={() => setSort("rating")}>⭐ Top Rated</button>
-              <button onClick={() => setSort("priceLow")}>💰 Low → High</button>
-              <button onClick={() => setSort("priceHigh")}>💸 High → Low</button>
-
-              <button onClick={() => setFilter("veg")}>🟢 Veg</button>
-              <button onClick={() => setFilter("nonveg")}>🔴 Non-Veg</button>
-              <button onClick={() => setFilter("spicy")}>🌶 Spicy</button>
-              <button onClick={() => setFilter("chef")}>👨‍🍳 Chef Pick</button>
-              <button onClick={() => setFilter("special")}>⭐ House Special</button>
-              <button onClick={() => setFilter("delivery")}>🚚 Delivery</button>
-              <button onClick={() => setFilter("quick")}>⚡ Quick</button>
-              <button onClick={() => setFilter("under100")}>💯 Under ₹100</button>
-              <button onClick={() => setFilter("instock")}>🟢 In Stock</button>
-
+          {/* SEARCH */}
+          <div className="flex justify-center mb-6">
+            <div className="relative w-full max-w-md flex items-center gap-2">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search dishes..."
+                className="flex-1 border rounded-full px-5 py-3 pl-12"
+              />
+              <span className="absolute left-4">🔍</span>
               <button
-                onClick={() => {
-                  setSort("");
-                  setFilter("");
-                }}
-                className="col-span-2 text-red-500"
+                onClick={startVoiceSearch}
+                className={`w-12 h-12 rounded-full text-white ${
+                  listening ? "bg-red-500 animate-pulse" : "bg-[#8A244B]"
+                }`}
               >
-                Clear All
+                🎤
               </button>
             </div>
           </div>
+
+          <NewItemsSlider items={newItems} />
+
+          {/* MENU GRID */}
+          {/* MENU GRID */}
+{loading ? (
+  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6">
+    {Array.from({ length: 8 }).map((_, i) => (
+      <div
+        key={i}
+        className="animate-pulse bg-white rounded-3xl h-72 shadow"
+      />
+    ))}
+  </div>
+) : filteredItems.length === 0 ? (
+  <div className="text-center mt-10 text-gray-500">
+    <p className="text-2xl">😔 No dishes found</p>
+    <p className="text-sm mt-2">Try another search or clear filters.</p>
+  </div>
+) : (
+  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6">
+    {filteredItems.map((item) => (
+      <div
+        key={item.id}
+        className="bg-white rounded-3xl shadow-md hover:shadow-xl transition overflow-hidden"
+      >
+        <div className="relative">
+          <img
+            src={item.imageUrl}
+            alt={item.name}
+            className="h-44 w-full object-cover"
+          />
+          {trendingDishIds.includes(item.id) && (
+  <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full shadow">
+    🔥 Trending
+  </span>
+)}
+{aiRecommended.some((d) => d.id === item.id) && (
+  <span className="absolute top-2 left-2 bg-purple-600 text-white text-xs px-3 py-1 rounded-full shadow">
+    🌟 AI Recommended
+  </span>
+)}
+
+          {item.inStock === false && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg">
+              Out of Stock 🚫
+            </div>
+          )}
+
+          {item.spiceLevel && (
+            <span
+              className={`absolute bottom-2 right-2 text-white text-xs px-2 py-1 rounded-full ${
+                item.spiceLevel === "mild"
+                  ? "bg-green-500"
+                  : item.spiceLevel === "medium"
+                  ? "bg-orange-500"
+                  : "bg-red-600"
+              }`}
+            >
+              {item.spiceLevel === "mild" && "🌶 Mild"}
+              {item.spiceLevel === "medium" && "🌶🌶 Medium"}
+              {item.spiceLevel === "spicy" && "🌶🌶🌶 Spicy"}
+            </span>
+          )}
+
+          <span
+            className={`absolute top-2 right-2 w-3 h-3 rounded-full ${
+              item.vegType === "veg" ? "bg-green-500" : "bg-red-500"
+            }`}
+          />
+        </div>
+
+        <div className="p-4">
+          <h3 className="font-bold text-lg truncate">{item.name}</h3>
+          <p className="text-gray-500">₹{item.price}</p>
+
+          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+            {item.description}
+          </p>
+
+          <Likes restaurantId={item.restaurantId} dishId={item.id} />
+          <Rating restaurantId={item.restaurantId} dishId={item.id} />
+
+          <button
+            disabled={item.inStock === false}
+            onClick={() => handleOrderClick(item)}
+            className={`mt-4 w-full py-2 rounded-xl font-semibold ${
+              item.inStock === false
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-[#8A244B] hover:bg-[#741d3f] text-white"
+            }`}
+          >
+            {item.inStock === false ? "Out of Stock" : "Order Now 🍽️"}
+          </button>
+
+          <details className="mt-3">
+            <summary className="cursor-pointer text-sm text-gray-500">
+              View reviews
+            </summary>
+            <Comments dishId={item.id} />
+          </details>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
+
+        </>
+      )}
+
+      {/* ABOUT */}
+      {activeTab === "about" && (
+        <div className="max-w-2xl mx-auto text-center mt-10">
+          <h3 className="text-2xl font-bold mb-4">About Us</h3>
+          <p>{restaurantSettings?.about?.description || "No info added."}</p>
+        </div>
+      )}
+
+      {/* CONTACT */}
+      {activeTab === "contact" && (
+        <div className="max-w-md mx-auto text-center mt-10 space-y-2">
+          <h3 className="text-2xl font-bold mb-4">Contact Us</h3>
+          <p>📞 {restaurantSettings?.contact?.phone}</p>
+          <p>📧 {restaurantSettings?.contact?.email}</p>
+          <p>📍 {restaurantSettings?.contact?.address}</p>
         </div>
       )}
 

@@ -12,6 +12,7 @@ import OwnerAnalytics from "./pages/OwnerAnalytics";
 
 import { AuthProvider } from "./context/AuthContext";
 import LoginModal from "./components/LoginModal"; // ✅ CUSTOMER LOGIN MODAL
+import RestaurantSettings from "./pages/RestaurantSettings";
 
 function App() {
   return (
@@ -32,6 +33,8 @@ function App() {
 
           {/* 🔹 OWNER DASHBOARD */}
           <Route path="/dashboard" element={<Dashboard />}>
+          <Route path="restaurant-settings" element={<RestaurantSettings/>}/>
+         
             <Route path="menu" element={<MenuItems />} />
             <Route path="add-item" element={<AddItem />} />
             <Route path="analytics" element={<OwnerAnalytics />} />

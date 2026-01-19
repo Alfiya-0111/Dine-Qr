@@ -46,6 +46,7 @@ export default function AddItem() {
     dineIn: true,
     delivery: true,
      inStock: true,
+     isNew: false,
   });
 
   const IMGBB_API_KEY = "179294f40bc7235ace27ceac655be6b4";
@@ -111,6 +112,7 @@ export default function AddItem() {
         delivery: form.delivery,
       },
       availableToday: true,
+       
        inStock: form.inStock,
       imageUrl,
       stats: { likes: 0, orders: 0 },

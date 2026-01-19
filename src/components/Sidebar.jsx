@@ -8,6 +8,11 @@ export default function Sidebar() {
 
       {/* Navigation Links */}
       <nav className="flex flex-col gap-4">
+        <li>
+  <Link to="/dashboard/restaurant-settings">
+    Restaurant Settings
+  </Link>
+</li>
         <Link
           to="/dashboard/menu"
           className="px-4 py-2 rounded-lg hover:bg-[#B45253] transition-colors"

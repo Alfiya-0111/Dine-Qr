@@ -69,11 +69,11 @@ const updateAvgInFirestore = async (avg) => {
     avgRating: Number(avg),
   });
 };
-useEffect(() => {
-  if (average !== "0.0") {
-    updateAvgInFirestore(average);
-  }
-}, [average]);
+// useEffect(() => {
+//   if (average !== "0.0") {
+//     updateAvgInFirestore(average);
+//   }
+// }, [average]);
   const giveRating = (stars) => {
     if (!requireLogin()) return;
 
