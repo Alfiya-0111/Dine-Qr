@@ -25,12 +25,19 @@ import CartItem from "../components/CartItem";
 import CartSidebar from "../components/CartSidebar";
 
 export default function PublicMenu() {
+ const [restaurantSettings, setRestaurantSettings] = useState(null);
+
+const theme = restaurantSettings?.theme || {
+  primary: "#8A244B",
+  border: "#8A244B",
+};
+
   const { restaurantId } = useParams();
   const requireLogin = useRequireLogin();
 const [categories, setCategories] = useState([]);
 const [activeCategory, setActiveCategory] = useState("all");
 
-  const [restaurantSettings, setRestaurantSettings] = useState(null);
+ 
   const [restaurantName, setRestaurantName] = useState("");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -213,16 +220,18 @@ if (activeCategory !== "all") {
 
     {/* CATEGORIES */}
     <div className="flex gap-3 overflow-x-auto pb-2 snap-x mt-2 md:mt-0 sm:overflow-auto">
-      <button
-        onClick={() => setActiveCategory("all")}
-        className={`px-4 py-2 rounded-full whitespace-nowrap snap-start ${
-          activeCategory === "all"
-            ? "bg-[#8A244B] text-white"
-            : "bg-gray-200"
-        }`}
-      >
-        All
-      </button>
+  <button
+  onClick={() => setActiveCategory("all")}
+  style={{
+    backgroundColor:
+      activeCategory === "all" ? theme.primary : "#e5e7eb",
+    color: activeCategory === "all" ? "#fff" : "#000",
+  }}
+  className="px-4 py-2 rounded-full"
+>
+  All
+</button>
+
 
       {categories.map((c) => (
         <button
@@ -478,22 +487,28 @@ if (activeCategory !== "all") {
         <Rating restaurantId={item.restaurantId} dishId={item.id} />
 
  <div className="flex gap-2 mt-4">
-  <button
-    onClick={() => handleOrderClick(item)}
-    className="flex-1 bg-[#8A244B] text-white py-2 rounded-xl"
-  >
-    Order Now 🍽️
-  </button>
+<button
+  onClick={() => handleOrderClick(item)}
+  style={{ backgroundColor: theme.primary }}
+  className="flex-1 text-white py-2 rounded-xl"
+>
+  Order Now 🍽️
+</button>
 
 <button
   onClick={() => {
     if (!requireLogin()) return;
     addToCart(item);
   }}
-  className="flex-1 border border-[#8A244B] text-[#8A244B] py-2 rounded-xl"
+  style={{
+    borderColor: theme.border,
+    color: theme.border,
+  }}
+  className="flex-1 border py-2 rounded-xl"
 >
   Add to Cart 🛒
 </button>
+
 </div>
 
 

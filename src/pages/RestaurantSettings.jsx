@@ -9,7 +9,11 @@ export default function RestaurantSettings() {
   const auth = getAuth();
   const user = auth.currentUser;
   const restaurantId = user?.uid;
-
+const [theme, setTheme] = useState({
+  primary: "#8A244B",
+  secondary: "#ffffff",
+  border: "#8A244B",
+});
   const [name, setName] = useState("");
   const [logo, setLogo] = useState("");
   const [logoFile, setLogoFile] = useState(null);
@@ -20,6 +24,34 @@ export default function RestaurantSettings() {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
 const [newCategory, setNewCategory] = useState("");
+useEffect(() => {
+  if (!restaurantId) return;
+
+  const ref = dbRef(realtimeDB, `restaurants/${restaurantId}`);
+
+  onValue(ref, (snap) => {
+    if (snap.exists()) {
+      const data = snap.val();
+
+      setName(data.name || "");
+      setLogo(data.logo || "");
+      setAbout(data.about?.description || "");
+      setPhone(data.contact?.phone || "");
+      setEmail(data.contact?.email || "");
+      setAddress(data.contact?.address || "");
+
+      // ✅ THEME SAFE LOAD
+      setTheme(
+        data.theme || {
+          primary: "#8A244B",
+          secondary: "#ffffff",
+          border: "#8A244B",
+        }
+      );
+    }
+  });
+}, [restaurantId]);
+
 useEffect(() => {
   if (!restaurantId) return;
 
@@ -108,18 +140,20 @@ const addCategory = async () => {
         logoURL = await uploadToImgbb(logoFile);
       }
 
-      await set(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
-        name,
-        logo: logoURL || "",
-        about: {
-          description: about,
-        },
-        contact: {
-          phone,
-          email,
-          address,
-        },
-      });
+     await set(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
+  name,
+  logo: logoURL || "",
+  theme, 
+  about: {
+    description: about,
+  },
+  contact: {
+    phone,
+    email,
+    address,
+  },
+});
+
 
       alert("Restaurant settings saved successfully ✅");
     } catch (err) {
@@ -133,6 +167,33 @@ const addCategory = async () => {
   return (
     <div className="max-w-3xl mx-auto p-6">
       <h2 className="text-2xl font-bold mb-6">Restaurant Settings</h2>
+<div className="mb-6">
+  <h3 className="font-bold mb-2">Theme Colors</h3>
+
+  <div className="flex gap-4">
+    <div>
+      <label className="text-sm">Primary Button</label>
+      <input
+        type="color"
+        value={theme.primary}
+        onChange={(e) =>
+          setTheme({ ...theme, primary: e.target.value })
+        }
+      />
+    </div>
+
+    <div>
+      <label className="text-sm">Text / Border</label>
+      <input
+        type="color"
+        value={theme.border}
+        onChange={(e) =>
+          setTheme({ ...theme, border: e.target.value })
+        }
+      />
+    </div>
+  </div>
+</div>
 
       {/* Restaurant Name */}
       <div className="mb-4">

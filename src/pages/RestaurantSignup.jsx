@@ -4,7 +4,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
-
+import khaatogologo from "../assets/khaatogologo.png";
 export default function RestaurantSignup() {
   const [form, setForm] = useState({
     name: "",
@@ -43,12 +43,17 @@ const [showPassword, setShowPassword] = useState(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#FFF5E5" }}>
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#FAEFEA" }}>
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
 
-        <h1 className="text-3xl font-bold text-center mb-1" style={{ color: "#B45253" }}>
-          DineQR
-        </h1>
+<div className="flex justify-center">
+  <img
+    src={khaatogologo}
+    alt="khaatogologo"
+    className="w-auto h-100 object-contain"
+  />
+</div>
+
 
         <p className="text-sm text-center mb-6" style={{ color: "#555555" }}>
           Digital menu & QR ordering for restaurants
@@ -103,7 +108,7 @@ const [showPassword, setShowPassword] = useState(false);
         <button
           onClick={handleSignup}
           className="w-full text-white py-3 rounded-xl font-semibold transition hover:opacity-90"
-          style={{ backgroundColor: "#B45253" }}
+          style={{ backgroundColor: "#8A244B" }}
         >
           Create Restaurant Account
         </button>
@@ -111,7 +116,7 @@ const [showPassword, setShowPassword] = useState(false);
         <p className="text-sm text-center mt-6" style={{ color: "#555555" }}>
           Already have an account?{" "}
           <span
-            className="font-medium cursor-pointer text-[#FCB53B]"
+            className="font-medium cursor-pointer text-yellow-400"
             onClick={() => navigate("/login")}
           >
             Login

@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import khaatogologo from "../assets/khaatogologo.png";
 
 export default function RestaurantLogin() {
   const navigate = useNavigate();
@@ -95,6 +96,9 @@ const handleGoogleLogin = async () => {
         className="min-h-screen flex items-center justify-center px-4"
         style={{ backgroundColor: "#FFEFE0" }}
       >
+      
+        
+
         <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-8">
           <h2
             className="text-2xl font-bold text-center mb-6"
@@ -102,6 +106,13 @@ const handleGoogleLogin = async () => {
           >
             Restaurant Login
           </h2>
+            <div className="flex justify-center">
+          <img
+            src={khaatogologo}
+            alt="khaatogologo"
+            className="w-auto h-100 object-contain"
+          />
+        </div>
 
           {/* Email */}
           <input
