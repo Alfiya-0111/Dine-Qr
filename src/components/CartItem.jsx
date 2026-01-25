@@ -3,10 +3,9 @@ import { useCart } from "../context/CartContext";
 export default function CartItem({ item }) {
   const { updateQty, removeFromCart } = useCart();
 
-  // 🛡️ Safety check
+  // safety
   if (!item) return null;
 
-  // 🔄 Normalize fields (different sources ke liye)
   const name =
     item.name ||
     item.title ||
@@ -36,8 +35,17 @@ export default function CartItem({ item }) {
 
         <div>
           <p className="font-semibold text-sm">{name}</p>
+
           <p className="text-xs text-gray-500">
             ₹{price} × {qty}
+          </p>
+
+          {/* ✅ SPICE HERE */}
+          <p className="text-xs text-gray-600">
+            Spice:
+            <span className="ml-1 font-semibold capitalize">
+              {item.spicePreference || "normal"}
+            </span>
           </p>
         </div>
       </div>

@@ -9,7 +9,7 @@ export default function CartSidebar({ open, onClose }) {
   return (
     <div className="fixed right-0 top-0 h-full w-80 bg-white shadow-lg z-50 p-4">
       <h2 className="text-xl font-bold mb-4">Your Cart</h2>
-
+  
       {cart.length === 0 ? (
         <p className="text-gray-500">Cart is empty</p>
       ) : (
@@ -28,6 +28,9 @@ export default function CartSidebar({ open, onClose }) {
       >
         ✕
       </button>
+    
     </div>
+   
   );
+ 
 }

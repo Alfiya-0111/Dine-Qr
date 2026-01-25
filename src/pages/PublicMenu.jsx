@@ -3,6 +3,8 @@ import { ref } from "firebase/database";
 import { db, realtimeDB } from "../firebaseConfig";
 import { ref as rtdbRef, onValue } from "firebase/database";
 import { useCart } from "../context/CartContext";
+import { IoSearchOutline } from "react-icons/io5";
+import { PiMicrophone } from "react-icons/pi";
 import {
   collection,
   getDocs,
@@ -26,7 +28,7 @@ import CartSidebar from "../components/CartSidebar";
 
 export default function PublicMenu() {
  const [restaurantSettings, setRestaurantSettings] = useState(null);
-
+const [spiceSelections, setSpiceSelections] = useState({});
 const theme = restaurantSettings?.theme || {
   primary: "#8A244B",
   border: "#8A244B",
@@ -192,10 +194,16 @@ if (activeCategory !== "all") {
   );
 }
 
-  const handleOrderClick = (item) => {
-    if (!requireLogin()) return;
-    setSelectedItem(item);
-  };
+ const handleOrderClick = (item) => {
+  if (!requireLogin()) return;
+
+  addToCart({
+    ...item,
+    spicePreference: spiceSelections[item.id] || "normal",
+  });
+
+  setSelectedItem(item);
+};
 
   return (
     <div className="max-w-7xl mx-auto px-4">
@@ -212,7 +220,7 @@ if (activeCategory !== "all") {
           className="h-10 md:h-12 object-contain"
         />
       ) : (
-        <span className="font-bold text-lg md:text-xl text-[#8A244B]">
+        <span className="font-bold text-lg md:text-x"  style={{ backgroundColor: theme.primary }}>
           {restaurantSettings?.name || restaurantName}
         </span>
       )}
@@ -234,32 +242,32 @@ if (activeCategory !== "all") {
 
 
       {categories.map((c) => (
-        <button
-          key={c.id}
-          onClick={() => setActiveCategory(c.id)}
-          className={`px-4 py-2 rounded-full whitespace-nowrap snap-start ${
-            activeCategory === c.id
-              ? "bg-[#8A244B] text-white"
-              : "bg-gray-200"
-          }`}
-        >
-          {c.name}
-        </button>
+       <button
+  key={c.id}
+  onClick={() => setActiveCategory(c.id)}
+  style={{
+    backgroundColor: activeCategory === c.id ? theme.primary : "#e5e7eb",
+  }}
+  className="px-4 py-2 rounded-full whitespace-nowrap snap-start text-white transition"
+>
+  {c.name}
+</button>
       ))}
     </div>
 
     {/* TABS */}
     <div className="flex justify-end gap-4 text-sm font-medium">
       {["menu", "about", "contact"].map((tab) => (
-        <button
-          key={tab}
-          onClick={() => setActiveTab(tab)}
-          className={`uppercase tracking-wide ${
-            activeTab === tab ? "text-[#8A244B]" : "text-gray-500"
-          }`}
-        >
-          {tab}
-        </button>
+       <button
+  key={tab}
+  onClick={() => setActiveTab(tab)}
+  style={{
+    color: activeTab === tab ? theme.primary : "#6b7280", // gray-500
+  }}
+  className="uppercase tracking-wide transition"
+>
+  {tab}
+</button>
       ))}
     </div>
 
@@ -271,21 +279,16 @@ if (activeCategory !== "all") {
       {activeTab === "menu" && (
         <>
           <div className="text-center my-8">
-            <h2 className="text-4xl font-bold text-[#8A244B]">
+            <h2 className="text-4xl font-bold"  style={{ color: theme.primary }}>
               {restaurantName}
             </h2>
-            <p className="text-gray-500">Fresh & highly rated dishes 🍽️</p>
+            <p className="text-gray-500">Fresh & highly rated dishes </p>
 
-            <button
-              onClick={() => setShowSort(true)}
-              className="mt-6 border px-5 py-2 rounded-full text-sm bg-white shadow hover:bg-gray-50"
-            >
-              Sort & Filter ⬇️
-            </button>
+         
           </div>
 
           {/* SORT MODAL */}
-        {/* SORT & FILTER – Bottom Sheet (No Animation) */}
+      
 {/* SORT & FILTER – Bottom Sheet (Same as first code) */}
 {showSort && (
   <div className="fixed inset-0 z-50 bg-black/40 flex items-end">
@@ -368,26 +371,47 @@ if (activeCategory !== "all") {
 
           {/* SEARCH */}
           <div className="flex justify-center mb-6">
-            <div className="relative w-full max-w-md flex items-center gap-2">
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search dishes..."
-                className="flex-1 border rounded-full px-5 py-3 pl-12"
-              />
-              <span className="absolute left-4">🔍</span>
-              <button
-                onClick={startVoiceSearch}
-                className={`w-12 h-12 rounded-full text-white ${
-                  listening ? "bg-red-500 animate-pulse" : "bg-[#8A244B]"
-                }`}
-              >
-                🎤
-              </button>
-            </div>
-          </div>
+            <div className="flex justify-center mb-6">
+ <div className="relative w-full max-w-md">
+  {/* SEARCH ICON */}
+  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+    <IoSearchOutline />
+  </span>
 
-          <NewItemsSlider items={newItems} />
+  {/* INPUT */}
+ <input
+  value={search}
+  onChange={(e) => setSearch(e.target.value)}
+  placeholder="Your dishes"
+  style={{
+    borderColor: theme.primary,
+  }}
+  className="w-full border-2 rounded-full px-5 py-3 pl-12 pr-14 outline-none focus:ring-0"
+ />
+
+  {/* MIC BUTTON INSIDE INPUT */}
+  <button
+    onClick={startVoiceSearch}
+    style={{
+      borderColor: listening ? "#ef4444" : theme.primary,
+    }}
+    className={`absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full border-2 bg-transparent flex items-center justify-center transition ${
+      listening ? "animate-pulse" : ""
+    }`}
+  >
+    <PiMicrophone />
+  </button>
+</div>
+</div>
+          </div>
+   <button
+   style={{borderColor:theme.primary}}
+              onClick={() => setShowSort(true)}
+              className="mt-4 mb-4 border px-5 py-2 rounded-full text-sm bg-white shadow hover:bg-gray-50"
+            >
+              Sort & Filter 
+            </button>
+          <NewItemsSlider items={newItems}  />
 
           {/* MENU GRID */}
           {/* MENU GRID */}
@@ -402,7 +426,7 @@ if (activeCategory !== "all") {
   </div>
 ) : filteredItems.length === 0 ? (
   <div className="text-center mt-10 text-gray-500">
-    <p className="text-2xl">😔 No dishes found</p>
+    <p className="text-2xl"> No dishes found</p>
     <p className="text-sm mt-2">Try another search or clear filters.</p>
   </div>
 ) : (
@@ -435,7 +459,7 @@ if (activeCategory !== "all") {
 
         {aiRecommended.some((d) => d.id === item.id) && (
           <span className="absolute top-2 left-2 bg-purple-600 text-white text-xs px-3 py-1 rounded-full shadow">
-            🌟 AI Recommended
+          Most ordered 
           </span>
         )}
 
@@ -445,21 +469,28 @@ if (activeCategory !== "all") {
           </div>
         )}
 
-        {item.spiceLevel && (
-          <span
-            className={`absolute bottom-2 right-2 text-white text-xs px-2 py-1 rounded-full ${
-              item.spiceLevel === "mild"
-                ? "bg-green-500"
-                : item.spiceLevel === "medium"
-                ? "bg-orange-500"
-                : "bg-red-600"
-            }`}
-          >
-            {item.spiceLevel === "mild" && "🌶 Mild"}
-            {item.spiceLevel === "medium" && "🌶🌶 Medium"}
-            {item.spiceLevel === "spicy" && "🌶🌶🌶 Spicy"}
-          </span>
-        )}
+       {/* Spice selection overlay */}
+<div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-xs flex gap-2 shadow">
+  {["normal", "medium", "spicy"].map((level) => (
+    <label
+      key={level}
+      className="flex items-center gap-1 cursor-pointer"
+    >
+      <input
+        type="radio"
+        name={`spice-${item.id}`}   // 👈 VERY IMPORTANT (per dish)
+        checked={spiceSelections[item.id] === level}
+        onChange={() =>
+          setSpiceSelections((prev) => ({
+            ...prev,
+            [item.id]: level,
+          }))
+        }
+      />
+      {level}
+    </label>
+  ))}
+</div>
 
         {/* Veg / Non-Veg / Drink Badge */}
         {!isDrink ? (
@@ -489,24 +520,52 @@ if (activeCategory !== "all") {
  <div className="flex gap-2 mt-4">
 <button
   onClick={() => handleOrderClick(item)}
-  style={{ backgroundColor: theme.primary }}
-  className="flex-1 text-white py-2 rounded-xl"
+  style={{
+    "--theme-color": theme.primary,
+  }}
+  className="
+    flex-1
+    border
+    border-[var(--theme-color)]
+    text-[var(--theme-color)]
+    bg-white
+    py-2
+    rounded-xl
+    hover:bg-[var(--theme-color)]
+    hover:text-white
+    transition-all
+    duration-300
+  "
 >
-  Order Now 🍽️
+  Order Now
 </button>
 
 <button
   onClick={() => {
-    if (!requireLogin()) return;
-    addToCart(item);
+if (!requireLogin()) return;
+addToCart({
+...item,
+spicePreference: spiceSelections[item.id] || "normal",
+});
   }}
   style={{
-    borderColor: theme.border,
-    color: theme.border,
+    "--theme-color": theme.primary,
   }}
-  className="flex-1 border py-2 rounded-xl"
+  className="
+    flex-1
+    border
+    border-[var(--theme-color)]
+    text-[var(--theme-color)]
+    bg-white
+    py-2
+    rounded-xl
+    hover:bg-[var(--theme-color)]
+    hover:text-white
+    transition-all
+    duration-300
+  "
 >
-  Add to Cart 🛒
+  Add to Cart
 </button>
 
 </div>

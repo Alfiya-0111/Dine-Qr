@@ -92,26 +92,23 @@ const handleGoogleLogin = async () => {
     <>
       <ToastContainer position="top-center" />
 
-      <div
-        className="min-h-screen flex items-center justify-center px-4"
-        style={{ backgroundColor: "#FFEFE0" }}
-      >
-      
-        
-
-        <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-8">
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#FAEFEA" }} >   
+ <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
+        <div className="flex justify-center">
+           <img
+            src={khaatogologo}
+            alt="khaatogologo"
+            className="application_logo"
+          />
+          </div>
           <h2
-            className="text-2xl font-bold text-center mb-6"
+            className="text-2xl font-bold text-center mb-4"
             style={{ color: "#8A244B" }}
           >
             Restaurant Login
           </h2>
             <div className="flex justify-center">
-          <img
-            src={khaatogologo}
-            alt="khaatogologo"
-            className="w-auto h-100 object-contain"
-          />
+         
         </div>
 
           {/* Email */}
@@ -236,7 +233,8 @@ const handleGoogleLogin = async () => {
             </span>
           </p>
         </div>
-      </div>
+        </div>
+     
     </>
   );
 }

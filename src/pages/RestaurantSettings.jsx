@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ref as dbRef, set, onValue } from "firebase/database";
+import { ref as dbRef, set, onValue, remove } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { getAuth } from "firebase/auth";
 
@@ -9,11 +9,13 @@ export default function RestaurantSettings() {
   const auth = getAuth();
   const user = auth.currentUser;
   const restaurantId = user?.uid;
-const [theme, setTheme] = useState({
-  primary: "#8A244B",
-  secondary: "#ffffff",
-  border: "#8A244B",
-});
+
+  const [theme, setTheme] = useState({
+    primary: "#8A244B",
+    secondary: "#ffffff",
+    border: "#8A244B",
+  });
+
   const [name, setName] = useState("");
   const [logo, setLogo] = useState("");
   const [logoFile, setLogoFile] = useState(null);
@@ -22,92 +24,103 @@ const [theme, setTheme] = useState({
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
+
   const [categories, setCategories] = useState([]);
-const [newCategory, setNewCategory] = useState("");
-useEffect(() => {
-  if (!restaurantId) return;
+  const [newCategory, setNewCategory] = useState("");
 
-  const ref = dbRef(realtimeDB, `restaurants/${restaurantId}`);
+  // For edit
+  const [editCategoryId, setEditCategoryId] = useState(null);
+  const [editCategoryName, setEditCategoryName] = useState("");
 
-  onValue(ref, (snap) => {
-    if (snap.exists()) {
-      const data = snap.val();
-
-      setName(data.name || "");
-      setLogo(data.logo || "");
-      setAbout(data.about?.description || "");
-      setPhone(data.contact?.phone || "");
-      setEmail(data.contact?.email || "");
-      setAddress(data.contact?.address || "");
-
-      // ✅ THEME SAFE LOAD
-      setTheme(
-        data.theme || {
-          primary: "#8A244B",
-          secondary: "#ffffff",
-          border: "#8A244B",
-        }
-      );
-    }
-  });
-}, [restaurantId]);
-
-useEffect(() => {
-  if (!restaurantId) return;
-
-  const catRef = dbRef(
-    realtimeDB,
-    `restaurants/${restaurantId}/categories`
-  );
-
-  onValue(catRef, (snap) => {
-    if (snap.exists()) {
-      setCategories(
-        Object.entries(snap.val()).map(([id, data]) => ({
-          id,
-          ...data,
-        }))
-      );
-    }
-  });
-}, [restaurantId]);
-
-  // 🔄 Load existing data
   useEffect(() => {
     if (!restaurantId) return;
 
     const ref = dbRef(realtimeDB, `restaurants/${restaurantId}`);
+
     onValue(ref, (snap) => {
       if (snap.exists()) {
         const data = snap.val();
+
         setName(data.name || "");
         setLogo(data.logo || "");
         setAbout(data.about?.description || "");
         setPhone(data.contact?.phone || "");
         setEmail(data.contact?.email || "");
         setAddress(data.contact?.address || "");
+
+        setTheme(
+          data.theme || {
+            primary: "#8A244B",
+            secondary: "#ffffff",
+            border: "#8A244B",
+          }
+        );
       }
     });
   }, [restaurantId]);
-const addCategory = async () => {
-  if (!newCategory.trim()) return;
 
-  const id = Date.now();
-  await set(
-    dbRef(
-      realtimeDB,
-      `restaurants/${restaurantId}/categories/${id}`
-    ),
-    {
+  useEffect(() => {
+    if (!restaurantId) return;
+
+    const catRef = dbRef(realtimeDB, `restaurants/${restaurantId}/categories`);
+
+    onValue(catRef, (snap) => {
+      if (snap.exists()) {
+        setCategories(
+          Object.entries(snap.val()).map(([id, data]) => ({
+            id,
+            ...data,
+          }))
+        );
+      } else {
+        setCategories([]);
+      }
+    });
+  }, [restaurantId]);
+
+  const addCategory = async () => {
+    if (!newCategory.trim()) return;
+
+    const id = Date.now();
+    await set(dbRef(realtimeDB, `restaurants/${restaurantId}/categories/${id}`), {
       name: newCategory,
       order: categories.length + 1,
-    }
-  );
+    });
 
-  setNewCategory("");
-};
+    setNewCategory("");
+  };
 
-  // 🖼️ Upload logo to imgbb
+  // 🔹 Edit Category
+  const startEditCategory = (cat) => {
+    setEditCategoryId(cat.id);
+    setEditCategoryName(cat.name);
+  };
+
+  const updateCategory = async () => {
+    if (!editCategoryName.trim()) return;
+
+    await set(
+      dbRef(
+        realtimeDB,
+        `restaurants/${restaurantId}/categories/${editCategoryId}`
+      ),
+      {
+        name: editCategoryName,
+        order: categories.find((c) => c.id === editCategoryId)?.order || 1,
+      }
+    );
+
+    setEditCategoryId(null);
+    setEditCategoryName("");
+  };
+
+  // 🔹 Delete Category
+  const deleteCategory = async (catId) => {
+    await remove(
+      dbRef(realtimeDB, `restaurants/${restaurantId}/categories/${catId}`)
+    );
+  };
+
   const uploadToImgbb = async (file) => {
     const formData = new FormData();
     formData.append("image", file);
@@ -124,7 +137,6 @@ const addCategory = async () => {
     return data?.data?.url;
   };
 
-  // 💾 Save Data
   const handleSave = async () => {
     if (!name.trim()) {
       alert("Restaurant name is required");
@@ -135,25 +147,23 @@ const addCategory = async () => {
     let logoURL = logo;
 
     try {
-      // upload logo only if selected
       if (logoFile) {
         logoURL = await uploadToImgbb(logoFile);
       }
 
-     await set(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
-  name,
-  logo: logoURL || "",
-  theme, 
-  about: {
-    description: about,
-  },
-  contact: {
-    phone,
-    email,
-    address,
-  },
-});
-
+      await set(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
+        name,
+        logo: logoURL || "",
+        theme,
+        about: {
+          description: about,
+        },
+        contact: {
+          phone,
+          email,
+          address,
+        },
+      });
 
       alert("Restaurant settings saved successfully ✅");
     } catch (err) {
@@ -167,33 +177,33 @@ const addCategory = async () => {
   return (
     <div className="max-w-3xl mx-auto p-6">
       <h2 className="text-2xl font-bold mb-6">Restaurant Settings</h2>
-<div className="mb-6">
-  <h3 className="font-bold mb-2">Theme Colors</h3>
 
-  <div className="flex gap-4">
-    <div>
-      <label className="text-sm">Primary Button</label>
-      <input
-        type="color"
-        value={theme.primary}
-        onChange={(e) =>
-          setTheme({ ...theme, primary: e.target.value })
-        }
-      />
-    </div>
-
-    <div>
-      <label className="text-sm">Text / Border</label>
-      <input
-        type="color"
-        value={theme.border}
-        onChange={(e) =>
-          setTheme({ ...theme, border: e.target.value })
-        }
-      />
-    </div>
-  </div>
-</div>
+      {/* Theme Colors */}
+      <div className="mb-6">
+        <h3 className="font-bold mb-2">Theme Colors</h3>
+        <div className="flex gap-4">
+          <div>
+            <label className="text-sm">Primary Button</label>
+            <input
+              type="color"
+              value={theme.primary}
+              onChange={(e) =>
+                setTheme({ ...theme, primary: e.target.value })
+              }
+            />
+          </div>
+          <div>
+            <label className="text-sm">Text / Border</label>
+            <input
+              type="color"
+              value={theme.border}
+              onChange={(e) =>
+                setTheme({ ...theme, border: e.target.value })
+              }
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Restaurant Name */}
       <div className="mb-4">
@@ -230,35 +240,73 @@ const addCategory = async () => {
           className="block w-full text-sm"
         />
       </div>
-<div className="mt-8">
-  <h3 className="font-bold mb-2">Categories</h3>
 
-  <div className="flex gap-2 mb-3">
-    <input
-      value={newCategory}
-      onChange={(e) => setNewCategory(e.target.value)}
-      placeholder="Add category"
-      className="border px-3 py-2 rounded"
-    />
-    <button
-      onClick={addCategory}
-      className="bg-[#8A244B] text-white px-4 rounded"
-    >
-      Add
-    </button>
-  </div>
+      {/* Categories */}
+      <div className="mt-8">
+        <h3 className="font-bold mb-2">Categories</h3>
 
-  <div className="flex flex-wrap gap-2">
-    {categories.map((c) => (
-      <span
-        key={c.id}
-        className="px-3 py-1 bg-gray-200 rounded-full text-sm"
-      >
-        {c.name}
-      </span>
-    ))}
-  </div>
-</div>
+        <div className="flex gap-2 mb-3">
+          <input
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            placeholder="Add category"
+            className="border px-3 py-2 rounded"
+          />
+          <button
+            onClick={addCategory}
+            className="bg-[#8A244B] text-white px-4 rounded"
+          >
+            Add
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {categories.map((c) => (
+            <div
+              key={c.id}
+              className="flex items-center gap-2 bg-gray-200 px-3 py-1 rounded-full"
+            >
+              {editCategoryId === c.id ? (
+                <>
+                  <input
+                    value={editCategoryName}
+                    onChange={(e) => setEditCategoryName(e.target.value)}
+                    className="border px-2 py-1 rounded"
+                  />
+                  <button
+                    onClick={updateCategory}
+                    className="bg-green-600 text-white px-2 rounded"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEditCategoryId(null)}
+                    className="bg-gray-500 text-white px-2 rounded"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span>{c.name}</span>
+                  <button
+                    onClick={() => startEditCategory(c)}
+                    className="bg-blue-600 text-white px-2 rounded"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => deleteCategory(c.id)}
+                    className="bg-red-600 text-white px-2 rounded"
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* About Us */}
       <div className="mb-4">

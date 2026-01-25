@@ -1,15 +1,20 @@
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay } from "swiper/modules";
+import React, { useEffect, useState } from "react";
 import "swiper/css";
 
 export default function NewItemsSlider({ items }) {
+   const [restaurantSettings, setRestaurantSettings] = useState(null);
+  const theme = restaurantSettings?.theme || {
+  primary: "#248a3d",
+  border: "#8A244B",
+};
+
   if (!items.length) return null;
 
   return (
     <div className="mb-12">
-      <h2 className="text-2xl font-bold mb-4 text-[#8A244B]">
-        🆕 Newly Added Dishes
-      </h2>
+     
 
       <Swiper
         modules={[Autoplay]}
@@ -36,6 +41,9 @@ export default function NewItemsSlider({ items }) {
           </SwiperSlide>
         ))}
       </Swiper>
+       <h2 className="text-2xl font-bold mb-4 "style={{ color: theme.primary }}>
+       Newly Added Dishes
+      </h2>
     </div>
   );
 }

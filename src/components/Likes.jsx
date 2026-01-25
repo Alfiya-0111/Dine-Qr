@@ -3,11 +3,11 @@ import { realtimeDB } from "../firebaseConfig";
 import { ref, onValue, set, remove } from "firebase/database";
 import { getAuth } from "firebase/auth";
 import { useRequireLogin } from "../utils/requireLogin";
+import { AiOutlineHeart, AiFillHeart } from "react-icons/ai";
 
 export default function Likes({ restaurantId, dishId }) {
   const auth = getAuth();
   const user = auth.currentUser;
-
   const requireLogin = useRequireLogin();
 
   const [likesCount, setLikesCount] = useState(0);
@@ -47,11 +47,14 @@ export default function Likes({ restaurantId, dishId }) {
   return (
     <button
       onClick={toggleLike}
-      className={`flex items-center gap-1 text-sm transition ${
-        likedByMe ? "text-red-500" : "text-gray-600"
-      } hover:scale-110`}
+      className="flex items-center gap-1 text-sm transition hover:scale-110"
     >
-      ❤️ <span>{likesCount}</span>
+      {likedByMe ? (
+        <AiFillHeart className="text-red-500 text-lg" />
+      ) : (
+        <AiOutlineHeart className="text-gray-500 text-lg" />
+      )}
+      <span className="text-gray-700">{likesCount}</span>
     </button>
   );
 }

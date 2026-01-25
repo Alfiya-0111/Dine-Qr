@@ -50,7 +50,7 @@ const [showPassword, setShowPassword] = useState(false);
   <img
     src={khaatogologo}
     alt="khaatogologo"
-    className="w-auto h-100 object-contain"
+    className="application_logo"
   />
 </div>
 
