@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ref as dbRef, set, onValue, remove } from "firebase/database";
+import { ref as dbRef, set, onValue, remove, update } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { getAuth } from "firebase/auth";
 
@@ -28,7 +28,6 @@ export default function RestaurantSettings() {
   const [categories, setCategories] = useState([]);
   const [newCategory, setNewCategory] = useState("");
 
-  // For edit
   const [editCategoryId, setEditCategoryId] = useState(null);
   const [editCategoryName, setEditCategoryName] = useState("");
 
@@ -81,7 +80,8 @@ export default function RestaurantSettings() {
   const addCategory = async () => {
     if (!newCategory.trim()) return;
 
-    const id = Date.now();
+    const id = Date.now().toString();
+
     await set(dbRef(realtimeDB, `restaurants/${restaurantId}/categories/${id}`), {
       name: newCategory,
       order: categories.length + 1,
@@ -90,7 +90,6 @@ export default function RestaurantSettings() {
     setNewCategory("");
   };
 
-  // 🔹 Edit Category
   const startEditCategory = (cat) => {
     setEditCategoryId(cat.id);
     setEditCategoryName(cat.name);
@@ -100,10 +99,7 @@ export default function RestaurantSettings() {
     if (!editCategoryName.trim()) return;
 
     await set(
-      dbRef(
-        realtimeDB,
-        `restaurants/${restaurantId}/categories/${editCategoryId}`
-      ),
+      dbRef(realtimeDB, `restaurants/${restaurantId}/categories/${editCategoryId}`),
       {
         name: editCategoryName,
         order: categories.find((c) => c.id === editCategoryId)?.order || 1,
@@ -114,11 +110,8 @@ export default function RestaurantSettings() {
     setEditCategoryName("");
   };
 
-  // 🔹 Delete Category
   const deleteCategory = async (catId) => {
-    await remove(
-      dbRef(realtimeDB, `restaurants/${restaurantId}/categories/${catId}`)
-    );
+    await remove(dbRef(realtimeDB, `restaurants/${restaurantId}/categories/${catId}`));
   };
 
   const uploadToImgbb = async (file) => {
@@ -151,7 +144,7 @@ export default function RestaurantSettings() {
         logoURL = await uploadToImgbb(logoFile);
       }
 
-      await set(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
+      await update(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
         name,
         logo: logoURL || "",
         theme,
@@ -187,9 +180,7 @@ export default function RestaurantSettings() {
             <input
               type="color"
               value={theme.primary}
-              onChange={(e) =>
-                setTheme({ ...theme, primary: e.target.value })
-              }
+              onChange={(e) => setTheme({ ...theme, primary: e.target.value })}
             />
           </div>
           <div>
@@ -197,9 +188,7 @@ export default function RestaurantSettings() {
             <input
               type="color"
               value={theme.border}
-              onChange={(e) =>
-                setTheme({ ...theme, border: e.target.value })
-              }
+              onChange={(e) => setTheme({ ...theme, border: e.target.value })}
             />
           </div>
         </div>

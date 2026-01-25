@@ -1,21 +1,49 @@
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay } from "swiper/modules";
-import React, { useEffect, useState } from "react";
 import "swiper/css";
+import Platewithspoons from "../assets/Platewithspoons.png";
 
-export default function NewItemsSlider({ items }) {
-   const [restaurantSettings, setRestaurantSettings] = useState(null);
-  const theme = restaurantSettings?.theme || {
-  primary: "#248a3d",
-  border: "#8A244B",
-};
+export default function NewItemsSlider({ items, theme }) {
+  if (!items?.length) return null;
 
-  if (!items.length) return null;
+  const handleDishClick = (dishId) => {
+    const el = document.getElementById(`dish-${dishId}`);
+    if (el) {
+      el.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+
+      // optional highlight effect ✨
+      el.classList.add("ring-2", "ring-offset-2");
+      setTimeout(() => {
+        el.classList.remove("ring-2", "ring-offset-2");
+      }, 1200);
+    }
+  };
 
   return (
-    <div className="mb-12">
-     
+    <div
+      className="mb-12"
+      style={{
+        "--theme-primary": theme.primary,
+        "--theme-border": theme.border,
+      }}
+    >
+      {/* TITLE */}
+      <h2
+        className="text-2xl font-bold mb-3 text-center"
+        style={{ color: theme.primary }}
+      >
+        Newly Added Dishes
+      </h2>
 
+      {/* DECOR */}
+      <div className="flex justify-center mb-6">
+        <img src={Platewithspoons} alt="plate" className="h-10" />
+      </div>
+
+      {/* SLIDER */}
       <Swiper
         modules={[Autoplay]}
         slidesPerView={1.2}
@@ -26,11 +54,15 @@ export default function NewItemsSlider({ items }) {
           1024: { slidesPerView: 4 },
         }}
       >
-        {items.map(item => (
+        {items.map((item) => (
           <SwiperSlide key={item.id}>
-            <div className="bg-white rounded-2xl shadow overflow-hidden">
+            <div
+              onClick={() => handleDishClick(item.id)}
+              className="bg-white rounded-2xl shadow overflow-hidden cursor-pointer hover:scale-[1.02] transition"
+            >
               <img
                 src={item.imageUrl}
+                alt={item.name}
                 className="h-36 w-full object-cover"
               />
               <div className="p-3">
@@ -41,9 +73,6 @@ export default function NewItemsSlider({ items }) {
           </SwiperSlide>
         ))}
       </Swiper>
-       <h2 className="text-2xl font-bold mb-4 "style={{ color: theme.primary }}>
-       Newly Added Dishes
-      </h2>
     </div>
   );
 }

@@ -7,27 +7,11 @@ import { ref, set as setRTDB, update as updateRTDB } from "firebase/database";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export default function AddItem() {
-  const defaultForm = {
-  name: "",
-  price: "",
-  description: "",
-  category: "Biryani",
-  vegType: "non-veg",
-  spiceLevel: "medium",
-  servingSize: "full",
-  prepTime: 15,
-  isHouseSpecial: false,
-  isChefPick: false,
-  dineIn: true,
-  delivery: true,
-  inStock: true,
-  isNew: false,
-};
-
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData || null;
-const [categories, setCategories] = useState([]);
+
+  const [categories, setCategories] = useState([]);
   const [userId, setUserId] = useState(null);
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState("");
@@ -46,26 +30,18 @@ const [categories, setCategories] = useState([]);
     isChefPick: false,
     dineIn: true,
     delivery: true,
-     inStock: true,
-     isNew: false,
-     categoryIds: []
+    inStock: true,
+    isNew: false,
+    categoryIds: [],
   });
-const isDrinkSelected = categories.some(
-  (cat) =>
-    cat.name.toLowerCase() === "drinks" &&
-    form.categoryIds.includes(cat.id)
-);
-  const IMGBB_API_KEY = "179294f40bc7235ace27ceac655be6b4";
-useEffect(() => {
-  if (isDrinkSelected) {
-    setForm((prev) => ({
-      ...prev,
-      vegType: "",
-      spiceLevel: "",
-    }));
-  }
-}, [isDrinkSelected]);
 
+  const IMGBB_API_KEY = "179294f40bc7235ace27ceac655be6b4";
+
+  const isDrinkSelected = categories.some(
+    (cat) =>
+      cat.name.toLowerCase() === "drinks" &&
+      form.categoryIds.includes(cat.id)
+  );
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -84,25 +60,33 @@ useEffect(() => {
 
     return () => unsub();
   }, [editData]);
-useEffect(() => {
-  if (!userId) return;
 
-  const ref = rtdbRef(
-    realtimeDB,
-    `restaurants/${userId}/categories`
-  );
+  useEffect(() => {
+    if (!userId) return;
 
-  onValue(ref, (snap) => {
-    if (snap.exists()) {
-      setCategories(
-        Object.entries(snap.val()).map(([id, data]) => ({
-          id,
-          ...data,
-        }))
-      );
+    const ref = rtdbRef(realtimeDB, `restaurants/${userId}/categories`);
+
+    onValue(ref, (snap) => {
+      if (snap.exists()) {
+        setCategories(
+          Object.entries(snap.val()).map(([id, data]) => ({
+            id,
+            ...data,
+          }))
+        );
+      }
+    });
+  }, [userId]);
+
+  useEffect(() => {
+    if (isDrinkSelected) {
+      setForm((prev) => ({
+        ...prev,
+        vegType: "",
+        spiceLevel: "",
+      }));
     }
-  });
-}, [userId]);
+  }, [isDrinkSelected]);
 
   const uploadToImgBB = async (file) => {
     const formData = new FormData();
@@ -129,52 +113,45 @@ useEffect(() => {
       setUploading(false);
     }
 
-   const payload = {
-  restaurantId: userId,
-  name: form.name,
-  price: Number(form.price),
-  description: form.description,
-  category: form.category,
-  servingSize: form.servingSize,
-  prepTime: form.prepTime,
-  isHouseSpecial: form.isHouseSpecial,
-  isNew: form.isNew,
-  categoryIds: form.categoryIds,
-  isChefPick: form.isChefPick,
-  availableModes: {
-    dineIn: form.dineIn,
-    delivery: form.delivery,
-  },
-  availableToday: true,
-  inStock: form.inStock,
-  imageUrl,
-  stats: { likes: 0, orders: 0 },
-  updatedAt: Date.now(),
-};
+    const payload = {
+      restaurantId: userId,
+      name: form.name,
+      price: Number(form.price),
+      description: form.description,
+      category: form.category,
+      servingSize: form.servingSize,
+      prepTime: form.prepTime,
+      isHouseSpecial: form.isHouseSpecial,
+      isNew: form.isNew,
+      categoryIds: form.categoryIds,
+      isChefPick: form.isChefPick,
+      availableModes: {
+        dineIn: form.dineIn,
+        delivery: form.delivery,
+      },
+      availableToday: true,
+      inStock: form.inStock,
+      imageUrl,
+      stats: { likes: 0, orders: 0 },
+      updatedAt: Date.now(),
+    };
 
-// ✅ only add these if NOT drink
-if (!isDrinkSelected) {
-  payload.vegType = form.vegType;
-  payload.spiceLevel = form.spiceLevel;
-}
-
+    if (!isDrinkSelected) {
+      payload.vegType = form.vegType;
+      payload.spiceLevel = form.spiceLevel;
+    }
 
     if (editData) {
       await updateDoc(doc(db, "menu", editData.id), payload);
-      await updateRTDB(
-        ref(realtimeDB, `restaurants/${userId}/menu/${editData.id}`),
-        payload
-      );
+      await updateRTDB(ref(realtimeDB, `restaurants/${userId}/menu/${editData.id}`), payload);
       alert("Dish updated");
     } else {
       const docRef = await addDoc(collection(db, "menu"), {
         ...payload,
         createdAt: Date.now(),
       });
-      await setRTDB(
-        ref(realtimeDB, `restaurants/${userId}/menu/${docRef.id}`),
-        payload
-      );
+
+      await setRTDB(ref(realtimeDB, `restaurants/${userId}/menu/${docRef.id}`), payload);
       alert("Dish added");
     }
 
@@ -225,75 +202,53 @@ if (!isDrinkSelected) {
       </select>
 
       {/* Veg Type */}
-   <select
-  disabled={isDrinkSelected}
-  value={form.vegType || ""}
-  onChange={(e) => setForm({ ...form, vegType: e.target.value })}
->
-  <option value="">Select</option>
-  <option value="veg">Veg</option>
-  <option value="non-veg">Non-Veg</option>
-</select>
-
-
+      <select
+        disabled={isDrinkSelected}
+        value={form.vegType || ""}
+        onChange={(e) => setForm({ ...form, vegType: e.target.value })}
+      >
+        <option value="">Select</option>
+        <option value="veg">Veg</option>
+        <option value="non-veg">Non-Veg</option>
+      </select>
 
       {/* Spice Level */}
-    <select
-  disabled={isDrinkSelected}
-  value={form.spiceLevel || ""}
-  onChange={(e) => setForm({ ...form, spiceLevel: e.target.value })}
->
-  <option value="">Select</option>
-  <option value="mild">Mild 🌶</option>
-  <option value="medium">Medium 🌶🌶</option>
-  <option value="spicy">Spicy 🌶🌶🌶</option>
-</select>
+      <select
+        disabled={isDrinkSelected}
+        value={form.spiceLevel || ""}
+        onChange={(e) => setForm({ ...form, spiceLevel: e.target.value })}
+      >
+        <option value="">Select</option>
+        <option value="mild">Mild 🌶</option>
+        <option value="medium">Medium 🌶🌶</option>
+        <option value="spicy">Spicy 🌶🌶🌶</option>
+      </select>
 
+      {/* Categories Multi */}
+      <div className="mb-4">
+        <p className="font-semibold mb-2">Categories</p>
 
-<label className="flex items-center gap-2 mb-4">
-  <input
-    type="checkbox"
-    checked={form.inStock}
-    onChange={(e) =>
-      setForm({ ...form, inStock: e.target.checked })
-    }
-    className="accent-[#B45253]"
-  />
-  🟢 In Stock
-</label>
- <label className="flex items-center gap-2 mb-4">
-  <input
-    type="checkbox"
-    checked={form.isNew}
-    onChange={(e) => setForm({ ...form, isNew: e.target.checked })}
-    className="accent-[#B45253]"
-  />
-  🆕 Mark as New Dish
-</label>
-<div className="mb-4">
-  <p className="font-semibold mb-2">Categories</p>
-
-  <div className="flex flex-wrap gap-3">
-    {categories.map((cat) => (
-      <label key={cat.id} className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={form.categoryIds.includes(cat.id)}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            setForm((prev) => ({
-              ...prev,
-              categoryIds: checked
-                ? [...prev.categoryIds, cat.id]
-                : prev.categoryIds.filter((id) => id !== cat.id),
-            }));
-          }}
-        />
-        {cat.name}
-      </label>
-    ))}
-  </div>
-</div>
+        <div className="flex flex-wrap gap-3">
+          {categories.map((cat) => (
+            <label key={cat.id} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.categoryIds.includes(cat.id)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setForm((prev) => ({
+                    ...prev,
+                    categoryIds: checked
+                      ? [...prev.categoryIds, cat.id]
+                      : prev.categoryIds.filter((id) => id !== cat.id),
+                  }));
+                }}
+              />
+              {cat.name}
+            </label>
+          ))}
+        </div>
+      </div>
 
       {/* Options */}
       <div className="flex flex-wrap gap-4 mb-4">
@@ -307,7 +262,9 @@ if (!isDrinkSelected) {
             <input
               type="checkbox"
               checked={form[opt.key]}
-              onChange={(e) => setForm({ ...form, [opt.key]: e.target.checked })}
+              onChange={(e) =>
+                setForm({ ...form, [opt.key]: e.target.checked })
+              }
               className="accent-[#B45253]"
             />
             {opt.label}
