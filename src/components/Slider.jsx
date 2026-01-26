@@ -30,19 +30,7 @@ export default function NewItemsSlider({ items, theme }) {
         "--theme-border": theme.border,
       }}
     >
-      {/* TITLE */}
-      <h2
-        className="text-2xl font-bold mb-3 text-center"
-        style={{ color: theme.primary }}
-      >
-        Newly Added Dishes
-      </h2>
-
-      {/* DECOR */}
-      <div className="flex justify-center mb-6">
-        <img src={Platewithspoons} alt="plate" className="h-10" />
-      </div>
-
+     
       {/* SLIDER */}
       <Swiper
         modules={[Autoplay]}
@@ -73,6 +61,19 @@ export default function NewItemsSlider({ items, theme }) {
           </SwiperSlide>
         ))}
       </Swiper>
+       {/* TITLE */}
+      <h2
+        className="text-2xl font-bold mb-3 text-center"
+        style={{ color: theme.primary }}
+      >
+        Newly Added Dishes
+      </h2>
+
+      {/* DECOR */}
+      <div className="flex justify-center mb-6">
+        <img src={Platewithspoons} alt="plate" className="h-10" />
+      </div>
+
     </div>
   );
 }

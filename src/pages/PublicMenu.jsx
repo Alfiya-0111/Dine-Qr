@@ -285,7 +285,7 @@ export default function PublicMenu() {
               <div className="relative bg-white w-full rounded-t-3xl p-6">
                 <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4" />
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">Sort & Filter</h3>
+                  <h3 className="text-lg font-semibold ">Sort & Filter</h3>
                   <button onClick={() => setShowSort(false)}>✕</button>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-sm">
@@ -366,7 +366,7 @@ export default function PublicMenu() {
           <button
             style={{ borderColor: theme.primary }}
             onClick={() => setShowSort(true)}
-            className="mt-2 border px-5 py-2 rounded-full text-sm bg-white shadow hover:bg-gray-50"
+            className="mt-2  mb-2 border px-5 py-2 rounded-full text-sm bg-white shadow hover:bg-gray-50"
           >
             Sort & Filter
           </button>
