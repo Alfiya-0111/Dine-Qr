@@ -26,6 +26,7 @@ import BottomCart from "../components/BottomCart";
 import CartSidebar from "../components/CartSidebar";
 
 export default function PublicMenu() {
+  const [aboutUs, setAboutUs] = useState(null);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
   const [spiceSelections, setSpiceSelections] = useState({});
   const theme = restaurantSettings?.theme || {
@@ -82,9 +83,13 @@ export default function PublicMenu() {
     loadMenu();
 
     const settingsRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}`);
-    const unsubscribe = onValue(settingsRef, (snap) => {
-      if (snap.exists()) setRestaurantSettings(snap.val());
-    });
+  const unsubscribe = onValue(settingsRef, (snap) => {
+  if (snap.exists()) {
+    const data = snap.val();
+    setRestaurantSettings(data);
+    setAboutUs(data.about || null); // ✅ correct
+  }
+});
 
     return () => unsubscribe();
   }, [restaurantId]);
@@ -205,7 +210,7 @@ export default function PublicMenu() {
   return (
     <div className="max-w-7xl mx-auto px-4">
       {/* ===== HEADER ===== */}
-      <div className="sticky top-0 z-50 bg-white border-b">
+      <div className="sticky top-0 z-50 bg-white ">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-3 px-2">
           {/* LOGO */}
           <div className="flex items-center gap-3">
@@ -423,25 +428,35 @@ export default function PublicMenu() {
                       )}
 
                       {/* Spice selection overlay */}
-                      <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-xs flex gap-2 shadow">
-                        {["normal", "medium", "spicy"].map((level) => (
-                          <label key={level} className="flex items-center gap-1 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={spiceSelections[item.id] === level}
-                              onChange={() =>
-                                setSpiceSelections((prev) => ({
-                                  ...prev,
-                                  [item.id]: level,
-                                }))
-                              }
-                              className="spice-checkbox"
-                              style={{ "--border-color": theme.border }}
-                            />
-                            {level}
-                          </label>
-                        ))}
-                      </div>
+                    <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-xs flex gap-2 shadow">
+  {["normal", "medium", "spicy"].map((level) => {
+    const isActive = spiceSelections[item.id] === level;
+
+    return (
+      <label
+        key={level}
+        className={`relative flex items-center gap-1 cursor-pointer spice-label ${isActive ? `smoke-${level}` : ""}`}
+      >
+        <input
+          type="checkbox"
+          checked={isActive}
+          onChange={() =>
+            setSpiceSelections((prev) => ({
+              ...prev,
+              [item.id]: level,
+            }))
+          }
+          className="spice-checkbox"
+          style={{ "--border-color": theme.border }}
+        />
+        {level}
+
+        {/* Smoke */}
+        {isActive && <span className="smoke"></span>}
+      </label>
+    );
+  })}
+</div>
 
                       {/* Veg / Non-Veg / Drink Badge */}
                       {!isDrink ? (
@@ -526,13 +541,124 @@ export default function PublicMenu() {
       )}
 
       {/* ABOUT */}
-      {activeTab === "about" && (
-        <div className="max-w-2xl mx-auto text-center mt-10">
-          <h3 className="text-2xl font-bold mb-4">About Us</h3>
-          <p>{restaurantSettings?.about?.description || "No info added."}</p>
-        </div>
-      )}
+{activeTab === "about" && (
+  <div className="w-full">
+    {aboutUs ? (
+      <>
+        {/* ================= HERO VIDEO ================= */}
+        {aboutUs.heroVideo && (
+          <div className="relative h-[80vh] w-full overflow-hidden mb-8">
+            <video
+              src={aboutUs.heroVideo}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            {/* overlay */}
+            <div className="absolute inset-0 bg-black/60"></div>
 
+            {/* OUR STORY TEXT */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 z-10">
+              <h2
+                className="text-white font-bold mb-4"
+                style={{ fontSize: "32px" }}
+              >
+                {aboutUs.title || "Our Story"}
+              </h2>
+              {aboutUs.sectionText && (
+                <p
+                  className="text-white max-w-3xl text-lg leading-relaxed"
+                  style={{ lineHeight: "1.6" }}
+                >
+                  {aboutUs.sectionText}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ================= TEXT LEFT | IMAGE RIGHT ================= */}
+        <div className="">
+          {/* LEFT TEXT */}
+          <div className="py-8  flex  gap-12 items-center">
+            <p
+              className="text-gray-600 leading-relaxed mb-4"
+              style={{ fontSize: "16px" }}
+            >
+              {aboutUs.description}
+            </p>
+
+            {aboutUs.sectionImage && (
+              <img
+                src={aboutUs.sectionImage}
+                alt="About Section"
+                className="w-full h-[350px] object-cover rounded-2xl shadow-lg mt-4"
+              />
+            )}
+          </div>
+
+          {/* RIGHT IMAGE */}
+          {aboutUs.image && (
+            <img
+              src={aboutUs.image}
+              alt="About"
+              className="w-full h-[350px] object-cover rounded-2xl shadow-lg"
+            />
+          )}
+        </div>
+
+        {/* ================= STATS ================= */}
+        {aboutUs.stats && (
+          <div className="bg-gray-100 py-16">
+            <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10 text-center px-4">
+              <div>
+                <h3
+                  className="font-bold"
+                  style={{ fontSize: "32px", color: theme.primary }}
+                >
+                  {aboutUs.stats.experience}+
+                </h3>
+                <p className="text-gray-600 mt-2" style={{ fontSize: "16px" }}>
+                  Years Experience
+                </p>
+              </div>
+
+              <div>
+                <h3
+                  className="font-bold"
+                  style={{ fontSize: "32px", color: theme.primary }}
+                >
+                  {aboutUs.stats.dishes}+
+                </h3>
+                <p className="text-gray-600 mt-2" style={{ fontSize: "16px" }}>
+                  Dishes
+                </p>
+              </div>
+
+              <div>
+                <h3
+                  className="font-bold"
+                  style={{ fontSize: "32px", color: theme.primary }}
+                >
+                  {aboutUs.stats.customers}+
+                </h3>
+                <p className="text-gray-600 mt-2" style={{ fontSize: "16px" }}>
+                  Happy Customers
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    ) : (
+      <p className="text-center text-gray-500 py-20">
+        About information not added yet.
+      </p>
+    )}
+  </div>
+)}
       {/* CONTACT */}
       {activeTab === "contact" && (
         <div className="max-w-md mx-auto text-center mt-10 space-y-2">

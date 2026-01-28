@@ -26,3 +26,59 @@
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
+/* smoke css */
+/* ================= SPICE SMOKE EFFECT ================= */
+
+.spice-label {
+  position: relative;
+}
+
+/* smoke base */
+.smoke {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  background: rgba(120, 120, 120, 0.4);
+  border-radius: 50%;
+  animation: smokeRise 1.5s infinite ease-in-out;
+}
+
+/* Normal */
+.smoke-normal .smoke {
+  animation-duration: 2s;
+  opacity: 0.4;
+}
+
+/* Medium */
+.smoke-medium .smoke {
+  width: 8px;
+  height: 8px;
+  opacity: 0.6;
+  animation-duration: 1.4s;
+}
+
+/* Spicy */
+.smoke-spicy .smoke {
+  width: 12px;
+  height: 12px;
+  opacity: 0.8;
+  animation-duration: 1s;
+}
+
+/* Smoke animation */
+@keyframes smokeRise {
+  0% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(-50%, -12px) scale(1.3);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translate(-50%, -25px) scale(1.6);
+    opacity: 0;
+  }
+}
