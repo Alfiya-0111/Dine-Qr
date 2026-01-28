@@ -433,27 +433,32 @@ export default function PublicMenu() {
     const isActive = spiceSelections[item.id] === level;
 
     return (
-      <label
-        key={level}
-        className={`relative flex items-center gap-1 cursor-pointer spice-label ${isActive ? `smoke-${level}` : ""}`}
-      >
-        <input
-          type="checkbox"
-          checked={isActive}
-          onChange={() =>
-            setSpiceSelections((prev) => ({
-              ...prev,
-              [item.id]: level,
-            }))
-          }
-          className="spice-checkbox"
-          style={{ "--border-color": theme.border }}
-        />
-        {level}
+    <label
+  key={level}
+  className={`relative flex items-center gap-1 cursor-pointer spice-label ${isActive ? `smoke-${level}` : ""}`}
+>
+  <input
+    type="checkbox"
+    checked={isActive}
+    onChange={() =>
+      setSpiceSelections((prev) => ({
+        ...prev,
+        [item.id]: level,
+      }))
+    }
+    className="spice-checkbox"
+    style={{ "--border-color": theme.border }}
+  />
+  {level}
 
-        {/* Smoke */}
-        {isActive && <span className="smoke"></span>}
-      </label>
+  {isActive && (
+    <>
+      <span className="smoke"></span>
+      <span className="smoke"></span>
+      <span className="smoke"></span>
+    </>
+  )}
+</label>
     );
   })}
 </div>
@@ -547,7 +552,7 @@ export default function PublicMenu() {
       <>
         {/* ================= HERO VIDEO ================= */}
         {aboutUs.heroVideo && (
-          <div className="relative h-[80vh] w-full overflow-hidden mb-8">
+          <div className="relative h-[60vh] sm:h-[70vh] lg:h-[80vh] w-full overflow-hidden mb-10">
             <video
               src={aboutUs.heroVideo}
               autoPlay
@@ -556,22 +561,18 @@ export default function PublicMenu() {
               playsInline
               className="absolute inset-0 w-full h-full object-cover"
             />
+
             {/* overlay */}
             <div className="absolute inset-0 bg-black/60"></div>
 
             {/* OUR STORY TEXT */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 z-10">
-              <h2
-                className="text-white font-bold mb-4"
-                style={{ fontSize: "32px" }}
-              >
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4 sm:px-8 z-10">
+              <h2 className="text-white font-bold text-2xl sm:text-3xl lg:text-4xl mb-4">
                 {aboutUs.title || "Our Story"}
               </h2>
+
               {aboutUs.sectionText && (
-                <p
-                  className="text-white max-w-3xl text-lg leading-relaxed"
-                  style={{ lineHeight: "1.6" }}
-                >
+                <p className="text-white max-w-3xl text-sm sm:text-base lg:text-lg leading-relaxed">
                   {aboutUs.sectionText}
                 </p>
               )}
@@ -579,72 +580,71 @@ export default function PublicMenu() {
           </div>
         )}
 
-        {/* ================= TEXT LEFT | IMAGE RIGHT ================= */}
-        <div className="">
-          {/* LEFT TEXT */}
-          <div className="py-8  flex  gap-12 items-center">
-            <p
-              className="text-gray-600 leading-relaxed mb-4"
-              style={{ fontSize: "16px" }}
-            >
-              {aboutUs.description}
-            </p>
+        {/* ================= TEXT + IMAGES ================= */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+         
+            {/* LEFT TEXT */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+              <p className="text-gray-600 text-sm sm:text-base leading-relaxed mb-6">
+                {aboutUs.description}
+              </p>
 
-            {aboutUs.sectionImage && (
+              {aboutUs.sectionImage && (
+                <img
+                  src={aboutUs.sectionImage}
+                  alt="About Section"
+                  className="w-full h-64 sm:h-72 lg:h-[350px] object-cover rounded-2xl shadow-lg"
+                />
+              )}
+            </div>
+
+            {/* RIGHT IMAGE */}
+            {aboutUs.image && (
               <img
-                src={aboutUs.sectionImage}
-                alt="About Section"
-                className="w-full h-[350px] object-cover rounded-2xl shadow-lg mt-4"
+                src={aboutUs.image}
+                alt="About"
+                className="w-full h-64 sm:h-72 lg:h-[350px] object-cover rounded-2xl shadow-lg"
               />
             )}
           </div>
-
-          {/* RIGHT IMAGE */}
-          {aboutUs.image && (
-            <img
-              src={aboutUs.image}
-              alt="About"
-              className="w-full h-[350px] object-cover rounded-2xl shadow-lg"
-            />
-          )}
-        </div>
+       
 
         {/* ================= STATS ================= */}
         {aboutUs.stats && (
-          <div className="bg-gray-100 py-16">
-            <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10 text-center px-4">
+          <div className="bg-gray-100 py-12 sm:py-16 mt-16">
+            <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10 text-center px-4">
               <div>
                 <h3
-                  className="font-bold"
-                  style={{ fontSize: "32px", color: theme.primary }}
+                  className="font-bold text-3xl sm:text-4xl"
+                  style={{ color: theme.primary }}
                 >
                   {aboutUs.stats.experience}+
                 </h3>
-                <p className="text-gray-600 mt-2" style={{ fontSize: "16px" }}>
+                <p className="text-gray-600 mt-2 text-sm sm:text-base">
                   Years Experience
                 </p>
               </div>
 
               <div>
                 <h3
-                  className="font-bold"
-                  style={{ fontSize: "32px", color: theme.primary }}
+                  className="font-bold text-3xl sm:text-4xl"
+                  style={{ color: theme.primary }}
                 >
                   {aboutUs.stats.dishes}+
                 </h3>
-                <p className="text-gray-600 mt-2" style={{ fontSize: "16px" }}>
+                <p className="text-gray-600 mt-2 text-sm sm:text-base">
                   Dishes
                 </p>
               </div>
 
               <div>
                 <h3
-                  className="font-bold"
-                  style={{ fontSize: "32px", color: theme.primary }}
+                  className="font-bold text-3xl sm:text-4xl"
+                  style={{ color: theme.primary }}
                 >
                   {aboutUs.stats.customers}+
                 </h3>
-                <p className="text-gray-600 mt-2" style={{ fontSize: "16px" }}>
+                <p className="text-gray-600 mt-2 text-sm sm:text-base">
                   Happy Customers
                 </p>
               </div>
