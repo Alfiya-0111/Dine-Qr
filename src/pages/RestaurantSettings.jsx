@@ -35,6 +35,7 @@ const [aboutImageFile, setAboutImageFile] = useState(null);
     primary: "#8A244B",
     secondary: "#ffffff",
     border: "#8A244B",
+      background: "#ffffff", 
   });
 
   const [name, setName] = useState("");
@@ -68,13 +69,13 @@ const [aboutImageFile, setAboutImageFile] = useState(null);
         setEmail(data.contact?.email || "");
         setAddress(data.contact?.address || "");
 
-        setTheme(
-          data.theme || {
-            primary: "#8A244B",
-            secondary: "#ffffff",
-            border: "#8A244B",
-          }
-        );
+       setTheme({
+  primary: data.theme?.primary || "#8A244B",
+  secondary: data.theme?.secondary || "#ffffff",
+  border: data.theme?.border || "#8A244B",
+  background: data.theme?.background || "#ffffff",
+});
+
       }
     });
   }, [restaurantId]);
@@ -230,13 +231,20 @@ const handleSave = async () => {
     }
 
     /* ================= SAVE DATA ================= */
-    await update(dbRef(realtimeDB, `restaurants/${restaurantId}/about`), {
-      heroVideo: heroVideoURL,
-      description: aboutData.description,
-      sectionText: aboutData.sectionText,
-      sectionImage: sectionImageURL,
-      stats: aboutData.stats,
-    });
+// ✅ SAVE ABOUT
+await update(dbRef(realtimeDB, `restaurants/${restaurantId}/about`), {
+  heroVideo: heroVideoURL,
+  description: aboutData.description,
+  sectionText: aboutData.sectionText,
+  sectionImage: sectionImageURL,
+  stats: aboutData.stats,
+});
+
+// ✅ SAVE THEME SEPARATELY (ROOT)
+await update(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
+  theme: theme,
+});
+
 
     // ✅ VERY IMPORTANT: reset files
     setHeroVideoFile(null);
@@ -274,6 +282,16 @@ const handleSave = async () => {
               onChange={(e) => setTheme({ ...theme, border: e.target.value })}
             />
           </div>
+          <div>
+  <label className="text-sm">Background</label>
+  <input
+    type="color"
+    value={theme.background}
+    onChange={(e) =>
+      setTheme({ ...theme, background: e.target.value })
+    }
+  />
+</div>
         </div>
       </div>
 

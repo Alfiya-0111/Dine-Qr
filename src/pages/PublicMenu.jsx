@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ref as rtdbRef, onValue } from "firebase/database";
-
+import { IoCartOutline } from "react-icons/io5";
 import { db, realtimeDB } from "../firebaseConfig";
 import { useCart } from "../context/CartContext";
 import { IoSearchOutline } from "react-icons/io5";
@@ -32,8 +32,9 @@ export default function PublicMenu() {
   const theme = restaurantSettings?.theme || {
     primary: "#8A244B",
     border: "#8A244B",
+    background: "#fffff"
   };
-
+console.log("THEME FROM DB:", restaurantSettings?.theme);
   const { restaurantId } = useParams();
   const requireLogin = useRequireLogin();
   const [categories, setCategories] = useState([]);
@@ -190,11 +191,15 @@ export default function PublicMenu() {
   if (sort === "priceHigh") filteredItems.sort((a, b) => b.price - a.price);
 
   // 🔥 FIXED CATEGORY FILTER (USING category STRING)
-  if (activeCategory !== "all") {
-    filteredItems = filteredItems.filter((item) => {
-      return item.category === categories.find(c => c.id === activeCategory)?.name;
-    });
+if (activeCategory !== "all") {
+  const activeCat = categories.find(c => c.id === activeCategory);
+  if (activeCat) {
+    filteredItems = filteredItems.filter(
+      item => item.category === activeCat.name
+    );
   }
+}
+
 
   const handleOrderClick = (item) => {
     if (!requireLogin()) return;
@@ -208,7 +213,15 @@ export default function PublicMenu() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4">
+    <div
+  className="min-h-screen w-full"
+ 
+>
+    <div
+  className="max-w-7xl w-full mx-auto" style={{ backgroundColor: theme.background }}
+  
+>
+  
       {/* ===== HEADER ===== */}
       <div className="sticky top-0 z-50 bg-white ">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-3 px-2">
@@ -272,10 +285,10 @@ export default function PublicMenu() {
           </div>
         </div>
       </div>
-
       {/* ===== MENU ===== */}
       {activeTab === "menu" && (
         <>
+       
           <div className="text-center my-8">
             <h2 className="text-4xl font-bold" style={{ color: theme.primary }}>
               {restaurantName}
@@ -669,24 +682,44 @@ export default function PublicMenu() {
         </div>
       )}
 
-      <button onClick={() => setOpenCart(true)} className="relative hidden md:block">
-        🛒
-        {cart.length > 0 && (
-          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 rounded-full">
-            {cart.length}
-          </span>
-        )}
-      </button>
+ {activeTab === "menu" && (
+  <>
+    <button
+      onClick={() => setOpenCart(true)}
+      className="relative hidden md:block"
+    >
+      <IoCartOutline className="text-5xl" />
+      {cart.length > 0 && (
+        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 rounded-full">
+          {cart.length}
+        </span>
+      )}
+    </button>
+
+    {cart.length > 0 && (
+      <BottomCart onOpen={() => setOpenCart(true)}  theme={theme}/>
+    )}
+  </>
+)}
+
 
       {cart.length > 0 && <BottomCart onOpen={() => setOpenCart(true)} />}
 
-      <CartSidebar open={openCart} onClose={() => setOpenCart(false)} />
+     {activeTab === "menu" && (
+  <CartSidebar
+    open={openCart}
+    onClose={() => setOpenCart(false)}
+    theme={theme}
+  />
+)}
+
 
       {selectedItem && (
         <OrderModal item={selectedItem} onClose={() => setSelectedItem(null)} />
       )}
 
       <LoginModal />
+    </div>
     </div>
   );
 }
