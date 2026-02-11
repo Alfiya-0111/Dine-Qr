@@ -4,10 +4,42 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { useRequireLogin } from "../utils/requireLogin";
 
 export default function OrderModal({ item, onClose }) {
+  const [order, setOrder] = useState(null);
   const [qty, setQty] = useState(1);
   const total = item.price * qty;
 
   const requireLogin = useRequireLogin(); // ✅ hook use
+const prepMinutes = item.prepTime || 15;
+
+const orderPayload = {
+  dishId: item.id,
+  restaurantId: item.restaurantId,
+
+  prepTime: prepMinutes,
+  prepStartedAt: Date.now(),
+  prepEndsAt: Date.now() + prepMinutes * 60 * 1000,
+
+  status: "preparing", // preparing | ready
+};
+const getPrepProgress = (order) => {
+  if (!order?.prepStartedAt || !order?.prepTime) {
+    return { percent: 0, remainingMin: order?.prepTime || 0 };
+  }
+
+  const now = Date.now();
+  const totalMs = order.prepTime * 60 * 1000;
+  const elapsed = now - order.prepStartedAt;
+
+  const percent = Math.min(
+    100,
+    Math.round((elapsed / totalMs) * 100)
+  );
+
+  const remainingMs = Math.max(0, totalMs - elapsed);
+  const remainingMin = Math.ceil(remainingMs / 60000);
+
+  return { percent, remainingMin };
+};
 
   const handleOrder = async () => {
     if (!requireLogin()) return;
@@ -23,6 +55,18 @@ export default function OrderModal({ item, onClose }) {
       paymentStatus: "pending",
       createdAt: serverTimestamp(),
     });
+const prepMinutes = item.prepTime || 15;
+
+const newOrder = {
+  dishId: item.id,
+  restaurantId: item.restaurantId,
+  prepTime: prepMinutes,
+  prepStartedAt: Date.now(),
+  prepEndsAt: Date.now() + prepMinutes * 60 * 1000,
+  status: "preparing",
+};
+
+setOrder(newOrder);
 
     alert("Order placed! Please scan QR to complete payment 📲");
     onClose();
@@ -41,7 +85,31 @@ export default function OrderModal({ item, onClose }) {
         </div>
 
         <p className="font-bold text-center mb-4">Total: ₹{total}</p>
+{order?.status === "preparing" && (() => {
+  const { percent, remainingMin } = getPrepProgress(order);
 
+  return (
+    <div className="mb-4">
+      <p className="text-sm font-semibold text-center mb-2">
+        🍳 Your order is being prepared
+      </p>
+
+      <div className="w-full bg-gray-200 rounded-full h-2">
+        <div
+          className="h-2 rounded-full transition-all"
+          style={{
+            width: `${percent}%`,
+            backgroundColor: "#8A244B",
+          }}
+        />
+      </div>
+
+      <p className="text-xs mt-1 text-center text-gray-600">
+        ⏳ {percent}% done · {remainingMin} min left
+      </p>
+    </div>
+  );
+})()}
         <div className="border rounded-xl p-3 mb-4 text-center">
           <p className="text-sm text-gray-500 mb-2">Scan this QR to pay</p>
           <img

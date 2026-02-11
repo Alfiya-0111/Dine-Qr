@@ -188,6 +188,20 @@ export default function AddItem() {
         value={form.description}
         onChange={(e) => setForm({ ...form, description: e.target.value })}
       />
+{/* Prep Time */}
+<input
+  type="number"
+  min="1"
+  className="w-full border p-3 rounded-xl mb-4"
+  placeholder="Ready in (minutes)"
+  value={form.prepTime}
+  onChange={(e) =>
+    setForm({ ...form, prepTime: Number(e.target.value) })
+  }
+/>
+<p className="text-xs text-gray-500">
+  ⏱ Estimated time to prepare this dish
+</p>
 
       {/* Category */}
       <select

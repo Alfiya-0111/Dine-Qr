@@ -5,6 +5,7 @@ import { db, realtimeDB } from "../firebaseConfig";
 import { useCart } from "../context/CartContext";
 import { IoSearchOutline } from "react-icons/io5";
 import { PiMicrophone } from "react-icons/pi";
+import { auth } from "../firebaseConfig";
 import {
   collection,
   getDocs,
@@ -57,6 +58,29 @@ console.log("THEME FROM DB:", restaurantSettings?.theme);
   const [openCart, setOpenCart] = useState(false);
 
   const newItems = items.filter((i) => i.isNew).slice(0, 10);
+const [activeOrder, setActiveOrder] = useState(null);
+const [userId, setUserId] = useState(null);
+
+useEffect(() => {
+  return auth.onAuthStateChanged(user => {
+    if (user) setUserId(user.uid);
+  });
+}, []);
+useEffect(() => {
+  if (!userId) return;
+
+  const ref = rtdbRef(realtimeDB, `orders`);
+  onValue(ref, (snap) => {
+    const data = snap.val();
+    if (!data) return;
+
+    const myOrder = Object.values(data).find(
+      o => o.userId === userId && o.status === "preparing"
+    );
+
+    setActiveOrder(myOrder || null);
+  });
+}, [userId]);
 
   // ✅ Categories (ONLY ONE USEEFFECT)
   useEffect(() => {
@@ -120,6 +144,31 @@ console.log("THEME FROM DB:", restaurantSettings?.theme);
       setTrendingDishIds(sorted);
     });
   }, []);
+useEffect(() => {
+  if (activeOrder?.status === "ready") {
+    if ("Notification" in window) {
+      Notification.requestPermission().then((perm) => {
+        if (perm === "granted") {
+          new Notification("🍽️ Dish Ready!", {
+            body: "Wait is over. Your order is ready 🎉",
+          });
+        }
+      });
+    }
+  }
+}, [order?.status]);
+
+const getPrepProgress = (order) => {
+  const now = Date.now();
+  const total = order.prepEndsAt - order.prepStartedAt;
+  const done = now - order.prepStartedAt;
+
+  const percent = Math.min(100, Math.floor((done / total) * 100));
+  const remainingMs = Math.max(0, order.prepEndsAt - now);
+  const remainingMin = Math.ceil(remainingMs / 60000);
+
+  return { percent, remainingMin };
+};
 
   const loadRestaurantInfo = async () => {
     const ref = doc(db, "restaurants", restaurantId);
@@ -380,6 +429,36 @@ if (activeCategory !== "all") {
               </button>
             </div>
           </div>
+{activeOrder && (
+  <div className="bg-yellow-50 border rounded-xl p-3 mb-4">
+    <p className="font-semibold text-sm">
+      🍳 Your order is being prepared
+    </p>
+
+    {(() => {
+      const { percent, remainingMin } =
+        getPrepProgress(activeOrder);
+
+      return (
+        <>
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div
+              className="h-2 rounded-full"
+              style={{
+                width: `${percent}%`,
+                backgroundColor: theme.primary,
+              }}
+            />
+          </div>
+
+          <p className="text-xs mt-1">
+            {remainingMin} min remaining
+          </p>
+        </>
+      );
+    })()}
+  </div>
+)}
 
           <button
             style={{ borderColor: theme.primary }}
@@ -703,7 +782,7 @@ if (activeCategory !== "all") {
 )}
 
 
-      {cart.length > 0 && <BottomCart onOpen={() => setOpenCart(true)} />}
+   
 
      {activeTab === "menu" && (
   <CartSidebar
