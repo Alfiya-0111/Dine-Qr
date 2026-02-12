@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
-import { ref, onValue } from "firebase/database";
-import { db } from "../firebaseConfig";
+import { ref, onValue, push, set } from "firebase/database";
+import { realtimeDB, db, auth } from "../firebaseConfig";
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 import { useCart } from "../context/CartContext";
@@ -11,11 +12,12 @@ export default function Checkout() {
   const { restaurantId } = useParams();
 
   const [restaurantSettings, setRestaurantSettings] = useState(null);
-
+const navigate = useNavigate();
   useEffect(() => {
     if (!restaurantId) return;
 
-    const settingsRef = ref(db, `restaurants/${restaurantId}/settings`);
+    const settingsRef = ref(realtimeDB, `restaurants/${restaurantId}/settings`);
+
     onValue(settingsRef, (snap) => {
       if (snap.exists()) {
         setRestaurantSettings(snap.val());
@@ -29,6 +31,59 @@ export default function Checkout() {
   };
 
   const qrImage = restaurantSettings?.paymentQR;
+
+const handlePlaceOrder = async () => {
+  if (!auth.currentUser) {
+    alert("Login required");
+    return;
+  }
+
+  const now = Date.now();
+
+  try {
+    const maxPrepTime = Math.max(...cart.map(i => i.prepTime || 15));
+
+    const orderPayload = {
+      userId: auth.currentUser.uid,
+      restaurantId,
+
+      items: cart.map(item => ({
+        dishId: item.id,
+        name: item.name,
+        price: Number(item.price) || 0,
+        qty: Number(item.qty) || 1,
+        prepTime: item.prepTime || 15,
+      })),
+
+      total: Number(total),
+
+      prepStartedAt: now,
+      prepEndsAt: now + maxPrepTime * 60 * 1000,
+
+      status: "preparing",
+      paymentStatus: "pending",
+      createdAt: now,
+    };
+
+    await push(ref(realtimeDB, "orders"), orderPayload);
+
+    clearCart();
+
+    // ✅ MAGIC LINE
+    navigate(`/menu/${restaurantId}`);
+
+  } catch (err) {
+    console.error(err);
+    alert("Order failed 😢");
+  }
+};
+
+
+
+console.log("USER:", auth.currentUser);
+console.log("restaurantId:", restaurantId);
+console.log("cart:", cart);
+
 
   if (cart.length === 0) {
     return (
@@ -76,19 +131,17 @@ export default function Checkout() {
           )}
         </div>
 
-        <button
-          onClick={() => {
-            alert("Payment successful 🍽️");
-            clearCart();
-          }}
-          style={{
-            border: `2px solid ${theme.border}`,
-            background: "transparent",
-          }}
-          className="w-full mt-6 py-2 rounded font-semibold"
-        >
-          I Have Paid
-        </button>
+       <button
+  onClick={handlePlaceOrder}
+  style={{
+    border: `2px solid ${theme.border}`,
+    background: "transparent",
+  }}
+  className="w-full mt-6 py-2 rounded font-semibold"
+>
+  Confirm Order
+</button>
+
       </div>
     </div>
   );

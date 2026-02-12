@@ -2,7 +2,7 @@ import { useCart } from "../context/CartContext";
 import CartItem from "./CartItem";
 import { useNavigate } from "react-router-dom";
 
-export default function CartSidebar({ open, onClose, theme }) {
+export default function CartSidebar({ open, onClose, theme, restaurantId }) {
   const { cart, total } = useCart();
 
 
@@ -35,7 +35,7 @@ const navigate = useNavigate();
 
       {/* CHECKOUT BUTTON (BORDER ONLY) */}
    <button
-  onClick={() => navigate("/checkout")}
+  onClick={() => navigate(`/checkout/${restaurantId}`)}
   style={{
     border: `2px solid ${theme?.border || theme?.primary}`,
     backgroundColor: "transparent",

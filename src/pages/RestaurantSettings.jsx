@@ -208,9 +208,8 @@ const handleSave = async () => {
     setLoading(true);
 
     /* ================= HERO VIDEO ================= */
-    let heroVideoURL = aboutData.heroVideo; // existing video URL
+    let heroVideoURL = aboutData.heroVideo;
 
-    // 🔴 ONLY upload when NEW file is selected
     if (heroVideoFile instanceof File) {
       setVideoUploading(true);
       setUploadProgress(0);
@@ -230,25 +229,38 @@ const handleSave = async () => {
       sectionImageURL = await uploadImageToImgbb(aboutImageFile);
     }
 
-    /* ================= SAVE DATA ================= */
-// ✅ SAVE ABOUT
-await update(dbRef(realtimeDB, `restaurants/${restaurantId}/about`), {
-  heroVideo: heroVideoURL,
-  description: aboutData.description,
-  sectionText: aboutData.sectionText,
-  sectionImage: sectionImageURL,
-  stats: aboutData.stats,
-});
+    /* ================= LOGO IMAGE ================= */
+    let logoURL = logo;
 
-// ✅ SAVE THEME SEPARATELY (ROOT)
-await update(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
-  theme: theme,
-});
+    if (logoFile instanceof File) {
+      logoURL = await uploadImageToImgbb(logoFile);
+    }
 
+    /* ================= SAVE EVERYTHING ================= */
+    await update(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
+      name: name,
+      logo: logoURL,
 
-    // ✅ VERY IMPORTANT: reset files
+      contact: {
+        phone: phone,
+        email: email,
+        address: address,
+      },
+
+      theme: theme,
+
+      about: {
+        heroVideo: heroVideoURL,
+        description: aboutData.description,
+        sectionText: aboutData.sectionText,
+        sectionImage: sectionImageURL,
+        stats: aboutData.stats,
+      },
+    });
+
     setHeroVideoFile(null);
     setAboutImageFile(null);
+    setLogoFile(null);
 
     alert("Saved successfully");
   } catch (err) {
@@ -258,7 +270,7 @@ await update(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
     setLoading(false);
   }
 };
-  return (
+return (
     <div className="max-w-3xl mx-auto p-6">
       <h2 className="text-2xl font-bold mb-6">Restaurant Settings</h2>
 

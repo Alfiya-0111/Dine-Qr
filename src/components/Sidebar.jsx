@@ -9,6 +9,9 @@ export default function Sidebar() {
       {/* Navigation Links */}
       <nav className="flex flex-col gap-4">
         <li>
+          <Link to ="/dashboard/adminorder">Admin Order</Link>
+        </li>
+        <li>
   <Link to="/dashboard/restaurant-settings">
     Restaurant Settings
   </Link>

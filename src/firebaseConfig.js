@@ -24,7 +24,6 @@ getAnalytics(app);
 // ✅ Export main Firebase services
 export const auth = getAuth(app);
 export const db = getFirestore(app); // <-- Firestore database
-export const rtdb = getDatabase(app); // <-- Realtime Database (for comments, etc.)
 export const realtimeDB = getDatabase(app);
 export const firestore = getFirestore(app); // 🔥 Add this line for Firestore
 export const googleProvider = new GoogleAuthProvider();

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { ref as rtdbRef, onValue } from "firebase/database";
+import { ref as rtdbRef, onValue  , update} from "firebase/database";
 import { IoCartOutline } from "react-icons/io5";
 import { db, realtimeDB } from "../firebaseConfig";
 import { useCart } from "../context/CartContext";
 import { IoSearchOutline } from "react-icons/io5";
 import { PiMicrophone } from "react-icons/pi";
 import { auth } from "../firebaseConfig";
+import readySound from "../assets/ready.mp3";
+import { useRef } from "react";
 import {
   collection,
   getDocs,
@@ -30,6 +32,7 @@ export default function PublicMenu() {
   const [aboutUs, setAboutUs] = useState(null);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
   const [spiceSelections, setSpiceSelections] = useState({});
+  const [showReadyBanner, setShowReadyBanner] = useState(false);
   const theme = restaurantSettings?.theme || {
     primary: "#8A244B",
     border: "#8A244B",
@@ -56,10 +59,48 @@ console.log("THEME FROM DB:", restaurantSettings?.theme);
   const [filter, setFilter] = useState("");
   const { cart, addToCart } = useCart();
   const [openCart, setOpenCart] = useState(false);
-
+const [, forceUpdate] = useState(0);
   const newItems = items.filter((i) => i.isNew).slice(0, 10);
 const [activeOrder, setActiveOrder] = useState(null);
 const [userId, setUserId] = useState(null);
+const audioRef = useRef(null);
+const prevStatusRef = useRef(null);
+useEffect(() => {
+  const interval = setInterval(() => {
+    forceUpdate(n => n + 1);
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, []);
+useEffect(() => {
+  const status = activeOrder?.status;
+
+  if (status === "ready" && prevStatusRef.current !== "ready") {
+
+    // 🔊 SOUND
+    if (audioRef.current) {
+      audioRef.current.play().catch(() => {});
+    }
+
+    // 🔔 NOTIFICATION
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("Enjoy your meal!", {
+        body: "Wait is over. Your order is ready 🎉",
+      });
+    }
+
+    // ✅ SHOW BANNER
+    setShowReadyBanner(true);
+
+    // ✅ AUTO HIDE AFTER 5 SECONDS 😌🔥
+    setTimeout(() => {
+      setShowReadyBanner(false);
+    }, 5000);
+  }
+
+  prevStatusRef.current = status;
+}, [activeOrder?.status]);
+
 
 useEffect(() => {
   return auth.onAuthStateChanged(user => {
@@ -74,11 +115,16 @@ useEffect(() => {
     const data = snap.val();
     if (!data) return;
 
-    const myOrder = Object.values(data).find(
-      o => o.userId === userId && o.status === "preparing"
-    );
+const myOrder = Object.entries(data).find(
+  ([id, order]) =>
+    order.userId === userId &&
+    order.restaurantId === restaurantId &&
+    ["preparing", "ready"].includes(order.status)
+);
 
-    setActiveOrder(myOrder || null);
+setActiveOrder(myOrder ? { id: myOrder[0], ...myOrder[1] } : null);
+
+   
   });
 }, [userId]);
 
@@ -156,16 +202,30 @@ useEffect(() => {
       });
     }
   }
-}, [order?.status]);
+}, [activeOrder?.status]);
 
 const getPrepProgress = (order) => {
   const now = Date.now();
+
   const total = order.prepEndsAt - order.prepStartedAt;
   const done = now - order.prepStartedAt;
 
   const percent = Math.min(100, Math.floor((done / total) * 100));
   const remainingMs = Math.max(0, order.prepEndsAt - now);
   const remainingMin = Math.ceil(remainingMs / 60000);
+
+  // ✅ AUTO READY FIX 🔥
+  if (
+  remainingMs <= 0 &&
+  order.status === "preparing" &&
+  !order.readyTriggered
+) {
+  update(rtdbRef(realtimeDB, `orders/${order.id}`), {
+    status: "ready",
+    readyTriggered: true,
+  });
+}
+
 
   return { percent, remainingMin };
 };
@@ -450,7 +510,7 @@ if (activeCategory !== "all") {
               }}
             />
           </div>
-
+<audio ref={audioRef} src={readySound} preload="auto" />
           <p className="text-xs mt-1">
             {remainingMin} min remaining
           </p>
@@ -458,7 +518,17 @@ if (activeCategory !== "all") {
       );
     })()}
   </div>
+
 )}
+
+ {showReadyBanner && (
+  <div className="bg-green-50 border border-green-500 rounded-xl p-3 mt-2 text-center animate-pulse">
+    <p className="font-bold text-green-600">
+      Your Dish is Ready!
+    </p>
+  </div>
+)}
+
 
           <button
             style={{ borderColor: theme.primary }}
@@ -789,6 +859,8 @@ if (activeCategory !== "all") {
     open={openCart}
     onClose={() => setOpenCart(false)}
     theme={theme}
+    
+  restaurantId={restaurantId}
   />
 )}
 

@@ -14,6 +14,7 @@ import { AuthProvider } from "./context/AuthContext";
 import LoginModal from "./components/LoginModal"; // ✅ CUSTOMER LOGIN MODAL
 import RestaurantSettings from "./pages/RestaurantSettings";
 import Checkout from "./pages/Checkout";
+import AdminOrders from "./pages/AdminOrders";
 
 function App() {
   return (
@@ -31,16 +32,11 @@ function App() {
 
           {/* 🔹 PUBLIC CUSTOMER MENU */}
           <Route path="/menu/:restaurantId" element={<PublicMenu />} />
-            <Route  path="/checkout"
-  element={
-    <Checkout
-     
-    />
-  }
-/>
+     <Route path="/checkout/:restaurantId" element={<Checkout />} />
 
           {/* 🔹 OWNER DASHBOARD */}
           <Route path="/dashboard" element={<Dashboard />}>
+          <Route path="adminorder" element={<AdminOrders/>}/>
           <Route path="restaurant-settings" element={<RestaurantSettings/>}/>
          
             <Route path="menu" element={<MenuItems />} />
