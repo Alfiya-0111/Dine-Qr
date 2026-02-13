@@ -47,13 +47,29 @@ const handlePlaceOrder = async () => {
       userId: auth.currentUser.uid,
       restaurantId,
 
-      items: cart.map(item => ({
-        dishId: item.id,
-        name: item.name,
-        price: Number(item.price) || 0,
-        qty: Number(item.qty) || 1,
-        prepTime: item.prepTime || 15,
-      })),
+items: cart.map(item => {
+  const prepTime = item.prepTime || 15;
+
+  return {
+    dishId: item.id,
+    name: item.name,
+
+    image: item.image || item.imageUrl || "",
+
+    qty: Number(item.qty) || 1,
+    price: Number(item.price),
+
+    prepTime,
+
+    prepStartedAt: now,
+    prepEndsAt: now + prepTime * 60000,
+
+    status: "preparing"
+  };
+}),
+
+
+
 
       total: Number(total),
 

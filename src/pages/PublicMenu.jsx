@@ -33,6 +33,10 @@ export default function PublicMenu() {
   const [restaurantSettings, setRestaurantSettings] = useState(null);
   const [spiceSelections, setSpiceSelections] = useState({});
   const [showReadyBanner, setShowReadyBanner] = useState(false);
+  const [sweetSelections, setSweetSelections] = useState({});
+
+ const [saltSelections, setSaltSelections] = useState({});
+
   const theme = restaurantSettings?.theme || {
     primary: "#8A244B",
     border: "#8A244B",
@@ -65,6 +69,41 @@ const [activeOrder, setActiveOrder] = useState(null);
 const [userId, setUserId] = useState(null);
 const audioRef = useRef(null);
 const prevStatusRef = useRef(null);
+const categoryCounts = {};
+
+items.forEach(item => {
+
+  // ✅ NEW SYSTEM (categoryIds array)
+  if (item.categoryIds?.length) {
+
+    item.categoryIds.forEach(catId => {
+      categoryCounts[catId] =
+        (categoryCounts[catId] || 0) + 1;
+    });
+
+  }
+
+  // ✅ FALLBACK (old category string)
+  else if (item.category) {
+
+    const cat = categories.find(
+      c => c.name.trim().toLowerCase() ===
+           item.category.trim().toLowerCase()
+    );
+
+    if (!cat) return;
+
+    categoryCounts[cat.id] =
+      (categoryCounts[cat.id] || 0) + 1;
+  }
+
+});
+
+const visibleCategories = categories.filter(
+  cat => categoryCounts[cat.id] > 0
+);
+
+
 useEffect(() => {
   const interval = setInterval(() => {
     forceUpdate(n => n + 1);
@@ -72,6 +111,26 @@ useEffect(() => {
 
   return () => clearInterval(interval);
 }, []);
+useEffect(() => {
+  const unlockAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.play()
+        .then(() => {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          console.log("Audio unlocked ✅");
+        })
+        .catch(() => {});
+    }
+
+    window.removeEventListener("click", unlockAudio);
+  };
+
+  window.addEventListener("click", unlockAudio);
+
+  return () => window.removeEventListener("click", unlockAudio);
+}, []);
+
 useEffect(() => {
   const status = activeOrder?.status;
 
@@ -211,24 +270,27 @@ const getPrepProgress = (order) => {
   const done = now - order.prepStartedAt;
 
   const percent = Math.min(100, Math.floor((done / total) * 100));
+
   const remainingMs = Math.max(0, order.prepEndsAt - now);
-  const remainingMin = Math.ceil(remainingMs / 60000);
 
-  // ✅ AUTO READY FIX 🔥
+  const remainingMin = Math.floor(remainingMs / 60000);
+  const remainingSec = Math.floor((remainingMs % 60000) / 1000);
+
+  /* ✅ AUTO READY */
   if (
-  remainingMs <= 0 &&
-  order.status === "preparing" &&
-  !order.readyTriggered
-) {
-  update(rtdbRef(realtimeDB, `orders/${order.id}`), {
-    status: "ready",
-    readyTriggered: true,
-  });
-}
+    remainingMs <= 0 &&
+    order.status === "preparing" &&
+    !order.readyTriggered
+  ) {
+    update(rtdbRef(realtimeDB, `orders/${order.id}`), {
+      status: "ready",
+      readyTriggered: true,
+    });
+  }
 
-
-  return { percent, remainingMin };
+  return { percent, remainingMin, remainingSec, remainingMs };
 };
+
 
   const loadRestaurantInfo = async () => {
     const ref = doc(db, "restaurants", restaurantId);
@@ -299,17 +361,32 @@ const getPrepProgress = (order) => {
   if (sort === "priceLow") filteredItems.sort((a, b) => a.price - b.price);
   if (sort === "priceHigh") filteredItems.sort((a, b) => b.price - a.price);
 
-  // 🔥 FIXED CATEGORY FILTER (USING category STRING)
 if (activeCategory !== "all") {
-  const activeCat = categories.find(c => c.id === activeCategory);
-  if (activeCat) {
-    filteredItems = filteredItems.filter(
-      item => item.category === activeCat.name
+  filteredItems = filteredItems.filter(item => {
+
+    const hasNewSystem =
+      Array.isArray(item.categoryIds) && item.categoryIds.length > 0;
+
+    if (hasNewSystem) {
+      return item.categoryIds.includes(activeCategory);
+    }
+
+    const activeCat = categories.find(c => c.id === activeCategory);
+
+    if (!activeCat) return true;
+
+    return (
+      item.category?.trim().toLowerCase() ===
+      activeCat.name?.trim().toLowerCase()
     );
-  }
+  });
 }
 
 
+
+console.log("CATEGORIES:", categories);
+console.log("ITEMS:", items);
+console.log("RestaurantId:", restaurantId);
   const handleOrderClick = (item) => {
     if (!requireLogin()) return;
 
@@ -321,11 +398,14 @@ if (activeCategory !== "all") {
     setSelectedItem(item);
   };
 
+
   return (
+
     <div
   className="min-h-screen w-full"
  
 >
+  <audio ref={audioRef} src={readySound} preload="auto" />
     <div
   className="max-w-7xl w-full mx-auto" style={{ backgroundColor: theme.background }}
   
@@ -349,33 +429,41 @@ if (activeCategory !== "all") {
             )}
           </div>
 
-          {/* CATEGORIES */}
-          <div className="flex gap-3 overflow-x-auto pb-2 snap-x mt-2 md:mt-0 sm:overflow-auto">
-            <button
-              onClick={() => setActiveCategory("all")}
-              style={{
-                backgroundColor:
-                  activeCategory === "all" ? theme.primary : "#e5e7eb",
-                color: activeCategory === "all" ? "#fff" : "#000",
-              }}
-              className="px-4 py-2 rounded-full"
-            >
-              All
-            </button>
+         
+        {/* CATEGORIES */}
+<div className="flex gap-3 overflow-x-auto pb-2 snap-x mt-2 md:mt-0">
 
-            {categories.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setActiveCategory(c.id)}
-                style={{
-                  backgroundColor: activeCategory === c.id ? theme.primary : "#e5e7eb",
-                }}
-                className="px-4 py-2 rounded-full whitespace-nowrap snap-start text-white transition"
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
+  <button
+    onClick={() => setActiveCategory("all")}
+    style={{
+      backgroundColor:
+        activeCategory === "all" ? theme.primary : "#e5e7eb",
+      color: activeCategory === "all" ? "#fff" : "#000",
+    }}
+    className="px-4 py-2 rounded-full"
+  >
+    All
+  </button>
+
+ {visibleCategories.map((c) => (
+  <button
+    key={c.id}
+    onClick={() => setActiveCategory(c.id)}
+    className="px-4 py-2 rounded-full whitespace-nowrap transition"
+    style={{
+      backgroundColor:
+        activeCategory === c.id ? theme.primary : "#e5e7eb",
+      color:
+        activeCategory === c.id ? "#fff" : "#000"
+    }}
+  >
+    {c.name} • {categoryCounts[c.id] || 0}
+  </button>
+))}
+
+
+</div>
+
 
           {/* TABS */}
           <div className="flex justify-end gap-4 text-sm font-medium">
@@ -489,45 +577,61 @@ if (activeCategory !== "all") {
               </button>
             </div>
           </div>
-{activeOrder && (
-  <div className="bg-yellow-50 border rounded-xl p-3 mb-4">
-    <p className="font-semibold text-sm">
-      🍳 Your order is being prepared
-    </p>
+{activeOrder?.items?.length > 0 && (
 
-    {(() => {
-      const { percent, remainingMin } =
-        getPrepProgress(activeOrder);
+  <div className="bg-white rounded-xl p-3 mb-4">
+
+    {activeOrder.items.map(item => {
+
+      const remainingMs = Math.max(0, item.prepEndsAt - Date.now());
+      const remainingMin = Math.floor(remainingMs / 60000);
+      const remainingSec = Math.floor((remainingMs % 60000) / 1000);
+
+      const isReady = remainingMs <= 0;
 
       return (
-        <>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-            <div
-              className="h-2 rounded-full"
-              style={{
-                width: `${percent}%`,
-                backgroundColor: theme.primary,
-              }}
-            />
-          </div>
-<audio ref={audioRef} src={readySound} preload="auto" />
-          <p className="text-xs mt-1">
-            {remainingMin} min remaining
-          </p>
-        </>
-      );
-    })()}
-  </div>
+        <div key={item.dishId} className="flex justify-between text-xs">
 
+          <span>
+            {item.name} × {item.qty}
+          </span>
+
+          {isReady ? (
+            <span className="text-green-600 font-bold">
+              ✅ Ready
+            </span>
+          ) : (
+            <span>
+              ⏳ {remainingMin}m {remainingSec}s
+            </span>
+          )}
+
+        </div>
+      );
+    })}
+
+  </div>
 )}
 
- {showReadyBanner && (
-  <div className="bg-green-50 border border-green-500 rounded-xl p-3 mt-2 text-center animate-pulse">
-    <p className="font-bold text-green-600">
-      Your Dish is Ready!
+{!activeOrder && (
+  <p className="text-xs text-gray-400 text-center mt-4">
+    No active orders 🍽
+  </p>
+)}
+
+
+{showReadyBanner && (
+  <div className="bg-green-50 border border-green-500 rounded-xl p-3 mt-2 text-center animate-bounce">
+    <p className="font-bold text-green-600 text-lg">
+      🍽️ Your Dish is Ready!
+    </p>
+
+    <p className="text-xs text-gray-500 mt-1">
+      Please check your order 😌
     </p>
   </div>
 )}
+
 
 
           <button
@@ -538,7 +642,10 @@ if (activeCategory !== "all") {
             Sort & Filter
           </button>
 
-          <NewItemsSlider items={items} theme={theme} />
+         {activeCategory === "all" && (
+  <NewItemsSlider items={items} theme={theme} />
+)}
+
 
           {/* MENU GRID */}
           {loading ? (
@@ -590,40 +697,105 @@ if (activeCategory !== "all") {
                       )}
 
                       {/* Spice selection overlay */}
-                    <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-xs flex gap-2 shadow">
-  {["normal", "medium", "spicy"].map((level) => {
-    const isActive = spiceSelections[item.id] === level;
+                  {/* Spice selector ONLY for non-sweet dishes */}
+{item.dishTasteProfile !== "sweet" && (
+  <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-xs flex gap-2 shadow">
+    {["normal", "medium", "spicy"].map((level) => {
+      const isActive = spiceSelections[item.id] === level;
 
-    return (
-    <label
-  key={level}
-  className={`relative flex items-center gap-1 cursor-pointer spice-label ${isActive ? `smoke-${level}` : ""}`}
->
-  <input
-    type="checkbox"
-    checked={isActive}
-    onChange={() =>
-      setSpiceSelections((prev) => ({
-        ...prev,
-        [item.id]: level,
-      }))
-    }
-    className="spice-checkbox"
-    style={{ "--border-color": theme.border }}
-  />
-  {level}
+      return (
+        <label
+          key={level}
+          className={`relative flex items-center gap-1 cursor-pointer spice-label ${
+            isActive ? `smoke-${level}` : ""
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={isActive}
+            onChange={() =>
+              setSpiceSelections((prev) => ({
+                ...prev,
+                [item.id]: level,
+              }))
+            }
+            className="spice-checkbox"
+            style={{ "--border-color": theme.border }}
+          />
+          {level}
 
-  {isActive && (
-    <>
-      <span className="smoke"></span>
-      <span className="smoke"></span>
-      <span className="smoke"></span>
-    </>
-  )}
-</label>
-    );
-  })}
-</div>
+          {isActive && (
+            <>
+              <span className="smoke"></span>
+              <span className="smoke"></span>
+              <span className="smoke"></span>
+            </>
+          )}
+        </label>
+      );
+    })}
+  </div>
+)}
+{/* Sweetness selector ONLY for sweet dishes */}
+{item.dishTasteProfile === "sweet" && item.sugarLevelEnabled && (
+  <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-xs flex gap-2 shadow">
+    {["less", "normal", "extra"].map((level) => {
+      const isActive = sweetSelections[item.id] === level;
+
+      return (
+        <label
+          key={level}
+          className={`flex items-center gap-1 cursor-pointer ${
+            isActive ? "text-[#8A244B] font-semibold" : ""
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={isActive}
+            onChange={() =>
+              setSweetSelections((prev) => ({
+                ...prev,
+                [item.id]: level,
+              }))
+            }
+          />
+          {level}
+        </label>
+      );
+    })}
+  </div>
+)}
+
+{item.dishTasteProfile === "sweet" && item.sugarLevelEnabled && (
+  <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-xs flex gap-2 shadow">
+    {["less", "normal", "extra"].map((level) => {
+      const isActive = sweetSelections[item.id] === level;
+
+      return (
+        <label
+          key={level}
+          className={`flex items-center gap-1 cursor-pointer ${
+            isActive ? "text-[#8A244B] font-semibold" : ""
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={isActive}
+            onChange={() =>
+              setSweetSelections((prev) => ({
+                ...prev,
+                [item.id]: level,
+              }))
+            }
+          />
+          {level}
+        </label>
+      );
+    })}
+  </div>
+)}
+
+
 
                       {/* Veg / Non-Veg / Drink Badge */}
                       {!isDrink ? (
@@ -635,70 +807,100 @@ if (activeCategory !== "all") {
                       )}
                     </div>
 
-                    <div className="p-2">
-                      <h3 className="font-bold text-lg truncate">{item.name}</h3>
-                      <p className="text-gray-500">₹{item.price}</p>
+                 <div className="p-2">
+  <h3 className="font-bold text-lg truncate flex items-center gap-2">
+    {item.name}
 
-                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                        {item.description}
-                      </p>
+    {item.dishTasteProfile === "sweet" && (
+      <span className="text-xs px-2 py-0.5 rounded-full bg-pink-100 text-pink-600">
+        🍰 Sweet
+      </span>
+    )}
 
-                      <Likes restaurantId={item.restaurantId} dishId={item.id} />
-                      <Rating restaurantId={item.restaurantId} dishId={item.id} />
+    {item.dishTasteProfile === "spicy" && (
+      <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+        🌶 Spicy
+      </span>
+    )}
 
-                      <div className="flex gap-2 mt-4">
-                        <button
-                          onClick={() => handleOrderClick(item)}
-                          style={{ "--theme-color": theme.primary }}
-                          className="
-                            flex-1
-                            border
-                            border-[var(--theme-color)]
-                            text-[var(--theme-color)]
-                            bg-white
-                            py-2
-                            hover:bg-[var(--theme-color)]
-                            hover:text-white
-                            transition-all
-                            duration-300
-                          "
-                        >
-                          Order Now
-                        </button>
+    {item.dishTasteProfile === "salty" && (
+      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-600">
+        🧂 Salty
+      </span>
+    )}
+  </h3>
 
-                        <button
-                          onClick={() => {
-                            if (!requireLogin()) return;
-                            addToCart({
-                              ...item,
-                              spicePreference: spiceSelections[item.id] || "normal",
-                            });
-                          }}
-                          style={{ "--theme-color": theme.primary }}
-                          className="
-                            flex-1
-                            border
-                            border-[var(--theme-color)]
-                            text-[var(--theme-color)]
-                            bg-white
-                            py-2
-                            hover:bg-[var(--theme-color)]
-                            hover:text-white
-                            transition-all
-                            duration-300
-                          "
-                        >
-                          Add to Cart
-                        </button>
-                      </div>
+  <p className="text-gray-500">₹{item.price}</p>
 
-                      <details className="mt-3">
-                        <summary className="cursor-pointer text-sm text-gray-500">
-                          View reviews
-                        </summary>
-                        <Comments dishId={item.id} theme={theme} />
-                      </details>
-                    </div>
+  <p className="text-xs text-gray-400">
+    ⏱ Ready in {item.prepTime || 15} min
+  </p>
+
+  <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+    {item.description}
+  </p>
+
+  {/* Smart Controls */}
+
+
+  <Likes restaurantId={item.restaurantId} dishId={item.id} />
+  <Rating restaurantId={item.restaurantId} dishId={item.id} />
+
+  <div className="flex gap-2 mt-4">
+    <button
+      onClick={() => handleOrderClick(item)}
+      style={{ "--theme-color": theme.primary }}
+      className="
+        flex-1
+        border
+        border-[var(--theme-color)]
+        text-[var(--theme-color)]
+        bg-white
+        py-2
+        hover:bg-[var(--theme-color)]
+        hover:text-white
+        transition-all
+        duration-300
+      "
+    >
+      Order Now
+    </button>
+
+    <button
+      onClick={() => {
+        if (!requireLogin()) return;
+        addToCart({
+          ...item,
+          spicePreference: spiceSelections[item.id] || "normal",
+           sweetLevel: sweetSelections[item.id] || "normal", 
+        });
+      }}
+      style={{ "--theme-color": theme.primary }}
+      className="
+        flex-1
+        border
+        border-[var(--theme-color)]
+        text-[var(--theme-color)]
+        bg-white
+        py-2
+        hover:bg-[var(--theme-color)]
+        hover:text-white
+        transition-all
+        duration-300
+      "
+    >
+      Add to Cart
+    </button>
+  </div>
+
+  <details className="mt-3">
+    <summary className="cursor-pointer text-sm text-gray-500">
+      View reviews
+    </summary>
+    <Comments dishId={item.id} theme={theme} />
+  </details>
+</div>
+
                   </div>
                 );
               })}

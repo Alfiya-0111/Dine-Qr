@@ -17,23 +17,30 @@ export default function AddItem() {
   const [preview, setPreview] = useState("");
   const [uploading, setUploading] = useState(false);
 
-  const [form, setForm] = useState({
-    name: "",
-    price: "",
-    description: "",
-    category: "Biryani",
-    vegType: "non-veg",
-    spiceLevel: "medium",
-    servingSize: "full",
-    prepTime: 15,
-    isHouseSpecial: false,
-    isChefPick: false,
-    dineIn: true,
-    delivery: true,
-    inStock: true,
-    isNew: false,
-    categoryIds: [],
-  });
+const [form, setForm] = useState({
+  name: "",
+  price: "",
+  description: "",
+ category: "",
+  spiceLevel: "medium",
+  servingSize: "full",
+  prepTime: 15,
+
+  // ✅ NEW LOGIC
+  dishTasteProfile: "spicy", // sweet | spicy | salty
+  sugarLevelEnabled: true,
+  saltLevelEnabled: true,
+  saladRequired: false,
+
+  isHouseSpecial: false,
+  isChefPick: false,
+  dineIn: true,
+  delivery: true,
+  inStock: true,
+  isNew: false,
+  categoryIds: [],
+});
+
 
   const IMGBB_API_KEY = "179294f40bc7235ace27ceac655be6b4";
 
@@ -42,6 +49,14 @@ export default function AddItem() {
       cat.name.toLowerCase() === "drinks" &&
       form.categoryIds.includes(cat.id)
   );
+useEffect(() => {
+  if (categories.length === 0) return;
+
+  setForm(prev => ({
+    ...prev,
+    category: prev.category || categories[0].name
+  }));
+}, [categories]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -113,33 +128,56 @@ export default function AddItem() {
       setUploading(false);
     }
 
-    const payload = {
-      restaurantId: userId,
-      name: form.name,
-      price: Number(form.price),
-      description: form.description,
-      category: form.category,
-      servingSize: form.servingSize,
-      prepTime: form.prepTime,
-      isHouseSpecial: form.isHouseSpecial,
-      isNew: form.isNew,
-      categoryIds: form.categoryIds,
-      isChefPick: form.isChefPick,
-      availableModes: {
-        dineIn: form.dineIn,
-        delivery: form.delivery,
-      },
-      availableToday: true,
-      inStock: form.inStock,
-      imageUrl,
-      stats: { likes: 0, orders: 0 },
-      updatedAt: Date.now(),
-    };
+const payload = {
+  restaurantId: userId,
+  name: form.name,
+  price: Number(form.price),
+  description: form.description,
+  category: form.category,
+  servingSize: form.servingSize,
+  prepTime: form.prepTime,
 
-    if (!isDrinkSelected) {
-      payload.vegType = form.vegType;
-      payload.spiceLevel = form.spiceLevel;
-    }
+  // ✅ NEW DATA
+  dishTasteProfile: form.dishTasteProfile,
+  sugarLevelEnabled: form.sugarLevelEnabled,
+  saltLevelEnabled: form.saltLevelEnabled,
+  saladRequired: form.saladRequired,
+
+  isHouseSpecial: form.isHouseSpecial,
+  isNew: form.isNew,
+  categoryIds: form.categoryIds,
+  isChefPick: form.isChefPick,
+
+  availableModes: {
+    dineIn: form.dineIn,
+    delivery: form.delivery,
+  },
+
+  availableToday: true,
+  inStock: form.inStock,
+  imageUrl,
+  stats: { likes: 0, orders: 0 },
+  updatedAt: Date.now(),
+};
+
+
+
+   if (!isDrinkSelected) {
+
+  if (form.vegType) {
+    payload.vegType = form.vegType;
+  }
+
+  if (form.spiceLevel) {
+    payload.spiceLevel = form.spiceLevel;
+  }
+}
+
+Object.keys(payload).forEach(key => {
+  if (payload[key] === undefined) {
+    delete payload[key];
+  }
+});
 
     if (editData) {
       await updateDoc(doc(db, "menu", editData.id), payload);
@@ -155,7 +193,7 @@ export default function AddItem() {
       alert("Dish added");
     }
 
-    navigate("/dashboard", { state: { reload: true } });
+    navigate("/dashboard/menu", { state: { reload: true } });
   };
 
   return (
@@ -203,17 +241,32 @@ export default function AddItem() {
   ⏱ Estimated time to prepare this dish
 </p>
 
-      {/* Category */}
-      <select
-        className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253]"
-        value={form.category}
-        onChange={(e) => setForm({ ...form, category: e.target.value })}
-      >
-        <option>Biryani</option>
-        <option>Starters</option>
-        <option>Main Course</option>
-        <option>Drinks</option>
-      </select>
+   {/* Primary Category */}
+<div className="mb-4">
+  <p className="font-semibold mb-1">Primary Category</p>
+
+  <select
+    className="w-full border p-3 rounded-xl"
+    value={form.category}
+    onChange={(e) =>
+      setForm({ ...form, category: e.target.value })
+    }
+  >
+    {categories.length === 0 ? (
+      <option>No categories found</option>
+    ) : (
+      categories.map((cat) => (
+        <option key={cat.id} value={cat.name}>
+          {cat.name}
+        </option>
+      ))
+    )}
+  </select>
+
+  <p className="text-xs text-gray-500 mt-1">
+    This is main display category
+  </p>
+</div>
 
       {/* Veg Type */}
       <select
@@ -237,6 +290,63 @@ export default function AddItem() {
         <option value="medium">Medium 🌶🌶</option>
         <option value="spicy">Spicy 🌶🌶🌶</option>
       </select>
+{/* Dish Taste Profile */}
+<div className="mb-4">
+  <p className="font-semibold mb-1">Dish Nature</p>
+
+  <select
+    className="w-full border p-3 rounded-xl"
+    value={form.dishTasteProfile}
+    onChange={(e) =>
+      setForm({ ...form, dishTasteProfile: e.target.value })
+    }
+  >
+    <option value="spicy">Spicy 🌶</option>
+    <option value="salty">Salty 🧂</option>
+    <option value="sweet">Sweet 🍰</option>
+  </select>
+</div>
+{/* Smart Controls */}
+<div className="flex flex-wrap gap-4 mb-4">
+
+  {form.dishTasteProfile === "sweet" && (
+    <label className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        checked={form.sugarLevelEnabled}
+        onChange={(e) =>
+          setForm({ ...form, sugarLevelEnabled: e.target.checked })
+        }
+      />
+      🍬 Sugar Level Control
+    </label>
+  )}
+
+  {(form.dishTasteProfile === "spicy" ||
+    form.dishTasteProfile === "salty") && (
+    <label className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        checked={form.saltLevelEnabled}
+        onChange={(e) =>
+          setForm({ ...form, saltLevelEnabled: e.target.checked })
+        }
+      />
+      🧂 Salt Level Control
+    </label>
+  )}
+
+  <label className="flex items-center gap-2">
+    <input
+      type="checkbox"
+      checked={form.saladRequired}
+      onChange={(e) =>
+        setForm({ ...form, saladRequired: e.target.checked })
+      }
+    />
+    🥗 Salad Available
+  </label>
+</div>
 
       {/* Categories Multi */}
       <div className="mb-4">

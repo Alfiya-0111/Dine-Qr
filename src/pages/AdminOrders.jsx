@@ -10,7 +10,7 @@ export default function AdminOrders() {
   const auth = getAuth();
   const restaurantId = auth.currentUser?.uid;
 
-  /* ✅ SMOOTH CLOCK TICK */
+  /* ✅ LIVE CLOCK */
   useEffect(() => {
     const timer = setInterval(() => {
       setNow(Date.now());
@@ -32,7 +32,10 @@ export default function AdminOrders() {
     const ordersRef = ref(realtimeDB, "orders");
 
     onValue(ordersRef, (snap) => {
-      if (!snap.exists()) return;
+      if (!snap.exists()) {
+        setOrders([]);
+        return;
+      }
 
       const data = snap.val();
       const updatedOrders = [];
@@ -111,51 +114,102 @@ export default function AdminOrders() {
                 : "border-gray-200"
             }`}
           >
-            <div className="flex justify-between">
+            {/* ✅ HEADER */}
+            <div className="flex justify-between mb-2">
               <div>
-                <p className="font-bold">{order.dishName}</p>
+                <p className="font-bold text-sm">
+                  Order #{order.id.slice(-6)}
+                </p>
 
-                <p className="text-sm text-gray-500">
+                <p className="text-xs text-gray-500">
                   Prep Time: {order.prepTime} min
                 </p>
 
                 {order.status === "preparing" && (
-                  <p className="text-sm text-orange-500 font-semibold">
+                  <p className="text-xs text-orange-500 font-semibold">
                     Remaining: {getRemainingTime(order)} min
                   </p>
                 )}
               </div>
 
-              <span className="text-sm font-semibold capitalize">
+              <span className="text-xs font-bold capitalize">
                 {order.status}
               </span>
             </div>
 
+            {/* ✅ ITEMS LIST */}
+            <div className="border rounded-lg p-2 mb-3 bg-white">
+              {order.items?.map((item) => (
+                <div
+                  key={item.dishId}
+                  className="flex items-center gap-3 border-b py-2"
+                >
+               <img
+  src={item.image}
+  className="w-12 h-12 rounded-lg object-cover  "
+/>
+
+
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">
+                      {item.name}
+                    </p>
+
+                    <p className="text-xs text-gray-500">
+                      Qty: {item.qty}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`text-xs font-bold ${
+                      item.status === "ready"
+                        ? "text-green-600"
+                        : "text-orange-500"
+                    }`}
+                  >
+                    {item.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* ✅ PAYMENT BADGE */}
+            <span
+              className={`text-xs px-2 py-1 rounded-full ${
+                order.paymentStatus === "paid"
+                  ? "bg-green-100 text-green-600"
+                  : "bg-red-100 text-red-600"
+              }`}
+            >
+              {order.paymentStatus}
+            </span>
+
+            {/* ✅ ACTION BUTTONS */}
             <div className="flex gap-2 mt-3">
               <button
                 onClick={() => updateStatus(order.id, "preparing")}
-                className="px-3 py-1 bg-yellow-500 text-white rounded-lg"
+                className="px-3 py-1 bg-yellow-500 text-white rounded-lg text-xs"
               >
                 Preparing
               </button>
 
               <button
                 onClick={() => updateStatus(order.id, "ready")}
-                className="px-3 py-1 bg-green-600 text-white rounded-lg"
+                className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs"
               >
                 Ready
               </button>
 
               <button
                 onClick={() => updateStatus(order.id, "completed")}
-                className="px-3 py-1 bg-gray-700 text-white rounded-lg"
+                className="px-3 py-1 bg-gray-700 text-white rounded-lg text-xs"
               >
                 Completed
               </button>
 
               <button
                 onClick={() => deleteOrder(order.id)}
-                className="px-3 py-1 bg-red-600 text-white rounded-lg"
+                className="px-3 py-1 bg-red-600 text-white rounded-lg text-xs"
               >
                 Delete
               </button>
