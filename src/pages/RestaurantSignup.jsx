@@ -5,7 +5,7 @@ import { doc, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import khaatogologo from "../assets/khaatogologo.png";
-import { Helmet } from "react-helmet-async";
+import { Helmet } from "react-helmet";
 export default function RestaurantSignup() {
 
   const [form, setForm] = useState({

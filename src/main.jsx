@@ -7,15 +7,15 @@ import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext"; 
 
-import { HelmetProvider } from "react-helmet-async";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <AuthProvider>
       <CartProvider> 
-          <HelmetProvider>
-              <App />
-            </HelmetProvider> 
+       
+ <App />
+           
+         
       
         <Toaster position="top-center" />
       </CartProvider>

@@ -11,7 +11,7 @@ import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import khaatogologo from "../assets/khaatogologo.png";
-import { Helmet } from "react-helmet-async";
+import { Helmet } from "react-helmet";
 export default function RestaurantLogin() {
   const navigate = useNavigate();
 
@@ -97,8 +97,8 @@ const handleGoogleLogin = async () => {
     content="Login to your Khaatogo restaurant dashboard to manage menu, orders, and analytics."
   />
 </Helmet>
-    </>
-    <>
+   
+   
       <ToastContainer position="top-center" />
 
       <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#FAEFEA" }} >   
