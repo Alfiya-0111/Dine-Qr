@@ -9,8 +9,9 @@
     <loc>https://khaatogo.com/login</loc>
   </url>
 
+  <!-- Public Menu (Dynamic but important) -->
   <url>
-    <loc>https://khaatogo.com/register</loc>
+    <loc>https://khaatogo.com/menu/</loc>
   </url>
 
 </urlset>
