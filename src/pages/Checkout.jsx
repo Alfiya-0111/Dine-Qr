@@ -41,14 +41,19 @@ const handlePlaceOrder = async () => {
   const now = Date.now();
 
   try {
-    const maxPrepTime = Math.max(...cart.map(i => i.prepTime || 15));
+const maxPrepTime = Math.max(
+  ...cart.map(i => Number(i.prepTime ?? 15))
+);
+
+
 
     const orderPayload = {
       userId: auth.currentUser.uid,
+     
       restaurantId,
-
+       prepTime: maxPrepTime,
 items: cart.map(item => {
-  const prepTime = item.prepTime || 15;
+  const prepTime = Number(item.prepTime ?? 15);
 
   return {
     dishId: item.id,

@@ -16,13 +16,16 @@ export const CartProvider = ({ children }) => {
   setCart((prev) => {
     const exists = prev.find((i) => i.id === item.id);
 
-    const safeItem = {
-      id: item.id,
-      name: item.name,
-      price: Number(item.price) || 0,
-      image: item.imageUrl || item.image || "",
-      qty: 1,
-    };
+   const safeItem = {
+  ...item,   
+  id: item.id,
+  name: item.name,
+  price: Number(item.price) || 0,
+  image: item.imageUrl || item.image || "",
+  qty: 1,
+
+  prepTime: Number(item.prepTime ?? 15), // 💥 EXTRA SAFETY
+};
 
     if (exists) {
       return prev.map((i) =>

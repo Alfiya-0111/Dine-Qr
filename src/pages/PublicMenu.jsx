@@ -68,7 +68,7 @@ const [, forceUpdate] = useState(0);
 const [activeOrder, setActiveOrder] = useState(null);
 const [userId, setUserId] = useState(null);
 const audioRef = useRef(null);
-const prevStatusRef = useRef(null);
+const prevOrdersRef = useRef({});
 const categoryCounts = {};
 
 items.forEach(item => {
@@ -132,33 +132,50 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
-  const status = activeOrder?.status;
+  if (!activeOrder?.length) return;
 
-  if (status === "ready" && prevStatusRef.current !== "ready") {
+  activeOrder.forEach(order => {
 
-    // 🔊 SOUND
-    if (audioRef.current) {
-      audioRef.current.play().catch(() => {});
-    }
+    const prevStatus = prevOrdersRef.current[order.id];
+    const currentStatus = order.status;
 
-    // 🔔 NOTIFICATION
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification("Enjoy your meal!", {
-        body: "Wait is over. Your order is ready 🎉",
-      });
-    }
+    // 🎯 DETECT preparing → ready
+   if (prevStatus === "preparing" && currentStatus === "ready") {
 
-    // ✅ SHOW BANNER
-    setShowReadyBanner(true);
+  console.log("🔥 REAL TRANSITION DETECTED");
 
-    // ✅ AUTO HIDE AFTER 5 SECONDS 😌🔥
-    setTimeout(() => {
-      setShowReadyBanner(false);
-    }, 5000);
+  if (audioRef.current) {
+    audioRef.current.currentTime = 0;
+
+    audioRef.current.play()
+      .then(() => {
+
+        setShowReadyBanner(true);
+
+        audioRef.current.onended = () => {
+          setShowReadyBanner(false);
+        };
+
+      })
+      .catch(() => {});
   }
 
-  prevStatusRef.current = status;
-}, [activeOrder?.status]);
+  if ("Notification" in window && Notification.permission === "granted") {
+    new Notification("🍽️ Dish Ready!", {
+      body: "Wait is over. Your order is ready 🎉",
+    });
+  }
+}
+
+
+    // ✅ SAVE CURRENT STATUS
+    prevOrdersRef.current[order.id] = currentStatus;
+
+  });
+
+}, [activeOrder]);
+
+
 
 
 useEffect(() => {
@@ -174,16 +191,17 @@ useEffect(() => {
     const data = snap.val();
     if (!data) return;
 
-const myOrder = Object.entries(data).find(
-  ([id, order]) =>
-    order.userId === userId &&
-    order.restaurantId === restaurantId &&
-    ["preparing", "ready"].includes(order.status)
-);
+const myOrders = Object.entries(data)
+  .filter(
+    ([id, order]) =>
+      order.userId === userId &&
+      order.restaurantId === restaurantId &&
+      ["preparing", "ready"].includes(order.status)
+  )
+  .map(([id, order]) => ({ id, ...order }))
+  .sort((a, b) => b.createdAt - a.createdAt);
 
-setActiveOrder(myOrder ? { id: myOrder[0], ...myOrder[1] } : null);
-
-   
+setActiveOrder(myOrders);   
   });
 }, [userId]);
 
@@ -353,7 +371,11 @@ const getPrepProgress = (order) => {
   if (filter === "chef") filteredItems = filteredItems.filter((i) => i.isChefPick);
   if (filter === "special") filteredItems = filteredItems.filter((i) => i.isHouseSpecial);
   if (filter === "delivery") filteredItems = filteredItems.filter((i) => i.availableModes?.delivery);
-  if (filter === "quick") filteredItems = filteredItems.filter((i) => i.prepTime <= 15);
+if (filter === "quick")
+  filteredItems = filteredItems.filter(
+    (i) => Number(i.prepTime ?? 999) <= 15
+  );
+
   if (filter === "under100") filteredItems = filteredItems.filter((i) => i.price <= 100);
   if (filter === "instock") filteredItems = filteredItems.filter((i) => i.inStock !== false);
 
@@ -390,10 +412,14 @@ console.log("RestaurantId:", restaurantId);
   const handleOrderClick = (item) => {
     if (!requireLogin()) return;
 
-    addToCart({
-      ...item,
-      spicePreference: spiceSelections[item.id] || "normal",
-    });
+  addToCart({
+  ...item,
+
+  prepTime: Number(item.prepTime ?? 15),
+
+  spicePreference: spiceSelections[item.id] || "normal",
+});
+
 
     setSelectedItem(item);
   };
@@ -577,45 +603,59 @@ console.log("RestaurantId:", restaurantId);
               </button>
             </div>
           </div>
-{activeOrder?.items?.length > 0 && (
-
+{activeOrder?.length > 0 && (
   <div className="bg-white rounded-xl p-3 mb-4">
 
-    {activeOrder.items.map(item => {
+    {activeOrder.map(order => {
 
-      const remainingMs = Math.max(0, item.prepEndsAt - Date.now());
+      const remainingMs = Math.max(0, order.prepEndsAt - Date.now());
       const remainingMin = Math.floor(remainingMs / 60000);
       const remainingSec = Math.floor((remainingMs % 60000) / 1000);
 
-      const isReady = remainingMs <= 0;
-
       return (
-        <div key={item.dishId} className="flex justify-between text-xs">
+        <div key={order.id} className="mb-3 border-b pb-2">
 
-          <span>
-            {item.name} × {item.qty}
-          </span>
+          <p className="text-xs font-bold">
+            Order #{order.id.slice(-6)}
+          </p>
 
-          {isReady ? (
-            <span className="text-green-600 font-bold">
-              ✅ Ready
-            </span>
-          ) : (
-            <span>
-              ⏳ {remainingMin}m {remainingSec}s
-            </span>
-          )}
+          {order.items.map(item => {
 
+            const itemRemainingMs = Math.max(0, item.prepEndsAt - Date.now());
+            const isReady = itemRemainingMs <= 0;
+
+            const min = Math.floor(itemRemainingMs / 60000);
+            const sec = Math.floor((itemRemainingMs % 60000) / 1000);
+
+            return (
+              <div key={item.dishId} className="flex justify-between text-xs">
+
+                <span>
+                  {item.name} × {item.qty}
+                </span>
+
+                {isReady ? (
+                  <span className="text-green-600 font-bold">
+                    ✅ Ready
+                  </span>
+                ) : (
+                  <span>
+                    ⏳ {min}m {sec}s
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       );
     })}
-
   </div>
-)}
+)
+}
 
 {!activeOrder && (
   <p className="text-xs text-gray-400 text-center mt-4">
-    No active orders 🍽
+    No active orders 
   </p>
 )}
 
@@ -645,8 +685,6 @@ console.log("RestaurantId:", restaurantId);
          {activeCategory === "all" && (
   <NewItemsSlider items={items} theme={theme} />
 )}
-
-
           {/* MENU GRID */}
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6">
@@ -697,6 +735,7 @@ console.log("RestaurantId:", restaurantId);
                       )}
 
                       {/* Spice selection overlay */}
+                      
                   {/* Spice selector ONLY for non-sweet dishes */}
 {item.dishTasteProfile !== "sweet" && (
   <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-xs flex gap-2 shadow">
@@ -811,17 +850,17 @@ console.log("RestaurantId:", restaurantId);
   <h3 className="font-bold text-lg truncate flex items-center gap-2">
     {item.name}
 
-    {item.dishTasteProfile === "sweet" && (
+    {/* {item.dishTasteProfile === "sweet" && (
       <span className="text-xs px-2 py-0.5 rounded-full bg-pink-100 text-pink-600">
         🍰 Sweet
       </span>
-    )}
+    )} */}
 
-    {item.dishTasteProfile === "spicy" && (
+    {/* {item.dishTasteProfile === "spicy" && (
       <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">
         🌶 Spicy
       </span>
-    )}
+    )} */}
 
     {item.dishTasteProfile === "salty" && (
       <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-600">
@@ -833,7 +872,8 @@ console.log("RestaurantId:", restaurantId);
   <p className="text-gray-500">₹{item.price}</p>
 
   <p className="text-xs text-gray-400">
-    ⏱ Ready in {item.prepTime || 15} min
+  ⏱ Ready in {Number(item.prepTime ?? 15)} min
+
   </p>
 
   <p className="text-sm text-gray-600 mt-1 line-clamp-2">

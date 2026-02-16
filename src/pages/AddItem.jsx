@@ -375,26 +375,30 @@ Object.keys(payload).forEach(key => {
       </div>
 
       {/* Options */}
-      <div className="flex flex-wrap gap-4 mb-4">
-        {[
-          { label: "⭐ House Special", key: "isHouseSpecial" },
-          { label: "👨‍🍳 Chef Pick", key: "isChefPick" },
-          { label: "🍽 Dine-In", key: "dineIn" },
-          { label: "🏠 Home Delivery", key: "delivery" },
-        ].map((opt) => (
-          <label key={opt.key} className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={form[opt.key]}
-              onChange={(e) =>
-                setForm({ ...form, [opt.key]: e.target.checked })
-              }
-              className="accent-[#B45253]"
-            />
-            {opt.label}
-          </label>
-        ))}
-      </div>
+    <div className="flex flex-wrap gap-4 mb-4">
+  {[
+    { label: "⭐ House Special", key: "isHouseSpecial" },
+    { label: "👨‍🍳 Chef Pick", key: "isChefPick" },
+    { label: "🍽 Dine-In", key: "dineIn" },
+    { label: "🏠 Home Delivery", key: "delivery" },
+
+    // ✅ NEW STOCK CONTROL
+    { label: "🟢 In Stock", key: "inStock" },
+  ].map((opt) => (
+    <label key={opt.key} className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        checked={form[opt.key]}
+        onChange={(e) =>
+          setForm({ ...form, [opt.key]: e.target.checked })
+        }
+        className="accent-[#B45253]"
+      />
+      {opt.label}
+    </label>
+  ))}
+</div>
+
 
       {/* Image Preview */}
       {preview && (

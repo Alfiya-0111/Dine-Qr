@@ -122,7 +122,8 @@ export default function AdminOrders() {
                 </p>
 
                 <p className="text-xs text-gray-500">
-                  Prep Time: {order.prepTime} min
+                 Prep Time: {Number(order.prepTime ?? 0)} min
+
                 </p>
 
                 {order.status === "preparing" && (
