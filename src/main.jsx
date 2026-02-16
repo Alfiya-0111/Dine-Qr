@@ -5,13 +5,18 @@ import App from "./App.jsx";
 import { Toaster } from "react-hot-toast";
 
 import { AuthProvider } from "./context/AuthContext";
-import { CartProvider } from "./context/CartContext"; // ✅ ADD
+import { CartProvider } from "./context/CartContext"; 
+
+import { HelmetProvider } from "react-helmet-async";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <AuthProvider>
-      <CartProvider>   {/* ✅ ADD THIS */}
-        <App />
+      <CartProvider> 
+          <HelmetProvider>
+              <App />
+            </HelmetProvider> 
+      
         <Toaster position="top-center" />
       </CartProvider>
     </AuthProvider>

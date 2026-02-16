@@ -5,7 +5,9 @@ import { doc, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import khaatogologo from "../assets/khaatogologo.png";
+import { Helmet } from "react-helmet-async";
 export default function RestaurantSignup() {
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -41,9 +43,17 @@ const [showPassword, setShowPassword] = useState(false);
       alert(err.message);
     }
   };
+ return (
+    <>
+      <Helmet>
+        <title>Khaatogo – Smart QR Menu for Restaurants</title>
+        <meta
+          name="description"
+          content="Khaatogo helps restaurants create smart digital QR menus, manage orders, and improve customer experience."
+        />
+      </Helmet>
 
-  return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#FAEFEA" }}>
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#FAEFEA" }}>
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
 
 <div className="flex justify-center">
@@ -124,5 +134,7 @@ const [showPassword, setShowPassword] = useState(false);
         </p>
       </div>
     </div>
+    </>
   );
+
 }

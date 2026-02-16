@@ -8,6 +8,7 @@ import { PiMicrophone } from "react-icons/pi";
 import { auth } from "../firebaseConfig";
 import readySound from "../assets/ready.mp3";
 import { useRef } from "react";
+import { Helmet } from "react-helmet";
 import {
   collection,
   getDocs,
@@ -240,46 +241,51 @@ setActiveOrder(myOrders);
 });
 
     return () => unsubscribe();
-  }, [restaurantId]);
+  }, [userId, restaurantId]);
 
-  useEffect(() => {
-    const ordersRef = rtdbRef(realtimeDB, "orders");
+ useEffect(() => {
+  const ordersRef = rtdbRef(realtimeDB, "orders");
 
-    onValue(ordersRef, (snap) => {
-      const data = snap.val();
-      if (!data) return;
+  const unsubscribe = onValue(ordersRef, (snap) => {
+    const data = snap.val();
+    if (!data) return;
 
-      const last24h = Date.now() - 24 * 60 * 60 * 1000;
-      const countMap = {};
+    const last24h = Date.now() - 24 * 60 * 60 * 1000;
+    const countMap = {};
 
-      Object.values(data).forEach((order) => {
-        if (order.createdAt >= last24h) {
-          countMap[order.dishId] =
-            (countMap[order.dishId] || 0) + 1;
-        }
-      });
-
-      const sorted = Object.entries(countMap)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([dishId]) => dishId);
-
-      setTrendingDishIds(sorted);
+    Object.values(data).forEach((order) => {
+      if (order.createdAt >= last24h) {
+        countMap[order.dishId] =
+          (countMap[order.dishId] || 0) + 1;
+      }
     });
-  }, []);
+
+    const sorted = Object.entries(countMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([dishId]) => dishId);
+
+    setTrendingDishIds(sorted);
+  });
+
+  return () => unsubscribe();
+}, []);
+
 useEffect(() => {
-  if (activeOrder?.status === "ready") {
-    if ("Notification" in window) {
-      Notification.requestPermission().then((perm) => {
-        if (perm === "granted") {
-          new Notification("🍽️ Dish Ready!", {
-            body: "Wait is over. Your order is ready 🎉",
-          });
-        }
-      });
-    }
+  if (!activeOrder?.length) return;
+
+  const hasReady = activeOrder.some(o => o.status === "ready");
+
+  if (hasReady && "Notification" in window) {
+    Notification.requestPermission().then((perm) => {
+      if (perm === "granted") {
+        new Notification("🍽️ Dish Ready!", {
+          body: "Wait is over. Your order is ready 🎉",
+        });
+      }
+    });
   }
-}, [activeOrder?.status]);
+}, [activeOrder]);
 
 const getPrepProgress = (order) => {
   const now = Date.now();
@@ -426,11 +432,25 @@ console.log("RestaurantId:", restaurantId);
 
 
   return (
+    
+  <>
+     <Helmet>
+      <title>
+        {restaurantSettings?.name || restaurantName || "Digital Menu"}
+      </title>
 
+      <meta
+        name="description"
+        content="Browse our delicious menu"
+      />
+    </Helmet>
+ 
+  
     <div
   className="min-h-screen w-full"
  
 >
+
   <audio ref={audioRef} src={readySound} preload="auto" />
     <div
   className="max-w-7xl w-full mx-auto" style={{ backgroundColor: theme.background }}
@@ -653,9 +673,9 @@ console.log("RestaurantId:", restaurantId);
 )
 }
 
-{!activeOrder && (
+{activeOrder?.length === 0 && (
   <p className="text-xs text-gray-400 text-center mt-4">
-    No active orders 
+    No active orders
   </p>
 )}
 
@@ -1114,5 +1134,7 @@ console.log("RestaurantId:", restaurantId);
       <LoginModal />
     </div>
     </div>
+     </>
   );
+ 
 }
