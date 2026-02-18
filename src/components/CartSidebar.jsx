@@ -24,6 +24,7 @@ const navigate = useNavigate();
         <p className="text-gray-500">Cart is empty</p>
       ) : (
         cart.map((item) => (
+          
           <CartItem key={item.id} item={item} />
         ))
       )}

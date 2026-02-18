@@ -47,6 +47,11 @@ export default function CartItem({ item }) {
               {item.spicePreference || "normal"}
             </span>
           </p>
+          {item.salad?.qty > 0 && (
+  <p className="text-xs text-gray-500">
+    🥗 Salad: {item.salad.qty} Plate ({item.salad.taste})
+  </p>
+)}
         </div>
       </div>
 

@@ -31,7 +31,6 @@ const [form, setForm] = useState({
   sugarLevelEnabled: true,
   saltLevelEnabled: true,
   saladRequired: false,
-
   isHouseSpecial: false,
   isChefPick: false,
   dineIn: true,
@@ -39,6 +38,11 @@ const [form, setForm] = useState({
   inStock: true,
   isNew: false,
   categoryIds: [],
+    saladConfig: {
+    enabled: false,
+    tasteControl: true,
+    maxQty: 5
+  },
 });
 
 
@@ -158,6 +162,7 @@ const payload = {
   imageUrl,
   stats: { likes: 0, orders: 0 },
   updatedAt: Date.now(),
+ saladConfig: form.saladConfig,
 };
 
 
@@ -267,6 +272,68 @@ Object.keys(payload).forEach(key => {
     This is main display category
   </p>
 </div>
+{form.dishTasteProfile === "spicy" && (
+
+  <div className="border rounded-xl p-3">
+
+    <label className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        checked={form.saladConfig.enabled}
+        onChange={(e) =>
+          setForm({
+            ...form,
+            saladConfig: {
+              ...form.saladConfig,
+              enabled: e.target.checked
+            }
+          })
+        }
+      />
+      🥗 Allow Salad With Dish
+    </label>
+
+    {form.saladConfig.enabled && (
+      <>
+        <label className="flex items-center gap-2 mt-2">
+          <input
+            type="checkbox"
+            checked={form.saladConfig.tasteControl}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                saladConfig: {
+                  ...form.saladConfig,
+                  tasteControl: e.target.checked
+                }
+              })
+            }
+          />
+          🌶 Salad Taste Control
+        </label>
+
+        <input
+          type="number"
+          min="1"
+          className="border p-2 rounded-lg mt-2"
+          value={form.saladConfig.maxQty}
+          onChange={(e) =>
+            setForm({
+              ...form,
+              saladConfig: {
+                ...form.saladConfig,
+                maxQty: Number(e.target.value)
+              }
+            })
+          }
+        />
+        <p className="text-xs text-gray-500">
+          Max salad plates customer select kar sakta hai
+        </p>
+      </>
+    )}
+  </div>
+)}
 
       {/* Veg Type */}
       <select
