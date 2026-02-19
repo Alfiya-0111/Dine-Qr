@@ -53,6 +53,32 @@ const [form, setForm] = useState({
       cat.name.toLowerCase() === "drinks" &&
       form.categoryIds.includes(cat.id)
   );
+  useEffect(() => {
+  if (form.dishTasteProfile === "spicy") {
+    setForm(prev => ({
+      ...prev,
+      saltLevelEnabled: true,
+      saladRequired: true,
+      saladConfig: {
+        ...prev.saladConfig,
+        enabled: true
+      }
+    }));
+  }
+
+  else {
+    setForm(prev => ({
+      ...prev,
+      saltLevelEnabled: false,
+      saladRequired: false,
+      saladConfig: {
+        ...prev.saladConfig,
+        enabled: false
+      }
+    }));
+  }
+}, [form.dishTasteProfile]);
+
 useEffect(() => {
   if (categories.length === 0) return;
 
@@ -273,67 +299,12 @@ Object.keys(payload).forEach(key => {
   </p>
 </div>
 {form.dishTasteProfile === "spicy" && (
-
-  <div className="border rounded-xl p-3">
-
-    <label className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        checked={form.saladConfig.enabled}
-        onChange={(e) =>
-          setForm({
-            ...form,
-            saladConfig: {
-              ...form.saladConfig,
-              enabled: e.target.checked
-            }
-          })
-        }
-      />
-      🥗 Allow Salad With Dish
-    </label>
-
-    {form.saladConfig.enabled && (
-      <>
-        <label className="flex items-center gap-2 mt-2">
-          <input
-            type="checkbox"
-            checked={form.saladConfig.tasteControl}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                saladConfig: {
-                  ...form.saladConfig,
-                  tasteControl: e.target.checked
-                }
-              })
-            }
-          />
-          🌶 Salad Taste Control
-        </label>
-
-        <input
-          type="number"
-          min="1"
-          className="border p-2 rounded-lg mt-2"
-          value={form.saladConfig.maxQty}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              saladConfig: {
-                ...form.saladConfig,
-                maxQty: Number(e.target.value)
-              }
-            })
-          }
-        />
-        <p className="text-xs text-gray-500">
-          Max salad plates customer select kar sakta hai
-        </p>
-      </>
-    )}
-  </div>
+  <label className="flex items-center gap-2">
+    <input type="checkbox" checked readOnly />
+    🥗 Salad Available (Auto)
+  </label>
 )}
+
 
       {/* Veg Type */}
       <select
@@ -389,19 +360,13 @@ Object.keys(payload).forEach(key => {
     </label>
   )}
 
-  {(form.dishTasteProfile === "spicy" ||
-    form.dishTasteProfile === "salty") && (
-    <label className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        checked={form.saltLevelEnabled}
-        onChange={(e) =>
-          setForm({ ...form, saltLevelEnabled: e.target.checked })
-        }
-      />
-      🧂 Salt Level Control
-    </label>
-  )}
+{form.dishTasteProfile === "spicy" && (
+  <label className="flex items-center gap-2">
+    <input type="checkbox" checked readOnly />
+    🧂 Salt Level Control (Auto)
+  </label>
+)}
+
 
   <label className="flex items-center gap-2">
     <input

@@ -38,6 +38,7 @@ export default function PublicMenu() {
   const [saladSelections, setSaladSelections] = useState({});
   const [saladTaste, setSaladTaste] = useState({});
   const [saltSelections, setSaltSelections] = useState({});
+  const [tasteItem, setTasteItem] = useState(null);
   const theme = restaurantSettings?.theme || {
     primary: "#8A244B",
     border: "#8A244B",
@@ -417,17 +418,22 @@ export default function PublicMenu() {
   const handleOrderClick = (item) => {
     if (!requireLogin()) return;
 
-    addToCart({
-      ...item,
+  addToCart({
+  ...item,
 
-      prepTime: Number(item.prepTime ?? 15),
+  prepTime: Number(item.prepTime ?? 15),
 
-      spicePreference: spiceSelections[item.id] || "normal",
-      salad: {
+  spicePreference: spiceSelections[item.id] || "normal",
+  sweetLevel: sweetSelections[item.id] || "normal",
+
+  saltPreference: saltSelections[item.id] || "normal",
+
+  salad: {
     qty: saladSelections[item.id] || 0,
     taste: saladTaste[item.id] || "normal"
   }
-    });
+});
+
 
 
     setSelectedItem(item);
@@ -447,19 +453,11 @@ export default function PublicMenu() {
           content="Browse our delicious menu"
         />
       </Helmet>
-
-
       <div
-        className="min-h-screen w-full"
-
-      >
-
+        className="min-h-screen w-full">
         <audio ref={audioRef} src={readySound} preload="auto" />
         <div
-          className="max-w-7xl w-full mx-auto" style={{ backgroundColor: theme.background }}
-
-        >
-
+          className="max-w-7xl w-full mx-auto" style={{ backgroundColor: theme.background }}>
           {/* ===== HEADER ===== */}
           <div className="sticky top-0 z-50 bg-white ">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-3 px-2">
@@ -680,7 +678,34 @@ export default function PublicMenu() {
                 <p className="text-xs text-gray-400 text-center mt-4">
                   No active orders
                 </p>
+             
+
               )}
+                {order.bill && order.status === "completed" && (
+  <div className="bg-white border rounded-lg p-3 mt-2">
+
+    <p className="text-xs font-bold">🧾 Bill</p>
+
+    <p className="text-xs">
+      {order.bill.customerName}
+    </p>
+
+    {order.bill.items.map(item => (
+      <div
+        key={item.dishId}
+        className="flex justify-between text-xs"
+      >
+        <span>{item.name} × {item.qty}</span>
+        <span>₹{item.price * item.qty}</span>
+      </div>
+    ))}
+
+    <p className="text-xs font-bold mt-2">
+      Total: ₹{order.bill.total}
+    </p>
+
+  </div>
+)}
 
 
               {showReadyBanner && (
@@ -727,10 +752,12 @@ export default function PublicMenu() {
                       item.category?.toLowerCase() === "drinks";
 
                     return (
+                      
                       <div
                         id={`dish-${item.id}`}
                         key={item.id}
-                        className="bg-white rounded-3xl shadow-md hover:shadow-xl transition overflow-hidden"
+                        onClick={() => setTasteItem(item)}
+                        className="bg-white rounded-3xl shadow-md hover:shadow-xl transition overflow-hidden cursor-pointer"
                       >
                         <div className="relative">
                           <img
@@ -756,74 +783,6 @@ export default function PublicMenu() {
                               Out of Stock 🚫
                             </div>
                           )}
-
-                          {/* Spice selection overlay */}
-
-                          {/* Spice selector ONLY for non-sweet dishes */}
-                          {item.dishTasteProfile !== "sweet" && (
-                            <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-xs flex gap-2 shadow">
-                              {["normal", "medium", "spicy"].map((level) => {
-                                const isActive = spiceSelections[item.id] === level;
-
-                                return (
-                                  <label
-                                    key={level}
-                                    className={`relative flex items-center gap-1 cursor-pointer spice-label ${isActive ? `smoke-${level}` : ""
-                                      }`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={isActive}
-                                      onChange={() =>
-                                        setSpiceSelections((prev) => ({
-                                          ...prev,
-                                          [item.id]: level,
-                                        }))
-                                      }
-                                      className="spice-checkbox"
-                                      style={{ "--border-color": theme.border }}
-                                    />
-                                    {level}
-
-                                    {isActive && (
-                                      <>
-                                        <span className="smoke"></span>
-                                        <span className="smoke"></span>
-                                        <span className="smoke"></span>
-                                      </>
-                                    )}
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          )}
-                          {item.dishTasteProfile === "sweet" && item.sugarLevelEnabled && (
-                            <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-xs flex gap-2 shadow">
-                              {["less", "normal", "extra"].map((level) => {
-                                const isActive = sweetSelections[item.id] === level;
-
-                                return (
-                                  <label
-                                    key={level}
-                                    className={`flex items-center gap-1 cursor-pointer ${isActive ? "text-[#8A244B] font-semibold" : ""
-                                      }`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={isActive}
-                                      onChange={() =>
-                                        setSweetSelections((prev) => ({
-                                          ...prev,
-                                          [item.id]: level,
-                                        }))
-                                      }
-                                    />
-                                    {level}
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          )}
                           {/* Veg / Non-Veg / Drink Badge */}
                           {!isDrink ? (
                             <span className={`absolute top-2 right-2 w-3 h-3 rounded-full ${item.vegType === "veg" ? "bg-green-500" : "bg-red-500"}`} />
@@ -832,8 +791,8 @@ export default function PublicMenu() {
                               <span className="text-white text-xs">🍹</span>
                             </span>
                           )}
+                          
                         </div>
-
                         <div className="p-2">
                           <h3 className="font-bold text-lg truncate flex items-center gap-2">
                             {item.name}
@@ -843,59 +802,7 @@ export default function PublicMenu() {
                               </span>
                             )}
                           </h3>
-                       {item.dishTasteProfile === "spicy" &&
- item.saladConfig?.enabled && (
-  <div className="mt-3 border rounded-xl p-2 text-xs bg-gray-50">
-
-    <p className="font-semibold mb-1">🥗 Add Salad</p>
-
-    <select
-      value={saladSelections[item.id] || 0}
-      onChange={(e) =>
-        setSaladSelections(prev => ({
-          ...prev,
-          [item.id]: Number(e.target.value)
-        }))
-      }
-      className="border rounded px-2 py-1 w-full"
-    >
-      {Array.from(
-        { length: item.saladConfig.maxQty + 1 },
-        (_, i) => (
-          <option key={i} value={i}>
-            {i === 0 ? "No Salad" : `${i} Plate`}
-          </option>
-        )
-      )}
-    </select>
-
-    {item.saladConfig.tasteControl && (
-      <div className="flex gap-3 mt-2">
-
-        {["normal", "spicy"].map(taste => (
-          <label key={taste} className="flex items-center gap-1">
-
-            <input
-              type="radio"
-              name={`saladTaste-${item.id}`}
-              checked={(saladTaste[item.id] || "normal") === taste}
-              onChange={() =>
-                setSaladTaste(prev => ({
-                  ...prev,
-                  [item.id]: taste
-                }))
-              }
-            />
-
-            {taste}
-          </label>
-        ))}
-
-      </div>
-    )}
-
-  </div>
-)}
+                 
 
 
                           <p className="text-gray-500">₹{item.price}</p>
@@ -973,6 +880,196 @@ export default function PublicMenu() {
                             <Comments dishId={item.id} theme={theme} />
                           </details>
                         </div>
+{tasteItem && (
+  <div className="fixed inset-0 z-50 flex items-end">
+
+    {/* ✅ Backdrop */}
+    <div
+      className="absolute inset-0 bg-black/40"
+      onClick={() => setTasteItem(null)}
+    />
+
+    {/* ✅ Popup */}
+    <div
+      className="relative bg-white w-full rounded-t-3xl p-5 animate-slideUp z-10"
+      onClick={(e) => e.stopPropagation()}
+    >
+
+      {/* ✅ CLOSE BUTTON */}
+      <button
+        onClick={() => setTasteItem(null)}
+        className="absolute right-4 top-4 text-gray-500 hover:text-black text-lg"
+      >
+        ✕
+      </button>
+
+      <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4" />
+
+      <h3 className="text-lg font-bold mb-3">
+        {tasteItem.name}
+      </h3>
+
+      {/* 🌶 SPICE */}
+      {tasteItem.dishTasteProfile !== "sweet" && (
+        <>
+          <p className="text-xs font-semibold mb-1">🌶 Spice Level</p>
+
+          <div className="flex gap-3 mb-3">
+            {["normal", "medium", "spicy"].map(level => {
+
+              const isActive =
+                spiceSelections[tasteItem.id] === level;
+
+              return (
+                <label
+                  key={level}
+                  className={`relative flex items-center gap-1 cursor-pointer spice-label ${
+                    isActive ? `smoke-${level}` : ""
+                  }`}
+                >
+                  <input
+  type="checkbox"
+  checked={isActive}
+  onChange={() =>
+    setSpiceSelections(prev => ({
+      ...prev,
+      [tasteItem.id]: level
+    }))
+  }
+  className="spice-checkbox"
+  style={{ "--border-color": theme.border }}   
+/>
+
+
+                  🌶 {level}
+
+                  {isActive && (
+                    <>
+                      <span className="smoke"></span>
+                      <span className="smoke"></span>
+                      <span className="smoke"></span>
+                    </>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* 🧂 SALT */}
+      {tasteItem.saltLevelEnabled && (
+        <>
+          <p className="text-xs font-semibold mb-1">🧂 Salt Level</p>
+
+          <div className="flex gap-3 mb-3">
+            {["less", "normal", "extra"].map(level => {
+
+              const isActive =
+                saltSelections[tasteItem.id] === level;
+
+              return (
+                <label
+                  key={level}
+                  className={`flex items-center gap-1 cursor-pointer spice-label ${
+                    isActive ? "text-[#8A244B] font-semibold" : ""
+                  }`}
+                >
+                 <input
+  type="checkbox"
+  checked={isActive}
+  onChange={() =>
+    setSaltSelections(prev => ({
+      ...prev,
+      [tasteItem.id]: level
+    }))
+  }
+  className="spice-checkbox"
+  style={{ "--border-color": theme.border }}
+/>
+
+                  🧂 {level}
+                </label>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* 🥗 SALAD */}
+      {tasteItem.saladConfig?.enabled && (
+        <label
+          className={`flex items-center gap-2 text-xs mb-3 cursor-pointer spice-label ${
+            saladSelections[tasteItem.id]
+              ? "text-[#8A244B] font-semibold"
+              : ""
+          }`}
+        >
+         <input
+  type="checkbox"
+  checked={!!saladSelections[tasteItem.id]}
+  onChange={(e) =>
+    setSaladSelections(prev => ({
+      ...prev,
+      [tasteItem.id]: e.target.checked
+    }))
+  }
+  className="spice-checkbox"
+  style={{ "--border-color": theme.border }}
+/>
+
+
+          🥗 Add Salad
+        </label>
+      )}
+
+      {/* 🍰 SWEETNESS */}
+      {tasteItem.dishTasteProfile === "sweet" &&
+        tasteItem.sugarLevelEnabled && (
+          <>
+            <p className="text-xs font-semibold mb-1">🍰 Sweetness</p>
+
+            <div className="flex gap-3 mb-3">
+              {["less", "normal", "extra"].map(level => {
+
+                const isActive =
+                  sweetSelections[tasteItem.id] === level;
+
+                return (
+                  <label
+                    key={level}
+                    className={`flex items-center gap-1 cursor-pointer spice-label ${
+                      isActive
+                        ? "text-[#8A244B] font-semibold"
+                        : ""
+                    }`}
+                  >
+                   <input
+  type="checkbox"
+  checked={isActive}
+  onChange={() =>
+    setSweetSelections(prev => ({
+      ...prev,
+      [tasteItem.id]: level
+    }))
+  }
+  className="spice-checkbox"
+  style={{ "--border-color": theme.border }}
+/>
+
+
+                    🍰 {level}
+                  </label>
+                );
+              })}
+            </div>
+          </>
+        )}
+    </div>
+  </div>
+)}
+
+
 
                       </div>
                     );

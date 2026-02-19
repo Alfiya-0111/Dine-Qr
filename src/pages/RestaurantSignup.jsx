@@ -72,7 +72,7 @@ const [showPassword, setShowPassword] = useState(false);
         <h2 className="text-lg font-semibold text-center mb-6" style={{ color: "#1F1F1F" }}>
           Create your restaurant account
         </h2>
-
+<p className="text-red-500">Note : This application is under development process</p>
         {/* Restaurant Name */}
         <input
           className="w-full mb-4 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2"

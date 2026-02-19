@@ -10,8 +10,10 @@ import CartItem from "../components/CartItem";
 export default function Checkout() {
   const { cart, total, clearCart } = useCart();
   const { restaurantId } = useParams();
-
+const [customerName, setCustomerName] = useState("");
+const [orderDate, setOrderDate] = useState("");
   const [restaurantSettings, setRestaurantSettings] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState("online");
 const navigate = useNavigate();
   useEffect(() => {
     if (!restaurantId) return;
@@ -25,12 +27,13 @@ const navigate = useNavigate();
     });
   }, [restaurantId]);
 
-  const theme = restaurantSettings?.theme || {
-    primary: "#8A244B",
-    border: "#8A244B",
-  };
-
+ const theme = restaurantSettings?.theme || {
+  primary: "#8A244B",
+  border: "#8A244B",
+};
   const qrImage = restaurantSettings?.paymentQR;
+  const hotelName = restaurantSettings?.hotelName || "Restaurant";
+
 
 const handlePlaceOrder = async () => {
   if (!auth.currentUser) {
@@ -38,59 +41,74 @@ const handlePlaceOrder = async () => {
     return;
   }
 
+  if (!customerName.trim()) {
+    alert("Enter customer name");
+    return;
+  }
+
+  if (!orderDate) {
+    alert("Select date");
+    return;
+  }
+
   const now = Date.now();
 
   try {
-const maxPrepTime = Math.max(
-  ...cart.map(i => Number(i.prepTime ?? 15))
-);
-
-
+    const maxPrepTime = Math.max(
+      ...cart.map(i => Number(i.prepTime ?? 15))
+    );
 
     const orderPayload = {
       userId: auth.currentUser.uid,
-     
       restaurantId,
-       prepTime: maxPrepTime,
-items: cart.map(item => {
-  const prepTime = Number(item.prepTime ?? 15);
 
-  return {
-    dishId: item.id,
-    name: item.name,
+      customerName,
+      orderDate,
+      hotelName,
 
-    image: item.image || item.imageUrl || "",
+      paymentMethod,
+      paymentStatus:
+        paymentMethod === "cash"
+          ? "pending_cash"
+          : "pending_online",
 
-    qty: Number(item.qty) || 1,
-    price: Number(item.price),
+      prepTime: maxPrepTime,
 
-    prepTime,
+      items: cart.map(item => {
+        const prepTime = Number(item.prepTime ?? 15);
 
-    prepStartedAt: now,
-    prepEndsAt: now + prepTime * 60000,
+        return {
+          dishId: item.id,
+          name: item.name,
+          image: item.image || item.imageUrl || "",
+          qty: Number(item.qty) || 1,
+          price: Number(item.price),
 
-    status: "preparing"
-  };
-}),
+          spicePreference: item.spicePreference || null,
+          saltPreference: item.saltPreference || null,
+          sweetLevel: item.sweetLevel || null,
 
+          salad: item.salad || { qty: 0, taste: "normal" },
 
-
+          prepTime,
+          prepStartedAt: now,
+          prepEndsAt: now + prepTime * 60000,
+          status: "preparing"
+        };
+      }),
 
       total: Number(total),
 
       prepStartedAt: now,
-      prepEndsAt: now + maxPrepTime * 60 * 1000,
+      prepEndsAt: now + maxPrepTime * 60000,
 
       status: "preparing",
-      paymentStatus: "pending",
       createdAt: now,
     };
 
     await push(ref(realtimeDB, "orders"), orderPayload);
 
     clearCart();
-
-    // ✅ MAGIC LINE
     navigate(`/menu/${restaurantId}`);
 
   } catch (err) {
@@ -98,6 +116,7 @@ items: cart.map(item => {
     alert("Order failed 😢");
   }
 };
+
 
 
 
@@ -135,6 +154,27 @@ console.log("cart:", cart);
           <span>Total</span>
           <span>₹{total}</span>
         </div>
+<div className="border rounded-lg p-4 mb-4 space-y-3">
+
+  <input
+    placeholder="Customer Name"
+    value={customerName}
+    onChange={(e) => setCustomerName(e.target.value)}
+    className="w-full border rounded p-2"
+  />
+
+  <input
+    type="date"
+    value={orderDate}
+    onChange={(e) => setOrderDate(e.target.value)}
+    className="w-full border rounded p-2"
+  />
+
+  <div className="text-xs text-gray-500">
+    Hotel: <span className="font-semibold">{hotelName}</span>
+  </div>
+
+</div>
 
         <div className="border rounded-lg p-4 text-center">
           <p className="font-semibold mb-2">Scan & Pay</p>
@@ -151,6 +191,27 @@ console.log("cart:", cart);
             </p>
           )}
         </div>
+<div className="flex gap-3 mb-4">
+
+  <label>
+    <input
+      type="radio"
+      checked={paymentMethod === "online"}
+      onChange={() => setPaymentMethod("online")}
+    />
+    Online Payment
+  </label>
+
+  <label>
+    <input
+      type="radio"
+      checked={paymentMethod === "cash"}
+      onChange={() => setPaymentMethod("cash")}
+    />
+    Cash on Delivery
+  </label>
+
+</div>
 
        <button
   onClick={handlePlaceOrder}
