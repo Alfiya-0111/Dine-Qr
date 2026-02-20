@@ -99,18 +99,23 @@ const [selectedFilter, setSelectedFilter] = useState("today");
         let newStatus = order.status;
 
         /* ✅ AUTO READY */
-        if (
-          now >= order.prepEndsAt &&
-          order.status === "preparing" &&
-          !order.readyTriggered
-        ) {
-          newStatus = "ready";
+      if (
+  now >= order.prepEndsAt &&
+  order.status === "preparing" &&
+  !order.readyTriggered
+) {
+  newStatus = "ready";
 
-          update(ref(realtimeDB, `orders/${id}`), {
-            status: "ready",
-            readyTriggered: true,
-          });
-        }
+  update(ref(realtimeDB, `orders/${id}`), {
+    status: "ready",
+    readyTriggered: true,
+  });
+
+  // ✅ AUTO GENERATE BILL
+  if (!order.bill) {
+    generateBill(order); 
+  }
+}
 
         /* ✅ AUTO COMPLETE */
         if (
@@ -352,10 +357,7 @@ const getFilteredValue = (dish) => {
     🥗 Salad ({item.salad.taste})
   </span>
 )}
-
-
                   </div>
-
                   <span className="text-xs font-bold">
                     {item.status}
                   </span>

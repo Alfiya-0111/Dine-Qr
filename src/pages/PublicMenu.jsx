@@ -101,118 +101,89 @@ export default function PublicMenu() {
 
   });
 
-const downloadBill = async (order, restaurantSettings) => {
+// ================= PDF GENERATE & OPEN =================
+const generateAndOpenBill = async (order) => {
+  if (!order) return console.error("Order is undefined");
 
-  const doc = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: [80, 200]
-  });
+  try {
+    if (!order.bill) {
+      const items = order.items?.map(i => ({
+        name: i.name ?? "Unnamed Item",
+        qty: i.qty ?? 1,
+        price: i.price ?? 0
+      })) ?? [];
 
-  /* ✅ LOGO */
-  if (restaurantSettings?.logo) {
-    await addLogo(doc, restaurantSettings.logo);
-  }
+      const subtotal = items.reduce((sum, i) => sum + i.qty * i.price, 0);
+      const gst = subtotal * 0.05;
+      const total = subtotal + gst;
 
-  let y = 28;
+      const bill = {
+        orderId: order.id ?? "UNKNOWN",
+        customerName: order.customerName ?? "Guest",
+        hotelName: order.hotelName ?? "Your Hotel",
+        orderDate: order.orderDate ?? new Date().toISOString(),
+        items,
+        subtotal,
+        gst,
+        total,
+        generatedAt: Date.now()
+      };
 
-  doc.setFontSize(12);
-  doc.text(
-    restaurantSettings?.name || "Restaurant",
-    40,
-    y,
-    { align: "center" }
-  );
+      await update(ref(realtimeDB, `orders/${order.id}`), { bill });
+      order.bill = bill;
+    }
 
-  y += 6;
+    const bill = order.bill;
 
-  doc.setFontSize(8);
-  doc.text(`Order ID: ${order.id.slice(-6)}`, 5, y);
-  y += 4;
-
-  doc.text(`Customer: ${order.bill.customerName}`, 5, y);
-  y += 6;
-
-  doc.line(5, y, 75, y);
-  y += 4;
-
-  /* ✅ ITEMS */
-  doc.setFontSize(9);
-
-  order.bill.items.forEach(item => {
-
-    doc.text(`${item.name}`, 5, y);
+    const doc = new jsPDF();
+    let y = 10;
+    doc.setFontSize(16);
+    doc.text("🧾 Your Bill Receipt", 10, y); y += 10;
+    doc.setFontSize(12);
+    doc.text(`Order ID: ${bill.orderId}`, 10, y); y += 8;
+    doc.text(`Customer: ${bill.customerName}`, 10, y); y += 8;
+    doc.text(`Hotel: ${bill.hotelName}`, 10, y); y += 8;
+    doc.text(`Date: ${new Date(bill.generatedAt).toLocaleString()}`, 10, y); y += 10;
+    doc.text("Items:", 10, y); y += 8;
+    bill.items.forEach(item => {
+      const itemTotal = (item.price ?? 0) * (item.qty ?? 1);
+      doc.text(`- ${item.name} x${item.qty} = ₹${itemTotal.toFixed(2)}`, 10, y);
+      y += 6;
+    });
     y += 4;
+    doc.text(`Subtotal: ₹${(bill.subtotal ?? 0).toFixed(2)}`, 10, y); y += 6;
+    doc.text(`GST (5%): ₹${(bill.gst ?? 0).toFixed(2)}`, 10, y); y += 6;
+    doc.text(`Total: ₹${(bill.total ?? 0).toFixed(2)}`, 10, y); y += 10;
+    doc.text("Thank you for your order! 🍽️", 10, y);
 
-    doc.setFontSize(8);
-    doc.text(
-      `${item.qty} x ₹${item.price}`,
-      5,
-      y
-    );
+    // PDF turant open
+    const pdfBlob = doc.output("bloburl");
+    window.open(pdfBlob);
 
-    doc.text(
-      `₹${item.qty * item.price}`,
-      75,
-      y,
-      { align: "right" }
-    );
-
-    y += 5;
-    doc.setFontSize(9);
-  });
-
-  doc.line(5, y, 75, y);
-  y += 6;
-
-  /* ✅ TOTALS */
-  const subtotal = order.bill.items.reduce(
-    (sum, item) => sum + item.price * item.qty,
-    0
-  );
-
-  const gstRate = 0.05;
-  const gstAmount = subtotal * gstRate;
-  const total = subtotal + gstAmount;
-
-  doc.setFontSize(9);
-
-  doc.text("Subtotal", 5, y);
-  doc.text(`₹${subtotal.toFixed(2)}`, 75, y, { align: "right" });
-  y += 5;
-
-  doc.text(`GST (5%)`, 5, y);
-  doc.text(`₹${gstAmount.toFixed(2)}`, 75, y, { align: "right" });
-  y += 6;
-
-  doc.setFontSize(11);
-  doc.text("TOTAL", 5, y);
-  doc.text(`₹${total.toFixed(2)}`, 75, y, { align: "right" });
-
-  y += 10;
-
-  doc.setFontSize(7);
-  doc.text(
-    "Thank you for dining with us ❤️",
-    40,
-    y,
-    { align: "center" }
-  );
-
-  doc.save(`bill-${order.id}.pdf`);
+  } catch (err) {
+    console.error("Error generating bill:", err);
+  }
 };
-const shareBillWhatsApp = (order) => {
 
-  const message =
-    `🧾 Bill Receipt\n\n` +
-    `Order: ${order.id.slice(-6)}\n` +
-    `Total: ₹${order.bill.total}\n\n` +
-    `Thank you ❤️`;
+// ================= WHATSAPP SHARE =================
+const shareBillOnWhatsApp = (order) => {
+  if (!order?.bill) return console.error("No bill to share");
 
-  const url =
-    `https://wa.me/?text=${encodeURIComponent(message)}`;
-
-  window.open(url, "_blank");
+  const bill = order.bill;
+  const billText = `
+Order ID: ${bill.orderId}
+Customer: ${bill.customerName}
+Hotel: ${bill.hotelName}
+Date: ${new Date(bill.generatedAt).toLocaleString()}
+Items:
+${bill.items.map(i => `${i.name} x${i.qty} = ₹${((i.price ?? 0) * (i.qty ?? 1)).toFixed(2)}`).join("\n")}
+Subtotal: ₹${(bill.subtotal ?? 0).toFixed(2)}
+GST: ₹${(bill.gst ?? 0).toFixed(2)}
+Total: ₹${(bill.total ?? 0).toFixed(2)}
+Thank you! 🍽️
+  `;
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(billText)}`;
+  window.open(whatsappUrl, "_blank");
 };
   const visibleCategories = categories.filter(
     cat => categoryCounts[cat.id] > 0
@@ -280,6 +251,7 @@ const shareBillWhatsApp = (order) => {
             body: "Wait is over. Your order is ready 🎉",
           });
         }
+        
       }
 
 
@@ -777,48 +749,24 @@ const shareBillWhatsApp = (order) => {
       })}
 
       {/* ✅ BILL NOW SAFE */}
-   <div className="flex gap-2 mt-3">
-
+ <div className="flex gap-2 mt-3">
   {/* DOWNLOAD BILL */}
   <button
-    onClick={() => downloadBill(order)}
+    onClick={() => generateAndOpenBill(order)}
     style={{ "--theme-color": theme.primary }}
-                              className="
-      w-[150px]
-        border
-        border-[var(--theme-color)]
-        text-[var(--theme-color)]
-        bg-white
-        py-2
-        hover:bg-[var(--theme-color)]
-        hover:text-white
-        transition-all
-        duration-300
-      "
+    className="w-[150px] border border-[var(--theme-color)] text-[var(--theme-color)] bg-white py-2 hover:bg-[var(--theme-color)] hover:text-white transition-all duration-300"
   >
-    🧾 Bill
+    🧾 Generate & Open Bill
   </button>
 
   {/* WHATSAPP */}
   <button
-    onClick={() => shareBillWhatsApp(order)}
-   style={{ "--theme-color": theme.primary }}
-                              className="
-        w-[150px]
-        border
-        border-[var(--theme-color)]
-        text-[var(--theme-color)]
-        bg-white
-        py-2
-        hover:bg-[var(--theme-color)]
-        hover:text-white
-        transition-all
-        duration-300
-      "
+    onClick={() => shareBillOnWhatsApp(order)}
+    style={{ "--theme-color": theme.primary }}
+    className="w-[150px] border border-[var(--theme-color)] text-[var(--theme-color)] bg-white py-2 hover:bg-[var(--theme-color)] hover:text-white transition-all duration-300"
   >
     📲 WhatsApp
   </button>
-
 </div>
 
     </div>
