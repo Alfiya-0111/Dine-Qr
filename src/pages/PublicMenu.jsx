@@ -627,49 +627,61 @@ export default function PublicMenu() {
               {activeOrder?.length > 0 && (
                 <div className="bg-white rounded-xl p-3 mb-4">
 
-                  {activeOrder.map(order => {
+                 {activeOrder.map(order => {
 
-                    const remainingMs = Math.max(0, order.prepEndsAt - Date.now());
-                    const remainingMin = Math.floor(remainingMs / 60000);
-                    const remainingSec = Math.floor((remainingMs % 60000) / 1000);
+  const remainingMs = Math.max(0, order.prepEndsAt - Date.now());
 
-                    return (
-                      <div key={order.id} className="mb-3 border-b pb-2">
+  return (
+    <div key={order.id} className="mb-3 border-b pb-2">
 
-                        <p className="text-xs font-bold">
-                          Order #{order.id.slice(-6)}
-                        </p>
+      <p className="text-xs font-bold">
+        Order #{order.id.slice(-6)}
+      </p>
 
-                        {order.items.map(item => {
+      {order.items.map(item => {
+        const itemRemainingMs = Math.max(0, item.prepEndsAt - Date.now());
+        const isReady = itemRemainingMs <= 0;
 
-                          const itemRemainingMs = Math.max(0, item.prepEndsAt - Date.now());
-                          const isReady = itemRemainingMs <= 0;
+        const min = Math.floor(itemRemainingMs / 60000);
+        const sec = Math.floor((itemRemainingMs % 60000) / 1000);
 
-                          const min = Math.floor(itemRemainingMs / 60000);
-                          const sec = Math.floor((itemRemainingMs % 60000) / 1000);
+        return (
+          <div key={item.dishId} className="flex justify-between text-xs">
+            <span>{item.name} × {item.qty}</span>
 
-                          return (
-                            <div key={item.dishId} className="flex justify-between text-xs">
+            {isReady ? (
+              <span className="text-green-600 font-bold">✅ Ready</span>
+            ) : (
+              <span>⏳ {min}m {sec}s</span>
+            )}
+          </div>
+        );
+      })}
 
-                              <span>
-                                {item.name} × {item.qty}
-                              </span>
+      {/* ✅ BILL NOW SAFE */}
+      {order.bill && order.status === "completed" && (
+        <div className="bg-white border rounded-lg p-3 mt-2">
 
-                              {isReady ? (
-                                <span className="text-green-600 font-bold">
-                                  ✅ Ready
-                                </span>
-                              ) : (
-                                <span>
-                                  ⏳ {min}m {sec}s
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
+          <p className="text-xs font-bold">🧾 Bill</p>
+          <p className="text-xs">{order.bill.customerName}</p>
+
+          {order.bill.items.map(item => (
+            <div key={item.dishId} className="flex justify-between text-xs">
+              <span>{item.name} × {item.qty}</span>
+              <span>₹{item.price * item.qty}</span>
+            </div>
+          ))}
+
+          <p className="text-xs font-bold mt-2">
+            Total: ₹{order.bill.total}
+          </p>
+
+        </div>
+      )}
+
+    </div>
+  );
+})}
                 </div>
               )
               }
@@ -681,32 +693,7 @@ export default function PublicMenu() {
              
 
               )}
-                {order.bill && order.status === "completed" && (
-  <div className="bg-white border rounded-lg p-3 mt-2">
-
-    <p className="text-xs font-bold">🧾 Bill</p>
-
-    <p className="text-xs">
-      {order.bill.customerName}
-    </p>
-
-    {order.bill.items.map(item => (
-      <div
-        key={item.dishId}
-        className="flex justify-between text-xs"
-      >
-        <span>{item.name} × {item.qty}</span>
-        <span>₹{item.price * item.qty}</span>
-      </div>
-    ))}
-
-    <p className="text-xs font-bold mt-2">
-      Total: ₹{order.bill.total}
-    </p>
-
-  </div>
-)}
-
+             
 
               {showReadyBanner && (
                 <div className="bg-green-50 border border-green-500 rounded-xl p-3 mt-2 text-center animate-bounce">
