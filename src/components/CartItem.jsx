@@ -3,7 +3,6 @@ import { useCart } from "../context/CartContext";
 export default function CartItem({ item }) {
   const { updateQty, removeFromCart } = useCart();
 
-  // safety
   if (!item) return null;
 
   const name =
@@ -23,6 +22,7 @@ export default function CartItem({ item }) {
 
   return (
     <div className="flex items-center justify-between gap-3 border-b py-3">
+      
       {/* LEFT */}
       <div className="flex items-center gap-3">
         {image && (
@@ -40,18 +40,49 @@ export default function CartItem({ item }) {
             ₹{price} × {qty}
           </p>
 
-          {/* ✅ SPICE HERE */}
-          <p className="text-xs text-gray-600">
-            Spice:
-            <span className="ml-1 font-semibold capitalize">
-              {item.spicePreference || "normal"}
-            </span>
-          </p>
-          {item.salad?.qty > 0 && (
-  <p className="text-xs text-gray-500">
-    🥗 Salad: {item.salad.qty} Plate ({item.salad.taste})
-  </p>
+          {/* 🌶 SPICE (NOT FOR SWEET DISHES) */}
+          {item.dishTasteProfile !== "sweet" && (
+            <p className="text-xs text-gray-600">
+              Spice:
+              <span className="ml-1 font-semibold capitalize">
+                {item.spicePreference || "normal"}
+              </span>
+            </p>
+          )}
+{/* 🧂 SALT (NOT FOR SWEET DISHES) */}
+{item.dishTasteProfile !== "sweet" && (
+  <>
+    <p className="text-xs text-gray-600">
+      Spice:
+      <span className="ml-1 font-semibold capitalize">
+        {item.spicePreference || "normal"}
+      </span>
+    </p>
+
+    <p className="text-xs text-gray-600">
+      Salt:
+      <span className="ml-1 font-semibold capitalize">
+        {item.saltPreference || "normal"}
+      </span>
+    </p>
+  </>
 )}
+          {/* 🍯 SWEETNESS (ONLY FOR SWEET DISHES) */}
+          {item.dishTasteProfile === "sweet" && item.sweetLevel && (
+            <p className="text-xs text-gray-600">
+              Sweetness:
+              <span className="ml-1 font-semibold capitalize">
+                {item.sweetLevel}
+              </span>
+            </p>
+          )}
+
+          {/* 🥗 SALAD */}
+          {item.salad?.qty > 0 && (
+            <p className="text-xs text-gray-500">
+              🥗 Salad: {item.salad.qty} Plate ({item.salad.taste})
+            </p>
+          )}
         </div>
       </div>
 

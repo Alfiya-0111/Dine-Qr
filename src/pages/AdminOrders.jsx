@@ -114,7 +114,7 @@ const [selectedFilter, setSelectedFilter] = useState("today");
 
         /* ✅ AUTO COMPLETE */
         if (
-          now >= order.prepEndsAt + 5 * 60 * 1000 &&
+          now >= order.prepEndsAt + 1 * 60 * 1000 &&
           order.status === "ready" &&
           !order.completedTriggered
         ) {
@@ -318,9 +318,42 @@ const getFilteredValue = (dish) => {
 
                   <div className="flex-1">
                     <p className="text-sm font-semibold">{item.name}</p>
-                    <p className="text-xs text-gray-500">
-                      Qty: {item.qty}
-                    </p>
+                   <p className="text-xs text-gray-500">
+  Qty: {item.qty}
+</p>
+<div className="flex gap-2 text-[10px] mt-1">
+
+  {/* 🍯 SWEET DISH → ONLY SWEET */}
+  {item.dishTasteProfile === "sweet" && item.sweetLevel && (
+    <span className="px-2 py-0.5 bg-pink-100 text-pink-600 rounded">
+      🍯 {item.sweetLevel}
+    </span>
+  )}
+
+  {/* 🌶 SPICY DISH → SPICE */}
+  {item.dishTasteProfile !== "sweet" && item.spicePreference && (
+    <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded">
+      🌶 {item.spicePreference}
+    </span>
+  )}
+
+  {/* 🧂 SPICY DISH → SALT */}
+  {item.dishTasteProfile !== "sweet" && item.saltPreference && (
+    <span className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded">
+      🧂 {item.saltPreference}
+    </span>
+  )}
+
+</div>
+
+{/* 🥗 SALAD → ONLY NON-SWEET */}
+{item.dishTasteProfile !== "sweet" && item.salad?.qty > 0 && (
+  <span className="text-[10px] text-green-600">
+    🥗 Salad ({item.salad.taste})
+  </span>
+)}
+
+
                   </div>
 
                   <span className="text-xs font-bold">

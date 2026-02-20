@@ -8,6 +8,7 @@ import { PiMicrophone } from "react-icons/pi";
 import { auth } from "../firebaseConfig";
 import readySound from "../assets/ready.mp3";
 import { useRef } from "react";
+import jsPDF from "jspdf";
 import { Helmet } from "react-helmet";
 import {
   collection,
@@ -100,6 +101,119 @@ export default function PublicMenu() {
 
   });
 
+const downloadBill = async (order, restaurantSettings) => {
+
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: [80, 200]
+  });
+
+  /* ✅ LOGO */
+  if (restaurantSettings?.logo) {
+    await addLogo(doc, restaurantSettings.logo);
+  }
+
+  let y = 28;
+
+  doc.setFontSize(12);
+  doc.text(
+    restaurantSettings?.name || "Restaurant",
+    40,
+    y,
+    { align: "center" }
+  );
+
+  y += 6;
+
+  doc.setFontSize(8);
+  doc.text(`Order ID: ${order.id.slice(-6)}`, 5, y);
+  y += 4;
+
+  doc.text(`Customer: ${order.bill.customerName}`, 5, y);
+  y += 6;
+
+  doc.line(5, y, 75, y);
+  y += 4;
+
+  /* ✅ ITEMS */
+  doc.setFontSize(9);
+
+  order.bill.items.forEach(item => {
+
+    doc.text(`${item.name}`, 5, y);
+    y += 4;
+
+    doc.setFontSize(8);
+    doc.text(
+      `${item.qty} x ₹${item.price}`,
+      5,
+      y
+    );
+
+    doc.text(
+      `₹${item.qty * item.price}`,
+      75,
+      y,
+      { align: "right" }
+    );
+
+    y += 5;
+    doc.setFontSize(9);
+  });
+
+  doc.line(5, y, 75, y);
+  y += 6;
+
+  /* ✅ TOTALS */
+  const subtotal = order.bill.items.reduce(
+    (sum, item) => sum + item.price * item.qty,
+    0
+  );
+
+  const gstRate = 0.05;
+  const gstAmount = subtotal * gstRate;
+  const total = subtotal + gstAmount;
+
+  doc.setFontSize(9);
+
+  doc.text("Subtotal", 5, y);
+  doc.text(`₹${subtotal.toFixed(2)}`, 75, y, { align: "right" });
+  y += 5;
+
+  doc.text(`GST (5%)`, 5, y);
+  doc.text(`₹${gstAmount.toFixed(2)}`, 75, y, { align: "right" });
+  y += 6;
+
+  doc.setFontSize(11);
+  doc.text("TOTAL", 5, y);
+  doc.text(`₹${total.toFixed(2)}`, 75, y, { align: "right" });
+
+  y += 10;
+
+  doc.setFontSize(7);
+  doc.text(
+    "Thank you for dining with us ❤️",
+    40,
+    y,
+    { align: "center" }
+  );
+
+  doc.save(`bill-${order.id}.pdf`);
+};
+const shareBillWhatsApp = (order) => {
+
+  const message =
+    `🧾 Bill Receipt\n\n` +
+    `Order: ${order.id.slice(-6)}\n` +
+    `Total: ₹${order.bill.total}\n\n` +
+    `Thank you ❤️`;
+
+  const url =
+    `https://wa.me/?text=${encodeURIComponent(message)}`;
+
+  window.open(url, "_blank");
+};
   const visibleCategories = categories.filter(
     cat => categoryCounts[cat.id] > 0
   );
@@ -193,12 +307,16 @@ export default function PublicMenu() {
       if (!data) return;
 
       const myOrders = Object.entries(data)
-        .filter(
-          ([id, order]) =>
-            order.userId === userId &&
-            order.restaurantId === restaurantId &&
-            ["preparing", "ready"].includes(order.status)
-        )
+       .filter(
+ ([id, order]) =>
+   order.userId === userId &&
+   order.restaurantId === restaurantId &&
+   (
+     order.status === "preparing" ||
+     order.status === "ready" ||
+     (order.status === "completed" && order.bill)
+   )
+)
         .map(([id, order]) => ({ id, ...order }))
         .sort((a, b) => b.createdAt - a.createdAt);
 
@@ -659,25 +777,49 @@ export default function PublicMenu() {
       })}
 
       {/* ✅ BILL NOW SAFE */}
-      {order.bill && order.status === "completed" && (
-        <div className="bg-white border rounded-lg p-3 mt-2">
+   <div className="flex gap-2 mt-3">
 
-          <p className="text-xs font-bold">🧾 Bill</p>
-          <p className="text-xs">{order.bill.customerName}</p>
+  {/* DOWNLOAD BILL */}
+  <button
+    onClick={() => downloadBill(order)}
+    style={{ "--theme-color": theme.primary }}
+                              className="
+      w-[150px]
+        border
+        border-[var(--theme-color)]
+        text-[var(--theme-color)]
+        bg-white
+        py-2
+        hover:bg-[var(--theme-color)]
+        hover:text-white
+        transition-all
+        duration-300
+      "
+  >
+    🧾 Bill
+  </button>
 
-          {order.bill.items.map(item => (
-            <div key={item.dishId} className="flex justify-between text-xs">
-              <span>{item.name} × {item.qty}</span>
-              <span>₹{item.price * item.qty}</span>
-            </div>
-          ))}
+  {/* WHATSAPP */}
+  <button
+    onClick={() => shareBillWhatsApp(order)}
+   style={{ "--theme-color": theme.primary }}
+                              className="
+        w-[150px]
+        border
+        border-[var(--theme-color)]
+        text-[var(--theme-color)]
+        bg-white
+        py-2
+        hover:bg-[var(--theme-color)]
+        hover:text-white
+        transition-all
+        duration-300
+      "
+  >
+    📲 WhatsApp
+  </button>
 
-          <p className="text-xs font-bold mt-2">
-            Total: ₹{order.bill.total}
-          </p>
-
-        </div>
-      )}
+</div>
 
     </div>
   );
@@ -829,35 +971,46 @@ export default function PublicMenu() {
                               Order Now
                             </button>
 
-                            <button
-                              onClick={() => {
-                                if (!requireLogin()) return;
-                                addToCart({
-                                  ...item,
-                                  spicePreference: spiceSelections[item.id] || "normal",
-                                  sweetLevel: sweetSelections[item.id] || "normal",
-                                  salad: {
-    qty: saladSelections[item.id] || 0,
-    taste: saladTaste[item.id] || "normal"
-  }
-                                });
-                              }}
-                              style={{ "--theme-color": theme.primary }}
-                              className="
-        flex-1
-        border
-        border-[var(--theme-color)]
-        text-[var(--theme-color)]
-        bg-white
-        py-2
-        hover:bg-[var(--theme-color)]
-        hover:text-white
-        transition-all
-        duration-300
-      "
-                            >
-                              Add to Cart
-                            </button>
+                           <button
+  onClick={() => {
+    if (!requireLogin()) return;
+
+    addToCart({
+      ...item,
+
+      prepTime: Number(item.prepTime ?? 15),
+
+      spicePreference: spiceSelections[item.id] || "normal",
+
+      sweetLevel:
+        item.dishTasteProfile === "sweet"
+          ? sweetSelections[item.id] || "normal"
+          : null,
+
+      saltPreference: saltSelections[item.id] || "normal",
+
+      salad: {
+        qty: saladSelections[item.id] || 0,
+        taste: saladTaste[item.id] || "normal"
+      }
+    });
+  }}
+  style={{ "--theme-color": theme.primary }}
+  className="
+    flex-1
+    border
+    border-[var(--theme-color)]
+    text-[var(--theme-color)]
+    bg-white
+    py-2
+    hover:bg-[var(--theme-color)]
+    hover:text-white
+    transition-all
+    duration-300
+  "
+>
+  Add to Cart
+</button>
                           </div>
 
                           <details className="mt-3">
@@ -944,44 +1097,46 @@ export default function PublicMenu() {
         </>
       )}
 
-      {/* 🧂 SALT */}
-      {tasteItem.saltLevelEnabled && (
-        <>
-          <p className="text-xs font-semibold mb-1">🧂 Salt Level</p>
+    
+   {/* 🧂 SALT */}
+{tasteItem.dishTasteProfile !== "sweet" &&
+ tasteItem.saltLevelEnabled && (
+  <>
+    <p className="text-xs font-semibold mb-1">🧂 Salt Level</p>
 
-          <div className="flex gap-3 mb-3">
-            {["less", "normal", "extra"].map(level => {
+    <div className="flex gap-3 mb-3">
+      {["less", "normal", "extra"].map(level => {
 
-              const isActive =
-                saltSelections[tasteItem.id] === level;
+        const isActive =
+          saltSelections[tasteItem.id] === level;
 
-              return (
-                <label
-                  key={level}
-                  className={`flex items-center gap-1 cursor-pointer spice-label ${
-                    isActive ? "text-[#8A244B] font-semibold" : ""
-                  }`}
-                >
-                 <input
-  type="checkbox"
-  checked={isActive}
-  onChange={() =>
-    setSaltSelections(prev => ({
-      ...prev,
-      [tasteItem.id]: level
-    }))
-  }
-  className="spice-checkbox"
-  style={{ "--border-color": theme.border }}
-/>
+        return (
+          <label
+            key={level}
+            className={`flex items-center gap-1 cursor-pointer spice-label ${
+              isActive ? "text-[#8A244B] font-semibold" : ""
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={isActive}
+              onChange={() =>
+                setSaltSelections(prev => ({
+                  ...prev,
+                  [tasteItem.id]: level
+                }))
+              }
+              className="spice-checkbox"
+              style={{ "--border-color": theme.border }}
+            />
 
-                  🧂 {level}
-                </label>
-              );
-            })}
-          </div>
-        </>
-      )}
+            🧂 {level}
+          </label>
+        );
+      })}
+    </div>
+  </>
+)}
 
       {/* 🥗 SALAD */}
       {tasteItem.saladConfig?.enabled && (

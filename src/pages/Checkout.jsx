@@ -73,29 +73,45 @@ const handlePlaceOrder = async () => {
           : "pending_online",
 
       prepTime: maxPrepTime,
+items: cart.map(item => {
+  const prepTime = Number(item.prepTime ?? 15);
 
-      items: cart.map(item => {
-        const prepTime = Number(item.prepTime ?? 15);
+  return {
+    dishId: item.id,
+    name: item.name,
+    image: item.image || item.imageUrl || "",
+    qty: Number(item.qty) || 1,
+    price: Number(item.price),
 
-        return {
-          dishId: item.id,
-          name: item.name,
-          image: item.image || item.imageUrl || "",
-          qty: Number(item.qty) || 1,
-          price: Number(item.price),
+    dishTasteProfile: item.dishTasteProfile || "normal",
 
-          spicePreference: item.spicePreference || null,
-          saltPreference: item.saltPreference || null,
-          sweetLevel: item.sweetLevel || null,
+    spicePreference:
+      item.dishTasteProfile !== "sweet"
+        ? item.spicePreference || "normal"
+        : null,
 
-          salad: item.salad || { qty: 0, taste: "normal" },
+    sweetLevel:
+      item.dishTasteProfile === "sweet"
+        ? item.sweetLevel || "normal"
+        : null,
 
-          prepTime,
-          prepStartedAt: now,
-          prepEndsAt: now + prepTime * 60000,
-          status: "preparing"
-        };
-      }),
+    saltPreference:
+      item.dishTasteProfile !== "sweet"
+        ? item.saltPreference || "normal"
+        : null,
+
+    salad:
+      item.dishTasteProfile !== "sweet"
+        ? item.salad || { qty: 0, taste: "normal" }
+        : { qty: 0, taste: "normal" },
+
+    prepTime,
+    prepStartedAt: now,
+    prepEndsAt: now + prepTime * 60000,
+    status: "preparing"
+  };
+}),
+      
 
       total: Number(total),
 
