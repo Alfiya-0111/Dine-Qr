@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { realtimeDB } from "../firebaseConfig";
 import { ref, onValue, set, remove } from "firebase/database";
-import { getAuth } from "firebase/auth";
-import { useRequireLogin } from "../utils/requireLogin";
 import { AiOutlineHeart, AiFillHeart } from "react-icons/ai";
+import { getDeviceId } from "../utils/deviceId";
 
 export default function Likes({ restaurantId, dishId }) {
-  const auth = getAuth();
-  const user = auth.currentUser;
-  const requireLogin = useRequireLogin();
+
+  const deviceId = getDeviceId();
 
   const [likesCount, setLikesCount] = useState(0);
   const [likedByMe, setLikedByMe] = useState(false);
@@ -22,8 +20,10 @@ export default function Likes({ restaurantId, dishId }) {
     const unsub = onValue(likesRef, (snap) => {
       if (snap.exists()) {
         const data = snap.val();
+
         setLikesCount(Object.keys(data).length);
-        setLikedByMe(!!data[user?.uid]);
+        setLikedByMe(!!data[deviceId]);
+
       } else {
         setLikesCount(0);
         setLikedByMe(false);
@@ -31,14 +31,13 @@ export default function Likes({ restaurantId, dishId }) {
     });
 
     return () => unsub();
-  }, [restaurantId, dishId, user?.uid]);
+  }, [restaurantId, dishId]);
 
   const toggleLike = () => {
-    if (!requireLogin()) return;
 
     const likeRef = ref(
       realtimeDB,
-      `restaurants/${restaurantId}/menu/${dishId}/likes/${user.uid}`
+      `restaurants/${restaurantId}/menu/${dishId}/likes/${deviceId}`
     );
 
     likedByMe ? remove(likeRef) : set(likeRef, true);
@@ -54,6 +53,7 @@ export default function Likes({ restaurantId, dishId }) {
       ) : (
         <AiOutlineHeart className="text-gray-500 text-lg" />
       )}
+
       <span className="text-gray-700">{likesCount}</span>
     </button>
   );

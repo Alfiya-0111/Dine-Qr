@@ -4,6 +4,13 @@ import { auth, googleProvider } from "../firebaseConfig";
 import { useNavigate, Link } from "react-router-dom";
 
 export default function Login() {
+  <Helmet>
+  <title>Restaurant Login – Khaatogo</title>
+  <meta
+    name="description"
+    content="Login to your Khaatogo restaurant dashboard to manage menu, orders, and analytics."
+  />
+</Helmet>
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();

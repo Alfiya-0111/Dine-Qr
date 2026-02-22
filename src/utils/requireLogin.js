@@ -1,5 +1,5 @@
 import { getAuth } from "firebase/auth";
-import { useAuthModal } from "../context/AuthContext"; // ✅ MISSING IMPORT
+import { useAuthModal } from "../context/AuthContext"; 
 
 export const useRequireLogin = () => {
   const { setShowLogin, setAfterLoginAction } = useAuthModal();

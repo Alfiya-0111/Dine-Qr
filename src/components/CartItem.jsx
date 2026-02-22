@@ -5,20 +5,10 @@ export default function CartItem({ item }) {
 
   if (!item) return null;
 
-  const name =
-    item.name ||
-    item.title ||
-    item.itemName ||
-    "Unnamed Item";
-
+  const name = item.name || item.title || item.itemName || "Unnamed Item";
   const price = Number(item.price) || 0;
   const qty = item.qty || item.quantity || 1;
-
-  const image =
-    item.image ||
-    item.imageUrl ||
-    item.thumbnail ||
-    "";
+  const image = item.image || item.imageUrl || item.thumbnail || "";
 
   return (
     <div className="flex items-center justify-between gap-3 border-b py-3">
@@ -49,24 +39,17 @@ export default function CartItem({ item }) {
               </span>
             </p>
           )}
-{/* 🧂 SALT (NOT FOR SWEET DISHES) */}
-{item.dishTasteProfile !== "sweet" && (
-  <>
-    <p className="text-xs text-gray-600">
-      Spice:
-      <span className="ml-1 font-semibold capitalize">
-        {item.spicePreference || "normal"}
-      </span>
-    </p>
 
-    <p className="text-xs text-gray-600">
-      Salt:
-      <span className="ml-1 font-semibold capitalize">
-        {item.saltPreference || "normal"}
-      </span>
-    </p>
-  </>
-)}
+          {/* 🧂 SALT (NOT FOR SWEET DISHES) - ONLY ONCE, NO DUPLICATE SPICE */}
+          {item.dishTasteProfile !== "sweet" && item.saltPreference && (
+            <p className="text-xs text-gray-600">
+              Salt:
+              <span className="ml-1 font-semibold capitalize">
+                {item.saltPreference}
+              </span>
+            </p>
+          )}
+
           {/* 🍯 SWEETNESS (ONLY FOR SWEET DISHES) */}
           {item.dishTasteProfile === "sweet" && item.sweetLevel && (
             <p className="text-xs text-gray-600">

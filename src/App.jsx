@@ -15,6 +15,7 @@ import LoginModal from "./components/LoginModal"; // ✅ CUSTOMER LOGIN MODAL
 import RestaurantSettings from "./pages/RestaurantSettings";
 import Checkout from "./pages/Checkout";
 import AdminOrders from "./pages/AdminOrders";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 
 function App() {
   return (
@@ -35,16 +36,15 @@ function App() {
      <Route path="/checkout/:restaurantId" element={<Checkout />} />
 
           {/* 🔹 OWNER DASHBOARD */}
-          <Route path="/dashboard" element={<Dashboard />}>
-          <Route path="adminorder" element={<AdminOrders/>}/>
-          <Route path="restaurant-settings" element={<RestaurantSettings/>}/>
-         
-            <Route path="menu" element={<MenuItems />} />
-            <Route path="add-item" element={<AddItem />} />
-            <Route path="analytics" element={<OwnerAnalytics />} />
-            <Route path="feedback" element={<FeedbackTab />} />
-          
-          </Route>
+       <Route path="/dashboard/:restaurantId" element={<Dashboard />}>
+  <Route path="adminorder" element={<AdminOrders />} />
+  <Route path="restaurant-settings" element={<RestaurantSettings />} />
+  <Route path="bookingtable" element={<AdminDashboard />} />
+  <Route path="menu" element={<MenuItems />} />
+  <Route path="add-item" element={<AddItem />} />
+  <Route path="analytics" element={<OwnerAnalytics />} />
+  <Route path="feedback" element={<FeedbackTab />} />
+</Route>
 
         </Routes>
 
