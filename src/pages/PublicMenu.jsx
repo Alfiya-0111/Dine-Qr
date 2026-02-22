@@ -9,7 +9,7 @@ import { auth } from "../firebaseConfig";
 import readySound from "../assets/ready.mp3";
 import jsPDF from "jspdf";
 import { Helmet } from "react-helmet";
-import TableBookingModal from "../components/TableBookingModal";  // ✅ YEH ADD KIYA
+import TableBookingModal from "../components/TableBookingModal"; 
 import MyBookings from "../components/MyBookings";
 import {
   collection,

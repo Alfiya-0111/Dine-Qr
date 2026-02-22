@@ -29,6 +29,7 @@ export default function Sidebar() {
          <Link to={`/dashboard/${restaurantId}/feedback`}>
           Feedback
         </Link>
+        <Link to={`/dashboard/${restaurantId}/susbcription`}>Subscription</Link>
       </nav>
     </div>
   );

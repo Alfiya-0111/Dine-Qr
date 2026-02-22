@@ -1,14 +1,35 @@
-import React, { useState } from "react";
-import { useParams } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { getAuth } from "firebase/auth";
 import TableManagement from "../../components/admin/TableManagement";
 import BookingManagement from "../../components/admin/BookingManagement";
-import { FaTable, FaCalendarCheck, FaChartBar } from "react-icons/fa";
+import { FaTable, FaCalendarCheck } from "react-icons/fa";
 
 const AdminDashboard = () => {
-  const { restaurantId } = useParams();
   const [activeTab, setActiveTab] = useState("tables");
+  const [restaurantId, setRestaurantId] = useState(null);
 
-console.log("Params Restaurant ID:", restaurantId);
+  useEffect(() => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (user) {
+      setRestaurantId(user.uid);
+      console.log("✅ Using Firebase UID:", user.uid);
+    } else {
+      console.error("❌ No user logged in!");
+    }
+  }, []);
+
+  if (!restaurantId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-500">Please login first!</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header */}

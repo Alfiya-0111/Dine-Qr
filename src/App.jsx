@@ -16,6 +16,7 @@ import RestaurantSettings from "./pages/RestaurantSettings";
 import Checkout from "./pages/Checkout";
 import AdminOrders from "./pages/AdminOrders";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import SubscriptionPage from "./pages/SubscriptionPage";
 
 function App() {
   return (
@@ -44,6 +45,7 @@ function App() {
   <Route path="add-item" element={<AddItem />} />
   <Route path="analytics" element={<OwnerAnalytics />} />
   <Route path="feedback" element={<FeedbackTab />} />
+  <Route path="susbcription" element={<SubscriptionPage/>}/>
 </Route>
 
         </Routes>

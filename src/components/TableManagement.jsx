@@ -5,6 +5,8 @@ import { FaPlus, FaEdit, FaTrash, FaChair, FaMapMarkerAlt, FaUsers } from "react
 
 const TableManagement = ({ restaurantId }) => {
   const [tables, setTables] = useState([]);
+   console.log("Received restaurantId:", restaurantId);
+  console.log("Type:", typeof restaurantId);
   const [showForm, setShowForm] = useState(false);
   const [editingTable, setEditingTable] = useState(null);
   const [formData, setFormData] = useState({
@@ -13,48 +15,38 @@ const TableManagement = ({ restaurantId }) => {
     location: "Center",
     status: "available"
   });
-
-  useEffect(() => {
-    if (!restaurantId) return;
+ useEffect(() => {
+    if (!restaurantId) {
+      console.error("No restaurantId provided!");
+      return;
+    }
+    
+    // Ensure it's not "menu" or other invalid values
+    if (restaurantId === "menu" || restaurantId === "bookingtable") {
+      console.error("Invalid restaurantId:", restaurantId);
+      return;
+    }
     
     const tablesRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}/tables`);
+    console.log("Fetching from path:", `restaurants/${restaurantId}/tables`);
+    
     onValue(tablesRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const tablesList = Object.entries(data).map(([id, table]) => ({
-          id,
-          ...table
-        }));
-        setTables(tablesList);
-      } else {
-        setTables([]);
-      }
+      // ... rest of code
     });
   }, [restaurantId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // DEBUG
+    console.log("Saving table for restaurantId:", restaurantId);
+    console.log("Full path:", `restaurants/${restaurantId}/tables/${Date.now()}`);
+    
     try {
-      if (editingTable) {
-        // Update existing
-        await update(rtdbRef(realtimeDB, `restaurants/${restaurantId}/tables/${editingTable.id}`), {
-          ...formData,
-          updatedAt: Date.now()
-        });
-      } else {
-        // Create new
-        const newTableRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}/tables/${Date.now()}`);
-        await set(newTableRef, {
-          ...formData,
-          createdAt: Date.now()
-        });
-      }
-      
-      resetForm();
+      // ... rest of code
     } catch (error) {
-      console.error("Error saving table:", error);
-      alert("Failed to save table");
+      console.error("Error details:", error);
+      alert("Failed to save table: " + error.message);
     }
   };
 
