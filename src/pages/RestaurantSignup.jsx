@@ -46,7 +46,7 @@ const [showPassword, setShowPassword] = useState(false);
  return (
     <>
       <Helmet>
-        <title>Khaatogo – Smart QR Menu for Restaurants</title>
+      <title>Khattogo | Khaatogo – Digital QR Menu Platform</title>
         <meta
           name="description"
           content="Khaatogo helps restaurants create smart digital QR menus, manage orders, and improve customer experience."
