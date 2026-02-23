@@ -1,6 +1,7 @@
 // components/Footer.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
+import khaatogologo from "../assets/khaatogologo.png";
 import { 
   FaWhatsapp, 
   FaPhone, 
@@ -55,7 +56,7 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="bg-gray-900 text-white">
+    <footer className="bg-[#8A244B] text-white">
       {/* Main Footer */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
@@ -63,29 +64,32 @@ const Footer = () => {
           {/* Brand Column */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-3xl">🍽️</span>
-              <span className="text-2xl font-bold bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent">
-                KhataQR
-              </span>
+            <img
+               src={khaatogologo}
+               alt="khaatogologo"
+               className="application_logo"
+             />
+            
             </div>
-            <p className="text-gray-400 text-sm mb-6 max-w-sm">
+            <p className="text-white
+             text-sm mb-6 max-w-sm">
               India's #1 QR Menu & Table Booking Platform. 
               Dhaba ho ya 5-star hotel, sabke liye digital solution.
             </p>
             
             {/* Contact Info */}
             <div className="space-y-3">
-              <a href="tel:+919999999999" className="flex items-center gap-3 text-gray-400 hover:text-white transition">
-                <FaPhone className="text-green-500" />
+              <a href="tel:+919999999999" className="flex items-center gap-3 text-white hover:text-gray-400 transition">
+                <FaPhone className="text-white" />
                 <span className="text-sm">+91 99999 99999</span>
               </a>
-              <a href="mailto:support@khaatogo.com" className="flex items-center gap-3 text-gray-400 hover:text-white transition">
-                <FaEnvelope className="text-blue-500" />
+              <a href="mailto:support@khaatogo.com" className="flex items-center gap-3 text-white hover:text-gray-400 transition">
+                <FaEnvelope className="text-white" />
                 <span className="text-sm">support@khaatogo.com</span>
               </a>
-              <div className="flex items-center gap-3 text-gray-400">
-                <FaMapMarkerAlt className="text-red-500" />
-                <span className="text-sm">Mumbai, Maharashtra, India</span>
+              <div className="flex items-center gap-3 text-white hover:text-gray-400">
+                <FaMapMarkerAlt className="text-white" />
+                <span className="text-sm">Bilimora ,Navsari,  Gujrat, India</span>
               </div>
             </div>
 
@@ -97,7 +101,7 @@ const Footer = () => {
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`text-gray-400 ${social.color} transition text-xl`}
+                  className={`text-white hover:text-gray-400 ${social.color} transition text-xl`}
                 >
                   <social.icon />
                 </a>
@@ -113,7 +117,7 @@ const Footer = () => {
                 <li key={idx}>
                   <Link 
                     to={link.href} 
-                    className="text-gray-400 hover:text-white text-sm transition"
+                    className="text-white hover:text-gray-400 text-sm transition"
                   >
                     {link.name}
                   </Link>
@@ -130,7 +134,7 @@ const Footer = () => {
                 <li key={idx}>
                   <Link 
                     to={link.href} 
-                    className="text-gray-400 hover:text-white text-sm transition"
+                    className="text-white hover:text-gray-400 text-sm transition"
                   >
                     {link.name}
                   </Link>
@@ -147,7 +151,7 @@ const Footer = () => {
                 <li key={idx}>
                   <Link 
                     to={link.href} 
-                    className="text-gray-400 hover:text-white text-sm transition"
+                    className="text-white hover:text-gray-400 text-sm transition"
                   >
                     {link.name}
                   </Link>
@@ -159,9 +163,9 @@ const Footer = () => {
       </div>
 
       {/* Trust Badges */}
-      <div className="border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex flex-wrap justify-center gap-8 items-center opacity-60">
+   
+        <div className="max-w-7xl mx-auto px-4 py-2">
+          <div className="flex flex-wrap justify-center gap-8 items-center">
             <div className="flex items-center gap-2">
               <span className="text-2xl">🔒</span>
               <span className="text-xs">SSL Secured</span>
@@ -184,13 +188,13 @@ const Footer = () => {
             </div>
           </div>
         </div>
-      </div>
+     
 
       {/* Bottom Bar */}
-      <div className="border-t border-gray-800 bg-gray-950">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+    
+        <div className="max-w-7xl mx-auto px-2 py-2 bg-[#8A244B]">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-gray-500 text-sm">
+            <p className="text-white text-sm">
               © {currentYear} KhataQR. All rights reserved.
             </p>
             
@@ -199,7 +203,7 @@ const Footer = () => {
                 <Link
                   key={idx}
                   to={link.href}
-                  className="text-gray-500 hover:text-white text-xs transition"
+                  className="hover:text-gray-500 text-white text-xs transition"
                 >
                   {link.name}
                 </Link>
@@ -207,7 +211,7 @@ const Footer = () => {
             </div>
 
             {/* Language Selector */}
-            <div className="flex items-center gap-2">
+            {/* <div className="flex items-center gap-2">
               <span className="text-gray-500 text-xs">🌐</span>
               <select className="bg-transparent text-gray-500 text-xs border-none outline-none cursor-pointer">
                 <option value="en">English</option>
@@ -216,10 +220,10 @@ const Footer = () => {
                 <option value="gu">ગુજરાતી</option>
                 <option value="ta">தமிழ்</option>
               </select>
-            </div>
+            </div> */}
           </div>
         </div>
-      </div>
+     
 
       {/* Sticky WhatsApp Button */}
       <a

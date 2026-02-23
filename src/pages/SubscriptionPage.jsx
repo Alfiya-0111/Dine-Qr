@@ -279,12 +279,12 @@ export default function SubscriptionPage() {
           <div
             key={plan.id}
             className={`relative rounded-2xl bg-white shadow-xl overflow-hidden transition-all hover:shadow-2xl hover:-translate-y-1 ${
-              plan.popular ? 'ring-2 ring-green-500' : ''
+              plan.popular ? 'ring-2 ring-[#8A244B]' : ''
             }`}
           >
             {/* Badges */}
             {plan.badge && (
-              <div className="absolute top-0 left-0 bg-gradient-to-r from-green-500 to-teal-600 text-white text-xs font-bold px-4 py-1 rounded-br-xl z-10">
+              <div className="absolute top-0 left-0 bg-[#8A244B]  text-white text-xs font-bold px-4 py-1 rounded-br-xl z-10">
                 {plan.badge}
               </div>
             )}
@@ -304,7 +304,7 @@ export default function SubscriptionPage() {
 
               {/* Dish Count */}
               <div className="text-center mb-4">
-                <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+                <div className="text-5xl font-bold text-transparent bg-clip-text bg-[#8A244B]">
                   {plan.dishes}
                 </div>
                 <div className="text-gray-500 font-medium">dishes</div>
@@ -313,14 +313,14 @@ export default function SubscriptionPage() {
               {/* Price */}
               <div className="text-center mb-4">
                 {plan.price === 0 ? (
-                  <div className="text-3xl font-bold text-green-600">FREE</div>
+                  <div className="text-3xl font-bold text-[#8A244B]">FREE</div>
                 ) : (
-                  <div className="text-3xl font-bold text-gray-900">
+                  <div className="text-3xl font-bold text-[#8A244B]">
                     ₹{plan.price}<span className="text-base font-normal text-gray-500">/{plan.period}</span>
                   </div>
                 )}
                 {plan.period === '30 days' && (
-                  <div className="text-xs text-green-600 font-medium">Then choose a plan</div>
+                  <div className="text-xs text-[#f18e49] font-medium">Then choose a plan</div>
                 )}
               </div>
 
@@ -328,11 +328,11 @@ export default function SubscriptionPage() {
               <ul className="space-y-2 mb-6 text-sm">
                 {plan.features.map((feature, idx) => (
                   <li key={idx} className="flex items-center gap-2 text-gray-600">
-                    <span className="text-green-500 text-lg">✓</span>
+                    <span className="text-[#f18e49] text-lg">✓</span>
                     {feature.replace('✓ ', '')}
                   </li>
                 ))}
-                <li className="flex items-center gap-2 text-blue-600 font-medium mt-3 pt-3 border-t">
+                <li className="flex items-center gap-2 text-[#8A244B] font-medium mt-3 pt-3 border-t">
                   <span className="text-xl">🔓</span>
                   ALL FEATURES UNLOCKED
                 </li>
@@ -348,10 +348,10 @@ export default function SubscriptionPage() {
                     : plan.id === 'trial' && userPlan?.trialUsed
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : plan.id === 'trial'
-                    ? 'bg-gradient-to-r from-green-500 to-teal-600 text-white hover:shadow-lg'
+                    ? 'bg-[#f18e49] text-white hover:shadow-lg'
                     : plan.popular
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-900 text-white hover:bg-gray-800'
+                    : 'bg-[#8A244B] text-white hover:bg-[#f18e49]'
                 }`}
               >
                 {userPlan?.planId === plan.id 
