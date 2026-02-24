@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { ref, onValue, update, remove } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
@@ -10,11 +10,11 @@ export default function AdminOrders() {
   const [selectedFilter, setSelectedFilter] = useState("today");
   const [restaurantId, setRestaurantId] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [expandedOrder, setExpandedOrder] = useState(null);
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
   const [customFilter, setCustomFilter] = useState(false);
   const [showAllOrders, setShowAllOrders] = useState(true);
   const [debugInfo, setDebugInfo] = useState({ total: 0, matched: 0, rejected: [], statuses: {} });
+  const [autoCompleteEnabled, setAutoCompleteEnabled] = useState(true);
   
   const auth = getAuth();
 
@@ -76,10 +76,26 @@ export default function AdminOrders() {
     return orderDate >= startDate && orderDate <= endDate;
   };
 
+  // Timer update har second
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
+    const timer = setInterval(() => {
+      const currentTime = Date.now();
+      setNow(currentTime);
+      
+      // Auto-complete logic
+      if (autoCompleteEnabled) {
+        orders.forEach(order => {
+          if (order.status === 'preparing' && order.prepEndsAt && currentTime >= order.prepEndsAt) {
+            console.log(`⏰ Auto-completing order ${order.id}`);
+            // 🔥 Sirf status complete karo, bill nahi generate karo
+            updateStatus(order.id, "completed");
+          }
+        });
+      }
+    }, 1000);
+    
     return () => clearInterval(timer);
-  }, []);
+  }, [orders, autoCompleteEnabled]);
 
   const deleteOrder = async (id) => {
     if (!window.confirm("Delete this order permanently?")) return;
@@ -91,8 +107,15 @@ export default function AdminOrders() {
     }
   };
 
+  // 🔥🔥🔥 MANUAL BILL GENERATION - Complete hone ke baad alag se button
   const generateBill = async (order) => {
     try {
+      // Check if already has bill
+      if (order.bill) {
+        alert("Bill already generated! User can view it.");
+        return;
+      }
+
       const billData = {
         orderId: order.id,
         customerName: order.customerInfo?.name || order.customerName,
@@ -100,12 +123,20 @@ export default function AdminOrders() {
         orderDate: order.orderDetails?.orderDate || order.orderDate,
         total: order.total,
         items: order.items,
-        generatedAt: Date.now()
+        generatedAt: Date.now(),
+        generatedBy: "admin", // 🔥 Track ki admin ne generate kiya
+        status: "ready_for_customer" // 🔥 Bill ready hai customer ke liye
       };
-      await update(ref(realtimeDB, `orders/${order.id}`), { bill: billData });
-      alert("Bill Generated ✅");
+
+      await update(ref(realtimeDB, `orders/${order.id}`), { 
+        bill: billData,
+        billGeneratedAt: Date.now() // 🔥 Timestamp add karo
+      });
+      
+      alert("✅ Bill Generated! Customer can now view and download it.");
     } catch (error) {
       console.error("Bill generation error:", error);
+      alert("Failed to generate bill");
     }
   };
 
@@ -119,13 +150,15 @@ export default function AdminOrders() {
 
   const updateStatus = async (id, status) => {
     try {
-      await update(ref(realtimeDB, `orders/${id}`), { status });
+      await update(ref(realtimeDB, `orders/${id}`), { 
+        status,
+        completedAt: status === "completed" ? Date.now() : null // 🔥 completedAt add karo
+      });
     } catch (error) {
       console.error("Status update error:", error);
     }
   };
 
-  // 🔥 FIXED: Better restaurant matching with debug
   const isMyRestaurantOrder = (order) => {
     if (!order) return false;
     
@@ -135,8 +168,6 @@ export default function AdminOrders() {
     const orderUserId = String(order.userId || "").trim();
     const orderAdminId = String(order.adminId || "").trim();
     const orderHotelId = String(order.hotelId || "").trim();
-    
-    // 🔥 Also check current logged in user ID
     const currentUserId = String(restaurantId || "").trim();
     
     const isMatch = MY_RESTAURANT_IDS.some(id => 
@@ -175,7 +206,7 @@ export default function AdminOrders() {
         total: 0, 
         matched: 0, 
         rejected: [],
-        statuses: {} // 🔥 Track status distribution
+        statuses: {}
       };
 
       Object.entries(data).forEach(([id, rawOrder]) => {
@@ -184,7 +215,6 @@ export default function AdminOrders() {
         const order = JSON.parse(JSON.stringify(rawOrder));
         order.id = id;
         
-        // 🔥 Track status distribution for debugging
         const status = order.status || 'unknown';
         debug.statuses[status] = (debug.statuses[status] || 0) + 1;
         
@@ -210,7 +240,6 @@ export default function AdminOrders() {
           id,
           createdAt: validCreatedAt,
           items: normalizeItems(order.items),
-          // 🔥 FIX: Ensure status is always present
           status: order.status || 'preparing',
           customerName: order.customerInfo?.name || order.customerName || order.bill?.customerName || "Guest",
           customerPhone: order.customerInfo?.phone || order.customerPhone || "N/A",
@@ -224,7 +253,6 @@ export default function AdminOrders() {
 
         allOrders.push(normalizedOrder);
 
-        // Stats calculation...
         if (normalizedOrder.items) {
           normalizedOrder.items.forEach((item) => {
             if (!item || !item.dishId) return;
@@ -260,7 +288,8 @@ export default function AdminOrders() {
 
   const getRemainingTime = (order) => {
     if (!order.prepEndsAt || isNaN(order.prepEndsAt)) return 0;
-    return Math.ceil(Math.max(0, order.prepEndsAt - now) / 60000);
+    const remaining = Math.ceil(Math.max(0, order.prepEndsAt - now) / 60000);
+    return remaining;
   };
 
   const getFilteredValue = (dish) => dish[selectedFilter] || 0;
@@ -285,11 +314,9 @@ export default function AdminOrders() {
     return <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-bold">💳 Payment</span>;
   };
 
-  // 🔥 FIXED: Better filter logic with status normalization
   const getFilteredOrders = () => {
     let filtered = orders;
 
-    // Date filter
     if (customFilter && dateRange.start && dateRange.end) {
       filtered = filtered.filter(order => isInDateRange(order.createdAt, dateRange.start, dateRange.end));
     } else {
@@ -300,16 +327,15 @@ export default function AdminOrders() {
         case "yesterday":
           filtered = filtered.filter(order => isYesterday(order.createdAt));
           break;
-        case "week":
-          filtered = filtered.filter(order => isThisWeek(order.createdAt));
-          break;
-        case "month":
-          filtered = filtered.filter(order => isThisMonth(order.createdAt));
-          break;
-        case "total":
-        default:
-          // No date filtering
-          break;
+          case "week":
+            filtered = filtered.filter(order => isThisWeek(order.createdAt));
+            break;
+            case "month":
+              filtered = filtered.filter(order => isThisMonth(order.createdAt));
+              break;
+              case "total":
+                default:
+                  break;
       }
     }
 
@@ -318,20 +344,15 @@ export default function AdminOrders() {
 
   const filteredOrders = getFilteredOrders();
   
-  // 🔥 DEBUG: Log status distribution
-  console.log("Filtered orders status:", filteredOrders.map(o => o.status));
-  
-  // 🔥 FIXED: More robust active order detection
-  const ACTIVE_STATUSES = ['pending', 'preparing', 'ready', 'confirmed', 'accepted'];
   const COMPLETED_STATUSES = ['completed', 'delivered', 'cancelled', 'rejected'];
   
   const activeOrders = filteredOrders.filter(order => {
-    const status = (order.status || '').toLowerCase().trim();
-    return ACTIVE_STATUSES.includes(status) || !COMPLETED_STATUSES.includes(status);
+    const status = (order.status || '').toString().toLowerCase().trim();
+    return !COMPLETED_STATUSES.includes(status);
   });
   
   const completedOrders = filteredOrders.filter(order => {
-    const status = (order.status || '').toLowerCase().trim();
+    const status = (order.status || '').toString().toLowerCase().trim();
     return COMPLETED_STATUSES.includes(status);
   });
 
@@ -342,7 +363,7 @@ export default function AdminOrders() {
     <div className="p-6 max-w-7xl mx-auto">
       <h2 className="text-2xl font-bold mb-4">🍽 Orders Dashboard</h2>
       
-      {/* 🔥 ENHANCED DEBUG PANEL */}
+      {/* DEBUG PANEL */}
       <div className="bg-red-100 p-3 mb-4 text-xs rounded border border-red-400">
         <p><strong>🐛 DEBUG:</strong> Admin ID: {restaurantId}</p>
         <p>Total in Firebase: {debugInfo.total} | Matched: {debugInfo.matched} | Showing: {orders.length}</p>
@@ -351,14 +372,21 @@ export default function AdminOrders() {
           Status Distribution: {JSON.stringify(debugInfo.statuses)}
         </p>
         <p className="font-bold text-blue-700">
-          Active: {activeOrders.length} | Completed: {completedOrders.length}
+          🟡 Active: {activeOrders.length} | ✅ Completed: {completedOrders.length}
         </p>
-        <details>
-          <summary>View Rejected Orders</summary>
-          <pre className="mt-2 text-[10px] overflow-auto max-h-32 bg-white p-2 rounded">
-            {JSON.stringify(debugInfo.rejected.slice(0, 10), null, 2)}
-          </pre>
-        </details>
+      </div>
+
+      {/* AUTO-COMPLETE TOGGLE */}
+      <div className="bg-purple-100 p-3 mb-4 rounded border border-purple-400">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input 
+            type="checkbox" 
+            checked={autoCompleteEnabled}
+            onChange={(e) => setAutoCompleteEnabled(e.target.checked)}
+            className="w-4 h-4"
+          />
+          <span className="text-sm font-medium text-purple-900">⏰ Auto-Complete Orders (When prep time finishes)</span>
+        </label>
       </div>
 
       {/* Show All Orders Toggle */}
@@ -372,9 +400,6 @@ export default function AdminOrders() {
           />
           <span className="text-sm font-medium">Show All Orders (Ignore Restaurant Filter)</span>
         </label>
-        <p className="text-xs text-gray-600 mt-1">
-          {showAllOrders ? "Showing ALL orders from all restaurants" : "Showing only your restaurant's orders"}
-        </p>
       </div>
 
       {/* Date Filter Controls */}
@@ -437,44 +462,31 @@ export default function AdminOrders() {
         )}
       </div>
 
-      {/* Dish Analytics */}
-      <h3 className="font-bold mt-8 mb-2">📊 Dish Analytics ({selectedFilter === "custom" ? "Custom Range" : selectedFilter})</h3>
-      {Object.keys(dishStats).length > 0 ? (
-        <table className="w-full text-xs border mb-6">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="text-left p-2">Dish</th>
-              <th className="p-2 text-center">{selectedFilter === "custom" ? "CUSTOM" : selectedFilter.toUpperCase()}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.values(dishStats)
-              .sort((a, b) => getFilteredValue(b) - getFilteredValue(a))
-              .map((dish) => (
-                <tr key={dish.name} className="border-t">
-                  <td className="flex items-center gap-2 p-2">
-                    <img src={dish.image} className="w-8 h-8 rounded object-cover" alt={dish.name} />
-                    <span className="font-medium">{dish.name}</span>
-                  </td>
-                  <td className="p-2 text-center font-bold text-lg">{getFilteredValue(dish)}</td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      ) : (
-        <p className="text-gray-500 mb-6">No dish data</p>
-      )}
+      {/* Quick Stats */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-yellow-100 p-4 rounded-lg border border-yellow-400 text-center">
+          <p className="text-2xl font-bold text-yellow-800">{activeOrders.length}</p>
+          <p className="text-xs text-yellow-700">Active Orders</p>
+        </div>
+        <div className="bg-green-100 p-4 rounded-lg border border-green-400 text-center">
+          <p className="text-2xl font-bold text-green-800">{completedOrders.length}</p>
+          <p className="text-xs text-green-700">Completed</p>
+        </div>
+        <div className="bg-blue-100 p-4 rounded-lg border border-blue-400 text-center">
+          <p className="text-2xl font-bold text-blue-800">₹{filteredOrders.reduce((sum, o) => sum + (o.total || 0), 0)}</p>
+          <p className="text-xs text-blue-700">Total Revenue</p>
+        </div>
+      </div>
 
-      {/* 🔥 ACTIVE ORDERS */}
+      {/* ACTIVE ORDERS */}
       <h3 className="font-bold mt-8 mb-2 text-lg flex items-center gap-2">
         🟡 Active Orders 
         <span className="bg-yellow-500 text-white px-2 py-1 rounded-full text-sm">{activeOrders.length}</span>
       </h3>
       
       {activeOrders.length === 0 ? (
-        <div className="bg-gray-100 p-6 rounded text-center mb-8 border-2 border-dashed border-gray-300">
-          <p className="text-gray-500 text-lg">No active orders for selected period</p>
-          <p className="text-xs text-gray-400 mt-2">New orders will appear here automatically</p>
+        <div className="bg-gray-100 p-8 rounded text-center mb-8 border-2 border-dashed border-gray-300">
+          <p className="text-gray-500 text-lg">No active orders</p>
         </div>
       ) : (
         <div className="space-y-4 mb-8">
@@ -488,20 +500,21 @@ export default function AdminOrders() {
               onUpdateStatus={updateStatus}
               onUpdatePayment={updatePaymentStatus}
               onGenerateBill={generateBill}
+              autoCompleteEnabled={autoCompleteEnabled}
             />
           ))}
         </div>
       )}
 
-      {/* 🔥 COMPLETED ORDERS */}
+      {/* COMPLETED ORDERS */}
       <h3 className="font-bold mt-8 mb-2 text-lg flex items-center gap-2">
         ✅ Completed Orders
         <span className="bg-green-500 text-white px-2 py-1 rounded-full text-sm">{completedOrders.length}</span>
       </h3>
       
       {completedOrders.length === 0 ? (
-        <div className="bg-gray-100 p-6 rounded text-center mb-8 border-2 border-dashed border-gray-300">
-          <p className="text-gray-500">No completed orders for selected period</p>
+        <div className="bg-gray-100 p-8 rounded text-center mb-8 border-2 border-dashed border-gray-300">
+          <p className="text-gray-500">No completed orders yet</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -524,10 +537,19 @@ export default function AdminOrders() {
 }
 
 // Order Card Component
-function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePayment, onGenerateBill }) {
+function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePayment, onGenerateBill, autoCompleteEnabled }) {
   const getRemainingTime = (prepEndsAt) => {
     if (!prepEndsAt || isNaN(prepEndsAt)) return 0;
-    return Math.ceil(Math.max(0, prepEndsAt - now) / 60000);
+    const remaining = Math.ceil(Math.max(0, prepEndsAt - now) / 60000);
+    return remaining;
+  };
+
+  const remainingMinutes = isActive ? getRemainingTime(order.prepEndsAt) : 0;
+  
+  const getTimerColor = () => {
+    if (remainingMinutes <= 0) return "text-red-600 font-bold";
+    if (remainingMinutes <= 2) return "text-orange-600 font-bold";
+    return "text-green-600";
   };
 
   const getPaymentBadge = (order) => {
@@ -564,24 +586,53 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
             <p className="font-bold text-sm">Order #{order.id?.slice(-6) || 'N/A'}</p>
             {getPaymentBadge(order)}
             {!isActive && <span className="px-2 py-1 bg-blue-200 text-blue-800 rounded text-xs">✅ Completed</span>}
+            {isActive && remainingMinutes <= 0 && (
+              <span className="px-2 py-1 bg-red-200 text-red-800 rounded text-xs font-bold animate-pulse">
+                ⏰ TIME UP!
+              </span>
+            )}
           </div>
           <p className="text-xs text-gray-500">
             📅 {order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"}
           </p>
+          
           {isActive && order.status === "preparing" && (
-            <p className="text-xs text-orange-500 font-semibold mt-1">
-              ⏱️ Remaining: {getRemainingTime(order.prepEndsAt)} min
-            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs text-gray-600">⏱️ Remaining:</span>
+              <span className={`text-sm ${getTimerColor()}`}>
+                {remainingMinutes > 0 ? `${remainingMinutes} min` : "TIME'S UP!"}
+              </span>
+              {autoCompleteEnabled && remainingMinutes <= 0 && (
+                <span className="text-xs text-purple-600">(Auto-completing...)</span>
+              )}
+            </div>
           )}
         </div>
-        <span className={`text-xs font-bold capitalize px-2 py-1 rounded ${
-          order.status === 'ready' ? 'bg-green-200 text-green-800' :
-          order.status === 'preparing' ? 'bg-yellow-200 text-yellow-800' :
-          order.status === 'completed' ? 'bg-blue-200 text-blue-800' :
-          'bg-gray-200 text-gray-800'
-        }`}>
-          {order.status || 'unknown'}
-        </span>
+        
+        <div className="flex flex-col items-end gap-1">
+          <span className={`text-xs font-bold capitalize px-2 py-1 rounded ${
+            order.status === 'ready' ? 'bg-green-200 text-green-800' :
+            order.status === 'preparing' ? 'bg-yellow-200 text-yellow-800' :
+            order.status === 'completed' ? 'bg-blue-200 text-blue-800' :
+            'bg-gray-200 text-gray-800'
+          }`}>
+            {order.status || 'unknown'}
+          </span>
+          
+          {isActive && order.prepEndsAt && order.prepStartedAt && (
+            <div className="w-24 h-1 bg-gray-200 rounded-full mt-1 overflow-hidden">
+              <div 
+                className={`h-full transition-all duration-1000 ${
+                  remainingMinutes <= 0 ? 'bg-red-500' : 
+                  remainingMinutes <= 2 ? 'bg-orange-500' : 'bg-green-500'
+                }`}
+                style={{
+                  width: `${Math.max(0, Math.min(100, (remainingMinutes * 60000) / (order.prepEndsAt - order.prepStartedAt) * 100))}%`
+                }}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-lg p-3 mb-3 border">
@@ -647,22 +698,45 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
           )}
         </div>
         <div className="flex gap-2">
-          {isActive && order.status === 'preparing' && (
-            <button onClick={() => onUpdateStatus(order.id, "ready")}
-              className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700">
-              Mark Ready
+          {isActive && (
+            <>
+              {order.status === 'preparing' && remainingMinutes > 0 && (
+                <button onClick={() => onUpdateStatus(order.id, "ready")}
+                  className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700">
+                  Mark Ready
+                </button>
+              )}
+              
+              <button 
+                onClick={() => onUpdateStatus(order.id, "completed")}
+                className={`px-3 py-1 rounded-lg text-xs ${
+                  remainingMinutes <= 0 
+                    ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
+                    : 'bg-blue-600 hover:bg-blue-700'
+                } text-white`}
+              >
+                {remainingMinutes <= 0 ? '⏰ Complete Now' : '✅ Complete'}
+              </button>
+            </>
+          )}
+          
+          {/* 🔥🔥🔥 MANUAL BILL BUTTON - Only for completed orders without bill */}
+          {!isActive && order.status === 'completed' && !order.bill && (
+            <button 
+              onClick={() => onGenerateBill(order)}
+              className="px-3 py-1 bg-purple-600 text-white rounded-lg text-xs hover:bg-purple-700 animate-pulse"
+            >
+              🧾 Generate Bill
             </button>
           )}
-          {isActive && order.status === 'ready' && (
-            <button onClick={() => onUpdateStatus(order.id, "completed")}
-              className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700">
-              ✅ Complete
-            </button>
+          
+          {/* 🔥 Bill already generated indicator */}
+          {order.bill && (
+            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold">
+              ✅ Bill Ready
+            </span>
           )}
-          <button onClick={() => onGenerateBill(order)}
-            className="px-3 py-1 bg-purple-600 text-white rounded-lg text-xs hover:bg-purple-700">
-            🧾 Bill
-          </button>
+          
           <button onClick={() => onDelete(order.id)}
             className="px-3 py-1 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700">
             Delete

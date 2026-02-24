@@ -52,30 +52,25 @@ const DishProgressBar = ({ item, theme, onDishReady, audioRef }) => {
       
       setProgress(percent);
       
-      // ✅ INDIVIDUAL DISH READY LOGIC
       if (percent >= 100 && !isReady && !hasPlayedSound.current) {
         hasPlayedSound.current = true;
         setIsReady(true);
         setShowEnjoyMessage(true);
         
-        // 🔊 Play sound for this specific dish
         if (audioRef.current) {
           audioRef.current.currentTime = 0;
           audioRef.current.play().catch(() => {});
         }
         
-        // 🔔 Call parent callback
         if (onDishReady) {
           onDishReady(item.name);
         }
         
-        // Update Firebase
         update(rtdbRef(realtimeDB, `orders/${item.orderId}/items/${item.dishId}`), {
           itemStatus: "ready",
           itemReadyAt: Date.now()
         });
         
-        // Hide enjoy message after 5 seconds
         setTimeout(() => {
           setShowEnjoyMessage(false);
         }, 5000);
@@ -93,7 +88,6 @@ const DishProgressBar = ({ item, theme, onDishReady, audioRef }) => {
         <div className="flex items-center gap-1 text-green-600 font-bold text-xs mt-1">
           <span>✅ Ready</span>
         </div>
-        {/* 🎉 Enjoy your meal message */}
         {showEnjoyMessage && (
           <div className="mt-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded animate-pulse">
             🎉 Enjoy your {item.name}!
@@ -142,7 +136,6 @@ const ReadyNotification = ({ dishName, onClose }) => {
 };
 
 export default function PublicMenu() {
-
   const [aboutUs, setAboutUs] = useState(null);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
   const [spiceSelections, setSpiceSelections] = useState({});
@@ -153,8 +146,8 @@ export default function PublicMenu() {
   const [saltSelections, setSaltSelections] = useState({});
   const [tasteItem, setTasteItem] = useState(null);
   const [tasteAction, setTasteAction] = useState(null); 
-  const [readyNotifications, setReadyNotifications] = useState([]); // 🆕 Track ready dishes
-    const [showTableBooking, setShowTableBooking] = useState(false);
+  const [readyNotifications, setReadyNotifications] = useState([]);
+  const [showTableBooking, setShowTableBooking] = useState(false);
   const [showMyBookings, setShowMyBookings] = useState(false);
 
   const theme = restaurantSettings?.theme || {
@@ -182,14 +175,15 @@ export default function PublicMenu() {
   const [openCart, setOpenCart] = useState(false);
   const [, forceUpdate] = useState(0);
   const newItems = items.filter((i) => i.isNew).slice(0, 10);
-  const [activeOrder, setActiveOrder] = useState(null);
+  const [activeOrder, setActiveOrder] = useState([]);
   const [userId, setUserId] = useState(null);
   const audioRef = useRef(null);
   const prevOrdersRef = useRef({});
   const categoryCounts = {};
-  const openedBillsRef = useRef(new Set());
-  // 🆕 Track which dishes already played sound
-  const playedSoundsRef = useRef(new Set());
+  
+  // 🔥🔥🔥 CRITICAL: Track viewed orders (bill opened or shared)
+  const viewedOrdersRef = useRef(new Set());
+  const [viewedOrders, setViewedOrders] = useState(new Set());
 
   items.forEach(item => {
     if (item.categoryIds?.length) {
@@ -206,13 +200,10 @@ export default function PublicMenu() {
     }
   });
 
-  // 🆕 Handle individual dish ready
   const handleDishReady = (dishName) => {
-    // Add notification
     const id = Date.now();
     setReadyNotifications(prev => [...prev, { id, dishName }]);
     
-    // Browser notification
     if ("Notification" in window && Notification.permission === "granted") {
       new Notification(`🍽️ ${dishName} Ready!`, {
         body: "Enjoy your meal 😋",
@@ -220,17 +211,36 @@ export default function PublicMenu() {
     }
   };
 
-  // 🆕 Remove notification
   const removeNotification = (id) => {
     setReadyNotifications(prev => prev.filter(n => n.id !== id));
   };
 
+  // 🔥🔥🔥 MARK ORDER AS VIEWED (when bill opened or shared)
+  const markOrderAsViewed = (orderId) => {
+    viewedOrdersRef.current.add(orderId);
+    setViewedOrders(new Set(viewedOrdersRef.current));
+    
+    // Save to localStorage for persistence
+    const saved = JSON.parse(localStorage.getItem('viewedOrders') || '[]');
+    if (!saved.includes(orderId)) {
+      saved.push(orderId);
+      localStorage.setItem('viewedOrders', JSON.stringify(saved));
+    }
+  };
+
+  // 🔥🔥🔥 LOAD VIEWED ORDERS FROM LOCALSTORAGE ON MOUNT
+  useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem('viewedOrders') || '[]');
+    saved.forEach(id => viewedOrdersRef.current.add(id));
+    setViewedOrders(new Set(viewedOrdersRef.current));
+  }, []);
+
   // ================= PDF GENERATE & OPEN =================
   const generateAndOpenBill = async (order) => {
-    if (!order) return console.error("Order is undefined");
+    if (!order || !order.id) return console.error("Order is undefined or missing ID");
     
-    await remove(rtdbRef(realtimeDB, `orders/${order.id}`));
-    openedBillsRef.current.add(order.id);
+    // 🔥 Mark as viewed immediately
+    markOrderAsViewed(order.id);
 
     try {
       if (!order.bill) {
@@ -238,25 +248,31 @@ export default function PublicMenu() {
           (Array.isArray(order.items) ? order.items : Object.values(order.items)) 
           : [];
           
-        const billItems = orderItems.map((i) => ({
-          name: i.name ?? "Unnamed Item",
-          qty: i.qty ?? 1,
-          price: i.price ?? 0,
+        const validItems = orderItems.filter(i => i && typeof i === 'object' && i.name);
+        
+        if (validItems.length === 0) {
+          throw new Error("No valid items in order");
+        }
+
+        const billItems = validItems.map((i) => ({
+          name: String(i.name || "Unnamed Item"),
+          qty: Number(i.qty) || 1,
+          price: Number(i.price) || 0,
         }));
 
-        const subtotal = billItems.reduce((sum, i) => sum + i.qty * i.price, 0);
+        const subtotal = billItems.reduce((sum, i) => sum + (i.qty * i.price), 0);
         const gst = subtotal * 0.05;
         const total = subtotal + gst;
 
         const bill = {
-          orderId: order.id ?? "UNKNOWN",
-          customerName: order.customerName ?? "Guest",
-          hotelName: restaurantName ?? "Restaurant",
+          orderId: String(order.id),
+          customerName: String(order.customerName || order.customerInfo?.name || "Guest"),
+          hotelName: String(restaurantName || "Restaurant"),
           orderDate: Date.now(),
           items: billItems,
-          subtotal,
-          gst,
-          total,
+          subtotal: Number(subtotal),
+          gst: Number(gst),
+          total: Number(total),
           generatedAt: Date.now(),
         };
 
@@ -265,98 +281,157 @@ export default function PublicMenu() {
       }
 
       const bill = order.bill;
+      
+      if (!bill || typeof bill !== 'object') {
+        throw new Error("Invalid bill data");
+      }
+
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       let y = 15;
 
-      if (restaurantSettings?.logo) {
-        doc.addImage(restaurantSettings.logo, "PNG", 10, y, 30, 12);
+      const safeText = (text, x, y, options = {}) => {
+        const str = String(text || "");
+        if (str.trim() === "") return;
+        doc.text(str, x, y, options);
+      };
+
+      if (restaurantSettings?.logo && typeof restaurantSettings.logo === 'string') {
+        try {
+          doc.addImage(restaurantSettings.logo, "PNG", 10, y, 30, 12);
+        } catch (e) {
+          console.log("Logo add failed:", e);
+        }
       }
 
       doc.setFontSize(18);
       doc.setFont(undefined, "bold");
-      doc.text(restaurantSettings?.name || bill.hotelName, pageWidth / 2, y + 8, { align: "center" });
+      safeText(restaurantSettings?.name || bill.hotelName, pageWidth / 2, y + 8, { align: "center" });
       y += 20;
+      
       doc.setLineWidth(0.5);
       doc.line(10, y, pageWidth - 10, y);
       y += 10;
 
       doc.setFontSize(11);
       doc.setFont(undefined, "normal");
-      doc.text(`Order ID: ${bill.orderId}`, 10, y);
-      doc.text(`Date: ${new Date(bill.generatedAt).toLocaleString()}`, pageWidth - 10, y, { align: "right" });
+      safeText(`Order ID: ${bill.orderId}`, 10, y);
+      safeText(`Date: ${new Date(bill.generatedAt || Date.now()).toLocaleString()}`, pageWidth - 10, y, { align: "right" });
       y += 6;
-      doc.text(`Customer: ${bill.customerName}`, 10, y);
+      safeText(`Customer: ${bill.customerName}`, 10, y);
       y += 10;
 
       doc.setFont(undefined, "bold");
-      doc.text("Item", 10, y);
-      doc.text("Qty", 110, y);
-      doc.text("Price", 140, y);
-      doc.text("Total", pageWidth - 10, y, { align: "right" });
+      safeText("Item", 10, y);
+      safeText("Qty", 110, y);
+      safeText("Price", 140, y);
+      safeText("Total", pageWidth - 10, y, { align: "right" });
       y += 4;
       doc.line(10, y, pageWidth - 10, y);
       y += 6;
 
       doc.setFont(undefined, "normal");
       doc.setFontSize(10);
-      bill.items.forEach((item) => {
-        const itemTotal = (item.price ?? 0) * (item.qty ?? 1);
-        if (y > pageHeight - 30) {
-          doc.addPage();
-          y = 20;
-        }
-        doc.text(item.name, 10, y);
-        doc.text(String(item.qty), 110, y);
-        doc.text(`₹${(item.price ?? 0).toFixed(2)}`, 140, y);
-        doc.text(`₹${itemTotal.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
+      
+      const items = Array.isArray(bill.items) ? bill.items : [];
+      if (items.length === 0) {
+        safeText("No items", 10, y);
         y += 6;
-      });
+      } else {
+        items.forEach((item) => {
+          if (!item || typeof item !== 'object') return;
+          
+          const itemName = String(item.name || "Unknown Item").substring(0, 35);
+          const qty = Number(item.qty) || 0;
+          const price = Number(item.price) || 0;
+          const itemTotal = qty * price;
+
+          if (y > pageHeight - 30) {
+            doc.addPage();
+            y = 20;
+          }
+          
+          safeText(itemName, 10, y);
+          safeText(String(qty), 110, y);
+          safeText(`₹${price.toFixed(2)}`, 140, y);
+          safeText(`₹${itemTotal.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
+          y += 6;
+        });
+      }
 
       y += 2;
       doc.line(10, y, pageWidth - 10, y);
       y += 10;
+      
+      const subtotal = Number(bill.subtotal) || 0;
+      const gst = Number(bill.gst) || 0;
+      const total = Number(bill.total) || (subtotal + gst);
+
       doc.setFontSize(11);
       doc.setFont(undefined, "bold");
-      doc.text("Subtotal:", 120, y);
-      doc.text(`₹${(bill.subtotal ?? 0).toFixed(2)}`, pageWidth - 10, y, { align: "right" });
+      safeText("Subtotal:", 120, y);
+      safeText(`₹${subtotal.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
       y += 6;
-      doc.text("GST (5%):", 120, y);
-      doc.text(`₹${(bill.gst ?? 0).toFixed(2)}`, pageWidth - 10, y, { align: "right" });
+      safeText("GST (5%):", 120, y);
+      safeText(`₹${gst.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
       y += 7;
       doc.setFontSize(13);
-      doc.text("Grand Total:", 120, y);
-      doc.text(`₹${(bill.total ?? 0).toFixed(2)}`, pageWidth - 10, y, { align: "right" });
+      safeText("Grand Total:", 120, y);
+      safeText(`₹${total.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
       y += 12;
 
       doc.setFontSize(10);
       doc.setFont(undefined, "normal");
-      doc.text("Thank you for dining with us ❤️", pageWidth / 2, y, { align: "center" });
-      doc.text("This is a computer-generated receipt", pageWidth / 2, y + 5, { align: "center" });
+      safeText("Thank you for dining with us ❤️", pageWidth / 2, y, { align: "center" });
+      safeText("This is a computer-generated receipt", pageWidth / 2, y + 5, { align: "center" });
 
-      const pdfBlob = doc.output("bloburl");
-      window.open(pdfBlob);
+      try {
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        const newWindow = window.open(pdfUrl, '_blank');
+        
+        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+          doc.save(`Bill-${String(bill.orderId).slice(-6)}.pdf`);
+        }
+
+        setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
+      } catch (pdfError) {
+        console.error("PDF output error:", pdfError);
+        doc.save(`Bill-${Date.now()}.pdf`);
+      }
 
     } catch (err) {
       console.error("Error generating bill:", err);
+      alert("Bill generate karne mein error aaya: " + err.message);
     }
   };
 
   // ================= WHATSAPP SHARE =================
   const shareBillOnWhatsApp = (order) => {
     if (!order?.bill) return console.error("No bill to share");
+    
+    // 🔥 Mark as viewed when shared
+    markOrderAsViewed(order.id);
+    
     const bill = order.bill;
     const billText = `
-Order ID: ${bill.orderId}
-Customer: ${bill.customerName}
-Hotel: ${bill.hotelName}
-Date: ${new Date(bill.generatedAt).toLocaleString()}
-Items:
-${bill.items.map(i => `${i.name} x${i.qty} = ₹${((i.price ?? 0) * (i.qty ?? 1)).toFixed(2)}`).join("\n")}
-Subtotal: ₹${(bill.subtotal ?? 0).toFixed(2)}
-GST: ₹${(bill.gst ?? 0).toFixed(2)}
-Total: ₹${(bill.total ?? 0).toFixed(2)}
+*🧾 ORDER BILL*
+━━━━━━━━━━━━━━
+*Order ID:* ${bill.orderId}
+*Customer:* ${bill.customerName}
+*Hotel:* ${bill.hotelName}
+*Date:* ${new Date(bill.generatedAt).toLocaleString()}
+
+*ITEMS:*
+${bill.items.map(i => `• ${i.name} x${i.qty} = ₹${((i.price ?? 0) * (i.qty ?? 1)).toFixed(2)}`).join("\n")}
+
+━━━━━━━━━━━━━━
+*Subtotal:* ₹${(bill.subtotal ?? 0).toFixed(2)}
+*GST (5%):* ₹${(bill.gst ?? 0).toFixed(2)}
+*TOTAL:* ₹${(bill.total ?? 0).toFixed(2)}
+━━━━━━━━━━━━━━
+
 Thank you! 🍽️
     `;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(billText)}`;
@@ -386,14 +461,6 @@ Thank you! 🍽️
     return () => window.removeEventListener("click", unlockAudio);
   }, []);
 
-  useEffect(() => {
-    if (openedBillsRef.current.size === 0) return;
-    setActiveOrder(prev => {
-      if (!prev) return prev;
-      return prev.filter(order => !openedBillsRef.current.has(order.id));
-    });
-  }, [openedBillsRef.current.size]);
-
   // 🆕 Check for individual item ready status from Firebase
   useEffect(() => {
     if (!activeOrder?.length) return;
@@ -404,13 +471,12 @@ Thank you! 🍽️
         : [];
       
       items.forEach(item => {
-        // Check if item just became ready
-        const wasReady = playedSoundsRef.current.has(`${order.id}-${item.dishId}`);
+        const wasReady = prevOrdersRef.current[`${order.id}-${item.dishId}`];
         const isNowReady = item.itemStatus === "ready" || 
           (item.prepStartedAt && (Date.now() - item.prepStartedAt) >= (item.prepTime * 60 * 1000));
         
-        if (isNowReady && !wasReady && !playedSoundsRef.current.has(`${order.id}-${item.dishId}`)) {
-          playedSoundsRef.current.add(`${order.id}-${item.dishId}`);
+        if (isNowReady && !wasReady) {
+          prevOrdersRef.current[`${order.id}-${item.dishId}`] = true;
           handleDishReady(item.name);
         }
       });
@@ -423,33 +489,72 @@ Thank you! 🍽️
     });
   }, []);
 
+  // 🔥🔥🔥 MAIN ORDERS LISTENER - FIXED LOGIC
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !restaurantId) return;
+    
     const ref = rtdbRef(realtimeDB, `orders`);
-    onValue(ref, (snap) => {
+    const unsubscribe = onValue(ref, (snap) => {
       const data = snap.val();
-      if (!data) return;
+      if (!data) {
+        setActiveOrder([]);
+        return;
+      }
+
+      const now = Date.now();
+      const twentySecondsAgo = now - (20 * 1000); // 20 seconds ago
 
       const myOrders = Object.entries(data)
         .filter(([id, order]) => {
-          if (order.status === "ready" && order.readyAt) {
-            const oneMinuteAgo = Date.now() - 60000;
-            if (order.readyAt < oneMinuteAgo) return false;
-          }
-          if (order.status === "completed" && openedBillsRef.current.has(id)) return false;
+          // 🔥🔥🔥 CRITICAL VALIDATIONS
+          if (!order || typeof order !== 'object') return false;
+          if (!id || id === 'undefined' || id === 'null') return false;
+          if (!order.userId || !order.restaurantId) return false;
+          if (order.userId !== userId || order.restaurantId !== restaurantId) return false;
           
-          return order.userId === userId &&
-            order.restaurantId === restaurantId &&
-            (order.status === "preparing" ||
-             order.status === "ready" ||
-             (order.status === "completed" && order.bill));
+          // 🔥 Skip if already viewed (bill opened or shared)
+          if (viewedOrdersRef.current.has(id)) return false;
+          
+          // 🔥 Skip NaN orders (invalid data)
+          if (order.total === null || order.total === undefined || Number.isNaN(Number(order.total))) {
+            return false;
+          }
+
+          // 🔥 Only show ACTIVE orders (preparing, ready)
+          if (order.status === "preparing" || order.status === "ready") {
+            return true;
+          }
+          
+          // 🔥 Show COMPLETED orders only for 20 seconds (if not viewed)
+          if (order.status === "completed") {
+            const completedAt = order.completedAt || order.updatedAt || order.createdAt;
+            // Only show if completed within last 20 seconds
+            if (completedAt && completedAt > twentySecondsAgo) {
+              return true;
+            }
+            // If no completedAt, check if created recently (fallback)
+            if (!completedAt && order.createdAt > twentySecondsAgo) {
+              return true;
+            }
+          }
+          
+          return false;
         })
-        .map(([id, order]) => ({ id, ...order }))
+        .map(([id, order]) => ({ 
+          id, 
+          ...order,
+          // 🔥 Ensure valid numbers
+          total: Number(order.total) || 0,
+          createdAt: order.createdAt || Date.now(),
+          completedAt: order.completedAt || null
+        }))
         .sort((a, b) => b.createdAt - a.createdAt);
 
       setActiveOrder(myOrders);
     });
-  }, [userId, restaurantId]);
+    
+    return () => unsubscribe();
+  }, [userId, restaurantId, viewedOrders]); // 🔥 Add viewedOrders as dependency
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -575,6 +680,28 @@ Thank you! 🍽️
   }
 
   const handleOrderClick = (item) => {
+     if (!item || !item.id) {
+    console.error("❌ Invalid item passed to handleOrderClick:", item);
+    return;
+  } const completeItem = {
+    ...item,
+    id: item.id,
+    name: item.name || item.dishName || "Unnamed Item", // 🔥 Fallback name
+    price: Number(item.price) || 0,
+    image: item.imageUrl || item.image || "",
+    prepTime: Number(item.prepTime ?? 15),
+    spicePreference: spiceSelections[item.id] || "normal",
+    sweetLevel: sweetSelections[item.id] || "normal",
+    saltPreference: saltSelections[item.id] || "normal",
+    salad: {
+      qty: saladSelections[item.id] || 0,
+      taste: saladTaste[item.id] || "normal"
+    }
+  };
+   console.log("🔥 Adding to cart:", completeItem); // Debug log
+
+  addToCart(completeItem);
+  setSelectedItem(item);
     addToCart({
       ...item,
       prepTime: Number(item.prepTime ?? 15),
@@ -595,14 +722,16 @@ Thank you! 🍽️
         <title>{restaurantSettings?.name || restaurantName || "Digital Menu"}</title>
         <meta name="description" content="Browse our delicious menu" />
       </Helmet>
-       <TableBookingModal 
-      isOpen={showTableBooking} 
-      onClose={() => setShowTableBooking(false)}
-      restaurantId={restaurantId}
-      theme={theme}
-      userId={userId}
-    />
-      {/* 🆕 Ready Notifications Overlay */}
+      
+      <TableBookingModal 
+        isOpen={showTableBooking} 
+        onClose={() => setShowTableBooking(false)}
+        restaurantId={restaurantId}
+        theme={theme}
+        userId={userId}
+      />
+      
+      {/* Ready Notifications Overlay */}
       {readyNotifications.map(notification => (
         <ReadyNotification 
           key={notification.id}
@@ -613,42 +742,41 @@ Thank you! 🍽️
       
       <div className="min-h-screen w-full">
         <audio ref={audioRef} src={readySound} preload="auto" />
-          <div className="max-w-7xl w-full mx-auto px-4 pt-2" style={{ backgroundColor: theme.background }}>
-        <div className="flex justify-end items-center gap-2 mb-2">
-          {/* My Bookings Toggle Button */}
-          <button
-            onClick={() => userId ? setShowMyBookings(!showMyBookings) : requireLogin()}
-            className="px-4 py-2 rounded-full text-sm font-medium border-2 transition-all flex items-center gap-1"
-            style={{ 
-              borderColor: theme.primary, 
-              color: showMyBookings ? '#fff' : theme.primary,
-              backgroundColor: showMyBookings ? theme.primary : 'transparent'
-            }}
-          >
-            📋 My Bookings
-          </button>
-          
-          {/* Book Table Button */}
-          <button
-            onClick={() => userId ? setShowTableBooking(true) : requireLogin()}
-            className="px-4 py-2 rounded-full text-sm font-medium text-white transition-all hover:opacity-90 shadow-md flex items-center gap-1"
-            style={{ backgroundColor: theme.primary }}
-          >
-            🪑 Book Table
-          </button>
-        </div>
-
-        {/* ✅ 3. MY BOOKINGS SECTION - Buttons ke neeche, conditionally render */}
-        {showMyBookings && userId && (
-          <div className="mb-4">
-            <MyBookings 
-              userId={userId} 
-              restaurantId={restaurantId} 
-              theme={theme} 
-            />
+        
+        <div className="max-w-7xl w-full mx-auto px-4 pt-2" style={{ backgroundColor: theme.background }}>
+          <div className="flex justify-end items-center gap-2 mb-2">
+            <button
+              onClick={() => userId ? setShowMyBookings(!showMyBookings) : requireLogin()}
+              className="px-4 py-2 rounded-full text-sm font-medium border-2 transition-all flex items-center gap-1"
+              style={{ 
+                borderColor: theme.primary, 
+                color: showMyBookings ? '#fff' : theme.primary,
+                backgroundColor: showMyBookings ? theme.primary : 'transparent'
+              }}
+            >
+              📋 My Bookings
+            </button>
+            
+            <button
+              onClick={() => userId ? setShowTableBooking(true) : requireLogin()}
+              className="px-4 py-2 rounded-full text-sm font-medium text-white transition-all hover:opacity-90 shadow-md flex items-center gap-1"
+              style={{ backgroundColor: theme.primary }}
+            >
+              🪑 Book Table
+            </button>
           </div>
-        )}
-      </div>
+
+          {showMyBookings && userId && (
+            <div className="mb-4">
+              <MyBookings 
+                userId={userId} 
+                restaurantId={restaurantId} 
+                theme={theme} 
+              />
+            </div>
+          )}
+        </div>
+        
         <div className="max-w-7xl w-full mx-auto" style={{ backgroundColor: theme.background }}>
           
           <div className="sticky top-0 z-50 bg-white">
@@ -792,10 +920,17 @@ Thank you! 🍽️
                 </div>
               </div>
 
-              {/* Active Orders with Individual Progress */}
+              {/* 🔥🔥🔥 FIXED: Active Orders Section */}
               {activeOrder?.length > 0 && (
-                <div className="bg-white rounded-xl p-3 mb-4">
-                  {activeOrder.map(order => {
+                <div className="bg-white rounded-xl p-4 mb-4 shadow-lg border-2 border-gray-100">
+                  <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
+                    📋 Your Orders
+                    <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">{activeOrder.length}</span>
+                  </h3>
+                  
+                  {activeOrder.map((order, orderIndex) => {
+                    const uniqueOrderKey = `${order.id}-${orderIndex}`;
+                    
                     const items = order.items ? 
                       (Array.isArray(order.items) ? order.items : Object.values(order.items)) 
                       : [];
@@ -805,68 +940,93 @@ Thank you! 🍽️
                       (Date.now() - item.prepStartedAt) >= (item.prepTime * 60 * 1000))
                     );
 
+                    const isCompleted = order.status === "completed";
+                    const showBillButtons = allItemsReady || isCompleted;
+
                     return (
-                      <div key={order.id} className="mb-3 border-b pb-2">
-                        <div className="flex justify-between items-center mb-2">
-                          <p className="text-xs font-bold">Order #{order.id.slice(-6)}</p>
-                          {allItemsReady && (
-                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                              All Ready!
-                            </span>
-                          )}
+                      <div key={uniqueOrderKey} className="mb-4 border-2 rounded-xl p-3 bg-gray-50">
+                        <div className="flex justify-between items-center mb-3">
+                          <div>
+                            <p className="text-sm font-bold">Order #{order.id.slice(-6)}</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(order.createdAt).toLocaleString()}
+                            </p>
+                          </div>
+                          
+                          <span className={`text-xs px-3 py-1 rounded-full font-bold ${
+                            isCompleted 
+                              ? 'bg-green-100 text-green-700' 
+                              : allItemsReady 
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {isCompleted ? '✅ Completed' : allItemsReady ? '🔔 Ready' : '⏳ Preparing'}
+                          </span>
                         </div>
                         
-                        {items.length > 0 ? (
-                          items.map((item, index) => (
-                            <div key={`${order.id}-${item.dishId || index}`} className="mb-2 p-2 bg-gray-50 rounded-lg">
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                  <span className="text-sm font-medium block">{item.name}</span>
-                                  <span className="text-xs text-gray-500">× {item.qty}</span>
+                        <div className="space-y-2 mb-3">
+                          {items.length > 0 ? (
+                            items.map((item, itemIndex) => (
+                              <div 
+                                key={`${order.id}-${item.dishId || item.id || 'item'}-${itemIndex}`} 
+                                className="flex justify-between items-center p-2 bg-white rounded-lg"
+                              >
+                                <div className="flex items-center gap-2">
+                                  {item.image && (
+                                    <img src={item.image} className="w-10 h-10 rounded object-cover" alt="" />
+                                  )}
+                                  <div>
+                                    <span className="text-sm font-medium block">{item.name || 'Unknown Item'}</span>
+                                    <span className="text-xs text-gray-500">× {item.qty || 1}</span>
+                                  </div>
                                 </div>
-                                <span className="text-xs font-bold text-gray-600">₹{item.price}</span>
+                                <div className="text-right">
+                                  <span className="text-sm font-bold">₹{(item.price || 0) * (item.qty || 1)}</span>
+                                  {order.status === "preparing" && item.prepTime && (
+                                    <DishProgressBar 
+                                      item={{
+                                        ...item,
+                                        orderId: order.id,
+                                        prepStartedAt: item.prepStartedAt || order.prepStartedAt
+                                      }} 
+                                      theme={theme}
+                                      onDishReady={handleDishReady}
+                                      audioRef={audioRef}
+                                    />
+                                  )}
+                                  {item.itemStatus === "ready" && (
+                                    <span className="text-xs text-green-600 font-bold block">✅ Ready</span>
+                                  )}
+                                </div>
                               </div>
-                              
-                              {/* Individual Progress Bar with Sound */}
-                              {order.status === "preparing" && item.prepTime && (
-                                <DishProgressBar 
-                                  item={{
-                                    ...item,
-                                    orderId: order.id,
-                                    prepStartedAt: item.prepStartedAt || order.prepStartedAt
-                                  }} 
-                                  theme={theme}
-                                  onDishReady={handleDishReady}
-                                  audioRef={audioRef}
-                                />
-                              )}
-                              
-                              {item.itemStatus === "ready" && (
-                                <div className="flex items-center gap-1 text-green-600 font-bold text-xs mt-1">
-                                  <span>✅ Ready to serve</span>
-                                </div>
-                              )}
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-xs text-gray-400">No items found</p>
-                        )}
+                            ))
+                          ) : (
+                            <p className="text-xs text-gray-400">No items found</p>
+                          )}
+                        </div>
 
-                        {(allItemsReady || order.status === "ready") && (
-                          <div className="flex gap-2 mt-3 pt-2 border-t">
+                        <div className="flex justify-between items-center mb-3 p-2 bg-white rounded-lg">
+                          <span className="font-bold">Total Amount:</span>
+                          <span className="font-bold text-lg" style={{ color: theme.primary }}>
+                            ₹{order.total || 0}
+                          </span>
+                        </div>
+
+                        {showBillButtons && (
+                          <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t-2 border-dashed">
                             <button
                               onClick={() => generateAndOpenBill(order)}
-                              style={{ "--theme-color": theme.primary }}
-                              className="flex-1 border border-[var(--theme-color)] text-[var(--theme-color)] bg-white py-2 hover:bg-[var(--theme-color)] hover:text-white transition-all duration-300 rounded text-sm"
+                              style={{ backgroundColor: theme.primary }}
+                              className="py-3 px-4 rounded-lg text-white font-bold text-sm hover:opacity-90 transition flex items-center justify-center gap-2 shadow-md"
                             >
                               🧾 View Bill
                             </button>
                             <button
                               onClick={() => shareBillOnWhatsApp(order)}
-                              style={{ "--theme-color": theme.primary }}
-                              className="flex-1 border border-[var(--theme-color)] text-[var(--theme-color)] bg-white py-2 hover:bg-[var(--theme-color)] hover:text-white transition-all duration-300 rounded text-sm"
+                              className="py-3 px-4 rounded-lg font-bold text-sm border-2 hover:bg-gray-50 transition flex items-center justify-center gap-2 shadow-md"
+                              style={{ borderColor: theme.primary, color: theme.primary }}
                             >
-                              📲 Share
+                              📲 Share on WhatsApp
                             </button>
                           </div>
                         )}
@@ -877,7 +1037,10 @@ Thank you! 🍽️
               )}
               
               {activeOrder?.length === 0 && (
-                <p className="text-xs text-gray-400 text-center mt-4">No active orders</p>
+                <div className="bg-gray-50 rounded-xl p-6 mb-4 text-center border-2 border-dashed border-gray-200">
+                  <p className="text-gray-500">No active orders</p>
+                  <p className="text-xs text-gray-400 mt-1">Your orders will appear here</p>
+                </div>
               )}
 
               {showReadyBanner && (
@@ -1061,31 +1224,44 @@ Thank you! 🍽️
                                   </div>
                                 </>
                               )}
+<button
+  onClick={() => {
+    if (!tasteItem) return;
+    
+    // 🔥🔥🔥 CRITICAL FIX: Ensure tasteItem has all fields before creating payload
+    const payload = {
+      ...tasteItem,
+      id: tasteItem.id, // Ensure ID is preserved
+      name: tasteItem.name || tasteItem.dishName || "Unnamed Item", // 🔥 Ensure name
+      price: Number(tasteItem.price) || 0,
+      image: tasteItem.imageUrl || tasteItem.image || "",
+      prepTime: Number(tasteItem.prepTime ?? 15),
+      spicePreference: tasteItem.dishTasteProfile !== "sweet" ? (spiceSelections[tasteItem.id] || "normal") : null,
+      sweetLevel: tasteItem.dishTasteProfile === "sweet" ? (sweetSelections[tasteItem.id] || "normal") : null,
+      saltPreference: tasteItem.saltLevelEnabled ? (saltSelections[tasteItem.id] || "normal") : null,
+      salad: tasteItem.saladConfig?.enabled ? { 
+        qty: saladSelections[tasteItem.id] ? 1 : 0, 
+        taste: saladTaste[tasteItem.id] || "normal" 
+      } : { qty: 0, taste: "normal" }
+    };
 
-                              <button
-                                onClick={() => {
-                                  if (!tasteItem) return;
-                                  const payload = {
-                                    ...tasteItem,
-                                    prepTime: Number(tasteItem.prepTime ?? 15),
-                                    spicePreference: tasteItem.dishTasteProfile !== "sweet" ? spiceSelections[tasteItem.id] || "normal" : null,
-                                    sweetLevel: tasteItem.dishTasteProfile === "sweet" ? sweetSelections[tasteItem.id] || "normal" : null,
-                                    saltPreference: tasteItem.saltLevelEnabled ? saltSelections[tasteItem.id] || "normal" : null,
-                                    salad: tasteItem.saladConfig?.enabled ? { qty: saladSelections[tasteItem.id] ? 1 : 0, taste: saladTaste[tasteItem.id] || "normal" } : null
-                                  };
-                                  if (tasteAction === "order") {
-                                    addToCart(payload);
-                                    setSelectedItem(tasteItem);
-                                  }
-                                  if (tasteAction === "cart") addToCart(payload);
-                                  setTasteItem(null);
-                                  setTasteAction(null);
-                                }}
-                                style={{ "--theme-color": theme.primary }}
-                                className="border border-[var(--theme-color)] text-[var(--theme-color)] bg-white py-2 hover:bg-[var(--theme-color)] hover:text-white transition-all duration-300 w-[150px]"
-                              >
-                                {tasteAction === "order" ? "Confirm Order 🚀" : "Add To Cart"}
-                              </button>
+    console.log("🔥 Taste modal payload:", payload); // Debug log
+
+    if (tasteAction === "order") {
+      addToCart(payload);
+      setSelectedItem(tasteItem);
+    }
+    if (tasteAction === "cart") {
+      addToCart(payload);
+    }
+    setTasteItem(null);
+    setTasteAction(null);
+  }}
+  style={{ "--theme-color": theme.primary }}
+  className="border border-[var(--theme-color)] text-[var(--theme-color)] bg-white py-2 hover:bg-[var(--theme-color)] hover:text-white transition-all duration-300 w-[150px]"
+>
+  {tasteAction === "order" ? "Confirm Order 🚀" : "Add To Cart"}
+</button>
                             </div>
                           </div>
                         )}
