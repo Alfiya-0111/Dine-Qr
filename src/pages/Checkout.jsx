@@ -49,7 +49,15 @@ export default function Checkout() {
         const data = snap.val();
         setRestaurantData(data);
         setRestaurantSettings(data.settings || data);
-        setOwnerUid(data.ownerUid);
+        
+        // 🔥🔥🔥 CRITICAL: Get ownerUid from multiple possible fields
+        const actualOwnerUid = data.ownerUid || data.adminId || data.userId || data.restaurantId;
+        setOwnerUid(actualOwnerUid);
+        
+        console.log("✅ Restaurant loaded:", data.name);
+        console.log("✅ Owner UID:", actualOwnerUid);
+      } else {
+        console.log("❌ Restaurant data not found for ID:", restaurantId);
       }
       setIsLoading(false);
     });
@@ -67,14 +75,19 @@ export default function Checkout() {
     border: "#8A244B",
   };
   
-  // ✅ Hotel name from PublicMenu (same as restaurantSettings.name)
+  // Hotel name from PublicMenu (same as restaurantSettings.name)
   const hotelName = restaurantSettings?.name || 
                     restaurantData?.name || 
                     restaurantSettings?.hotelName || 
                     "Restaurant";
                     
   const qrImage = restaurantSettings?.paymentQR;
-  const effectiveRestaurantId = ownerUid || auth.currentUser?.uid || restaurantId;
+  
+  // 🔥🔥🔥 CRITICAL FIX: Sirf ownerUid use karo, customer UID bilkul nahi!
+  // Agar ownerUid nahi mila, toh URL wala restaurantId use karo
+  const effectiveRestaurantId = ownerUid || restaurantId;
+  
+  console.log("🔥 Effective Restaurant ID for order:", effectiveRestaurantId);
 
   const isValidPhone = (phone) => {
     const phoneRegex = /^[0-9]{10}$/;
@@ -119,8 +132,9 @@ export default function Checkout() {
       return;
     }
 
+    // 🔥🔥🔥 CRITICAL CHECK: Ensure we have valid restaurant ID
     if (!effectiveRestaurantId) {
-      alert("Restaurant ID not found!");
+      alert("Restaurant ID not found! Please refresh and try again.");
       return;
     }
 
@@ -130,8 +144,12 @@ export default function Checkout() {
       const maxPrepTime = Math.max(...cart.map((i) => Number(i.prepTime ?? 15)));
 
       const orderPayload = {
-        userId: auth.currentUser.uid,
+        // 🔥🔥🔥 CRITICAL: Yeh ID admin ke MY_RESTAURANT_IDS se match honi chahiye
         restaurantId: effectiveRestaurantId,
+        
+        // Customer info (yeh alag hai restaurantId se)
+        userId: auth.currentUser.uid,
+        
         customerInfo: {
           name: customerName.trim(),
           phone: customerPhone.trim() || null,
@@ -175,13 +193,17 @@ export default function Checkout() {
         createdAt: now,
       };
 
-      await push(ref(realtimeDB, "orders"), orderPayload);
+      console.log("📝 Saving order with restaurantId:", effectiveRestaurantId);
+      
+      const newOrderRef = await push(ref(realtimeDB, "orders"), orderPayload);
+      
+      console.log("✅ Order saved with ID:", newOrderRef.key);
       
       clearCart();
       alert("Order placed successfully! 🎉");
       navigate(`/menu/${restaurantId}`);
     } catch (err) {
-      console.error("Order failed:", err);
+      console.error("❌ Order failed:", err);
       alert("Order failed. Please try again.");
     }
   };
@@ -215,6 +237,13 @@ export default function Checkout() {
           Checkout
         </h2>
         <p className="text-gray-500 text-sm mb-6">Complete your order details</p>
+
+        {/* Debug Info - Remove in production */}
+        <div className="bg-yellow-100 p-2 mb-4 text-xs rounded border border-yellow-400">
+          <p><strong>Debug:</strong> Restaurant ID: {restaurantId}</p>
+          <p>Owner UID: {ownerUid || "Loading..."}</p>
+          <p>Effective ID: {effectiveRestaurantId}</p>
+        </div>
 
         {/* Cart Summary */}
         <div className="border rounded-lg p-3 mb-4 bg-gray-50">
@@ -471,7 +500,7 @@ export default function Checkout() {
           </p>
         </div>
 
-        {/* ✅ DYNAMIC BUTTON - Border color normally, hover pe border color background */}
+        {/* Place Order Button */}
         <button
           onClick={handlePlaceOrder}
           disabled={isLoading || !effectiveRestaurantId}
@@ -492,7 +521,7 @@ export default function Checkout() {
             e.target.style.color = theme.primary;
           }}
         >
-          {isLoading ? "Loading..." : `Place Order • ₹${total}`}
+          {isLoading ? "Loading..." : !effectiveRestaurantId ? "Loading Restaurant..." : `Place Order • ₹${total}`}
         </button>
 
         <p className="text-center text-xs text-gray-400 mt-3">

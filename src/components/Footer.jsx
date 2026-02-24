@@ -47,7 +47,7 @@ const Footer = () => {
   };
 
   const socialLinks = [
-    { icon: FaWhatsapp, href: 'https://wa.me/919999999999', color: 'hover:text-green-500' },
+    { icon: FaWhatsapp, href: 'https://wa.me/916352799072', color: 'hover:text-green-500' },
     { icon: FaInstagram, href: 'https://instagram.com/khaatogo', color: 'hover:text-pink-500' },
     { icon: FaFacebook, href: 'https://facebook.com/khaatogo', color: 'hover:text-blue-600' },
     { icon: FaTwitter, href: 'https://twitter.com/khaatogo', color: 'hover:text-blue-400' },
@@ -79,9 +79,9 @@ const Footer = () => {
             
             {/* Contact Info */}
             <div className="space-y-3">
-              <a href="tel:+919999999999" className="flex items-center gap-3 text-white hover:text-gray-400 transition">
+              <a href="tel:+916352799072" className="flex items-center gap-3 text-white hover:text-gray-400 transition">
                 <FaPhone className="text-white" />
-                <span className="text-sm">+91 99999 99999</span>
+                <span className="text-sm">+91 6352799072</span>
               </a>
               <a href="mailto:support@khaatogo.com" className="flex items-center gap-3 text-white hover:text-gray-400 transition">
                 <FaEnvelope className="text-white" />
@@ -227,7 +227,7 @@ const Footer = () => {
 
       {/* Sticky WhatsApp Button */}
       <a
-        href="https://wa.me/919999999999?text=Hi%20KhataQR%20team,%20I%20need%20help%20with%20my%20restaurant"
+        href="https://wa.me/916352799072?text=Hi%20KhaatogoQR%20team,%20I%20need%20help%20with%20my%20restaurant"
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 bg-green-500 text-white p-4 rounded-full shadow-2xl hover:bg-green-600 transition hover:scale-110 z-50"
