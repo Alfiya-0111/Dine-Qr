@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { ref as rtdbRef, onValue, update, remove } from "firebase/database";
+import { ref as rtdbRef, onValue, update, remove, push, set } from "firebase/database";
 import { IoCartOutline } from "react-icons/io5";
 import { db, realtimeDB } from "../firebaseConfig";
 import { useCart } from "../context/CartContext";
@@ -7,6 +7,7 @@ import { IoSearchOutline } from "react-icons/io5";
 import { PiMicrophone } from "react-icons/pi";
 import { auth } from "../firebaseConfig";
 import readySound from "../assets/ready.mp3";
+import { FaWhatsapp } from "react-icons/fa";
 import jsPDF from "jspdf";
 import { Helmet } from "react-helmet";
 import TableBookingModal from "../components/TableBookingModal"; 
@@ -149,6 +150,8 @@ export default function PublicMenu() {
   const [readyNotifications, setReadyNotifications] = useState([]);
   const [showTableBooking, setShowTableBooking] = useState(false);
   const [showMyBookings, setShowMyBookings] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [whatsAppItem, setWhatsAppItem] = useState(null);
 
   const theme = restaurantSettings?.theme || {
     primary: "#8A244B",
@@ -181,10 +184,10 @@ export default function PublicMenu() {
   const prevOrdersRef = useRef({});
   const categoryCounts = {};
   
-  // 🔥🔥🔥 CRITICAL: Track viewed orders (bill opened or shared)
   const viewedOrdersRef = useRef(new Set());
   const [viewedOrders, setViewedOrders] = useState(new Set());
 
+  // Calculate category counts
   items.forEach(item => {
     if (item.categoryIds?.length) {
       item.categoryIds.forEach(catId => {
@@ -199,6 +202,184 @@ export default function PublicMenu() {
       categoryCounts[cat.id] = (categoryCounts[cat.id] || 0) + 1;
     }
   });
+
+  // ================= WHATSAPP ORDER FUNCTIONS =================
+
+  const generateWhatsAppMessage = (item, restaurantName) => {
+    const user = auth.currentUser;
+    const message = `
+🍽️ *ORDER FROM ${restaurantName || 'Restaurant'}*
+
+👤 *Customer:* ${user?.displayName || 'Guest'}
+📱 *Phone:* ${user?.phoneNumber || 'N/A'}
+
+*ITEM:*
+• ${item.name} - ₹${item.price}
+⏱️ Prep Time: ${item.prepTime || 15} min
+📝 ${item.description || 'No description'}
+
+Please confirm availability.
+Sent via DineQR
+    `.trim();
+    return message;
+  };
+
+  // Simple Direct WhatsApp Order (Single Item)
+  const handleDirectWhatsApp = (item) => {
+    const user = auth.currentUser;
+    if (!user) {
+      requireLogin();
+      return;
+    }
+
+    const phone = restaurantSettings?.contact?.phone || restaurantSettings?.whatsappNumber;
+    if (!phone) {
+      alert("Restaurant WhatsApp number not available");
+      return;
+    }
+
+    const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
+    const message = generateWhatsAppMessage(item, restaurantName);
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    
+    window.open(whatsappUrl, '_blank');
+  };
+
+  // Full Integration WhatsApp Order (With Kitchen Sync)
+  const placeWhatsAppOrder = async (orderData) => {
+    const user = auth.currentUser;
+    if (!user) {
+      requireLogin();
+      return null;
+    }
+
+    try {
+      const orderRef = push(rtdbRef(realtimeDB, 'orders'));
+      const orderId = orderRef.key;
+      
+      const items = orderData.items || [];
+      const subtotal = items.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
+      const gst = subtotal * 0.05;
+      const total = subtotal + gst;
+
+      const order = {
+        id: orderId,
+        userId: user.uid,
+        restaurantId: restaurantId,
+        customerName: orderData.customerName || user.displayName || "Guest",
+        customerPhone: orderData.customerPhone || user.phoneNumber || "",
+        items: items.map(item => ({
+          dishId: item.id,
+          name: item.name,
+          qty: item.qty || 1,
+          price: item.price,
+          image: item.image || item.imageUrl,
+          prepTime: item.prepTime || 15,
+          spicePreference: item.spicePreference || "normal"
+        })),
+        type: "whatsapp",
+        status: "pending",
+        subtotal,
+        gst,
+        total,
+        createdAt: Date.now(),
+        source: "whatsapp"
+      };
+
+      // Save to orders
+      await set(orderRef, order);
+
+      // Save to whatsappOrders
+      await set(rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
+        ...order,
+        whatsappStatus: "new"
+      });
+
+      // Save to kitchenOrders
+      await set(rtdbRef(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`), {
+        ...order,
+        kitchenStatus: "new",
+        type: "whatsapp"
+      });
+
+      // Open WhatsApp
+      const phone = restaurantSettings?.contact?.phone || restaurantSettings?.whatsappNumber;
+      if (phone) {
+        const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
+        const message = generateWhatsAppMessageForCart(order, restaurantName);
+        const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
+      }
+
+      clearCart();
+      alert("✅ Order placed! Opening WhatsApp...");
+      return orderId;
+      
+    } catch (error) {
+      console.error("WhatsApp order error:", error);
+      alert("❌ Order failed: " + error.message);
+      return null;
+    }
+  };
+
+  const generateWhatsAppMessageForCart = (order, restaurantName) => {
+    const items = order.items.map(item => 
+      `• ${item.name} x${item.qty} = ₹${item.price * item.qty}`
+    ).join('\n');
+
+    return `
+🍽️ *NEW ORDER - ${restaurantName || 'Restaurant'}*
+
+👤 *Customer:* ${order.customerName}
+📱 *Phone:* ${order.customerPhone}
+🆔 *Order ID:* #${order.id.slice(-6).toUpperCase()}
+
+*ITEMS:*
+${items}
+
+━━━━━━━━━━━━━━
+*Subtotal:* ₹${order.subtotal}
+*GST (5%):* ₹${order.gst}
+*TOTAL:* ₹${order.total}
+━━━━━━━━━━━━━━
+
+⏱️ Please confirm this order.
+
+Sent via DineQR
+    `.trim();
+  };
+
+  // Handle WhatsApp from Cart
+  const handleWhatsAppOrderFromCart = async () => {
+    if (cart.length === 0) return;
+    
+    const user = auth.currentUser;
+    if (!user) {
+      requireLogin();
+      return;
+    }
+
+    const orderData = {
+      customerName: user.displayName || "Guest",
+      customerPhone: user.phoneNumber || "",
+      items: cart.map(item => ({
+        id: item.id,
+        name: item.name,
+        qty: item.quantity || 1,
+        price: item.price,
+        image: item.image,
+        prepTime: item.prepTime,
+        spicePreference: item.spicePreference
+      }))
+    };
+
+    const orderId = await placeWhatsAppOrder(orderData);
+    if (orderId) {
+      setOpenCart(false);
+    }
+  };
+
+  // ================= EXISTING FUNCTIONS =================
 
   const handleDishReady = (dishName) => {
     const id = Date.now();
@@ -215,12 +396,10 @@ export default function PublicMenu() {
     setReadyNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  // 🔥🔥🔥 MARK ORDER AS VIEWED (when bill opened or shared)
   const markOrderAsViewed = (orderId) => {
     viewedOrdersRef.current.add(orderId);
     setViewedOrders(new Set(viewedOrdersRef.current));
     
-    // Save to localStorage for persistence
     const saved = JSON.parse(localStorage.getItem('viewedOrders') || '[]');
     if (!saved.includes(orderId)) {
       saved.push(orderId);
@@ -228,18 +407,16 @@ export default function PublicMenu() {
     }
   };
 
-  // 🔥🔥🔥 LOAD VIEWED ORDERS FROM LOCALSTORAGE ON MOUNT
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('viewedOrders') || '[]');
     saved.forEach(id => viewedOrdersRef.current.add(id));
     setViewedOrders(new Set(viewedOrdersRef.current));
   }, []);
 
-  // ================= PDF GENERATE & OPEN =================
+  // PDF Generate & Open
   const generateAndOpenBill = async (order) => {
     if (!order || !order.id) return console.error("Order is undefined or missing ID");
     
-    // 🔥 Mark as viewed immediately
     markOrderAsViewed(order.id);
 
     try {
@@ -407,11 +584,10 @@ export default function PublicMenu() {
     }
   };
 
-  // ================= WHATSAPP SHARE =================
+  // WhatsApp Share
   const shareBillOnWhatsApp = (order) => {
     if (!order?.bill) return console.error("No bill to share");
     
-    // 🔥 Mark as viewed when shared
     markOrderAsViewed(order.id);
     
     const bill = order.bill;
@@ -461,7 +637,6 @@ Thank you! 🍽️
     return () => window.removeEventListener("click", unlockAudio);
   }, []);
 
-  // 🆕 Check for individual item ready status from Firebase
   useEffect(() => {
     if (!activeOrder?.length) return;
     
@@ -489,7 +664,7 @@ Thank you! 🍽️
     });
   }, []);
 
-  // 🔥🔥🔥 MAIN ORDERS LISTENER - FIXED LOGIC
+  // Main Orders Listener
   useEffect(() => {
     if (!userId || !restaurantId) return;
     
@@ -502,37 +677,28 @@ Thank you! 🍽️
       }
 
       const now = Date.now();
-      const twentySecondsAgo = now - (20 * 1000); // 20 seconds ago
+      const twentySecondsAgo = now - (20 * 1000);
 
       const myOrders = Object.entries(data)
         .filter(([id, order]) => {
-          // 🔥🔥🔥 CRITICAL VALIDATIONS
           if (!order || typeof order !== 'object') return false;
           if (!id || id === 'undefined' || id === 'null') return false;
           if (!order.userId || !order.restaurantId) return false;
           if (order.userId !== userId || order.restaurantId !== restaurantId) return false;
-          
-          // 🔥 Skip if already viewed (bill opened or shared)
           if (viewedOrdersRef.current.has(id)) return false;
-          
-          // 🔥 Skip NaN orders (invalid data)
           if (order.total === null || order.total === undefined || Number.isNaN(Number(order.total))) {
             return false;
           }
 
-          // 🔥 Only show ACTIVE orders (preparing, ready)
           if (order.status === "preparing" || order.status === "ready") {
             return true;
           }
           
-          // 🔥 Show COMPLETED orders only for 20 seconds (if not viewed)
           if (order.status === "completed") {
             const completedAt = order.completedAt || order.updatedAt || order.createdAt;
-            // Only show if completed within last 20 seconds
             if (completedAt && completedAt > twentySecondsAgo) {
               return true;
             }
-            // If no completedAt, check if created recently (fallback)
             if (!completedAt && order.createdAt > twentySecondsAgo) {
               return true;
             }
@@ -543,7 +709,6 @@ Thank you! 🍽️
         .map(([id, order]) => ({ 
           id, 
           ...order,
-          // 🔥 Ensure valid numbers
           total: Number(order.total) || 0,
           createdAt: order.createdAt || Date.now(),
           completedAt: order.completedAt || null
@@ -554,7 +719,7 @@ Thank you! 🍽️
     });
     
     return () => unsubscribe();
-  }, [userId, restaurantId, viewedOrders]); // 🔥 Add viewedOrders as dependency
+  }, [userId, restaurantId, viewedOrders]);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -679,42 +844,16 @@ Thank you! 🍽️
     });
   }
 
-  const handleOrderClick = (item) => {
-     if (!item || !item.id) {
+const handleOrderClick = (item, action = "order") => {
+  if (!item || !item.id) {
     console.error("❌ Invalid item passed to handleOrderClick:", item);
     return;
-  } const completeItem = {
-    ...item,
-    id: item.id,
-    name: item.name || item.dishName || "Unnamed Item", // 🔥 Fallback name
-    price: Number(item.price) || 0,
-    image: item.imageUrl || item.image || "",
-    prepTime: Number(item.prepTime ?? 15),
-    spicePreference: spiceSelections[item.id] || "normal",
-    sweetLevel: sweetSelections[item.id] || "normal",
-    saltPreference: saltSelections[item.id] || "normal",
-    salad: {
-      qty: saladSelections[item.id] || 0,
-      taste: saladTaste[item.id] || "normal"
-    }
-  };
-   console.log("🔥 Adding to cart:", completeItem); // Debug log
-
-  addToCart(completeItem);
-  setSelectedItem(item);
-    addToCart({
-      ...item,
-      prepTime: Number(item.prepTime ?? 15),
-      spicePreference: spiceSelections[item.id] || "normal",
-      sweetLevel: sweetSelections[item.id] || "normal",
-      saltPreference: saltSelections[item.id] || "normal",
-      salad: {
-        qty: saladSelections[item.id] || 0,
-        taste: saladTaste[item.id] || "normal"
-      }
-    });
-    setSelectedItem(item);
-  };
+  }
+  
+  // Sirf modal open karo, addToCart baad mein hoga
+  setTasteItem(item);
+  setTasteAction(action);
+};
 
   return (
     <>
@@ -723,6 +862,49 @@ Thank you! 🍽️
         <meta name="description" content="Browse our delicious menu" />
       </Helmet>
       
+      {/* WhatsApp Quick Order Modal */}
+      {showWhatsAppModal && whatsAppItem && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
+          <div className="bg-white w-full max-w-md rounded-2xl p-6 animate-slideUp">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold"><FaWhatsapp className="w-[25px] h-[25px]" /> Order via WhatsApp</h3>
+              <button onClick={() => setShowWhatsAppModal(false)} className="text-gray-500 hover:text-black text-xl">✕</button>
+            </div>
+            
+            <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-lg">
+              <img src={whatsAppItem.imageUrl} className="w-16 h-16 rounded-lg object-cover" alt="" />
+              <div>
+                <p className="font-bold">{whatsAppItem.name}</p>
+                <p className="text-[#8A244B] font-bold">₹{whatsAppItem.price}</p>
+                <p className="text-xs text-gray-500">⏱️ {whatsAppItem.prepTime || 15} min</p>
+              </div>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-4">
+              This will open WhatsApp with your order details. Restaurant will confirm availability.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowWhatsAppModal(false)}
+                className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  handleDirectWhatsApp(whatsAppItem);
+                  setShowWhatsAppModal(false);
+                }}
+                className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-green-600 transition"
+              >
+                💬 Open WhatsApp
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <TableBookingModal 
         isOpen={showTableBooking} 
         onClose={() => setShowTableBooking(false)}
@@ -779,13 +961,13 @@ Thank you! 🍽️
         
         <div className="max-w-7xl w-full mx-auto" style={{ backgroundColor: theme.background }}>
           
-          <div className="sticky top-0 z-50 bg-white">
+          <div className="sticky top-0 z-40 bg-white shadow-sm">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-3 px-2">
               <div className="flex items-center gap-3">
                 {restaurantSettings?.logo ? (
                   <img src={restaurantSettings.logo} alt="logo" className="h-10 md:h-12 object-contain" />
                 ) : (
-                  <span className="font-bold text-lg md:text-x" style={{ backgroundColor: theme.primary }}>
+                  <span className="font-bold text-lg md:text-xl px-3 py-1 text-white rounded" style={{ backgroundColor: theme.primary }}>
                     {restaurantSettings?.name || restaurantName}
                   </span>
                 )}
@@ -798,7 +980,7 @@ Thank you! 🍽️
                     backgroundColor: activeCategory === "all" ? theme.primary : "#e5e7eb",
                     color: activeCategory === "all" ? "#fff" : "#000",
                   }}
-                  className="px-4 py-2 rounded-full"
+                  className="px-4 py-2 rounded-full whitespace-nowrap"
                 >
                   All
                 </button>
@@ -920,7 +1102,7 @@ Thank you! 🍽️
                 </div>
               </div>
 
-              {/* 🔥🔥🔥 FIXED: Active Orders Section */}
+              {/* Active Orders Section */}
               {activeOrder?.length > 0 && (
                 <div className="bg-white rounded-xl p-4 mb-4 shadow-lg border-2 border-gray-100">
                   <h3 className="font-bold text-lg mb-3 flex items-center gap-2">
@@ -1072,14 +1254,14 @@ Thank you! 🍽️
                   <p className="text-sm mt-2">Try another search or clear filters.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6 pb-20">
                   {filteredItems.map((item) => {
                     const isDrink = item.category?.toLowerCase() === "drinks";
                     return (
                       <div
                         id={`dish-${item.id}`}
                         key={item.id}
-                        className="bg-white rounded-3xl shadow-md hover:shadow-xl transition overflow-hidden cursor-pointer"
+                        className="bg-white rounded-3xl shadow-md hover:shadow-xl transition overflow-hidden"
                       >
                         <div className="relative">
                           <img src={item.imageUrl} alt={item.name} className="h-44 w-full object-cover" />
@@ -1093,175 +1275,231 @@ Thank you! 🍽️
                             <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg">Out of Stock 🚫</div>
                           )}
                           {!isDrink ? (
-                            <span className={`absolute top-2 right-2 w-3 h-3 rounded-full ${item.vegType === "veg" ? "bg-green-500" : "bg-red-500"}`} />
+                            <span className={`absolute bottom-2 right-2 w-4 h-4 rounded-full border-2 border-white ${item.vegType === "veg" ? "bg-green-500" : "bg-red-500"}`} />
                           ) : (
-                            <span className="absolute top-2 right-2 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                            <span className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center border-2 border-white">
                               <span className="text-white text-xs">🍹</span>
                             </span>
                           )}
                         </div>
-                        <div className="p-2">
+                        
+                        <div className="p-4">
                           <h3 className="font-bold text-lg truncate flex items-center gap-2">
                             {item.name}
                             {item.dishTasteProfile === "salty" && (
                               <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-600">🧂 Salty</span>
                             )}
                           </h3>
-                          <p className="text-gray-500">₹{item.price}</p>
-                          <p className="text-xs text-gray-400">⏱ Ready in {Number(item.prepTime ?? 15)} min</p>
-                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{item.description}</p>
-                          <Likes restaurantId={item.restaurantId} dishId={item.id} />
-                          <Rating restaurantId={item.restaurantId} dishId={item.id} />
-                          <div className="flex gap-2 mt-4">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setTasteItem(item); setTasteAction("order"); }}
-                              style={{ "--theme-color": theme.primary }}
-                              className="flex-1 border border-[var(--theme-color)] text-[var(--theme-color)] bg-white py-2 hover:bg-[var(--theme-color)] hover:text-white transition-all duration-300"
-                            >
-                              Order Now
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setTasteItem(item); setTasteAction("cart"); }}
-                              style={{ "--theme-color": theme.primary }}
-                              className="flex-1 border border-[var(--theme-color)] text-[var(--theme-color)] bg-white py-2 hover:bg-[var(--theme-color)] hover:text-white transition-all duration-300"
-                            >
-                              Add to Cart
-                            </button>
+                          <p className="text-gray-500 font-medium">₹{item.price}</p>
+                          <p className="text-xs text-gray-400 mt-1">⏱ Ready in {Number(item.prepTime ?? 15)} min</p>
+                          <p className="text-sm text-gray-600 mt-2 line-clamp-2">{item.description}</p>
+                          
+                          <div className="mt-3">
+                            <Likes restaurantId={item.restaurantId} dishId={item.id} />
+                            <Rating restaurantId={item.restaurantId} dishId={item.id} />
                           </div>
+
+                          {/* 🔥🔥🔥 THREE ACTION BUTTONS */}
+                         <div className="grid grid-cols-2 gap-2 mt-4">
+ 
+ {/* Order Now */}
+<button
+  onClick={() => handleOrderClick(item, "order")}
+  style={{ 
+    border: `2px solid ${theme.primary}`,
+    color: theme.primary,
+    backgroundColor: '#ffffff'
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.backgroundColor = theme.primary;
+    e.currentTarget.style.color = '#ffffff';
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.backgroundColor = '#ffffff';
+    e.currentTarget.style.color = theme.primary;
+  }}
+  className="py-2 rounded-lg font-medium transition-all duration-300 text-sm"
+>
+  Order Now
+</button>
+
+{/* Add to Cart */}
+<button
+  onClick={() => handleOrderClick(item, "cart")}
+  style={{ 
+    border: `2px solid ${theme.primary}`,
+    color: theme.primary,
+    backgroundColor: '#ffffff'
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.backgroundColor = theme.primary;
+    e.currentTarget.style.color = '#ffffff';
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.backgroundColor = '#ffffff';
+    e.currentTarget.style.color = theme.primary;
+  }}
+  className="py-2 rounded-lg font-medium transition-all duration-300 text-sm"
+>
+  Add to Cart
+</button>
+</div>
+
+{/* WhatsApp - Full Width Below */}
+<button
+  onClick={() => handleOrderClick(item, "whatsapp")}
+  style={{ 
+    border: `2px solid #22c55e`,
+    color: '#22c55e',
+    backgroundColor: '#ffffff'
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.backgroundColor = '#22c55e';
+    e.currentTarget.style.color = '#ffffff';
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.backgroundColor = '#ffffff';
+    e.currentTarget.style.color = '#22c55e';
+  }}
+  className="w-full mt-2 py-2 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 text-sm"
+>
+  <FaWhatsapp className="w-[25px] h-[25px]" />
+  Order via WhatsApp
+</button>
+
                           <details className="mt-3">
                             <summary className="cursor-pointer text-sm text-gray-500">View reviews</summary>
                             <Comments dishId={item.id} theme={theme} />
                           </details>
                         </div>
 
-                        {tasteItem && (
-                          <div className="fixed inset-0 z-50 flex items-end">
-                            <div className="absolute inset-0 bg-black/40" onClick={() => setTasteItem(null)} />
-                            <div className="relative bg-white w-full rounded-t-3xl p-5 animate-slideUp z-10" onClick={(e) => e.stopPropagation()}>
+                        {/* Taste Modal */}
+                        {tasteItem?.id === item.id && (
+                          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
+                            <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 animate-slideUp max-h-[90vh] overflow-y-auto">
                               <button onClick={() => setTasteItem(null)} className="absolute right-4 top-4 text-gray-500 hover:text-black text-lg">✕</button>
-                              <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4" />
+                              <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden" />
                               <h3 className="text-lg font-bold mb-3">{tasteItem.name}</h3>
 
                               {tasteItem.dishTasteProfile !== "sweet" && (
                                 <>
-                                  <p className="text-xs font-semibold mb-1">🌶 Spice Level</p>
-                                  <div className="flex gap-3 mb-3">
-                                    {["normal", "medium", "spicy"].map(level => {
-                                      const isActive = spiceSelections[tasteItem.id] === level;
-                                      return (
-                                        <label key={level} className={`relative flex items-center gap-1 cursor-pointer spice-label ${isActive ? `smoke-${level}` : ""}`}>
-                                          <input
-                                            type="checkbox"
-                                            checked={isActive}
-                                            onChange={() => setSpiceSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
-                                            className="spice-checkbox"
-                                            style={{ "--border-color": theme.border }}
-                                          />
-                                          🌶 {level}
-                                          {isActive && (<><span className="smoke"></span><span className="smoke"></span><span className="smoke"></span></>)}
-                                        </label>
-                                      );
-                                    })}
+                                  <p className="text-xs font-semibold mb-2">🌶 Spice Level</p>
+                                  <div className="flex gap-2 mb-3">
+                                    {["normal", "medium", "spicy"].map(level => (
+                                      <button
+                                        key={level}
+                                        onClick={() => setSpiceSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
+                                        className={`flex-1 py-2 rounded-lg text-sm capitalize transition ${
+                                          spiceSelections[tasteItem.id] === level 
+                                            ? 'bg-[#8A244B] text-white' 
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                      >
+                                        {level}
+                                      </button>
+                                    ))}
                                   </div>
                                 </>
                               )}
 
                               {tasteItem.dishTasteProfile !== "sweet" && tasteItem.saltLevelEnabled && (
                                 <>
-                                  <p className="text-xs font-semibold mb-1">🧂 Salt Level</p>
-                                  <div className="flex gap-3 mb-3">
-                                    {["less", "normal", "extra"].map(level => {
-                                      const isActive = saltSelections[tasteItem.id] === level;
-                                      return (
-                                        <label key={level} className={`flex items-center gap-1 cursor-pointer spice-label ${isActive ? "text-[#8A244B] font-semibold" : ""}`}>
-                                          <input
-                                            type="checkbox"
-                                            checked={isActive}
-                                            onChange={() => setSaltSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
-                                            className="spice-checkbox"
-                                            style={{ "--border-color": theme.border }}
-                                          />
-                                          🧂 {level}
-                                        </label>
-                                      );
-                                    })}
+                                  <p className="text-xs font-semibold mb-2">🧂 Salt Level</p>
+                                  <div className="flex gap-2 mb-3">
+                                    {["less", "normal", "extra"].map(level => (
+                                      <button
+                                        key={level}
+                                        onClick={() => setSaltSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
+                                        className={`flex-1 py-2 rounded-lg text-sm capitalize transition ${
+                                          saltSelections[tasteItem.id] === level 
+                                            ? 'bg-blue-500 text-white' 
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                      >
+                                        {level}
+                                      </button>
+                                    ))}
                                   </div>
                                 </>
                               )}
 
                               {tasteItem.saladConfig?.enabled && (
-                                <label className={`flex items-center gap-2 text-xs mb-3 cursor-pointer spice-label ${saladSelections[tasteItem.id] ? "text-[#8A244B] font-semibold" : ""}`}>
-                                  <input
-                                    type="checkbox"
-                                    checked={!!saladSelections[tasteItem.id]}
-                                    onChange={(e) => setSaladSelections(prev => ({ ...prev, [tasteItem.id]: e.target.checked }))}
-                                    className="spice-checkbox"
-                                    style={{ "--border-color": theme.border }}
-                                  />
-                                  🥗 Add Salad
-                                </label>
+                                <div className="mb-3">
+                                  <label className="flex items-center gap-2 cursor-pointer p-3 bg-gray-50 rounded-lg">
+                                    <input
+                                      type="checkbox"
+                                      checked={!!saladSelections[tasteItem.id]}
+                                      onChange={(e) => setSaladSelections(prev => ({ ...prev, [tasteItem.id]: e.target.checked }))}
+                                      className="w-5 h-5 text-[#8A244B] rounded"
+                                    />
+                                    <span className="font-medium">🥗 Add Salad</span>
+                                  </label>
+                                </div>
                               )}
 
                               {tasteItem.dishTasteProfile === "sweet" && tasteItem.sugarLevelEnabled && (
                                 <>
-                                  <p className="text-xs font-semibold mb-1">🍰 Sweetness</p>
-                                  <div className="flex gap-3 mb-3">
-                                    {["less", "normal", "extra"].map(level => {
-                                      const isActive = sweetSelections[tasteItem.id] === level;
-                                      return (
-                                        <label key={level} className={`flex items-center gap-1 cursor-pointer spice-label ${isActive ? "text-[#8A244B] font-semibold" : ""}`}>
-                                          <input
-                                            type="checkbox"
-                                            checked={isActive}
-                                            onChange={() => setSweetSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
-                                            className="spice-checkbox"
-                                            style={{ "--border-color": theme.border }}
-                                          />
-                                          🍰 {level}
-                                        </label>
-                                      );
-                                    })}
+                                  <p className="text-xs font-semibold mb-2">🍰 Sweetness</p>
+                                  <div className="flex gap-2 mb-3">
+                                    {["less", "normal", "extra"].map(level => (
+                                      <button
+                                        key={level}
+                                        onClick={() => setSweetSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
+                                        className={`flex-1 py-2 rounded-lg text-sm capitalize transition ${
+                                          sweetSelections[tasteItem.id] === level 
+                                            ? 'bg-pink-500 text-white' 
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                      >
+                                        {level}
+                                      </button>
+                                    ))}
                                   </div>
                                 </>
                               )}
-<button
-  onClick={() => {
-    if (!tasteItem) return;
-    
-    // 🔥🔥🔥 CRITICAL FIX: Ensure tasteItem has all fields before creating payload
-    const payload = {
-      ...tasteItem,
-      id: tasteItem.id, // Ensure ID is preserved
-      name: tasteItem.name || tasteItem.dishName || "Unnamed Item", // 🔥 Ensure name
-      price: Number(tasteItem.price) || 0,
-      image: tasteItem.imageUrl || tasteItem.image || "",
-      prepTime: Number(tasteItem.prepTime ?? 15),
-      spicePreference: tasteItem.dishTasteProfile !== "sweet" ? (spiceSelections[tasteItem.id] || "normal") : null,
-      sweetLevel: tasteItem.dishTasteProfile === "sweet" ? (sweetSelections[tasteItem.id] || "normal") : null,
-      saltPreference: tasteItem.saltLevelEnabled ? (saltSelections[tasteItem.id] || "normal") : null,
-      salad: tasteItem.saladConfig?.enabled ? { 
-        qty: saladSelections[tasteItem.id] ? 1 : 0, 
-        taste: saladTaste[tasteItem.id] || "normal" 
-      } : { qty: 0, taste: "normal" }
-    };
 
-    console.log("🔥 Taste modal payload:", payload); // Debug log
+                              <div className="flex gap-3 mt-4">
+                                <button
+                                  onClick={() => {
+  const payload = {
+    ...tasteItem,
+    id: tasteItem.id,
+    name: tasteItem.name || tasteItem.dishName || "Unnamed Item",
+    price: Number(tasteItem.price) || 0,
+    image: tasteItem.imageUrl || tasteItem.image || "",
+    prepTime: Number(tasteItem.prepTime ?? 15),
+    spicePreference: tasteItem.dishTasteProfile !== "sweet" ? (spiceSelections[tasteItem.id] || "normal") : null,
+    sweetLevel: tasteItem.dishTasteProfile === "sweet" ? (sweetSelections[tasteItem.id] || "normal") : null,
+    saltPreference: tasteItem.saltLevelEnabled ? (saltSelections[tasteItem.id] || "normal") : null,
+    salad: tasteItem.saladConfig?.enabled ? { 
+      qty: saladSelections[tasteItem.id] ? 1 : 0, 
+      taste: saladTaste[tasteItem.id] || "normal" 
+    } : { qty: 0, taste: "normal" }
+  };
 
-    if (tasteAction === "order") {
-      addToCart(payload);
-      setSelectedItem(tasteItem);
-    }
-    if (tasteAction === "cart") {
-      addToCart(payload);
-    }
+  if (tasteAction === "whatsapp") {
+    // WhatsApp order - modal band karo aur WhatsApp modal kholo
     setTasteItem(null);
     setTasteAction(null);
-  }}
-  style={{ "--theme-color": theme.primary }}
-  className="border border-[var(--theme-color)] text-[var(--theme-color)] bg-white py-2 hover:bg-[var(--theme-color)] hover:text-white transition-all duration-300 w-[150px]"
->
-  {tasteAction === "order" ? "Confirm Order 🚀" : "Add To Cart"}
-</button>
+    setWhatsAppItem(payload);
+    setShowWhatsAppModal(true);
+  } else {
+    // Order Now ya Add to Cart - dono mein cart mein add karo
+    addToCart(payload);
+    
+    if (tasteAction === "order") {
+      setSelectedItem(tasteItem);  // Sirf Order Now pe OrderModal kholo
+    }
+    
+    setTasteItem(null);
+    setTasteAction(null);
+  }
+}}
+                                  className="flex-1 py-3 bg-[#8A244B] text-white rounded-xl font-bold hover:bg-[#f18e49] transition"
+                                >
+                                {tasteAction === "order" ? "Confirm Order 🚀" : tasteAction === "cart" ? "Add To Cart" : "Order via WhatsApp"}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         )}
@@ -1329,17 +1567,57 @@ Thank you! 🍽️
           )}
 
           {activeTab === "menu" && (
-            <>
-              <button onClick={() => setOpenCart(true)} className="relative hidden md:block">
-                <IoCartOutline className="text-5xl" />
-                {cart.length > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 rounded-full">{cart.length}</span>}
-              </button>
-              {cart.length > 0 && <BottomCart onOpen={() => setOpenCart(true)} theme={theme} />}
-            </>
+          <>
+  <button
+    onClick={() => setOpenCart(true)}
+    style={{ "--theme-color": theme.primary }}
+    className="
+      group relative hidden md:block fixed top-20 right-4 z-30
+      bg-white
+      p-3 rounded-full shadow-lg
+      border-2 border-[var(--theme-color)]
+      transition-all duration-300
+      hover:bg-[var(--theme-color)]
+    "
+  >
+    <IoCartOutline
+      className="
+        w-[35px] h-[35px]
+        text-[var(--theme-color)]
+        transition-all duration-300
+        group-hover:text-white
+      "
+    />
+
+    {cart.length > 0 && (
+      <span className="
+        absolute -top-1 -right-1
+        bg-red-500 text-white text-xs
+        w-5 h-5 flex items-center justify-center
+        rounded-full
+      ">
+        {cart.length}
+      </span>
+    )}
+  </button>
+
+  {cart.length > 0 && (
+    <BottomCart
+      onOpen={() => setOpenCart(true)}
+      theme={theme}
+    />
+  )}
+</>
           )}
 
           {activeTab === "menu" && (
-            <CartSidebar open={openCart} onClose={() => setOpenCart(false)} theme={theme} restaurantId={restaurantId} />
+          <CartSidebar 
+  open={openCart} 
+  onClose={() => setOpenCart(false)} 
+  theme={theme} 
+  restaurantId={restaurantId}
+  onWhatsAppOrder={handleWhatsAppOrderFromCart}  
+/>
           )}
 
           {selectedItem && <OrderModal item={selectedItem} onClose={() => setSelectedItem(null)} />}

@@ -166,76 +166,57 @@ const { cart, total, clearCart, getValidCart } = useCart();
     try {
       const maxPrepTime = Math.max(...cart.map((i) => Number(i.prepTime ?? 15)));
 
-      const orderPayload = {
-        // 🔥🔥🔥 CRITICAL: Yeh ID admin ke MY_RESTAURANT_IDS se match honi chahiye
-        restaurantId: effectiveRestaurantId,
-        items: validCart.map((item) => ({
-      dishId: String(item.id),
-      name: String(item.name),
-      image: String(item.image || ""),
+    const orderPayload = {
+  restaurantId: effectiveRestaurantId,
+
+  userId: auth.currentUser.uid,
+
+  customerInfo: {
+    name: customerName.trim(),
+    phone: customerPhone.trim() || null,
+    email: customerEmail.trim() || null,
+  },
+
+  orderDetails: {
+    type: orderType,
+    tableNumber: orderType === "dine-in" ? tableNumber.trim() : null,
+    numberOfGuests: parseInt(numberOfGuests) || 1,
+    orderDate,
+    orderTime,
+    specialInstructions: specialInstructions.trim() || null,
+  },
+
+  hotelName,
+  paymentMethod,
+  paymentStatus: paymentMethod === "cash" ? "pending_cash" : "pending_online",
+
+  items: validCart.map((item) => {
+    const prepTime = Number(item.prepTime ?? 15);
+
+    return {
+      dishId: item.id,
+      name: item.name,
+      image: item.image || "",
       qty: Number(item.qty) || 1,
       price: Number(item.price) || 0,
-      // ... other fields
-    })),
-    total: validCart.reduce((sum, item) => 
-      sum + ((Number(item.price) || 0) * (Number(item.qty) || 1)), 0
-    ),
-        // Customer info (yeh alag hai restaurantId se)
-        userId: auth.currentUser.uid,
-        
-        customerInfo: {
-          name: customerName.trim(),
-          phone: customerPhone.trim() || null,
-          email: customerEmail.trim() || null,
-        },
-        orderDetails: {
-          type: orderType,
-          tableNumber: orderType === "dine-in" ? tableNumber.trim() : null,
-          numberOfGuests: parseInt(numberOfGuests) || 1,
-          orderDate,
-          orderTime,
-          specialInstructions: specialInstructions.trim() || null,
-        },
-        hotelName,
-        paymentMethod,
-        paymentStatus: paymentMethod === "cash" ? "pending_cash" : "pending_online",
-        prepTime: maxPrepTime,
-        
-        // 🔥🔥🔥 CRITICAL FIX: Ensure all item fields are valid
-        items: cart.map((item) => {
-          const prepTime = Number(item.prepTime ?? 15);
-          
-          // 🔥 Validate item data
-          if (!item.name || !item.id) {
-            console.warn("⚠️ Invalid item in cart:", item);
-          }
-          
-          return {
-            dishId: item.id || `unknown-${Date.now()}`,
-            name: item.name || "Unknown Item", // 🔥 Fallback name
-            image: item.image || item.imageUrl || "",
-            qty: Number(item.qty) || 1,
-            price: Number(item.price) || 0,
-            dishTasteProfile: item.dishTasteProfile || "normal",
-            spicePreference: item.dishTasteProfile !== "sweet" ? item.spicePreference || "normal" : null,
-            sweetLevel: item.dishTasteProfile === "sweet" ? item.sweetLevel || "normal" : null,
-            saltPreference: item.dishTasteProfile !== "sweet" ? item.saltPreference || "normal" : null,
-            salad: item.dishTasteProfile !== "sweet" ? item.salad || { qty: 0, taste: "normal" } : { qty: 0, taste: "normal" },
-            prepTime,
-            prepStartedAt: now,
-            prepEndsAt: now + prepTime * 60000,
-            status: "preparing",
-          };
-        }),
-        
-        // 🔥🔥🔥 CRITICAL FIX: Ensure total is valid number
-        total: Number(total) || cart.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.qty) || 1)), 0),
-        
-        prepStartedAt: now,
-        prepEndsAt: now + maxPrepTime * 60000,
-        status: "preparing",
-        createdAt: now,
-      };
+      spicePreference: item.spicePreference || "normal",
+      prepTime,
+      prepStartedAt: now,
+      prepEndsAt: now + prepTime * 60000,
+      status: "preparing",
+    };
+  }),
+
+  total: validCart.reduce(
+    (sum, item) => sum + (Number(item.price) || 0) * (Number(item.qty) || 1),
+    0
+  ),
+
+  prepStartedAt: now,
+  prepEndsAt: now + maxPrepTime * 60000,
+  status: "preparing",
+  createdAt: now,
+};
 
       console.log("📝 Saving order with restaurantId:", effectiveRestaurantId);
       console.log("📝 Order items:", orderPayload.items);

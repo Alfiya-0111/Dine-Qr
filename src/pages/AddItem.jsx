@@ -1,10 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { auth, db, realtimeDB } from "../firebaseConfig";
 import { ref as rtdbRef, onValue, get } from "firebase/database";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, addDoc, doc, updateDoc } from "firebase/firestore";
 import { ref, set as setRTDB, update as updateRTDB } from "firebase/database";
 import { useLocation, useNavigate } from "react-router-dom";
+
+// ✅ CLOUDINARY CONFIG - YAHAN APNI DETAILS DALO
+const CLOUDINARY_CONFIG = {
+  cloudName: "dgvjgl2ls", // ✅ Aapka actual cloud name
+  uploadPreset: "portfolio_upload", // ✅ Aapka preset name
+  folder: "khaatogo",
+};
 
 export default function AddItem() {
   const navigate = useNavigate();
@@ -39,68 +46,63 @@ export default function AddItem() {
     saladConfig: {
       enabled: false,
       tasteControl: true,
-      maxQty: 5
+      maxQty: 5,
     },
   });
 
-  const IMGBB_API_KEY = "179294f40bc7235ace27ceac655be6b4";
-
-  // ✅ SUBSCRIPTION CHECK FUNCTION
-  const checkSubscription = async () => {
+  // ✅ SUBSCRIPTION CHECK
+  const checkSubscription = useCallback(async () => {
     const user = auth.currentUser;
     if (!user) {
       alert("Please login first!");
-      navigate('/login');
+      navigate("/login");
       return false;
     }
 
     const subRef = rtdbRef(realtimeDB, `subscriptions/${user.uid}`);
     const snapshot = await get(subRef);
-    
+
     if (!snapshot.exists()) {
       alert("Please start your free trial or subscribe first!");
-      navigate('/subscription');
+      navigate("/subscription");
       return false;
     }
-    
+
     const sub = snapshot.val();
     const now = Date.now();
-    
-    // Check trial expired
-    if (sub.planId === 'trial' && sub.expiresAt < now) {
-      alert('⏰ Your free trial has expired! Please upgrade to continue adding dishes.');
-      navigate('/subscription');
+
+    if (sub.planId === "trial" && sub.expiresAt < now) {
+      alert("⏰ Your free trial has expired! Please upgrade to continue adding dishes.");
+      navigate("/subscription");
       return false;
     }
-    
-    // Check paid plan expired
-    if (sub.expiresAt && sub.expiresAt < now && sub.planId !== 'trial') {
-      alert('⏰ Your subscription has expired! Please renew to continue.');
-      navigate('/subscription');
+
+    if (sub.expiresAt && sub.expiresAt < now && sub.planId !== "trial") {
+      alert("⏰ Your subscription has expired! Please renew to continue.");
+      navigate("/subscription");
       return false;
     }
-    
-    // Check dish limit (skip for unlimited and trial)
-    if (sub.maxDishes !== 'unlimited' && sub.planId !== 'trial') {
+
+    if (sub.maxDishes !== "unlimited" && sub.planId !== "trial") {
       const menuRef = rtdbRef(realtimeDB, `restaurants/${user.uid}/menu`);
       const menuSnap = await get(menuRef);
       const currentDishes = menuSnap.exists() ? Object.keys(menuSnap.val()).length : 0;
-      
-      // If editing, don't count current dish
+
       const editingId = editData?.id;
-      const countToCheck = editingId && menuSnap.exists() && menuSnap.val()[editingId] 
-        ? currentDishes - 1 
-        : currentDishes;
-      
+      const countToCheck =
+        editingId && menuSnap.exists() && menuSnap.val()[editingId]
+          ? currentDishes - 1
+          : currentDishes;
+
       if (countToCheck >= sub.maxDishes) {
-        alert(`🚫 Dish limit reached! You can add maximum ${sub.maxDishes} dishes.\n\nUpgrade your plan to add more.`);
-        navigate('/subscription');
+        alert(`🚫 Dish limit reached! Maximum ${sub.maxDishes} dishes allowed.\n\nUpgrade your plan to add more.`);
+        navigate("/subscription");
         return false;
       }
     }
-    
+
     return true;
-  };
+  }, [navigate, editData]);
 
   const isDrinkSelected = categories.some(
     (cat) =>
@@ -110,33 +112,27 @@ export default function AddItem() {
 
   useEffect(() => {
     if (form.dishTasteProfile === "spicy") {
-      setForm(prev => ({
+      setForm((prev) => ({
         ...prev,
         saltLevelEnabled: true,
         saladRequired: true,
-        saladConfig: {
-          ...prev.saladConfig,
-          enabled: true
-        }
+        saladConfig: { ...prev.saladConfig, enabled: true },
       }));
     } else {
-      setForm(prev => ({
+      setForm((prev) => ({
         ...prev,
         saltLevelEnabled: false,
         saladRequired: false,
-        saladConfig: {
-          ...prev.saladConfig,
-          enabled: false
-        }
+        saladConfig: { ...prev.saladConfig, enabled: false },
       }));
     }
   }, [form.dishTasteProfile]);
 
   useEffect(() => {
     if (categories.length === 0) return;
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
-      category: prev.category || categories[0].name
+      category: prev.category || categories[0].name,
     }));
   }, [categories]);
 
@@ -164,10 +160,7 @@ export default function AddItem() {
     onValue(ref, (snap) => {
       if (snap.exists()) {
         setCategories(
-          Object.entries(snap.val()).map(([id, data]) => ({
-            id,
-            ...data,
-          }))
+          Object.entries(snap.val()).map(([id, data]) => ({ id, ...data }))
         );
       }
     });
@@ -175,29 +168,59 @@ export default function AddItem() {
 
   useEffect(() => {
     if (isDrinkSelected) {
-      setForm((prev) => ({
-        ...prev,
-        vegType: "",
-        spiceLevel: "",
-      }));
+      setForm((prev) => ({ ...prev, vegType: "", spiceLevel: "" }));
     }
   }, [isDrinkSelected]);
 
-  const uploadToImgBB = async (file) => {
+  // ✅ CLOUDINARY UPLOAD - NO FIREBASE STORAGE NEEDED
+  const uploadToCloudinary = async (file) => {
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("file", file);
+    formData.append("upload_preset", CLOUDINARY_CONFIG.uploadPreset);
+    formData.append("folder", `${CLOUDINARY_CONFIG.folder}/${userId}`);
+    formData.append("quality", "auto");
+    formData.append("fetch_format", "auto");
+
     const res = await fetch(
-      `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`,
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`,
       { method: "POST", body: formData }
     );
+
     const data = await res.json();
-    if (!data.success) throw new Error("Upload failed");
-    return data.data.url;
+    if (!data.secure_url) throw new Error("Upload failed");
+
+    // Auto-optimized URL
+    return data.secure_url.replace("/upload/", "/upload/q_auto,f_auto,w_800/");
   };
 
-  // ✅ MODIFIED handleSave with subscription check
+  // ✅ IMAGE COMPRESSION
+  const compressImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const MAX_WIDTH = 1200;
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scaleSize;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(
+            (blob) => resolve(new File([blob], file.name, { type: "image/jpeg" })),
+            "image/jpeg",
+            0.8
+          );
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // ✅ HANDLE SAVE
   const handleSave = async () => {
-    // ✅ SUBSCRIPTION CHECK - Sabse pehle yeh
     const hasValidSubscription = await checkSubscription();
     if (!hasValidSubscription) return;
 
@@ -207,9 +230,18 @@ export default function AddItem() {
     }
 
     let imageUrl = preview;
+
     if (image) {
       setUploading(true);
-      imageUrl = await uploadToImgBB(image);
+      try {
+        const compressedImage = await compressImage(image);
+        imageUrl = await uploadToCloudinary(compressedImage);
+      } catch (error) {
+        console.error("Upload error:", error);
+        alert("❌ Image upload failed. Please try again.");
+        setUploading(false);
+        return;
+      }
       setUploading(false);
     }
 
@@ -229,10 +261,7 @@ export default function AddItem() {
       isNew: form.isNew,
       categoryIds: form.categoryIds,
       isChefPick: form.isChefPick,
-      availableModes: {
-        dineIn: form.dineIn,
-        delivery: form.delivery,
-      },
+      availableModes: { dineIn: form.dineIn, delivery: form.delivery },
       availableToday: true,
       inStock: form.inStock,
       imageUrl,
@@ -242,18 +271,12 @@ export default function AddItem() {
     };
 
     if (!isDrinkSelected) {
-      if (form.vegType) {
-        payload.vegType = form.vegType;
-      }
-      if (form.spiceLevel) {
-        payload.spiceLevel = form.spiceLevel;
-      }
+      if (form.vegType) payload.vegType = form.vegType;
+      if (form.spiceLevel) payload.spiceLevel = form.spiceLevel;
     }
 
-    Object.keys(payload).forEach(key => {
-      if (payload[key] === undefined) {
-        delete payload[key];
-      }
+    Object.keys(payload).forEach((key) => {
+      if (payload[key] === undefined) delete payload[key];
     });
 
     try {
@@ -282,20 +305,20 @@ export default function AddItem() {
         {editData ? "Edit Dish" : "Add New Dish"}
       </h2>
 
-      {/* Subscription Info Banner */}
+      {/* Subscription Banner */}
       <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg text-sm">
         <p className="text-gray-700">
           <span className="font-bold text-green-600">🎁 30 Days Free Trial:</span> Unlimited dishes, all features!
         </p>
         <button 
-          onClick={() => navigate('/dashboard/${restaurantId}/susbcription')}
+          onClick={() => navigate("/dashboard/subscription")}
           className="text-blue-600 text-xs hover:underline mt-1"
         >
           View Plans →
         </button>
       </div>
 
-      {/* Name */}
+      {/* Form Fields */}
       <input
         className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253]"
         placeholder="Dish Name *"
@@ -303,7 +326,6 @@ export default function AddItem() {
         onChange={(e) => setForm({ ...form, name: e.target.value })}
       />
 
-      {/* Price */}
       <input
         type="number"
         className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253]"
@@ -312,7 +334,6 @@ export default function AddItem() {
         onChange={(e) => setForm({ ...form, price: e.target.value })}
       />
 
-      {/* Description */}
       <textarea
         className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253] h-24 resize-none"
         placeholder="Description *"
@@ -327,7 +348,6 @@ export default function AddItem() {
           type="number"
           min="1"
           className="w-full border border-gray-300 p-3 rounded-xl"
-          placeholder="Ready in (minutes)"
           value={form.prepTime}
           onChange={(e) => setForm({ ...form, prepTime: Number(e.target.value) })}
         />
@@ -346,13 +366,10 @@ export default function AddItem() {
             <option>No categories found</option>
           ) : (
             categories.map((cat) => (
-              <option key={cat.id} value={cat.name}>
-                {cat.name}
-              </option>
+              <option key={cat.id} value={cat.name}>{cat.name}</option>
             ))
           )}
         </select>
-        <p className="text-xs text-gray-500 mt-1">This is main display category</p>
       </div>
 
       {/* Veg Type */}
@@ -386,7 +403,7 @@ export default function AddItem() {
         </select>
       </div>
 
-      {/* Dish Taste Profile */}
+      {/* Dish Nature */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">Dish Nature</label>
         <select
@@ -400,10 +417,9 @@ export default function AddItem() {
         </select>
       </div>
 
-      {/* Smart Controls */}
+      {/* Taste Controls */}
       <div className="bg-gray-50 rounded-xl p-4 mb-4">
         <p className="font-semibold text-sm text-gray-700 mb-3">Taste Controls</p>
-        
         <div className="flex flex-wrap gap-4">
           {form.dishTasteProfile === "sweet" && (
             <label className="flex items-center gap-2 cursor-pointer">
@@ -419,12 +435,7 @@ export default function AddItem() {
 
           {form.dishTasteProfile === "spicy" && (
             <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked
-                readOnly
-                className="w-4 h-4 accent-[#B45253]"
-              />
+              <input type="checkbox" checked readOnly className="w-4 h-4 accent-[#B45253]" />
               <span className="text-sm">🧂 Salt Level Control (Auto)</span>
             </label>
           )}
@@ -439,13 +450,12 @@ export default function AddItem() {
             <span className="text-sm">🥗 Salad Available</span>
           </label>
         </div>
-
         {form.dishTasteProfile === "spicy" && (
           <p className="text-xs text-green-600 mt-2">✅ Salad automatically enabled for spicy dishes</p>
         )}
       </div>
 
-      {/* Categories Multi Select */}
+      {/* Additional Categories */}
       <div className="mb-4">
         <p className="font-semibold text-sm text-gray-700 mb-2">Additional Categories</p>
         <div className="flex flex-wrap gap-3">
@@ -471,7 +481,7 @@ export default function AddItem() {
         </div>
       </div>
 
-      {/* Options */}
+      {/* Dish Options */}
       <div className="bg-gray-50 rounded-xl p-4 mb-4">
         <p className="font-semibold text-sm text-gray-700 mb-3">Dish Options</p>
         <div className="flex flex-wrap gap-4">
@@ -499,11 +509,7 @@ export default function AddItem() {
       {/* Image Preview */}
       {preview && (
         <div className="mb-4">
-          <img
-            src={preview}
-            alt="preview"
-            className="w-full h-48 object-cover rounded-xl"
-          />
+          <img src={preview} alt="preview" className="w-full h-48 object-cover rounded-xl" />
         </div>
       )}
 
@@ -517,11 +523,16 @@ export default function AddItem() {
           onChange={(e) => {
             const f = e.target.files[0];
             if (f) {
+              if (f.size > 5 * 1024 * 1024) {
+                alert("File size should be less than 5MB");
+                return;
+              }
               setImage(f);
               setPreview(URL.createObjectURL(f));
             }
           }}
         />
+        <p className="text-xs text-gray-500 mt-1">Max size: 5MB • Powered by Cloudinary</p>
       </div>
 
       {/* Save Button */}
@@ -529,21 +540,14 @@ export default function AddItem() {
         onClick={handleSave}
         disabled={uploading}
         className={`w-full py-4 rounded-xl text-white font-bold text-lg transition-all ${
-          uploading 
-            ? "bg-gray-400 cursor-not-allowed" 
+          uploading
+            ? "bg-gray-400 cursor-not-allowed"
             : "bg-gradient-to-r from-[#B45253] to-[#8A244B] hover:shadow-lg hover:scale-[1.02]"
         }`}
       >
-        {uploading
-          ? editData
-            ? "⏳ Updating..."
-            : "⏳ Adding..."
-          : editData
-          ? "✅ Update Dish"
-          : "✅ Add Dish"}
+        {uploading ? (editData ? "⏳ Updating..." : "⏳ Adding...") : editData ? "✅ Update Dish" : "✅ Add Dish"}
       </button>
 
-      {/* Back Button */}
       <button
         onClick={() => navigate("/dashboard/menu")}
         className="w-full py-3 mt-3 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition"
