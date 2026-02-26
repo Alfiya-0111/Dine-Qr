@@ -4,7 +4,7 @@ import { IoClose } from 'react-icons/io5';
 import { IoAdd, IoRemove } from 'react-icons/io5';
 import { FaWhatsapp } from "react-icons/fa";
 import { IoCartOutline } from "react-icons/io5";
-
+import { useNavigate } from 'react-router-dom';
 export default function CartSidebar({ open, onClose, theme, restaurantId, restaurantSettings, onWhatsAppOrder }) {
   const { cart, removeFromCart, updateQty, clearCart, total, cartCount } = useCart();
   const [showCheckout, setShowCheckout] = useState(false);
@@ -16,14 +16,14 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
     tableNumber: '',
     specialInstructions: ''
   });
-
+const navigate = useNavigate();
   const gst = total * 0.05;
   const grandTotal = total + gst;
 
-  const handleCheckout = () => {
-    if (cart.length === 0) return;
-    setShowCheckout(true);
-  };
+ const handleCheckout = () => {
+  if (cart.length === 0) return;
+  navigate(`/checkout/${restaurantId}`);
+};
 
   const handleWhatsAppCheckout = () => {
     if (cart.length === 0) {

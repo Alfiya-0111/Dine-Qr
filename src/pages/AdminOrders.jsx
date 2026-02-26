@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { ref, onValue, update, remove } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-
+import { initWhatsAppAutoProcessor } from "../utils/whatsappAutoProcessor";
 export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
   const [dishStats, setDishStats] = useState({});
@@ -34,6 +34,62 @@ export default function AdminOrders() {
     });
     return () => unsubscribe();
   }, []);
+  useEffect(() => {
+  const unsubscribe = initWhatsAppAutoProcessor(restaurantId);
+  return () => unsubscribe();
+}, [restaurantId]);
+// AdminOrders.js में add करो - existing useEffect के अंदर
+
+useEffect(() => {
+  if (!restaurantId) return;
+
+  // 🔥🔥🔥 WHATSAPP AUTO-PROCESSOR
+  const whatsappOrdersRef = ref(realtimeDB, `whatsappOrders/${restaurantId}`);
+  
+  const unsubscribeWhatsApp = onValue(whatsappOrdersRef, async (snapshot) => {
+    const orders = snapshot.val();
+    if (!orders) return;
+
+    Object.entries(orders).forEach(async ([orderId, order]) => {
+      // Sirf "new" status wale orders ko auto-process karo
+      if (order.whatsappStatus === "new") {
+        console.log(` Auto-processing WhatsApp order: ${orderId}`);
+        
+        const now = Date.now();
+        const maxPrepTime = Math.max(...(order.items || []).map(i => i.prepTime || 15));
+        
+        try {
+          // Immediately confirm kar do
+          await update(ref(realtimeDB), {
+            [`orders/${orderId}/status`]: "confirmed",
+            [`orders/${orderId}/confirmedAt`]: now,
+            [`orders/${orderId}/prepStartedAt`]: now,
+            [`orders/${orderId}/prepEndsAt`]: now + (maxPrepTime * 60 * 1000),
+            [`orders/${orderId}/autoConfirmed`]: true,
+            [`whatsappOrders/${restaurantId}/${orderId}/whatsappStatus`]: "auto_confirmed",
+            [`whatsappOrders/${restaurantId}/${orderId}/autoConfirmedAt`]: now
+          });
+          
+          console.log(`✅ Order ${orderId} auto-confirmed`);
+          
+        } catch (error) {
+          console.error("Auto-confirm error:", error);
+        }
+      }
+    });
+  });
+
+  // Regular orders listener
+  const ordersRef = ref(realtimeDB, "orders");
+  const unsubscribeOrders = onValue(ordersRef, (snapshot) => {
+    // ... existing code ...
+  });
+
+  return () => {
+    unsubscribeWhatsApp();
+    unsubscribeOrders();
+  };
+}, [restaurantId]);
 
   const isToday = (ts) => {
     if (!ts || isNaN(ts)) return false;

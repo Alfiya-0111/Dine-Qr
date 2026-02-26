@@ -107,7 +107,7 @@ const { cart, total, clearCart, getValidCart } = useCart();
 
   const handlePlaceOrder = async () => {
     const validCart = getValidCart();
-  
+   
   if (validCart.length === 0) {
     alert("Your cart has no valid items. Please add items again.");
     return;
@@ -201,9 +201,10 @@ const { cart, total, clearCart, getValidCart } = useCart();
       price: Number(item.price) || 0,
       spicePreference: item.spicePreference || "normal",
       prepTime,
-      prepStartedAt: now,
-      prepEndsAt: now + prepTime * 60000,
-      status: "preparing",
+       status: "confirmed",
+     confirmedAt: now,
+    prepStartedAt: now,
+    prepEndsAt: now + maxPrepTime * 60000,
     };
   }),
 

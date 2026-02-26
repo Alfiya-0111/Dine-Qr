@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { ref as rtdbRef, onValue, update, remove, push, set } from "firebase/database";
 import { IoCartOutline } from "react-icons/io5";
 import { db, realtimeDB } from "../firebaseConfig";
@@ -8,10 +8,13 @@ import { PiMicrophone } from "react-icons/pi";
 import { auth } from "../firebaseConfig";
 import readySound from "../assets/ready.mp3";
 import { FaWhatsapp } from "react-icons/fa";
+import {  IoClose } from "react-icons/io5";
 import jsPDF from "jspdf";
 import { Helmet } from "react-helmet";
+import { toast } from "sonner";
 import TableBookingModal from "../components/TableBookingModal"; 
 import MyBookings from "../components/MyBookings";
+
 import {
   collection,
   getDocs,
@@ -32,14 +35,20 @@ import NewItemsSlider from "../components/Slider";
 import BottomCart from "../components/BottomCart";
 import CartSidebar from "../components/CartSidebar";
 
+// ================= READY NOTIFICATION COMPONENT =================
 // ================= DISH PROGRESS BAR COMPONENT =================
-const DishProgressBar = ({ item, theme, onDishReady, audioRef }) => {
+const DishProgressBar = ({ item, theme, orderId, onDishReady }) => {
   const [progress, setProgress] = useState(0);
   const [isReady, setIsReady] = useState(false);
   const [showEnjoyMessage, setShowEnjoyMessage] = useState(false);
-  const hasPlayedSound = useRef(false);
 
   useEffect(() => {
+    if (item.itemStatus === "ready" || item.itemReadyAt) {
+      setIsReady(true);
+      setProgress(100);
+      return;
+    }
+
     if (!item.prepStartedAt || !item.prepTime) return;
 
     const calculateProgress = () => {
@@ -53,24 +62,21 @@ const DishProgressBar = ({ item, theme, onDishReady, audioRef }) => {
       
       setProgress(percent);
       
-      if (percent >= 100 && !isReady && !hasPlayedSound.current) {
-        hasPlayedSound.current = true;
+      if (percent >= 100 && !isReady) {
         setIsReady(true);
         setShowEnjoyMessage(true);
         
-        if (audioRef.current) {
-          audioRef.current.currentTime = 0;
-          audioRef.current.play().catch(() => {});
-        }
-        
+        // 🔥 Sirf parent ko notify karo, sound parent handle karega
         if (onDishReady) {
-          onDishReady(item.name);
+          onDishReady(item.name, orderId);
         }
         
-        update(rtdbRef(realtimeDB, `orders/${item.orderId}/items/${item.dishId}`), {
+        // Update Firebase status
+        const itemRef = rtdbRef(realtimeDB, `orders/${orderId}/items/${item.dishId || item.id}`);
+        update(itemRef, {
           itemStatus: "ready",
           itemReadyAt: Date.now()
-        });
+        }).catch(err => console.log("Already updated:", err));
         
         setTimeout(() => {
           setShowEnjoyMessage(false);
@@ -81,62 +87,246 @@ const DishProgressBar = ({ item, theme, onDishReady, audioRef }) => {
     calculateProgress();
     const interval = setInterval(calculateProgress, 1000);
     return () => clearInterval(interval);
-  }, [item.prepStartedAt, item.prepTime, item.orderId, item.dishId, isReady, onDishReady, audioRef]);
+  }, [item.prepStartedAt, item.prepTime, orderId, item.dishId, item.id, isReady, onDishReady, item.itemStatus, item.itemReadyAt]);
 
-  if (isReady || progress >= 100) {
+  if (isReady || progress >= 100 || item.itemStatus === "ready") {
     return (
       <div className="w-full">
         <div className="flex items-center gap-1 text-green-600 font-bold text-xs mt-1">
           <span>✅ Ready</span>
+          <span className="text-[10px] text-gray-400 ml-1">
+            ({new Date(item.itemReadyAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})
+          </span>
         </div>
         {showEnjoyMessage && (
-          <div className="mt-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded animate-pulse">
-            🎉 Enjoy your {item.name}!
+          <div className="mt-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded animate-pulse flex items-center gap-1">
+            <span>🎉</span>
+            <span>Enjoy your {item.name}!</span>
           </div>
         )}
       </div>
     );
   }
 
+  if (!item.prepStartedAt) {
+    return (
+      <div className="w-full mt-1">
+        <div className="flex items-center gap-1 text-yellow-600 text-xs">
+          <span>⏳ Waiting to start</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full mt-1">
-      <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-[10px] text-gray-500">Cooking...</span>
+        <span className="text-[10px] font-bold" style={{ color: theme?.primary || "#8A244B" }}>
+          {progress}%
+        </span>
+      </div>
+      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
         <div 
-          className="h-full transition-all duration-1000 ease-linear rounded-full"
+          className="h-full transition-all duration-1000 ease-linear rounded-full relative"
           style={{ 
             width: `${progress}%`,
             backgroundColor: theme?.primary || "#8A244B"
           }}
-        />
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+        </div>
       </div>
-      <div className="flex justify-between text-[10px] text-gray-500 mt-0.5">
-        <span>{item.prepTime}min</span>
-        <span>{progress}%</span>
+      <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
+        <span>⏱️ {item.prepTime}min</span>
+        <span>{Math.ceil((item.prepTime * (100 - progress)) / 100)}min left</span>
       </div>
     </div>
   );
 };
+// ================= ACTIVE ORDER CARD COMPONENT =================
+const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWhatsApp, isProcessed, onDishReady }) => {
+  const statusConfig = {
+    pending: { color: 'bg-yellow-100 text-yellow-800', icon: '⏳', label: 'Pending' },
+    confirmed: { color: 'bg-green-100 text-green-800', icon: '✅', label: 'Confirmed' },
+    preparing: { color: 'bg-blue-100 text-blue-800', icon: '👨‍🍳', label: 'Preparing' },
+    ready: { color: 'bg-purple-100 text-purple-800', icon: '🍽️', label: 'Ready' },
+    completed: { color: 'bg-gray-100 text-gray-800', icon: '✨', label: 'Completed' }
+  };
+  
+  const status = statusConfig[order.status] || statusConfig.pending;
+  const isCompleted = order.status === 'completed';
+  
+  // const audioRef = useRef(null);
 
-// ================= READY NOTIFICATION COMPONENT =================
-const ReadyNotification = ({ dishName, onClose }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 5000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
+  const getItemsArray = (items) => {
+    if (!items) return [];
+    if (Array.isArray(items)) return items;
+    if (typeof items === 'object') return Object.values(items);
+    return [];
+  };
+
+  const orderItems = getItemsArray(order.items);
 
   return (
-    <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg animate-bounce flex items-center gap-2">
-      <span>🍽️</span>
-      <div>
-        <p className="font-bold text-sm">{dishName} is Ready!</p>
-        <p className="text-xs">Enjoy your meal 😋</p>
+    <div id={`order-${order.id}`} className="bg-white rounded-xl p-4 mb-4 shadow-lg border-2 border-gray-100">
+      {/* Header */}
+      <div className="flex justify-between items-center mb-3">
+        <div>
+          <p className="text-sm font-bold">Order #{order.id.slice(-6)}</p>
+          <p className="text-xs text-gray-500">
+            {new Date(order.createdAt).toLocaleString()}
+          </p>
+        </div>
+        
+        <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${status.color}`}>
+          <span>{status.icon}</span>
+          {status.label}
+        </span>
       </div>
-      <button onClick={onClose} className="ml-2 text-white hover:text-gray-200">✕</button>
+      
+      {/* Items with Individual Progress Bars */}
+      <div className="space-y-3 mb-3">
+        {orderItems.length === 0 ? (
+          <div className="text-center text-gray-400 text-sm py-2">No items found</div>
+        ) : (
+          orderItems.map((item, idx) => (
+            <div key={idx} className="flex flex-col p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center gap-3 flex-1">
+                  {item.image && (
+                    <img src={item.image} className="w-12 h-12 rounded-lg object-cover" alt="" />
+                  )}
+                  <div className="flex-1">
+                    <span className="text-sm font-medium block">{item.name || 'Unknown Item'}</span>
+                    <span className="text-xs text-gray-500">
+                      × {item.qty || 1}
+
+                      {/* 🌶 SPICE - Non-sweet dishes ke liye */}
+                      {item.dishTasteProfile !== "sweet" && item.spicePreference && (
+                        ` • 🌶️ ${item.spicePreference}`
+                      )}
+
+                      {/* 🧂 SALT - Sirf agar "normal" nahi hai */}
+                      {item.saltPreference && item.saltPreference !== "normal" && (
+                        ` • 🧂 ${item.saltPreference}`
+                      )}
+
+                      {/* 🍰 SWEETNESS - Sweet dishes ke liye */}
+                      {item.dishTasteProfile === "sweet" && item.sweetLevel && (
+                        ` • 🍰 ${item.sweetLevel}`
+                      )}
+
+                      {/* 🥗 SALAD */}
+                      {item.salad?.qty > 0 && (
+                        ` • 🥗 ${item.salad.qty}`
+                      )}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-sm font-bold ml-2">₹{(item.price || 0) * (item.qty || 1)}</span>
+              </div>
+              
+              {/* Progress Bar - sirf active orders mein */}
+              {order.status !== 'pending' && order.status !== 'completed' && (
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                 <DishProgressBar 
+  item={item} 
+  theme={theme} 
+  orderId={order.id}
+  onDishReady={onDishReady}
+/>
+                </div>
+              )}
+              
+              {/* Ready status */}
+              {(item.itemStatus === 'ready' || item.itemReadyAt) && (
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <div className="flex items-center gap-1 text-green-600 font-bold text-xs">
+                    <span>✅ Ready</span>
+                    <span className="text-[10px] text-gray-400">
+                      ({new Date(item.itemReadyAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+      
+      {/* Total */}
+      <div className="flex justify-between items-center p-2 bg-gray-100 rounded-lg mb-3">
+        <span className="font-bold">Total</span>
+        <div className="text-right">
+          <p className="text-xs text-gray-500">Subtotal: ₹{order.subtotal || 0}</p>
+          <p className="text-xs text-gray-500">GST: ₹{order.gst || 0}</p>
+          <p className="font-bold text-lg" style={{ color: theme.primary }}>
+            ₹{order.total || 0}
+          </p>
+        </div>
+      </div>
+
+      {/* Completed Order Actions */}
+      {isCompleted && !isProcessed && (
+        <div className="space-y-2 mt-3 pt-3 border-t border-gray-200">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center mb-3">
+            <p className="text-green-700 font-bold text-sm">🎉 Order Completed! 😋</p>
+            <p className="text-green-600 text-xs mt-1">Download your bill or share on WhatsApp</p>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => onGenerateBill(order)}
+              className="py-2.5 px-4 bg-blue-500 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:bg-blue-600 transition shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download Bill
+            </button>
+            
+            <button
+              onClick={() => onShareWhatsApp(order)}
+              className="py-2.5 px-4 bg-green-500 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:bg-green-600 transition shadow-sm"
+            >
+              <FaWhatsapp className="w-4 h-4" />
+              Share Bill
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isCompleted && isProcessed && (
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+            <p className="text-gray-600 font-bold text-sm">✅ Bill Processed</p>
+            <p className="text-gray-500 text-xs mt-1">Thank you for dining with us!</p>
+          </div>
+          <button
+            onClick={() => onMarkViewed(order.id)}
+            className="w-full mt-2 py-2 text-gray-500 text-xs hover:text-gray-700 transition"
+          >
+            Mark as viewed & hide
+          </button>
+        </div>
+      )}
+      
+      {order.status === 'ready' && (
+        <button
+          onClick={() => onMarkViewed(order.id)}
+          className="w-full mt-3 py-2 bg-green-500 text-white rounded-lg font-bold animate-pulse"
+        >
+          🍽️ Collect Order
+        </button>
+      )}
     </div>
   );
 };
 
+// ================= MAIN PUBLIC MENU COMPONENT =================
 export default function PublicMenu() {
+  // All states first
   const [aboutUs, setAboutUs] = useState(null);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
   const [spiceSelections, setSpiceSelections] = useState({});
@@ -152,11 +342,12 @@ export default function PublicMenu() {
   const [showMyBookings, setShowMyBookings] = useState(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [whatsAppItem, setWhatsAppItem] = useState(null);
+  const [processedOrders, setProcessedOrders] = useState(new Set()); // ✅ Orders jinpe bill already download/share ho chuka
 
   const theme = restaurantSettings?.theme || {
     primary: "#8A244B",
     border: "#8A244B",
-    background: "#fffff"
+    background: "#ffffff"
   };
 
   const { restaurantId } = useParams();
@@ -179,15 +370,24 @@ export default function PublicMenu() {
   const [, forceUpdate] = useState(0);
   const newItems = items.filter((i) => i.isNew).slice(0, 10);
   const [activeOrder, setActiveOrder] = useState([]);
+  
   const [userId, setUserId] = useState(null);
+  const [showWhatsAppCustomerModal, setShowWhatsAppCustomerModal] = useState(false);
+const [whatsAppPayload, setWhatsAppPayload] = useState(null);
+const [whatsAppCustomerInfo, setWhatsAppCustomerInfo] = useState({
+  name: '',
+  phone: '',
+  tableNumber: '',
+  specialInstructions: ''
+});
   const audioRef = useRef(null);
   const prevOrdersRef = useRef({});
-  const categoryCounts = {};
-  
   const viewedOrdersRef = useRef(new Set());
   const [viewedOrders, setViewedOrders] = useState(new Set());
-
+ const [readyDishes, setReadyDishes] = useState([]);
+   const playedSoundsRef = useRef(new Set());
   // Calculate category counts
+  const categoryCounts = {};
   items.forEach(item => {
     if (item.categoryIds?.length) {
       item.categoryIds.forEach(catId => {
@@ -202,9 +402,216 @@ export default function PublicMenu() {
       categoryCounts[cat.id] = (categoryCounts[cat.id] || 0) + 1;
     }
   });
+  // 🔥 Yeh function add karo
+const playReadySound = useCallback((dishName, orderId) => {  
+
+  const timeBucket = Math.floor(Date.now() / 10000); 
+  const soundId = `${orderId}-${dishName}-${timeBucket}`;
+  
+  if (playedSoundsRef.current.has(soundId)) return;
+  
+  playedSoundsRef.current.add(soundId);
+  
+  // Clean up after 20 seconds
+  setTimeout(() => {
+    playedSoundsRef.current.delete(soundId);
+  }, 20000);
+
+    // 1. Play sound
+    const audio = new Audio(readySound);
+    audio.volume = 0.7;
+    
+    audio.play().catch(err => {
+      console.log('Audio autoplay blocked:', err);
+      const playOnClick = () => {
+        audio.play().catch(() => {});
+        window.removeEventListener('click', playOnClick);
+      };
+      window.addEventListener('click', playOnClick, { once: true });
+    });
+    
+    // 2. Speech
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(`Enjoy your ${dishName}! Your meal is ready!`);
+      utterance.lang = 'en-IN';
+      utterance.rate = 0.9;
+      utterance.pitch = 1.1;
+      utterance.volume = 1;
+      
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find(v => v.name.includes('Google US English')) || 
+                            voices.find(v => v.name.includes('Samantha')) ||
+                            voices.find(v => v.lang === 'en-US');
+      
+      if (preferredVoice) utterance.voice = preferredVoice;
+      
+      window.speechSynthesis.speak(utterance);
+    }
+    
+    // 3. Notification
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(`🍽️ ${dishName} Ready!`, {
+        body: "Your dish is ready to serve! Enjoy your meal 😋",
+        icon: '/logo.png',
+        requireInteraction: false
+      });
+    }
+    
+    // 4. Toast
+    toast.success(`${dishName} is Ready!`, {
+      description: "Enjoy your meal 😋",
+      duration: 5000
+    });
+    
+    // 5. Vibrate
+    if (navigator.vibrate) {
+      navigator.vibrate([200, 100, 200]);
+    }
+  }, []);
+// 🔥 Handler callback
+const handleDishReady = useCallback((dishName, orderId) => {
+  console.log(`🔔 Dish ready: ${dishName} (Order: ${orderId})`);
+  playReadySound(dishName, orderId);  
+}, [playReadySound]);
+
+  // ================= AUDIO NOTIFICATION SYSTEM =================
+  const playOrderCompleteAudio = useCallback(() => {
+    // 1. Play sound effect
+    const audio = new Audio(readySound);
+    audio.volume = 0.7;
+    
+    audio.play().catch(err => {
+      console.log('Audio autoplay blocked:', err);
+      const playOnClick = () => {
+        audio.play().catch(() => {});
+        window.removeEventListener('click', playOnClick);
+      };
+      window.addEventListener('click', playOnClick, { once: true });
+    });
+    
+    // 2. Speech synthesis for "Enjoy your meal"
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance('Enjoy your meal! Thank you for dining with us!');
+      utterance.lang = 'en-US';
+      utterance.rate = 0.9;
+      utterance.pitch = 1.1;
+      utterance.volume = 1;
+      
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find(v => v.name.includes('Google US English')) || 
+                            voices.find(v => v.name.includes('Samantha')) ||
+                            voices.find(v => v.lang === 'en-US');
+      
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      }
+      
+      window.speechSynthesis.speak(utterance);
+    }
+  }, []);
+
+  // ================= NOTIFICATION HANDLERS =================
+  // ================= NOTIFICATION HANDLERS =================
+  const handleStatusChange = useCallback((order, oldStatus, newStatus) => {
+    const messages = {
+      confirmed: {
+        title: '✅ Order Confirmed!',
+        message: 'Restaurant has confirmed your order. Preparation starting soon.',
+        sound: '/sounds/confirmed.mp3'
+      },
+      preparing: {
+        title: '👨‍🍳 Preparation Started',
+        message: 'Your food is being prepared.',
+        sound: '/sounds/preparing.mp3'
+      },
+      ready: {
+        title: '🍽️ Order Ready!',
+        message: 'Please collect your order from the counter.',
+        sound: '/sounds/ready.mp3',
+        persistent: true
+      },
+      // 🔥🔥🔥 FIX: Completed pe sound mat bajao, sirf notification dikhavo
+      completed: {
+        title: '✨ Enjoy Your Meal!',
+        message: 'Your order is complete. Thank you!',
+        sound: null // No sound for completed
+      }
+    };
+    
+    const msg = messages[newStatus];
+    if (!msg) return;
+    
+    if ("Notification" in window && Notification.permission === "granted") {
+      const notification = new Notification(msg.title, {
+        body: msg.message,
+        icon: '/logo.png',
+        badge: '/badge.png',
+        tag: order.id,
+        requireInteraction: msg.persistent || false,
+        data: { orderId: order.id, status: newStatus }
+      });
+      
+      notification.onclick = () => {
+        window.focus();
+        document.getElementById(`order-${order.id}`)?.scrollIntoView({ behavior: 'smooth' });
+      };
+    }
+    
+    toast.success(`${msg.title}`, {
+      description: msg.message,
+      duration: 5000,
+      action: newStatus === 'ready' ? {
+        label: 'View Order',
+        onClick: () => document.getElementById(`order-${order.id}`)?.scrollIntoView({ behavior: 'smooth' })
+      } : undefined
+    });
+    
+    // 🔥🔥🔥 FIX: Sirf tabhi audio bajao jab sound file ho
+    if (msg.sound) {
+      const audio = new Audio(msg.sound);
+      audio.play().catch(e => console.log('Audio play failed:', e));
+    }
+    
+    if (navigator.vibrate && newStatus === 'ready') {
+      navigator.vibrate([200, 100, 200]);
+    }
+  }, []);
+
+  const updateActiveOrders = useCallback((data) => {
+    const now = Date.now();
+    const twentySecondsAgo = now - (20 * 1000);
+    
+    const myOrders = Object.entries(data)
+      .filter(([id, order]) => {
+        if (order.userId !== userId) return false;
+        if (order.restaurantId !== restaurantId) return false;
+        if (viewedOrdersRef.current.has(id)) return false;
+        
+        if (['pending', 'confirmed', 'preparing', 'ready'].includes(order.status)) {
+          return true;
+        }
+        
+        if (order.status === 'completed') {
+          const completedAt = order.completedAt || order.updatedAt || order.createdAt;
+          return completedAt > twentySecondsAgo;
+        }
+        
+        return false;
+      })
+      .map(([id, order]) => ({
+        id,
+        ...order,
+        total: Number(order.total) || 0
+      }))
+      .sort((a, b) => b.createdAt - a.createdAt);
+    
+    setActiveOrder(myOrders);
+  }, [userId, restaurantId]);
 
   // ================= WHATSAPP ORDER FUNCTIONS =================
-
   const generateWhatsAppMessage = (item, restaurantName) => {
     const user = auth.currentUser;
     const message = `
@@ -224,41 +631,76 @@ Sent via DineQR
     return message;
   };
 
-  // Simple Direct WhatsApp Order (Single Item)
-  const handleDirectWhatsApp = (item) => {
-    const user = auth.currentUser;
-    if (!user) {
-      requireLogin();
-      return;
-    }
-
-     const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
-  
-  if (!phone) {
-    alert("Restaurant WhatsApp number not available");
-    return;
-  }
+  const sendWhatsAppMessage = (phone, message) => {
     const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
-  const message = generateWhatsAppMessage(item, restaurantName);
-  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-  
-  window.open(whatsappUrl, '_blank');
-};
+    const encodedMessage = encodeURIComponent(message);
+    // const whatsappUrl = `https://wa.me/ ${cleanPhone}?text=${encodeURIComponent(message)}`;
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+    
+    const newWindow = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    
+    if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+      window.location.href = whatsappUrl;
+    }
+  };
 
-  // Full Integration WhatsApp Order (With Kitchen Sync)
-const placeWhatsAppOrder = async (orderData) => {
+const handleDirectWhatsApp = async (item, customerData = null) => {
   const user = auth.currentUser;
   if (!user) {
     requireLogin();
-    return null;
+    return;
   }
 
+  console.log("Full restaurantSettings:", restaurantSettings);
+  console.log("whatsappNumber:", restaurantSettings?.whatsappNumber);
+  console.log("contact:", restaurantSettings?.contact);
+
+  let phone = null;
+  
+  if (restaurantSettings?.whatsappNumber) {
+    phone = restaurantSettings.whatsappNumber;
+    console.log("Using whatsappNumber:", phone);
+  }
+  else if (restaurantSettings?.contact?.phone) {
+    phone = restaurantSettings.contact.phone;
+    console.log("Using contact.phone:", phone);
+  }
+  else {
+    alert("❌ Restaurant WhatsApp number not found. Please check settings.");
+    return;
+  }
+
+  let cleanPhone = phone.toString().replace(/\D/g, '');
+  
+  console.log("Clean phone:", cleanPhone);
+
+  if (!cleanPhone || cleanPhone.length < 10) {
+    alert("❌ Invalid WhatsApp number. Please check restaurant settings.");
+    return;
+  }
+
+  // 🔥🔥🔥 FIX: Order ko Firebase mein bhi save karo (jaise placeWhatsAppOrder mein hota hai)
   try {
     const orderRef = push(rtdbRef(realtimeDB, 'orders'));
     const orderId = orderRef.key;
     
-    const items = orderData.items || [];
-    const subtotal = items.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
+    const enrichedItem = {
+      dishId: item.id,
+      name: item.name,
+      qty: 1, // Single item order
+      price: item.price,
+      image: item.image || item.imageUrl || "",
+      prepTime: item.prepTime || 15,
+      spicePreference: item.spicePreference || "normal",
+      sweetLevel: item.sweetLevel || null,
+      saltPreference: item.saltPreference || null,
+      salad: item.salad || { qty: 0, taste: "normal" },
+      dishTasteProfile: item.dishTasteProfile || "normal",
+      description: item.description || "",
+      vegType: item.vegType || ""
+    };
+
+    const subtotal = item.price;
     const gst = subtotal * 0.05;
     const total = subtotal + gst;
 
@@ -266,137 +708,389 @@ const placeWhatsAppOrder = async (orderData) => {
       id: orderId,
       userId: user.uid,
       restaurantId: restaurantId,
-      customerName: orderData.customerName || user.displayName || "Guest",
-      customerPhone: orderData.customerPhone || user.phoneNumber || "",
-      items: items.map(item => ({
-        dishId: item.id,
-        name: item.name,
-        qty: item.qty || 1,
-        price: item.price,
-        image: item.image || item.imageUrl,
-        prepTime: item.prepTime || 15,
-        spicePreference: item.spicePreference || "normal"
-      })),
+      customerName: customerData?.name || user.displayName || "Guest",
+      customerPhone: customerData?.phone || user.phoneNumber || "",
+      customerEmail: user.email || "",
+      tableNumber: customerData?.tableNumber || "",
+      specialInstructions: customerData?.specialInstructions || "",
+      items: [enrichedItem], // Single item array
       type: "whatsapp",
       status: "pending",
       subtotal,
       gst,
       total,
       createdAt: Date.now(),
-      source: "whatsapp"
+      source: "whatsapp",
+      timestamp: Date.now()
     };
 
     // Save to orders
     await set(orderRef, order);
-
-    // Save to whatsappOrders
+    
+    // Save to whatsappOrders (for admin panel)
     await set(rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
       ...order,
-      whatsappStatus: "new"
+      whatsappStatus: "new",
+      userId: user.uid,
+      restaurantId: restaurantId
     });
-
+    
     // Save to kitchenOrders
     await set(rtdbRef(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`), {
       ...order,
       kitchenStatus: "new",
-      type: "whatsapp"
+      type: "whatsapp",
+      userId: user.uid,
+      restaurantId: restaurantId,
+      createdAt: Date.now()
     });
 
-    // Open WhatsApp - Pehle whatsappNumber check karein, phir contact.phone
-    const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
-    if (phone) {
-      const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
-      const message = generateWhatsAppMessageForCart(order, restaurantName);
-      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-      window.open(whatsappUrl, '_blank');
-    } else {
-      alert("⚠️ WhatsApp number not configured. Order saved but WhatsApp not opened.");
-    }
+    console.log("✅ Order saved to Firebase:", orderId);
 
-    clearCart();
-    alert("✅ Order placed! Opening WhatsApp...");
-    return orderId;
-    
   } catch (error) {
-    console.error("WhatsApp order error:", error);
-    alert("❌ Order failed: " + error.message);
-    return null;
+    console.error("❌ Error saving order:", error);
+    // Continue to WhatsApp even if Firebase save fails
   }
-};
 
+  // Item details with all preferences
+  let itemDetails = `• ${item.name} - ₹${item.price}`;
+  
+  if (item.spicePreference && item.dishTasteProfile !== 'sweet') {
+    itemDetails += `\n   🌶️ Spice: ${item.spicePreference.toUpperCase()}`;
+  }
+  if (item.sweetLevel && item.dishTasteProfile === 'sweet') {
+    itemDetails += `\n   🍰 Sweetness: ${item.sweetLevel.toUpperCase()}`;
+  }
+  if (item.saltPreference && item.saltPreference !== 'normal') {
+    itemDetails += `\n   🧂 Salt: ${item.saltPreference.toUpperCase()}`;
+  }
+  if (item.salad?.qty > 0) {
+    itemDetails += `\n   🥗 Salad: ${item.salad.qty} plate`;
+  }
+  
+  itemDetails += `\n   ⏱️ Prep: ${item.prepTime || 15} min`;
+  if (item.image) {
+    itemDetails += `\n   📷 Image: ${item.image}`;
+  }
+
+  const customerName = customerData?.name || user.displayName || 'Guest';
+  const customerPhone = customerData?.phone || user.phoneNumber || 'N/A';
+  const tableNumber = customerData?.tableNumber || '';
+  const specialInstructions = customerData?.specialInstructions || '';
+
+  const message = `
+🍽️ *NEW ORDER - ${restaurantName || 'Restaurant'}* 🍽️
+${'━'.repeat(30)}
+
+👤 *Customer:* ${customerName}
+📱 *Phone:* ${customerPhone}
+${tableNumber ? `🪑 *Table:* ${tableNumber}\n` : ''}${specialInstructions ? `📝 *Note:* ${specialInstructions}\n` : ''}📧 *Email:* ${user.email || 'N/A'}
+
+🛒 *ORDER ITEM:*
+${itemDetails}
+
+${'━'.repeat(30)}
+💰 *Total:* ₹${item.price}
+⏰ *Prep Time:* ${item.prepTime || 15} minutes
+
+✅ Please confirm availability.
+
+🚀 Sent via DineQR
+`.trim();
+
+  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+  
+  console.log('Final WhatsApp URL:', whatsappUrl);
+  
+  window.open(whatsappUrl, '_blank');
+  
+  toast.success("Order placed via WhatsApp!", {
+    description: "Restaurant will confirm shortly",
+    duration: 3000
+  });
+};
   const generateWhatsAppMessageForCart = (order, restaurantName) => {
-    const items = order.items.map(item => 
-      `• ${item.name} x${item.qty} = ₹${item.price * item.qty}`
-    ).join('\n');
+    const items = order.items.map((item, index) => {
+      let details = [];
+      
+      const imageLine = item.image ? `📷 Image: ${item.image}` : '';
+      
+      if (item.dishTasteProfile !== "sweet" && item.spicePreference) {
+        const spiceEmoji = item.spicePreference === 'spicy' ? '🌶️🌶️' : item.spicePreference === 'medium' ? '🌶️' : '🫑';
+        details.push(`${spiceEmoji} Spice: ${item.spicePreference.toUpperCase()}`);
+      }
+      
+      if (item.dishTasteProfile === "sweet" && item.sweetLevel) {
+        const sweetEmoji = item.sweetLevel === 'extra' ? '🍯🍯' : item.sweetLevel === 'less' ? '🍃' : '🍬';
+        details.push(`${sweetEmoji} Sweetness: ${item.sweetLevel.toUpperCase()}`);
+      }
+      
+      if (item.saltPreference && item.saltPreference !== 'normal') {
+        const saltEmoji = item.saltPreference === 'extra' ? '🧂🧂' : '🧂';
+        details.push(`${saltEmoji} Salt: ${item.saltPreference.toUpperCase()}`);
+      }
+      
+      if (item.salad && item.salad.qty > 0) {
+        details.push(`🥗 Salad: ${item.salad.qty} plate (${item.salad.taste})`);
+      }
+      
+      details.push(`⏱️ Prep: ${item.prepTime} min`);
+      
+      const detailsText = details.length > 0 ? '\n   ' + details.join('\n   ') : '';
+      
+      return `
+${index + 1}. ${item.name} ${item.vegType === 'veg' ? '🟢' : '🔴'}
+   💰 ₹${item.price} × ${item.qty} = ₹${item.price * item.qty}${detailsText}${imageLine ? '\n   ' + imageLine : ''}`;
+    }).join('\n');
+
+    const customerDetails = [];
+    customerDetails.push(`👤 *Name:* ${order.customerName}`);
+    customerDetails.push(`📱 *Phone:* ${order.customerPhone || 'N/A'}`);
+    if (order.tableNumber) customerDetails.push(`🪑 *Table:* ${order.tableNumber}`);
+    if (order.specialInstructions) customerDetails.push(`📝 *Note:* ${order.specialInstructions}`);
 
     return `
-🍽️ *NEW ORDER - ${restaurantName || 'Restaurant'}*
+🍽️ *NEW ORDER - ${restaurantName || 'Restaurant'}* 🍽️
+${'━'.repeat(30)}
+
+📋 *CUSTOMER DETAILS:*
+${customerDetails.join('\n')}
+
+🆔 *Order ID:* #${order.id.slice(-6).toUpperCase()}
+📅 *Date:* ${new Date(order.createdAt).toLocaleString()}
+
+${'━'.repeat(30)}
+🛒 *ORDER ITEMS:*${items}
+${'━'.repeat(30)}
+
+💵 *BILL SUMMARY:*
+   Subtotal: ₹${order.subtotal}
+   GST (5%): ₹${order.gst}
+   ${'─'.repeat(15)}
+   *TOTAL: ₹${order.total}* 💰
+${'━'.repeat(30)}
+
+⏰ *Estimated Time:* ${Math.max(...order.items.map(i => i.prepTime || 15))} minutes
+
+✅ Please confirm this order.
+
+🚀 Sent via DineQR
+`.trim();
+  };
+
+  const generateAdminNotification = (order, restaurantName) => {
+    const items = order.items.map((item, idx) => {
+      let details = [`${idx + 1}. ${item.name} x${item.qty} = ₹${item.price * item.qty}`];
+      
+      if (item.image) details.push(`   📷 ${item.image}`);
+      if (item.spicePreference && item.dishTasteProfile !== 'sweet') {
+        details.push(`   🌶️ Spice: ${item.spicePreference}`);
+      }
+      if (item.sweetLevel && item.dishTasteProfile === 'sweet') {
+        details.push(`   🍰 Sweetness: ${item.sweetLevel}`);
+      }
+      if (item.saltPreference && item.saltPreference !== 'normal') {
+        details.push(`   🧂 Salt: ${item.saltPreference}`);
+      }
+      if (item.salad?.qty > 0) {
+        details.push(`   🥗 Salad: ${item.salad.qty} plate`);
+      }
+      
+      return details.join('\n');
+    }).join('\n\n');
+
+    return `
+🆕 *NEW ORDER - ${restaurantName}*
+
+🆔 *Order ID:* #${order.id.slice(-6).toUpperCase()}
 
 👤 *Customer:* ${order.customerName}
 📱 *Phone:* ${order.customerPhone}
-🆔 *Order ID:* #${order.id.slice(-6).toUpperCase()}
+${order.tableNumber ? `🪑 *Table:* ${order.tableNumber}` : ''}
+${order.specialInstructions ? `📝 *Note:* ${order.specialInstructions}` : ''}
 
-*ITEMS:*
+🛒 *ITEMS:*
 ${items}
 
 ━━━━━━━━━━━━━━
-*Subtotal:* ₹${order.subtotal}
-*GST (5%):* ₹${order.gst}
-*TOTAL:* ₹${order.total}
+💰 *Subtotal:* ₹${order.subtotal}
+📊 *GST (5%):* ₹${order.gst}
+💵 *TOTAL:* ₹${order.total}
 ━━━━━━━━━━━━━━
 
-⏱️ Please confirm this order.
+⚡ *QUICK ACTIONS:*
+Reply with:
+*CONFIRM ${order.id.slice(-6).toUpperCase()}* ✅
+*REJECT ${order.id.slice(-6).toUpperCase()}* ❌
 
-Sent via DineQR
-    `.trim();
+Or use dashboard:
+${window.location.origin}/admin/orders/${order.id}
+`.trim();
   };
 
-  // Handle WhatsApp from Cart
-const handleWhatsAppOrderFromCart = async (orderData) => {
-  if (cart.length === 0) return;
-  
-  const user = auth.currentUser;
-  if (!user) {
-    requireLogin();
-    return;
-  }
-
-  // orderData already contains customer details from CartSidebar
-  const enrichedOrderData = {
-    ...orderData,
-    items: cart.map(item => ({
-      id: item.id,
-      name: item.name,
-      qty: item.qty || 1,
-      price: item.price,
-      image: item.image,
-      prepTime: item.prepTime,
-      spicePreference: item.spicePreference,
-      sweetLevel: item.sweetLevel,
-      saltPreference: item.saltPreference,
-      salad: item.salad,
-      dishTasteProfile: item.dishTasteProfile
-    }))
+  const sendAdminNotification = async (adminPhone, message) => {
+    console.log('Admin notification:', message);
   };
 
-  const orderId = await placeWhatsAppOrder(enrichedOrderData);
-  if (orderId) {
-    setOpenCart(false);
-  }
-};
+  const placeWhatsAppOrder = async (orderData) => {
+    const user = auth.currentUser;
+    if (!user) {
+      requireLogin();
+      return null;
+    }
 
-  // ================= EXISTING FUNCTIONS =================
+    try {
+      await user.getIdToken(true);
+    } catch (tokenError) {
+      requireLogin();
+      return null;
+    }
 
-  const handleDishReady = (dishName) => {
-    const id = Date.now();
-    setReadyNotifications(prev => [...prev, { id, dishName }]);
-    
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(`🍽️ ${dishName} Ready!`, {
-        body: "Enjoy your meal 😋",
+    try {
+      const orderRef = push(rtdbRef(realtimeDB, 'orders'));
+      const orderId = orderRef.key;
+      
+      const items = orderData.items || [];
+      const subtotal = items.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
+      const gst = subtotal * 0.05;
+      const total = subtotal + gst;
+
+      const detailedItems = items.map(item => ({
+        dishId: item.id,
+        name: item.name,
+        qty: item.qty || 1,
+        price: item.price,
+        image: item.image || item.imageUrl || "",
+        prepTime: item.prepTime || 15,
+        spicePreference: item.spicePreference || "normal",
+        sweetLevel: item.sweetLevel || null,
+        saltPreference: item.saltPreference || null,
+        salad: item.salad || { qty: 0, taste: "normal" },
+        dishTasteProfile: item.dishTasteProfile || "normal",
+        description: item.description || "",
+        vegType: item.vegType || ""
+      }));
+
+      const order = {
+        id: orderId,
+        userId: user.uid,
+        restaurantId: restaurantId,
+        customerName: orderData.customerName || user.displayName || "Guest",
+        customerPhone: orderData.customerPhone || user.phoneNumber || "",
+        customerEmail: user.email || "",
+        tableNumber: orderData.tableNumber || "",
+        specialInstructions: orderData.specialInstructions || "",
+        items: detailedItems,
+        type: "whatsapp",
+        status: "pending",
+        subtotal,
+        gst,
+        total,
+        createdAt: Date.now(),
+        source: "whatsapp",
+        timestamp: Date.now()
+      };
+
+      await set(orderRef, order);
+      await set(rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
+        ...order,
+        whatsappStatus: "new",
+        userId: user.uid,
+        restaurantId: restaurantId
       });
+      await set(rtdbRef(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`), {
+        ...order,
+        kitchenStatus: "new",
+        type: "whatsapp",
+        userId: user.uid,
+        restaurantId: restaurantId,
+        createdAt: Date.now()
+      });
+
+      const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
+      if (phone) {
+        const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
+        const customerMessage = generateWhatsAppMessageForCart(order, restaurantName);
+        const adminMessage = generateAdminNotification(order, restaurantName);
+        
+        await sendAdminNotification(cleanPhone, adminMessage);
+        
+        const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(customerMessage)}`;
+        window.open(whatsappUrl, '_blank');
+      }
+
+      clearCart();
+      alert("✅ Order placed! Waiting for restaurant confirmation...");
+      return orderId;
+      
+    } catch (error) {
+      console.error("❌ WhatsApp order error:", error);
+      alert("❌ Order failed: " + error.message);
+      return null;
     }
   };
+
+  const handleWhatsAppOrderFromCart = async (orderData) => {
+    if (cart.length === 0) {
+      alert("Cart is empty!");
+      return;
+    }
+    
+    const user = auth.currentUser;
+    if (!user) {
+      requireLogin();
+      return;
+    }
+
+    const enrichedOrderData = {
+      customerName: orderData.customerName,
+      customerPhone: orderData.customerPhone,
+      tableNumber: orderData.tableNumber,
+      specialInstructions: orderData.specialInstructions,
+      items: cart.map(item => ({
+        id: item.id,
+        name: item.name,
+        qty: item.qty || 1,
+        price: item.price,
+        image: item.image || item.imageUrl,
+        prepTime: item.prepTime || 15,
+        spicePreference: item.spicePreference || "normal",
+        sweetLevel: item.sweetLevel,
+        saltPreference: item.saltPreference,
+        salad: item.salad
+      }))
+    };
+
+    try {
+      const orderId = await placeWhatsAppOrder(enrichedOrderData);
+      if (orderId) {
+        setOpenCart(false);
+        console.log("✅ WhatsApp order completed:", orderId);
+      }
+    } catch (error) {
+      console.error("❌ Failed to place WhatsApp order:", error);
+    }
+  };
+
+  // ================= EXISTING FUNCTIONS =================
+// const handleDishReady = useCallback((dishName, orderId) => {
+//   const id = Date.now() + Math.random();
+//   setReadyDishes(prev => [...prev, { id, dishName, orderId }]);
+  
+//   // Notification show karo
+//   if ("Notification" in window && Notification.permission === "granted") {
+//     new Notification(`🍽️ ${dishName} Ready!`, {
+//       body: "Your dish is ready to serve!",
+//       icon: '/logo.png'
+//     });
+//   }
+  
+//   toast.success(`${dishName} is Ready!`, {
+//     description: "Enjoy your meal 😋",
+//     duration: 5000
+//   });
+// }, []);
+
 
   const removeNotification = (id) => {
     setReadyNotifications(prev => prev.filter(n => n.id !== id));
@@ -413,16 +1107,26 @@ const handleWhatsAppOrderFromCart = async (orderData) => {
     }
   };
 
-  useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem('viewedOrders') || '[]');
-    saved.forEach(id => viewedOrdersRef.current.add(id));
-    setViewedOrders(new Set(viewedOrdersRef.current));
-  }, []);
+  // 🔥🔥🔥 MARK ORDER AS PROCESSED (Bill downloaded or shared)
+  const markOrderAsProcessed = (orderId) => {
+    setProcessedOrders(prev => new Set([...prev, orderId]));
+    
+    // Save to localStorage so it persists on refresh
+    const saved = JSON.parse(localStorage.getItem('processedOrders') || '[]');
+    if (!saved.includes(orderId)) {
+      saved.push(orderId);
+      localStorage.setItem('processedOrders', JSON.stringify(saved));
+    }
+  };
 
   // PDF Generate & Open
-  const generateAndOpenBill = async (order) => {
+ const generateAndOpenBill = async (order) => {
     if (!order || !order.id) return console.error("Order is undefined or missing ID");
     
+    // ✅ Mark as processed immediately when customer clicks
+    markOrderAsProcessed(order.id);
+    
+    // 🔥🔥🔥 FIX: Bill open karte hi order hide karo
     markOrderAsViewed(order.id);
 
     try {
@@ -584,43 +1288,105 @@ const handleWhatsAppOrderFromCart = async (orderData) => {
         doc.save(`Bill-${Date.now()}.pdf`);
       }
 
+      // ✅ Play audio after bill is generated
+      playOrderCompleteAudio();
+
     } catch (err) {
       console.error("Error generating bill:", err);
       alert("Bill generate karne mein error aaya: " + err.message);
     }
   };
 
-  // WhatsApp Share
   const shareBillOnWhatsApp = (order) => {
-    if (!order?.bill) return console.error("No bill to share");
+    if (!order) return;
     
-    markOrderAsViewed(order.id);
+    // ✅ Mark as processed immediately when customer clicks
+    markOrderAsProcessed(order.id);
     
-    const bill = order.bill;
-    const billText = `
-*🧾 ORDER BILL*
-━━━━━━━━━━━━━━
-*Order ID:* ${bill.orderId}
-*Customer:* ${bill.customerName}
-*Hotel:* ${bill.hotelName}
-*Date:* ${new Date(bill.generatedAt).toLocaleString()}
+    const bill = order.bill || generateBillText(order);
+    
+    const message = `
+🧾 *ORDER BILL - ${restaurantName || 'Restaurant'}*
 
-*ITEMS:*
-${bill.items.map(i => `• ${i.name} x${i.qty} = ₹${((i.price ?? 0) * (i.qty ?? 1)).toFixed(2)}`).join("\n")}
+👤 *Customer:* ${bill.customerName || order.customerName || 'Guest'}
+🆔 *Order ID:* #${order.id.slice(-6).toUpperCase()}
+📅 *Date:* ${new Date(order.createdAt || Date.now()).toLocaleString()}
+
+*ORDER ITEMS:*
+${order.items?.map((item, idx) => {
+  let details = `${idx + 1}. ${item.name} ${item.vegType === 'veg' ? '🟢' : '🔴'}`;
+  details += `\n   💰 ₹${item.price} × ${item.qty || 1} = ₹${(item.price * (item.qty || 1)).toFixed(0)}`;
+  
+  if (item.spicePreference && item.dishTasteProfile !== 'sweet') {
+    details += `\n   🌶️ Spice: ${item.spicePreference}`;
+  }
+  if (item.sweetLevel && item.dishTasteProfile === 'sweet') {
+    details += `\n   🍰 Sweetness: ${item.sweetLevel}`;
+  }
+  if (item.saltPreference && item.saltPreference !== 'normal') {
+    details += `\n   🧂 Salt: ${item.saltPreference}`;
+  }
+  
+  return details;
+}).join('\n\n') || 'No items'}
 
 ━━━━━━━━━━━━━━
-*Subtotal:* ₹${(bill.subtotal ?? 0).toFixed(2)}
-*GST (5%):* ₹${(bill.gst ?? 0).toFixed(2)}
-*TOTAL:* ₹${(bill.total ?? 0).toFixed(2)}
+💵 *BILL SUMMARY:*
+   Subtotal: ₹${order.subtotal || 0}
+   GST (5%): ₹${order.gst || 0}
+   ${'─'.repeat(15)}
+   *TOTAL: ₹${order.total || 0}* 💰
 ━━━━━━━━━━━━━━
 
-Thank you! 🍽️
-    `;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(billText)}`;
+🙏 Thank you for dining with us!
+🍽️ Enjoy your meal!
+
+Sent via DineQR
+  `.trim();
+
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, "_blank");
+    
+    // ✅ Play audio after sharing
+    playOrderCompleteAudio();
+  };
+
+  const generateBillText = (order) => {
+    const items = order.items ? 
+      (Array.isArray(order.items) ? order.items : Object.values(order.items)) 
+      : [];
+      
+    const subtotal = items.reduce((sum, i) => sum + ((i.price || 0) * (i.qty || 1)), 0);
+    const gst = subtotal * 0.05;
+    const total = subtotal + gst;
+    
+    return {
+      customerName: order.customerName || order.customerInfo?.name || 'Guest',
+      orderId: order.id,
+      items: items.map(i => ({
+        name: i.name,
+        qty: i.qty || 1,
+        price: i.price || 0
+      })),
+      subtotal,
+      gst,
+      total,
+      generatedAt: Date.now()
+    };
   };
 
   const visibleCategories = categories.filter(cat => categoryCounts[cat.id] > 0);
+
+  // ================= USEEFFECTS =================
+  useEffect(() => {
+    const saved = JSON.parse(localStorage.getItem('viewedOrders') || '[]');
+    saved.forEach(id => viewedOrdersRef.current.add(id));
+    setViewedOrders(new Set(viewedOrdersRef.current));
+    
+    // ✅ Load processed orders from localStorage
+    const savedProcessed = JSON.parse(localStorage.getItem('processedOrders') || '[]');
+    savedProcessed.forEach(id => setProcessedOrders(prev => new Set([...prev, id])));
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => forceUpdate(n => n + 1), 1000);
@@ -656,76 +1422,95 @@ Thank you! 🍽️
         const isNowReady = item.itemStatus === "ready" || 
           (item.prepStartedAt && (Date.now() - item.prepStartedAt) >= (item.prepTime * 60 * 1000));
         
-        if (isNowReady && !wasReady) {
-          prevOrdersRef.current[`${order.id}-${item.dishId}`] = true;
-          handleDishReady(item.name);
-        }
+       if (isNowReady && !wasReady) {
+  prevOrdersRef.current[`${order.id}-${item.dishId}`] = true;
+  handleDishReady(item.name, order.id);  
+}
       });
     });
-  }, [activeOrder]);
+  }, [activeOrder, handleDishReady]);
 
   useEffect(() => {
-    return auth.onAuthStateChanged(user => {
-      if (user) setUserId(user.uid);
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        console.log("✅ Auth state: User authenticated", {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName
+        });
+        setUserId(user.uid);
+      } else {
+        console.log("❌ Auth state: User not authenticated");
+        setUserId(null);
+      }
     });
+    
+    return () => unsubscribe();
   }, []);
-
-  // Main Orders Listener
+useEffect(() => {
+  const unlockAudio = () => {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+      const audioCtx = new AudioContext();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+    
+    const audio = new Audio(readySound);
+    audio.volume = 0.01;
+    audio.play().then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+    }).catch(() => {});
+    
+    window.removeEventListener("click", unlockAudio);
+    window.removeEventListener("touchstart", unlockAudio);
+  };
+  
+  window.addEventListener("click", unlockAudio);
+  window.addEventListener("touchstart", unlockAudio);
+  
+  return () => {
+    window.removeEventListener("click", unlockAudio);
+    window.removeEventListener("touchstart", unlockAudio);
+  };
+}, []);
+  // Main Orders Listener with status change detection
   useEffect(() => {
     if (!userId || !restaurantId) return;
     
-    const ref = rtdbRef(realtimeDB, `orders`);
-    const unsubscribe = onValue(ref, (snap) => {
-      const data = snap.val();
+    const ordersRef = rtdbRef(realtimeDB, 'orders');
+    
+    const unsubscribe = onValue(ordersRef, (snapshot) => {
+      const data = snapshot.val();
       if (!data) {
         setActiveOrder([]);
         return;
       }
-
-      const now = Date.now();
-      const twentySecondsAgo = now - (20 * 1000);
-
-      const myOrders = Object.entries(data)
-        .filter(([id, order]) => {
-          if (!order || typeof order !== 'object') return false;
-          if (!id || id === 'undefined' || id === 'null') return false;
-          if (!order.userId || !order.restaurantId) return false;
-          if (order.userId !== userId || order.restaurantId !== restaurantId) return false;
-          if (viewedOrdersRef.current.has(id)) return false;
-          if (order.total === null || order.total === undefined || Number.isNaN(Number(order.total))) {
-            return false;
-          }
-
-          if (order.status === "preparing" || order.status === "ready") {
-            return true;
-          }
-          
-          if (order.status === "completed") {
-            const completedAt = order.completedAt || order.updatedAt || order.createdAt;
-            if (completedAt && completedAt > twentySecondsAgo) {
-              return true;
-            }
-            if (!completedAt && order.createdAt > twentySecondsAgo) {
-              return true;
-            }
-          }
-          
-          return false;
-        })
-        .map(([id, order]) => ({ 
-          id, 
-          ...order,
-          total: Number(order.total) || 0,
-          createdAt: order.createdAt || Date.now(),
-          completedAt: order.completedAt || null
-        }))
-        .sort((a, b) => b.createdAt - a.createdAt);
-
-      setActiveOrder(myOrders);
+      
+      Object.entries(data).forEach(([orderId, order]) => {
+        if (order.userId !== userId) return;
+        if (order.restaurantId !== restaurantId) return;
+        
+        const prevStatus = prevOrdersRef.current[orderId]?.status;
+        const newStatus = order.status;
+        
+        if (prevStatus && prevStatus !== newStatus) {
+          handleStatusChange(order, prevStatus, newStatus);
+        }
+        
+        prevOrdersRef.current[orderId] = {
+          status: newStatus,
+          updatedAt: order.updatedAt || Date.now()
+        };
+      });
+      
+      updateActiveOrders(data);
     });
     
     return () => unsubscribe();
-  }, [userId, restaurantId, viewedOrders]);
+  }, [userId, restaurantId, handleStatusChange, updateActiveOrders]);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -744,6 +1529,21 @@ Thank you! 🍽️
 
   useEffect(() => {
     if (!restaurantId) return;
+    
+    const loadRestaurantInfo = async () => {
+      const ref = doc(db, "restaurants", restaurantId);
+      const snap = await getDoc(ref);
+      if (snap.exists()) setRestaurantName(snap.data().restaurantName);
+    };
+
+    const loadMenu = async () => {
+      setLoading(true);
+      const q = query(collection(db, "menu"), where("restaurantId", "==", restaurantId));
+      const snap = await getDocs(q);
+      setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    };
+
     loadRestaurantInfo();
     loadMenu();
 
@@ -756,7 +1556,7 @@ Thank you! 🍽️
       }
     });
     return () => unsubscribe();
-  }, [userId, restaurantId]);
+  }, [restaurantId]);
 
   useEffect(() => {
     const ordersRef = rtdbRef(realtimeDB, "orders");
@@ -783,20 +1583,7 @@ Thank you! 🍽️
     return () => unsubscribe();
   }, []);
 
-  const loadRestaurantInfo = async () => {
-    const ref = doc(db, "restaurants", restaurantId);
-    const snap = await getDoc(ref);
-    if (snap.exists()) setRestaurantName(snap.data().restaurantName);
-  };
-
-  const loadMenu = async () => {
-    setLoading(true);
-    const q = query(collection(db, "menu"), where("restaurantId", "==", restaurantId));
-    const snap = await getDocs(q);
-    setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    setLoading(false);
-  };
-
+  // ================= HANDLERS =================
   const startVoiceSearch = () => {
     if (!("webkitSpeechRecognition" in window)) {
       alert("Voice search not supported");
@@ -813,6 +1600,18 @@ Thank you! 🍽️
     recognition.start();
   };
 
+// ================= HANDLERS =================
+// ================= HANDLERS =================
+const handleOrderClick = (item, action = "order") => {
+  if (!item || !item.id) {
+    console.error("❌ Invalid item passed to handleOrderClick:", item);
+    return;
+  }
+  setTasteItem(item);
+  setTasteAction(action);
+};
+
+  // ================= FILTER & SORT LOGIC =================
   let filteredItems = [...items];
   if (search.trim()) {
     filteredItems = filteredItems.filter(
@@ -850,17 +1649,7 @@ Thank you! 🍽️
     });
   }
 
-const handleOrderClick = (item, action = "order") => {
-  if (!item || !item.id) {
-    console.error("❌ Invalid item passed to handleOrderClick:", item);
-    return;
-  }
-  
-  // Sirf modal open karo, addToCart baad mein hoga
-  setTasteItem(item);
-  setTasteAction(action);
-};
-
+  // ================= RENDER =================
   return (
     <>
       <Helmet>
@@ -929,7 +1718,7 @@ const handleOrderClick = (item, action = "order") => {
       ))}
       
       <div className="min-h-screen w-full">
-        <audio ref={audioRef} src={readySound} preload="auto" />
+        {/* <audio ref={audioRef} src={readySound} preload="auto" /> */}
         
         <div className="max-w-7xl w-full mx-auto px-4 pt-2" style={{ backgroundColor: theme.background }}>
           <div className="flex justify-end items-center gap-2 mb-2">
@@ -1116,111 +1905,18 @@ const handleOrderClick = (item, action = "order") => {
                     <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">{activeOrder.length}</span>
                   </h3>
                   
-                  {activeOrder.map((order, orderIndex) => {
-                    const uniqueOrderKey = `${order.id}-${orderIndex}`;
-                    
-                    const items = order.items ? 
-                      (Array.isArray(order.items) ? order.items : Object.values(order.items)) 
-                      : [];
-                    
-                    const allItemsReady = items.length > 0 && items.every(item => 
-                      item.itemStatus === "ready" || (item.prepStartedAt && 
-                      (Date.now() - item.prepStartedAt) >= (item.prepTime * 60 * 1000))
-                    );
-
-                    const isCompleted = order.status === "completed";
-                    const showBillButtons = allItemsReady || isCompleted;
-
-                    return (
-                      <div key={uniqueOrderKey} className="mb-4 border-2 rounded-xl p-3 bg-gray-50">
-                        <div className="flex justify-between items-center mb-3">
-                          <div>
-                            <p className="text-sm font-bold">Order #{order.id.slice(-6)}</p>
-                            <p className="text-xs text-gray-500">
-                              {new Date(order.createdAt).toLocaleString()}
-                            </p>
-                          </div>
-                          
-                          <span className={`text-xs px-3 py-1 rounded-full font-bold ${
-                            isCompleted 
-                              ? 'bg-green-100 text-green-700' 
-                              : allItemsReady 
-                                ? 'bg-blue-100 text-blue-700'
-                                : 'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {isCompleted ? '✅ Completed' : allItemsReady ? '🔔 Ready' : '⏳ Preparing'}
-                          </span>
-                        </div>
-                        
-                        <div className="space-y-2 mb-3">
-                          {items.length > 0 ? (
-                            items.map((item, itemIndex) => (
-                              <div 
-                                key={`${order.id}-${item.dishId || item.id || 'item'}-${itemIndex}`} 
-                                className="flex justify-between items-center p-2 bg-white rounded-lg"
-                              >
-                                <div className="flex items-center gap-2">
-                                  {item.image && (
-                                    <img src={item.image} className="w-10 h-10 rounded object-cover" alt="" />
-                                  )}
-                                  <div>
-                                    <span className="text-sm font-medium block">{item.name || 'Unknown Item'}</span>
-                                    <span className="text-xs text-gray-500">× {item.qty || 1}</span>
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-sm font-bold">₹{(item.price || 0) * (item.qty || 1)}</span>
-                                  {order.status === "preparing" && item.prepTime && (
-                                    <DishProgressBar 
-                                      item={{
-                                        ...item,
-                                        orderId: order.id,
-                                        prepStartedAt: item.prepStartedAt || order.prepStartedAt
-                                      }} 
-                                      theme={theme}
-                                      onDishReady={handleDishReady}
-                                      audioRef={audioRef}
-                                    />
-                                  )}
-                                  {item.itemStatus === "ready" && (
-                                    <span className="text-xs text-green-600 font-bold block">✅ Ready</span>
-                                  )}
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-xs text-gray-400">No items found</p>
-                          )}
-                        </div>
-
-                        <div className="flex justify-between items-center mb-3 p-2 bg-white rounded-lg">
-                          <span className="font-bold">Total Amount:</span>
-                          <span className="font-bold text-lg" style={{ color: theme.primary }}>
-                            ₹{order.total || 0}
-                          </span>
-                        </div>
-
-                        {showBillButtons && (
-                          <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t-2 border-dashed">
-                            <button
-                              onClick={() => generateAndOpenBill(order)}
-                              style={{ backgroundColor: theme.primary }}
-                              className="py-3 px-4 rounded-lg text-white font-bold text-sm hover:opacity-90 transition flex items-center justify-center gap-2 shadow-md"
-                            >
-                              🧾 View Bill
-                            </button>
-                            <button
-                              onClick={() => shareBillOnWhatsApp(order)}
-                              className="py-3 px-4 rounded-lg font-bold text-sm border-2 hover:bg-gray-50 transition flex items-center justify-center gap-2 shadow-md"
-                              style={{ borderColor: theme.primary, color: theme.primary }}
-                            >
-                              📲 Share on WhatsApp
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {activeOrder.map((order) => (
+<ActiveOrderCard 
+  key={order.id}
+  order={order}
+  theme={theme}
+  onMarkViewed={markOrderAsViewed}
+  onGenerateBill={generateAndOpenBill}
+  onShareWhatsApp={shareBillOnWhatsApp}
+  isProcessed={processedOrders.has(order.id)}
+  onDishReady={handleDishReady}  
+/>
+                  ))}
                 </div>
               )}
               
@@ -1269,53 +1965,49 @@ const handleOrderClick = (item, action = "order") => {
                         key={item.id}
                         className="bg-white rounded-3xl shadow-md hover:shadow-xl transition overflow-hidden"
                       >
-   <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100 rounded-t-xl">
-  <img 
-    src={item.imageUrl} 
-    alt={item.name} 
-    className="w-full h-full object-cover object-center"
-    onError={(e) => {
-      e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
-    }}
-  />
-  
-  {/* Trending Badge */}
-  {trendingDishIds.includes(item.id) && (
-    <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full shadow z-10">
-      🔥 Trending
-    </span>
-  )}
-  
-  {/* Most Ordered Badge */}
-  {aiRecommended.some((d) => d.id === item.id) && (
-    <span 
-      className="absolute top-2 left-2 text-white text-xs px-3 py-1 rounded-full shadow z-10"
-      style={{ backgroundColor: theme.border }}
-    >
-      Most ordered
-    </span>
-  )}
-  
-  {/* Out of Stock Overlay */}
-  {item.inStock === false && (
-    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg z-20">
-      Out of Stock 🚫
-    </div>
-  )}
-  
-  {/* Veg/Non-veg or Drink Indicator */}
-  {!isDrink ? (
-    <span 
-      className={`absolute bottom-2 right-2 w-4 h-4 rounded-full border-2 border-white z-10 ${
-        item.vegType === "veg" ? "bg-green-500" : "bg-red-500"
-      }`} 
-    />
-  ) : (
-    <span className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center border-2 border-white z-10">
-      <span className="text-white text-xs">🍹</span>
-    </span>
-  )}
-</div>
+                        <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100 rounded-t-xl">
+                          <img 
+                            src={item.imageUrl} 
+                            alt={item.name} 
+                            className="w-full h-full object-cover object-center"
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+                            }}
+                          />
+                          
+                          {trendingDishIds.includes(item.id) && (
+                            <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full shadow z-10">
+                              🔥 Trending
+                            </span>
+                          )}
+                          
+                          {aiRecommended.some((d) => d.id === item.id) && (
+                            <span 
+                              className="absolute top-2 left-2 text-white text-xs px-3 py-1 rounded-full shadow z-10"
+                              style={{ backgroundColor: theme.border }}
+                            >
+                              Most ordered
+                            </span>
+                          )}
+                          
+                          {item.inStock === false && (
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg z-20">
+                              Out of Stock 🚫
+                            </div>
+                          )}
+                          
+                          {!isDrink ? (
+                            <span 
+                              className={`absolute bottom-2 right-2 w-4 h-4 rounded-full border-2 border-white z-10 ${
+                                item.vegType === "veg" ? "bg-green-500" : "bg-red-500"
+                              }`} 
+                            />
+                          ) : (
+                            <span className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center border-2 border-white z-10">
+                              <span className="text-white text-xs">🍹</span>
+                            </span>
+                          )}
+                        </div>
                         
                         <div className="p-4">
                           <h3 className="font-bold text-lg truncate flex items-center gap-2">
@@ -1333,55 +2025,50 @@ const handleOrderClick = (item, action = "order") => {
                             <Rating restaurantId={item.restaurantId} dishId={item.id} />
                           </div>
 
-                          {/* 🔥🔥🔥 THREE ACTION BUTTONS */}
-                         <div className="grid grid-cols-2 gap-2 mt-4">
- 
- {/* Order Now */}
-<button
-  onClick={() => handleOrderClick(item, "order")}
-  style={{ 
-    border: `2px solid ${theme.primary}`,
-    color: theme.primary,
-    backgroundColor: '#ffffff'
-  }}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.backgroundColor = theme.primary;
-    e.currentTarget.style.color = '#ffffff';
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.backgroundColor = '#ffffff';
-    e.currentTarget.style.color = theme.primary;
-  }}
-  className="py-2 rounded-lg font-medium transition-all duration-300 text-sm"
->
-  Order Now
-</button>
+                          <div className="grid grid-cols-2 gap-2 mt-4">
+                            <button
+                              onClick={() => handleOrderClick(item, "order")}
+                              style={{ 
+                                border: `2px solid ${theme.primary}`,
+                                color: theme.primary,
+                                backgroundColor: '#ffffff'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = theme.primary;
+                                e.currentTarget.style.color = '#ffffff';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#ffffff';
+                                e.currentTarget.style.color = theme.primary;
+                              }}
+                              className="py-2 rounded-lg font-medium transition-all duration-300 text-sm"
+                            >
+                              Order Now
+                            </button>
 
-{/* Add to Cart */}
-<button
-  onClick={() => handleOrderClick(item, "cart")}
-  style={{ 
-    border: `2px solid ${theme.primary}`,
-    color: theme.primary,
-    backgroundColor: '#ffffff'
-  }}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.backgroundColor = theme.primary;
-    e.currentTarget.style.color = '#ffffff';
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.backgroundColor = '#ffffff';
-    e.currentTarget.style.color = theme.primary;
-  }}
-  className="py-2 rounded-lg font-medium transition-all duration-300 text-sm"
->
-  Add to Cart
-</button>
-</div>
+                            <button
+                              onClick={() => handleOrderClick(item, "cart")}
+                              style={{ 
+                                border: `2px solid ${theme.primary}`,
+                                color: theme.primary,
+                                backgroundColor: '#ffffff'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = theme.primary;
+                                e.currentTarget.style.color = '#ffffff';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#ffffff';
+                                e.currentTarget.style.color = theme.primary;
+                              }}
+                              className="py-2 rounded-lg font-medium transition-all duration-300 text-sm"
+                            >
+                              Add to Cart
+                            </button>
+                          </div>
 
-{/* WhatsApp - Full Width Below */}
-<button
-  onClick={() => handleOrderClick(item, "whatsapp")}
+   <button
+  onClick={() => handleOrderClick(item, "whatsapp")} 
   style={{ 
     border: `2px solid #22c55e`,
     color: '#22c55e',
@@ -1408,204 +2095,198 @@ const handleOrderClick = (item, action = "order") => {
                         </div>
 
                         {/* Taste Modal */}
-{/* Taste Modal */}
-{tasteItem?.id === item.id && (
-  <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
-    <div className="relative bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 animate-slideUp max-h-[90vh] overflow-y-auto">
-      {/* Close Button */}
-      <button 
-        onClick={() => {
-          setTasteItem(null);
-          setTasteAction(null);
-        }} 
-        className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-black transition-colors text-lg z-10"
-        aria-label="Close"
-      >
-        ✕
-      </button>
-      
-      <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden" />
-      <h3 className="text-lg font-bold mb-3 pr-8">{tasteItem.name}</h3>
+                        {tasteItem?.id === item.id && (
+                          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
+                            <div className="relative bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 animate-slideUp max-h-[90vh] overflow-y-auto">
+                              <button 
+                                onClick={() => {
+                                  setTasteItem(null);
+                                  setTasteAction(null);
+                                }} 
+                                className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-black transition-colors text-lg z-10"
+                                aria-label="Close"
+                              >
+                                ✕
+                              </button>
+                              
+                              <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden" />
+                              <h3 className="text-lg font-bold mb-3 pr-8">{tasteItem.name}</h3>
 
-      {/* Spice Level - Only for non-sweet items */}
-      {tasteItem.dishTasteProfile !== "sweet" && (
-        <>
-          <p className="text-xs font-semibold mb-2">🌶 Spice Level</p>
-          <div className="flex gap-2 mb-3">
-            {["normal", "medium", "spicy"].map(level => (
-              <button
-                key={level}
-                onClick={() => setSpiceSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
-                style={{ 
-                  border: `2px solid ${theme.primary}`,
-                  color: spiceSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,
-                  backgroundColor: spiceSelections[tasteItem.id] === level ? theme.primary : '#ffffff'
-                }}
-                onMouseEnter={(e) => {
-                  if (spiceSelections[tasteItem.id] !== level) {
-                    e.currentTarget.style.backgroundColor = theme.primary;
-                    e.currentTarget.style.color = '#ffffff';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (spiceSelections[tasteItem.id] !== level) {
-                    e.currentTarget.style.backgroundColor = '#ffffff';
-                    e.currentTarget.style.color = theme.primary;
-                  }
-                }}
-                className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
-              >
-                {level}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+                              {tasteItem.dishTasteProfile !== "sweet" && (
+                                <>
+                                  <p className="text-xs font-semibold mb-2">🌶 Spice Level</p>
+                                  <div className="flex gap-2 mb-3">
+                                    {["normal", "medium", "spicy"].map(level => (
+                                      <button
+                                        key={level}
+                                        onClick={() => setSpiceSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
+                                        style={{ 
+                                          border: `2px solid ${theme.primary}`,
+                                          color: spiceSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,
+                                          backgroundColor: spiceSelections[tasteItem.id] === level ? theme.primary : '#ffffff'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          if (spiceSelections[tasteItem.id] !== level) {
+                                            e.currentTarget.style.backgroundColor = theme.primary;
+                                            e.currentTarget.style.color = '#ffffff';
+                                          }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          if (spiceSelections[tasteItem.id] !== level) {
+                                            e.currentTarget.style.backgroundColor = '#ffffff';
+                                            e.currentTarget.style.color = theme.primary;
+                                          }
+                                        }}
+                                        className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
+                                      >
+                                        {level}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
 
-      {/* Salt Level - Only for non-sweet items with salt enabled */}
-      {tasteItem.dishTasteProfile !== "sweet" && tasteItem.saltLevelEnabled && (
-        <>
-          <p className="text-xs font-semibold mb-2">🧂 Salt Level</p>
-          <div className="flex gap-2 mb-3">
-            {["less", "normal", "extra"].map(level => (
-              <button
-                key={level}
-                onClick={() => setSaltSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
-                style={{ 
-                  border: `2px solid ${theme.primary}`,
-                  color: saltSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,  // ✅ Fixed: saltSelections
-                  backgroundColor: saltSelections[tasteItem.id] === level ? theme.primary : '#ffffff'  // ✅ Fixed: saltSelections
-                }}
-                onMouseEnter={(e) => {
-                  if (saltSelections[tasteItem.id] !== level) {  // ✅ Fixed: saltSelections
-                    e.currentTarget.style.backgroundColor = theme.primary;
-                    e.currentTarget.style.color = '#ffffff';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (saltSelections[tasteItem.id] !== level) {  // ✅ Fixed: saltSelections
-                    e.currentTarget.style.backgroundColor = '#ffffff';
-                    e.currentTarget.style.color = theme.primary;
-                  }
-                }}
-                className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
-              >
-                {level}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+                              {tasteItem.dishTasteProfile !== "sweet" && tasteItem.saltLevelEnabled && (
+                                <>
+                                  <p className="text-xs font-semibold mb-2">🧂 Salt Level</p>
+                                  <div className="flex gap-2 mb-3">
+                                    {["less", "normal", "extra"].map(level => (
+                                      <button
+                                        key={level}
+                                        onClick={() => setSaltSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
+                                        style={{ 
+                                          border: `2px solid ${theme.primary}`,
+                                          color: saltSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,
+                                          backgroundColor: saltSelections[tasteItem.id] === level ? theme.primary : '#ffffff'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          if (saltSelections[tasteItem.id] !== level) {
+                                            e.currentTarget.style.backgroundColor = theme.primary;
+                                            e.currentTarget.style.color = '#ffffff';
+                                          }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          if (saltSelections[tasteItem.id] !== level) {
+                                            e.currentTarget.style.backgroundColor = '#ffffff';
+                                            e.currentTarget.style.color = theme.primary;
+                                          }
+                                        }}
+                                        className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
+                                      >
+                                        {level}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
 
-      {/* Salad */}
-      {tasteItem.saladConfig?.enabled && (
-        <div className="mb-3">
-          <label className="flex items-center gap-2 cursor-pointer p-3 bg-gray-50 rounded-lg">
-            <input
-              type="checkbox"
-              checked={!!saladSelections[tasteItem.id]}
-              onChange={(e) => setSaladSelections(prev => ({ ...prev, [tasteItem.id]: e.target.checked }))}
-              className="w-5 h-5 text-[#8A244B] rounded"
-            />
-            <span className="font-medium">🥗 Add Salad</span>
-          </label>
-        </div>
-      )}
+                              {tasteItem.saladConfig?.enabled && (
+                                <div className="mb-3">
+                                  <label className="flex items-center gap-2 cursor-pointer p-3 bg-gray-50 rounded-lg">
+                                    <input
+                                      type="checkbox"
+                                      checked={!!saladSelections[tasteItem.id]}
+                                      onChange={(e) => setSaladSelections(prev => ({ ...prev, [tasteItem.id]: e.target.checked }))}
+                                      className="w-5 h-5 text-[#8A244B] rounded"
+                                    />
+                                    <span className="font-medium">🥗 Add Salad</span>
+                                  </label>
+                                </div>
+                              )}
 
-      {/* Sweetness - Only for sweet items */}
-      {tasteItem.dishTasteProfile === "sweet" && tasteItem.sugarLevelEnabled && (
-        <>
-          <p className="text-xs font-semibold mb-2">🍰 Sweetness</p>
-          <div className="flex gap-2 mb-3">
-            {["less", "normal", "extra"].map(level => (
-              <button
-                key={level}
-                onClick={() => setSweetSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
-                style={{ 
-                  border: `2px solid ${theme.primary}`,
-                  color: sweetSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,  // ✅ Fixed: sweetSelections
-                  backgroundColor: sweetSelections[tasteItem.id] === level ? theme.primary : '#ffffff'  // ✅ Fixed: sweetSelections
-                }}
-                onMouseEnter={(e) => {
-                  if (sweetSelections[tasteItem.id] !== level) {  // ✅ Fixed: sweetSelections
-                    e.currentTarget.style.backgroundColor = theme.primary;
-                    e.currentTarget.style.color = '#ffffff';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (sweetSelections[tasteItem.id] !== level) {  // ✅ Fixed: sweetSelections
-                    e.currentTarget.style.backgroundColor = '#ffffff';
-                    e.currentTarget.style.color = theme.primary;
-                  }
-                }}
-                className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
-              >
-                {level}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+                              {tasteItem.dishTasteProfile === "sweet" && tasteItem.sugarLevelEnabled && (
+                                <>
+                                  <p className="text-xs font-semibold mb-2">🍰 Sweetness</p>
+                                  <div className="flex gap-2 mb-3">
+                                    {["less", "normal", "extra"].map(level => (
+                                      <button
+                                        key={level}
+                                        onClick={() => setSweetSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
+                                        style={{ 
+                                          border: `2px solid ${theme.primary}`,
+                                          color: sweetSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,
+                                          backgroundColor: sweetSelections[tasteItem.id] === level ? theme.primary : '#ffffff'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          if (sweetSelections[tasteItem.id] !== level) {
+                                            e.currentTarget.style.backgroundColor = theme.primary;
+                                            e.currentTarget.style.color = '#ffffff';
+                                          }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          if (sweetSelections[tasteItem.id] !== level) {
+                                            e.currentTarget.style.backgroundColor = '#ffffff';
+                                            e.currentTarget.style.color = theme.primary;
+                                          }
+                                        }}
+                                        className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
+                                      >
+                                        {level}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
 
-      {/* Final Action Button */}
-      <div className="flex gap-3 mt-4">
-        <button
-          onClick={() => {
-          const payload = {
-  ...tasteItem,
-  id: tasteItem.id,
-  name: tasteItem.name || tasteItem.dishName || "Unnamed Item",
-  price: Number(tasteItem.price) || 0,
-  image: tasteItem.imageUrl || tasteItem.image || "",
-  prepTime: Number(tasteItem.prepTime ?? 15),
-  dishTasteProfile: tasteItem.dishTasteProfile,  // ✅ Explicitly added
-  spicePreference: tasteItem.dishTasteProfile !== "sweet" ? (spiceSelections[tasteItem.id] || "normal") : null,
-  sweetLevel: tasteItem.dishTasteProfile === "sweet" ? (sweetSelections[tasteItem.id] || "normal") : null,
-  saltPreference: tasteItem.saltLevelEnabled ? (saltSelections[tasteItem.id] || "normal") : null,
-  salad: tasteItem.saladConfig?.enabled ? { 
-    qty: saladSelections[tasteItem.id] ? 1 : 0, 
-    taste: saladTaste[tasteItem.id] || "normal" 
-  } : { qty: 0, taste: "normal" }
-};
+                            <div className="flex gap-3 mt-4">
+  <button
+    onClick={() => {
+      const payload = {
+        ...tasteItem,
+        id: tasteItem.id,
+        name: tasteItem.name || tasteItem.dishName || "Unnamed Item",
+        price: Number(tasteItem.price) || 0,
+        image: tasteItem.imageUrl || tasteItem.image || "",
+        prepTime: Number(tasteItem.prepTime ?? 15),
+        dishTasteProfile: tasteItem.dishTasteProfile,
+        spicePreference: tasteItem.dishTasteProfile !== "sweet" ? (spiceSelections[tasteItem.id] || "normal") : null,
+        sweetLevel: tasteItem.dishTasteProfile === "sweet" ? (sweetSelections[tasteItem.id] || "normal") : null,
+        saltPreference: tasteItem.saltLevelEnabled ? (saltSelections[tasteItem.id] || "normal") : null,
+        salad: tasteItem.saladConfig?.enabled ? { 
+          qty: saladSelections[tasteItem.id] ? 1 : 0, 
+          taste: saladTaste[tasteItem.id] || "normal" 
+        } : { qty: 0, taste: "normal" }
+      };
 
-            if (tasteAction === "whatsapp") {
-              setTasteItem(null);
-              setTasteAction(null);
-              setWhatsAppItem(payload);
-              setShowWhatsAppModal(true);
-            } else {
-              addToCart(payload);
-              
-              if (tasteAction === "order") {
-                setSelectedItem(tasteItem);
-              }
-              
-              setTasteItem(null);
-              setTasteAction(null);
-            }
-          }}
-          style={{
-            backgroundColor: '#ffffff',
-            border: `2px solid ${tasteAction === "whatsapp" ? "#25D366" : theme.primary}`,
-            color: tasteAction === "whatsapp" ? "#25D366" : theme.primary,
-            transition: 'all 0.3s ease'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
-            e.currentTarget.style.color = '#ffffff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#ffffff';
-            e.currentTarget.style.color = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
-          }}
-          className="flex-1 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-[0.98]"
-        >
-          {tasteAction === "order" ? "Confirm Order 🚀" : tasteAction === "cart" ? "Add To Cart" : "Order via WhatsApp"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      if (tasteAction === "whatsapp") {
+        // 🔥 Pehle taste modal band karo, phir customer details modal dikhao
+        setWhatsAppPayload(payload);
+        setTasteItem(null);
+        setTasteAction(null);
+        setShowWhatsAppCustomerModal(true);
+      } else {
+        addToCart(payload);
+        
+        if (tasteAction === "order") {
+          setSelectedItem(tasteItem);
+        }
+        
+        setTasteItem(null);
+        setTasteAction(null);
+      }
+    }}
+    style={{
+      backgroundColor: '#ffffff',
+      border: `2px solid ${tasteAction === "whatsapp" ? "#25D366" : theme.primary}`,
+      color: tasteAction === "whatsapp" ? "#25D366" : theme.primary,
+      transition: 'all 0.3s ease'
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.backgroundColor = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
+      e.currentTarget.style.color = '#ffffff';
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.backgroundColor = '#ffffff';
+      e.currentTarget.style.color = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
+    }}
+    className="flex-1 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-[0.98]"
+  >
+    {tasteAction === "order" ? "Confirm Order 🚀" : tasteAction === "cart" ? "Add To Cart" : "Order via WhatsApp"}
+  </button>
+</div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1670,60 +2351,161 @@ const handleOrderClick = (item, action = "order") => {
           )}
 
           {activeTab === "menu" && (
-          <>
-  <button
-    onClick={() => setOpenCart(true)}
-    style={{ "--theme-color": theme.primary }}
-    className="
-      group relative hidden md:block fixed top-20 right-4 z-30
-      bg-white
-      p-3 rounded-full shadow-lg
-      border-2 border-[var(--theme-color)]
-      transition-all duration-300
-      hover:bg-[var(--theme-color)]
-    "
-  >
-    <IoCartOutline
-      className="
-        w-[35px] h-[35px]
-        text-[var(--theme-color)]
-        transition-all duration-300
-        group-hover:text-white
-      "
-    />
+            <>
+              <button
+                onClick={() => setOpenCart(true)}
+                style={{ "--theme-color": theme.primary }}
+                className="
+                  group relative hidden md:block fixed top-20 right-4 z-30
+                  bg-white
+                  p-3 rounded-full shadow-lg
+                  border-2 border-[var(--theme-color)]
+                  transition-all duration-300
+                  hover:bg-[var(--theme-color)]
+                "
+              >
+                <IoCartOutline
+                  className="
+                    w-[35px] h-[35px]
+                    text-[var(--theme-color)]
+                    transition-all duration-300
+                    group-hover:text-white
+                  "
+                />
 
-    {cart.length > 0 && (
-      <span className="
-        absolute -top-1 -right-1
-        bg-red-500 text-white text-xs
-        w-5 h-5 flex items-center justify-center
-        rounded-full
-      ">
-        {cart.length}
-      </span>
-    )}
-  </button>
+                {cart.length > 0 && (
+                  <span className="
+                    absolute -top-1 -right-1
+                    bg-red-500 text-white text-xs
+                    w-5 h-5 flex items-center justify-center
+                    rounded-full
+                  ">
+                    {cart.length}
+                  </span>
+                )}
+              </button>
 
-  {cart.length > 0 && (
-    <BottomCart
-      onOpen={() => setOpenCart(true)}
-      theme={theme}
-    />
-  )}
-</>
+              {cart.length > 0 && (
+                <BottomCart
+                  onOpen={() => setOpenCart(true)}
+                  theme={theme}
+                />
+              )}
+            </>
           )}
 
           {activeTab === "menu" && (
-        <CartSidebar 
-  open={openCart} 
-  onClose={() => setOpenCart(false)} 
-  theme={theme} 
-  restaurantId={restaurantId}
-  restaurantSettings={restaurantSettings}  
-  onWhatsAppOrder={handleWhatsAppOrderFromCart}  
-/>
+            <CartSidebar 
+              open={openCart} 
+              onClose={() => setOpenCart(false)} 
+              theme={theme} 
+              restaurantId={restaurantId}
+              restaurantSettings={restaurantSettings}  
+              onWhatsAppOrder={handleWhatsAppOrderFromCart}  
+            />
+            
           )}
+{showWhatsAppCustomerModal && whatsAppPayload && (
+  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+    <div className="bg-white w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto animate-slideUp">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-bold flex items-center gap-2">
+          <FaWhatsapp className="text-green-500"/> WhatsApp Order
+        </h3>
+        <button 
+          onClick={() => {
+            setShowWhatsAppCustomerModal(false);
+            setWhatsAppPayload(null);
+          }}
+          className="p-2 hover:bg-gray-100 rounded-full"
+        >
+          <IoClose className="text-xl" />
+        </button>
+      </div>
+      
+      <div className="bg-green-50 p-3 rounded-xl mb-4">
+        <p className="font-medium text-sm mb-2">Item: {whatsAppPayload.name}</p>
+        <div className="flex justify-between font-bold">
+          <span>Total</span>
+          <span className="text-green-600">₹{whatsAppPayload.price}</span>
+        </div>
+      </div>
+      
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm font-medium mb-1">Your Name *</label>
+          <input
+            type="text"
+            value={whatsAppCustomerInfo.name}
+            onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, name: e.target.value})}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+            placeholder="Enter your name"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Phone Number *</label>
+          <input
+            type="tel"
+            value={whatsAppCustomerInfo.phone}
+            onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, phone: e.target.value})}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+            placeholder="+91 9876543210"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Table Number (Optional)</label>
+          <input
+            type="text"
+            value={whatsAppCustomerInfo.tableNumber}
+            onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, tableNumber: e.target.value})}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+            placeholder="If dining in restaurant"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Special Instructions</label>
+          <textarea
+            value={whatsAppCustomerInfo.specialInstructions}
+            onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, specialInstructions: e.target.value})}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none"
+            rows="2"
+            placeholder="Any allergies or special requests..."
+          />
+        </div>
+      </div>
 
+      <div className="flex gap-3 mt-6">
+        <button
+          onClick={() => {
+            setShowWhatsAppCustomerModal(false);
+            setWhatsAppPayload(null);
+          }}
+          className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50 transition"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => {
+            if (!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone) {
+              alert('Please fill in your name and phone number');
+              return;
+            }
+            // 🔥 WhatsApp open karo with customer details
+            handleDirectWhatsApp(whatsAppPayload, whatsAppCustomerInfo);
+            setShowWhatsAppCustomerModal(false);
+            setWhatsAppPayload(null);
+            // Reset form
+            setWhatsAppCustomerInfo({ name: '', phone: '', tableNumber: '', specialInstructions: '' });
+          }}
+          disabled={!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone}
+          className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold transition hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <FaWhatsapp /> Open WhatsApp
+        </button>
+      </div>
+    </div>
+  </div>
+)}
           {selectedItem && <OrderModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
           <LoginModal />
         </div>
