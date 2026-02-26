@@ -44,20 +44,25 @@ export default function NewItemsSlider({ items, theme }) {
       >
         {items.map((item) => (
           <SwiperSlide key={item.id}>
-            <div
-              onClick={() => handleDishClick(item.id)}
-              className="bg-white rounded-2xl shadow overflow-hidden cursor-pointer hover:scale-[1.02] transition"
-            >
-              <img
-                src={item.imageUrl}
-                alt={item.name}
-                className="h-36 w-full object-cover"
-              />
-              <div className="p-3">
-                <h3 className="font-semibold truncate">{item.name}</h3>
-                <p className="text-sm text-gray-500">₹{item.price}</p>
-              </div>
-            </div>
+           <div
+  onClick={() => handleDishClick(item.id)}
+  className="bg-white rounded-2xl shadow overflow-hidden cursor-pointer hover:scale-[1.02] transition"
+>
+  <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100">
+    <img
+      src={item.imageUrl}
+      alt={item.name}
+      className="w-full h-full object-cover object-center"
+      onError={(e) => {
+        e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+      }}
+    />
+  </div>
+  <div className="p-3">
+    <h3 className="font-semibold truncate">{item.name}</h3>
+    <p className="text-sm text-gray-500">₹{item.price}</p>
+  </div>
+</div>
           </SwiperSlide>
         ))}
       </Swiper>

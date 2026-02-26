@@ -13,7 +13,7 @@ export default function RestaurantSettings() {
   const UPLOAD_PRESET = "portfolio_upload";
   const IMGBB_API_KEY = "16ba543d3e3b1b10be04c8e657d6b18e";
   const MAX_VIDEO_SIZE = 5 * 1024 * 1024; // 5MB
-
+const [whatsappNumber, setWhatsappNumber] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [loading, setLoading] = useState(false);
   const [videoUploading, setVideoUploading] = useState(false);
@@ -120,10 +120,10 @@ export default function RestaurantSettings() {
   // Load data
   useEffect(() => {
     if (!restaurantId) return;
-    const ref = dbRef(realtimeDB, `restaurants/${restaurantId}`);
-    onValue(ref, (snap) => {
-      if (!snap.exists()) return;
-      const data = snap.val();
+  const ref = dbRef(realtimeDB, `restaurants/${restaurantId}`);
+  onValue(ref, (snap) => {
+    if (!snap.exists()) return;
+    const data = snap.val();
 
       setName(data.name || "");
       setLogo(data.logo || "");
@@ -143,6 +143,7 @@ export default function RestaurantSettings() {
         sectionText: data.about?.sectionText || "",
         stats: data.about?.stats || { experience: "", customers: "", dishes: "" },
       });
+       setWhatsappNumber(data.whatsappNumber || "");
     });
   }, [restaurantId]);
 
@@ -224,6 +225,7 @@ export default function RestaurantSettings() {
         name,
         logo: logoURL,
         contact: { phone, email, address },
+           whatsappNumber,
         theme,
         about: {
           heroVideo: heroVideoURL,
@@ -410,11 +412,21 @@ export default function RestaurantSettings() {
 
       {/* Contact */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <input type="text" placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="border rounded-lg px-4 py-2" />
+        <input type="text" placeholder="Contact Number" value={phone} onChange={(e) => setPhone(e.target.value)} className="border rounded-lg px-4 py-2" />
         <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="border rounded-lg px-4 py-2" />
       </div>
       <input type="text" placeholder="Address" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full border rounded-lg px-4 py-2 mb-6" />
-
+<div className="mb-6">
+  <label className="block text-sm font-medium mb-1">WhatsApp Number (for Orders)</label>
+  <input 
+    type="text" 
+    placeholder="e.g. +91 9876543210" 
+    value={whatsappNumber} 
+    onChange={(e) => setWhatsappNumber(e.target.value)} 
+    className="w-full border rounded-lg px-4 py-2"
+  />
+  <p className="text-xs text-gray-500 mt-1">Customers will send orders to this WhatsApp number</p>
+</div>
       {/* Save */}
       <button
         onClick={handleSave}

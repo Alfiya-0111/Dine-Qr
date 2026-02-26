@@ -232,95 +232,97 @@ Sent via DineQR
       return;
     }
 
-    const phone = restaurantSettings?.contact?.phone || restaurantSettings?.whatsappNumber;
-    if (!phone) {
-      alert("Restaurant WhatsApp number not available");
-      return;
-    }
-
+     const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
+  
+  if (!phone) {
+    alert("Restaurant WhatsApp number not available");
+    return;
+  }
     const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
-    const message = generateWhatsAppMessage(item, restaurantName);
-    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-    
-    window.open(whatsappUrl, '_blank');
-  };
+  const message = generateWhatsAppMessage(item, restaurantName);
+  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+  
+  window.open(whatsappUrl, '_blank');
+};
 
   // Full Integration WhatsApp Order (With Kitchen Sync)
-  const placeWhatsAppOrder = async (orderData) => {
-    const user = auth.currentUser;
-    if (!user) {
-      requireLogin();
-      return null;
+const placeWhatsAppOrder = async (orderData) => {
+  const user = auth.currentUser;
+  if (!user) {
+    requireLogin();
+    return null;
+  }
+
+  try {
+    const orderRef = push(rtdbRef(realtimeDB, 'orders'));
+    const orderId = orderRef.key;
+    
+    const items = orderData.items || [];
+    const subtotal = items.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
+    const gst = subtotal * 0.05;
+    const total = subtotal + gst;
+
+    const order = {
+      id: orderId,
+      userId: user.uid,
+      restaurantId: restaurantId,
+      customerName: orderData.customerName || user.displayName || "Guest",
+      customerPhone: orderData.customerPhone || user.phoneNumber || "",
+      items: items.map(item => ({
+        dishId: item.id,
+        name: item.name,
+        qty: item.qty || 1,
+        price: item.price,
+        image: item.image || item.imageUrl,
+        prepTime: item.prepTime || 15,
+        spicePreference: item.spicePreference || "normal"
+      })),
+      type: "whatsapp",
+      status: "pending",
+      subtotal,
+      gst,
+      total,
+      createdAt: Date.now(),
+      source: "whatsapp"
+    };
+
+    // Save to orders
+    await set(orderRef, order);
+
+    // Save to whatsappOrders
+    await set(rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
+      ...order,
+      whatsappStatus: "new"
+    });
+
+    // Save to kitchenOrders
+    await set(rtdbRef(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`), {
+      ...order,
+      kitchenStatus: "new",
+      type: "whatsapp"
+    });
+
+    // Open WhatsApp - Pehle whatsappNumber check karein, phir contact.phone
+    const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
+    if (phone) {
+      const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
+      const message = generateWhatsAppMessageForCart(order, restaurantName);
+      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank');
+    } else {
+      alert("⚠️ WhatsApp number not configured. Order saved but WhatsApp not opened.");
     }
 
-    try {
-      const orderRef = push(rtdbRef(realtimeDB, 'orders'));
-      const orderId = orderRef.key;
-      
-      const items = orderData.items || [];
-      const subtotal = items.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
-      const gst = subtotal * 0.05;
-      const total = subtotal + gst;
-
-      const order = {
-        id: orderId,
-        userId: user.uid,
-        restaurantId: restaurantId,
-        customerName: orderData.customerName || user.displayName || "Guest",
-        customerPhone: orderData.customerPhone || user.phoneNumber || "",
-        items: items.map(item => ({
-          dishId: item.id,
-          name: item.name,
-          qty: item.qty || 1,
-          price: item.price,
-          image: item.image || item.imageUrl,
-          prepTime: item.prepTime || 15,
-          spicePreference: item.spicePreference || "normal"
-        })),
-        type: "whatsapp",
-        status: "pending",
-        subtotal,
-        gst,
-        total,
-        createdAt: Date.now(),
-        source: "whatsapp"
-      };
-
-      // Save to orders
-      await set(orderRef, order);
-
-      // Save to whatsappOrders
-      await set(rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
-        ...order,
-        whatsappStatus: "new"
-      });
-
-      // Save to kitchenOrders
-      await set(rtdbRef(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`), {
-        ...order,
-        kitchenStatus: "new",
-        type: "whatsapp"
-      });
-
-      // Open WhatsApp
-      const phone = restaurantSettings?.contact?.phone || restaurantSettings?.whatsappNumber;
-      if (phone) {
-        const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
-        const message = generateWhatsAppMessageForCart(order, restaurantName);
-        const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-        window.open(whatsappUrl, '_blank');
-      }
-
-      clearCart();
-      alert("✅ Order placed! Opening WhatsApp...");
-      return orderId;
-      
-    } catch (error) {
-      console.error("WhatsApp order error:", error);
-      alert("❌ Order failed: " + error.message);
-      return null;
-    }
-  };
+    clearCart();
+    alert("✅ Order placed! Opening WhatsApp...");
+    return orderId;
+    
+  } catch (error) {
+    console.error("WhatsApp order error:", error);
+    alert("❌ Order failed: " + error.message);
+    return null;
+  }
+};
 
   const generateWhatsAppMessageForCart = (order, restaurantName) => {
     const items = order.items.map(item => 
@@ -350,34 +352,38 @@ Sent via DineQR
   };
 
   // Handle WhatsApp from Cart
-  const handleWhatsAppOrderFromCart = async () => {
-    if (cart.length === 0) return;
-    
-    const user = auth.currentUser;
-    if (!user) {
-      requireLogin();
-      return;
-    }
+const handleWhatsAppOrderFromCart = async (orderData) => {
+  if (cart.length === 0) return;
+  
+  const user = auth.currentUser;
+  if (!user) {
+    requireLogin();
+    return;
+  }
 
-    const orderData = {
-      customerName: user.displayName || "Guest",
-      customerPhone: user.phoneNumber || "",
-      items: cart.map(item => ({
-        id: item.id,
-        name: item.name,
-        qty: item.quantity || 1,
-        price: item.price,
-        image: item.image,
-        prepTime: item.prepTime,
-        spicePreference: item.spicePreference
-      }))
-    };
-
-    const orderId = await placeWhatsAppOrder(orderData);
-    if (orderId) {
-      setOpenCart(false);
-    }
+  // orderData already contains customer details from CartSidebar
+  const enrichedOrderData = {
+    ...orderData,
+    items: cart.map(item => ({
+      id: item.id,
+      name: item.name,
+      qty: item.qty || 1,
+      price: item.price,
+      image: item.image,
+      prepTime: item.prepTime,
+      spicePreference: item.spicePreference,
+      sweetLevel: item.sweetLevel,
+      saltPreference: item.saltPreference,
+      salad: item.salad,
+      dishTasteProfile: item.dishTasteProfile
+    }))
   };
+
+  const orderId = await placeWhatsAppOrder(enrichedOrderData);
+  if (orderId) {
+    setOpenCart(false);
+  }
+};
 
   // ================= EXISTING FUNCTIONS =================
 
@@ -1263,25 +1269,53 @@ const handleOrderClick = (item, action = "order") => {
                         key={item.id}
                         className="bg-white rounded-3xl shadow-md hover:shadow-xl transition overflow-hidden"
                       >
-                        <div className="relative">
-                          <img src={item.imageUrl} alt={item.name} className="h-44 w-full object-cover" />
-                          {trendingDishIds.includes(item.id) && (
-                            <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full shadow">🔥 Trending</span>
-                          )}
-                          {aiRecommended.some((d) => d.id === item.id) && (
-                            <span className="absolute top-2 left-2 text-white text-xs px-3 py-1 rounded-full shadow" style={{ backgroundColor: theme.border }}>Most ordered</span>
-                          )}
-                          {item.inStock === false && (
-                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg">Out of Stock 🚫</div>
-                          )}
-                          {!isDrink ? (
-                            <span className={`absolute bottom-2 right-2 w-4 h-4 rounded-full border-2 border-white ${item.vegType === "veg" ? "bg-green-500" : "bg-red-500"}`} />
-                          ) : (
-                            <span className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center border-2 border-white">
-                              <span className="text-white text-xs">🍹</span>
-                            </span>
-                          )}
-                        </div>
+   <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100 rounded-t-xl">
+  <img 
+    src={item.imageUrl} 
+    alt={item.name} 
+    className="w-full h-full object-cover object-center"
+    onError={(e) => {
+      e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+    }}
+  />
+  
+  {/* Trending Badge */}
+  {trendingDishIds.includes(item.id) && (
+    <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-3 py-1 rounded-full shadow z-10">
+      🔥 Trending
+    </span>
+  )}
+  
+  {/* Most Ordered Badge */}
+  {aiRecommended.some((d) => d.id === item.id) && (
+    <span 
+      className="absolute top-2 left-2 text-white text-xs px-3 py-1 rounded-full shadow z-10"
+      style={{ backgroundColor: theme.border }}
+    >
+      Most ordered
+    </span>
+  )}
+  
+  {/* Out of Stock Overlay */}
+  {item.inStock === false && (
+    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg z-20">
+      Out of Stock 🚫
+    </div>
+  )}
+  
+  {/* Veg/Non-veg or Drink Indicator */}
+  {!isDrink ? (
+    <span 
+      className={`absolute bottom-2 right-2 w-4 h-4 rounded-full border-2 border-white z-10 ${
+        item.vegType === "veg" ? "bg-green-500" : "bg-red-500"
+      }`} 
+    />
+  ) : (
+    <span className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center border-2 border-white z-10">
+      <span className="text-white text-xs">🍹</span>
+    </span>
+  )}
+</div>
                         
                         <div className="p-4">
                           <h3 className="font-bold text-lg truncate flex items-center gap-2">
@@ -1374,135 +1408,204 @@ const handleOrderClick = (item, action = "order") => {
                         </div>
 
                         {/* Taste Modal */}
-                        {tasteItem?.id === item.id && (
-                          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
-                            <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 animate-slideUp max-h-[90vh] overflow-y-auto">
-                              <button onClick={() => setTasteItem(null)} className="absolute right-4 top-4 text-gray-500 hover:text-black text-lg">✕</button>
-                              <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden" />
-                              <h3 className="text-lg font-bold mb-3">{tasteItem.name}</h3>
+{/* Taste Modal */}
+{tasteItem?.id === item.id && (
+  <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
+    <div className="relative bg-white w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 animate-slideUp max-h-[90vh] overflow-y-auto">
+      {/* Close Button */}
+      <button 
+        onClick={() => {
+          setTasteItem(null);
+          setTasteAction(null);
+        }} 
+        className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-black transition-colors text-lg z-10"
+        aria-label="Close"
+      >
+        ✕
+      </button>
+      
+      <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden" />
+      <h3 className="text-lg font-bold mb-3 pr-8">{tasteItem.name}</h3>
 
-                              {tasteItem.dishTasteProfile !== "sweet" && (
-                                <>
-                                  <p className="text-xs font-semibold mb-2">🌶 Spice Level</p>
-                                  <div className="flex gap-2 mb-3">
-                                    {["normal", "medium", "spicy"].map(level => (
-                                      <button
-                                        key={level}
-                                        onClick={() => setSpiceSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
-                                        className={`flex-1 py-2 rounded-lg text-sm capitalize transition ${
-                                          spiceSelections[tasteItem.id] === level 
-                                            ? 'bg-[#8A244B] text-white' 
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        }`}
-                                      >
-                                        {level}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </>
-                              )}
+      {/* Spice Level - Only for non-sweet items */}
+      {tasteItem.dishTasteProfile !== "sweet" && (
+        <>
+          <p className="text-xs font-semibold mb-2">🌶 Spice Level</p>
+          <div className="flex gap-2 mb-3">
+            {["normal", "medium", "spicy"].map(level => (
+              <button
+                key={level}
+                onClick={() => setSpiceSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
+                style={{ 
+                  border: `2px solid ${theme.primary}`,
+                  color: spiceSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,
+                  backgroundColor: spiceSelections[tasteItem.id] === level ? theme.primary : '#ffffff'
+                }}
+                onMouseEnter={(e) => {
+                  if (spiceSelections[tasteItem.id] !== level) {
+                    e.currentTarget.style.backgroundColor = theme.primary;
+                    e.currentTarget.style.color = '#ffffff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (spiceSelections[tasteItem.id] !== level) {
+                    e.currentTarget.style.backgroundColor = '#ffffff';
+                    e.currentTarget.style.color = theme.primary;
+                  }
+                }}
+                className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
-                              {tasteItem.dishTasteProfile !== "sweet" && tasteItem.saltLevelEnabled && (
-                                <>
-                                  <p className="text-xs font-semibold mb-2">🧂 Salt Level</p>
-                                  <div className="flex gap-2 mb-3">
-                                    {["less", "normal", "extra"].map(level => (
-                                      <button
-                                        key={level}
-                                        onClick={() => setSaltSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
-                                        className={`flex-1 py-2 rounded-lg text-sm capitalize transition ${
-                                          saltSelections[tasteItem.id] === level 
-                                            ? 'bg-blue-500 text-white' 
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        }`}
-                                      >
-                                        {level}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </>
-                              )}
+      {/* Salt Level - Only for non-sweet items with salt enabled */}
+      {tasteItem.dishTasteProfile !== "sweet" && tasteItem.saltLevelEnabled && (
+        <>
+          <p className="text-xs font-semibold mb-2">🧂 Salt Level</p>
+          <div className="flex gap-2 mb-3">
+            {["less", "normal", "extra"].map(level => (
+              <button
+                key={level}
+                onClick={() => setSaltSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
+                style={{ 
+                  border: `2px solid ${theme.primary}`,
+                  color: saltSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,  // ✅ Fixed: saltSelections
+                  backgroundColor: saltSelections[tasteItem.id] === level ? theme.primary : '#ffffff'  // ✅ Fixed: saltSelections
+                }}
+                onMouseEnter={(e) => {
+                  if (saltSelections[tasteItem.id] !== level) {  // ✅ Fixed: saltSelections
+                    e.currentTarget.style.backgroundColor = theme.primary;
+                    e.currentTarget.style.color = '#ffffff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (saltSelections[tasteItem.id] !== level) {  // ✅ Fixed: saltSelections
+                    e.currentTarget.style.backgroundColor = '#ffffff';
+                    e.currentTarget.style.color = theme.primary;
+                  }
+                }}
+                className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
-                              {tasteItem.saladConfig?.enabled && (
-                                <div className="mb-3">
-                                  <label className="flex items-center gap-2 cursor-pointer p-3 bg-gray-50 rounded-lg">
-                                    <input
-                                      type="checkbox"
-                                      checked={!!saladSelections[tasteItem.id]}
-                                      onChange={(e) => setSaladSelections(prev => ({ ...prev, [tasteItem.id]: e.target.checked }))}
-                                      className="w-5 h-5 text-[#8A244B] rounded"
-                                    />
-                                    <span className="font-medium">🥗 Add Salad</span>
-                                  </label>
-                                </div>
-                              )}
+      {/* Salad */}
+      {tasteItem.saladConfig?.enabled && (
+        <div className="mb-3">
+          <label className="flex items-center gap-2 cursor-pointer p-3 bg-gray-50 rounded-lg">
+            <input
+              type="checkbox"
+              checked={!!saladSelections[tasteItem.id]}
+              onChange={(e) => setSaladSelections(prev => ({ ...prev, [tasteItem.id]: e.target.checked }))}
+              className="w-5 h-5 text-[#8A244B] rounded"
+            />
+            <span className="font-medium">🥗 Add Salad</span>
+          </label>
+        </div>
+      )}
 
-                              {tasteItem.dishTasteProfile === "sweet" && tasteItem.sugarLevelEnabled && (
-                                <>
-                                  <p className="text-xs font-semibold mb-2">🍰 Sweetness</p>
-                                  <div className="flex gap-2 mb-3">
-                                    {["less", "normal", "extra"].map(level => (
-                                      <button
-                                        key={level}
-                                        onClick={() => setSweetSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
-                                        className={`flex-1 py-2 rounded-lg text-sm capitalize transition ${
-                                          sweetSelections[tasteItem.id] === level 
-                                            ? 'bg-pink-500 text-white' 
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                        }`}
-                                      >
-                                        {level}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </>
-                              )}
+      {/* Sweetness - Only for sweet items */}
+      {tasteItem.dishTasteProfile === "sweet" && tasteItem.sugarLevelEnabled && (
+        <>
+          <p className="text-xs font-semibold mb-2">🍰 Sweetness</p>
+          <div className="flex gap-2 mb-3">
+            {["less", "normal", "extra"].map(level => (
+              <button
+                key={level}
+                onClick={() => setSweetSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
+                style={{ 
+                  border: `2px solid ${theme.primary}`,
+                  color: sweetSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,  // ✅ Fixed: sweetSelections
+                  backgroundColor: sweetSelections[tasteItem.id] === level ? theme.primary : '#ffffff'  // ✅ Fixed: sweetSelections
+                }}
+                onMouseEnter={(e) => {
+                  if (sweetSelections[tasteItem.id] !== level) {  // ✅ Fixed: sweetSelections
+                    e.currentTarget.style.backgroundColor = theme.primary;
+                    e.currentTarget.style.color = '#ffffff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (sweetSelections[tasteItem.id] !== level) {  // ✅ Fixed: sweetSelections
+                    e.currentTarget.style.backgroundColor = '#ffffff';
+                    e.currentTarget.style.color = theme.primary;
+                  }
+                }}
+                className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
-                              <div className="flex gap-3 mt-4">
-                                <button
-                                  onClick={() => {
-  const payload = {
-    ...tasteItem,
-    id: tasteItem.id,
-    name: tasteItem.name || tasteItem.dishName || "Unnamed Item",
-    price: Number(tasteItem.price) || 0,
-    image: tasteItem.imageUrl || tasteItem.image || "",
-    prepTime: Number(tasteItem.prepTime ?? 15),
-    spicePreference: tasteItem.dishTasteProfile !== "sweet" ? (spiceSelections[tasteItem.id] || "normal") : null,
-    sweetLevel: tasteItem.dishTasteProfile === "sweet" ? (sweetSelections[tasteItem.id] || "normal") : null,
-    saltPreference: tasteItem.saltLevelEnabled ? (saltSelections[tasteItem.id] || "normal") : null,
-    salad: tasteItem.saladConfig?.enabled ? { 
-      qty: saladSelections[tasteItem.id] ? 1 : 0, 
-      taste: saladTaste[tasteItem.id] || "normal" 
-    } : { qty: 0, taste: "normal" }
-  };
+      {/* Final Action Button */}
+      <div className="flex gap-3 mt-4">
+        <button
+          onClick={() => {
+          const payload = {
+  ...tasteItem,
+  id: tasteItem.id,
+  name: tasteItem.name || tasteItem.dishName || "Unnamed Item",
+  price: Number(tasteItem.price) || 0,
+  image: tasteItem.imageUrl || tasteItem.image || "",
+  prepTime: Number(tasteItem.prepTime ?? 15),
+  dishTasteProfile: tasteItem.dishTasteProfile,  // ✅ Explicitly added
+  spicePreference: tasteItem.dishTasteProfile !== "sweet" ? (spiceSelections[tasteItem.id] || "normal") : null,
+  sweetLevel: tasteItem.dishTasteProfile === "sweet" ? (sweetSelections[tasteItem.id] || "normal") : null,
+  saltPreference: tasteItem.saltLevelEnabled ? (saltSelections[tasteItem.id] || "normal") : null,
+  salad: tasteItem.saladConfig?.enabled ? { 
+    qty: saladSelections[tasteItem.id] ? 1 : 0, 
+    taste: saladTaste[tasteItem.id] || "normal" 
+  } : { qty: 0, taste: "normal" }
+};
 
-  if (tasteAction === "whatsapp") {
-    // WhatsApp order - modal band karo aur WhatsApp modal kholo
-    setTasteItem(null);
-    setTasteAction(null);
-    setWhatsAppItem(payload);
-    setShowWhatsAppModal(true);
-  } else {
-    // Order Now ya Add to Cart - dono mein cart mein add karo
-    addToCart(payload);
-    
-    if (tasteAction === "order") {
-      setSelectedItem(tasteItem);  // Sirf Order Now pe OrderModal kholo
-    }
-    
-    setTasteItem(null);
-    setTasteAction(null);
-  }
-}}
-                                  className="flex-1 py-3 bg-[#8A244B] text-white rounded-xl font-bold hover:bg-[#f18e49] transition"
-                                >
-                                {tasteAction === "order" ? "Confirm Order 🚀" : tasteAction === "cart" ? "Add To Cart" : "Order via WhatsApp"}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+            if (tasteAction === "whatsapp") {
+              setTasteItem(null);
+              setTasteAction(null);
+              setWhatsAppItem(payload);
+              setShowWhatsAppModal(true);
+            } else {
+              addToCart(payload);
+              
+              if (tasteAction === "order") {
+                setSelectedItem(tasteItem);
+              }
+              
+              setTasteItem(null);
+              setTasteAction(null);
+            }
+          }}
+          style={{
+            backgroundColor: '#ffffff',
+            border: `2px solid ${tasteAction === "whatsapp" ? "#25D366" : theme.primary}`,
+            color: tasteAction === "whatsapp" ? "#25D366" : theme.primary,
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
+            e.currentTarget.style.color = '#ffffff';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#ffffff';
+            e.currentTarget.style.color = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
+          }}
+          className="flex-1 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-[0.98]"
+        >
+          {tasteAction === "order" ? "Confirm Order 🚀" : tasteAction === "cart" ? "Add To Cart" : "Order via WhatsApp"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
                       </div>
                     );
                   })}
@@ -1611,11 +1714,12 @@ const handleOrderClick = (item, action = "order") => {
           )}
 
           {activeTab === "menu" && (
-          <CartSidebar 
+        <CartSidebar 
   open={openCart} 
   onClose={() => setOpenCart(false)} 
   theme={theme} 
   restaurantId={restaurantId}
+  restaurantSettings={restaurantSettings}  
   onWhatsAppOrder={handleWhatsAppOrderFromCart}  
 />
           )}

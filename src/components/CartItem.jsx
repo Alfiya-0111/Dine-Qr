@@ -10,6 +10,10 @@ export default function CartItem({ item }) {
   const qty = item.qty || item.quantity || 1;
   const image = item.image || item.imageUrl || item.thumbnail || "";
 
+  // Determine dish type - agar dishTasteProfile nahi hai toh spicePreference check karein
+  const isSweetDish = item.dishTasteProfile === "sweet";
+  const hasSpicePreference = item.spicePreference && item.spicePreference !== "normal";
+
   return (
     <div className="flex items-center justify-between gap-3 border-b py-3">
       
@@ -30,30 +34,30 @@ export default function CartItem({ item }) {
             ₹{price} × {qty}
           </p>
 
-          {/* 🌶 SPICE (NOT FOR SWEET DISHES) */}
-          {item.dishTasteProfile !== "sweet" && (
+          {/* 🌶 SPICE - Show for non-sweet dishes OR if spicePreference is explicitly set */}
+          {!isSweetDish && item.spicePreference && (
             <p className="text-xs text-gray-600">
-              Spice:
+              🌶 Spice:
               <span className="ml-1 font-semibold capitalize">
-                {item.spicePreference || "normal"}
+                {item.spicePreference}
               </span>
             </p>
           )}
 
-          {/* 🧂 SALT (NOT FOR SWEET DISHES) - ONLY ONCE, NO DUPLICATE SPICE */}
-          {item.dishTasteProfile !== "sweet" && item.saltPreference && (
+          {/* 🧂 SALT */}
+          {item.saltPreference && item.saltPreference !== "normal" && (
             <p className="text-xs text-gray-600">
-              Salt:
+              🧂 Salt:
               <span className="ml-1 font-semibold capitalize">
                 {item.saltPreference}
               </span>
             </p>
           )}
 
-          {/* 🍯 SWEETNESS (ONLY FOR SWEET DISHES) */}
-          {item.dishTasteProfile === "sweet" && item.sweetLevel && (
+          {/* 🍯 SWEETNESS */}
+          {isSweetDish && item.sweetLevel && (
             <p className="text-xs text-gray-600">
-              Sweetness:
+              🍰 Sweetness:
               <span className="ml-1 font-semibold capitalize">
                 {item.sweetLevel}
               </span>
