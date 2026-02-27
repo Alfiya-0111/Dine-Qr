@@ -292,7 +292,7 @@ export default function AddItem() {
         await setRTDB(ref(realtimeDB, `restaurants/${userId}/menu/${docRef.id}`), payload);
         alert("✅ Dish added successfully!");
       }
-      navigate("/dashboard/menu", { state: { reload: true } });
+      navigate("/dashboard/menu/menu", { state: { reload: true } });
     } catch (error) {
       console.error("Error saving:", error);
       alert("❌ Error saving dish. Please try again.");
@@ -319,12 +319,30 @@ export default function AddItem() {
       </div>
 
       {/* Form Fields */}
-      <input
-        className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253]"
-        placeholder="Dish Name *"
-        value={form.name}
-        onChange={(e) => setForm({ ...form, name: e.target.value })}
-      />
+     <input
+  spellCheck={true}
+  autoCorrect="on"
+  autoCapitalize="words"
+  className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253]"
+  placeholder="Dish Name *"
+  value={form.name}
+  onChange={(e) =>
+    setForm({
+      ...form,
+      name: e.target.value.replace(/\s+/g, " "), // remove extra spaces
+      
+    })
+  }
+  onBlur={(e) =>
+    setForm({
+      ...form,
+      name: e.target.value
+        .trim()
+        .toLowerCase()
+        .replace(/\b\w/g, (c) => c.toUpperCase()), // Auto Capitalize
+    })
+  }
+/>
 
       <input
         type="number"
@@ -334,12 +352,19 @@ export default function AddItem() {
         onChange={(e) => setForm({ ...form, price: e.target.value })}
       />
 
-      <textarea
-        className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253] h-24 resize-none"
-        placeholder="Description *"
-        value={form.description}
-        onChange={(e) => setForm({ ...form, description: e.target.value })}
-      />
+    <textarea
+  spellCheck={true}
+  autoCorrect="on"
+  className="w-full border border-gray-300 p-3 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-[#B45253] h-24 resize-none"
+  placeholder="Description *"
+  value={form.description}
+  onChange={(e) =>
+    setForm({
+      ...form,
+      description: e.target.value,
+    })
+  }
+/>
 
       {/* Prep Time */}
       <div className="mb-4">
@@ -549,7 +574,7 @@ export default function AddItem() {
       </button>
 
       <button
-        onClick={() => navigate("/dashboard/menu")}
+        onClick={() => navigate("/dashboard/menu/menu")}
         className="w-full py-3 mt-3 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition"
       >
         ← Cancel & Go Back

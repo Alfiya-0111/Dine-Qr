@@ -29,45 +29,67 @@ const { cart, total, clearCart, getValidCart } = useCart();
   const [paymentMethod, setPaymentMethod] = useState("online");
   const [ownerUid, setOwnerUid] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+const [paymentQR, setPaymentQR] = useState("");
+  const [upiId, setUpiId] = useState("");
+const [hotelName, setHotelName] = useState("");
   const navigate = useNavigate();
   const today = new Date().toISOString().split('T')[0];
 
   // Check if phone is required based on order type
   const isPhoneRequired = orderType === "delivery" || orderType === "takeaway";
 
-  useEffect(() => {
-    if (!restaurantId) {
-      console.log("❌ No restaurantId in URL");
+useEffect(() => {
+  if (!restaurantId) {
+    console.log("❌ No restaurantId in URL");
+    return;
+  }
+
+  const settingsRef = ref(realtimeDB, `restaurants/${restaurantId}`);
+
+  const unsubscribe = onValue(settingsRef, (snap) => {
+    if (!snap.exists()) {
+      console.log("❌ Restaurant data not found");
+      setIsLoading(false);
       return;
     }
 
-    const settingsRef = ref(realtimeDB, `restaurants/${restaurantId}`);
-    
-    const unsubscribe = onValue(settingsRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.val();
-        setRestaurantData(data);
-        setRestaurantSettings(data.settings || data);
-        
-        // 🔥🔥🔥 CRITICAL: Get ownerUid from multiple possible fields
-        const actualOwnerUid = data.ownerUid || data.adminId || data.userId || data.restaurantId;
-        setOwnerUid(actualOwnerUid);
-        
-        console.log("✅ Restaurant loaded:", data.name);
-        console.log("✅ Owner UID:", actualOwnerUid);
-      } else {
-        console.log("❌ Restaurant data not found for ID:", restaurantId);
-      }
-      setIsLoading(false);
-    });
+    const data = snap.val();
 
-    const now = new Date();
-    setOrderTime(now.toTimeString().slice(0, 5));
-    setOrderDate(today);
+    // Restaurant data
+    setRestaurantData(data);
+    setRestaurantSettings(data.settings || data);
 
-    return () => unsubscribe();
-  }, [restaurantId, today]);
+    // Owner UID
+    const actualOwnerUid =
+      data.ownerUid || data.adminId || data.userId || restaurantId;
+
+    setOwnerUid(actualOwnerUid);
+
+    // Hotel name
+    setHotelName(
+      data.name ||
+      data.settings?.name ||
+      data.settings?.hotelName ||
+      "Restaurant"
+    );
+
+    // Payment settings
+    setUpiId(data.payment?.upiId || "");
+    setPaymentNumber(data.payment?.paymentNumber || "");
+    setPaymentQR(data.payment?.paymentQR || "");
+
+    console.log("✅ Restaurant loaded:", data.name);
+    console.log("✅ Owner UID:", actualOwnerUid);
+
+    setIsLoading(false);
+  });
+
+  const now = new Date();
+  setOrderTime(now.toTimeString().slice(0, 5));
+  setOrderDate(today);
+
+  return () => unsubscribe();
+}, [restaurantId, today]);
 
   // Theme from restaurant settings
   const theme = restaurantSettings?.theme || {
@@ -76,15 +98,9 @@ const { cart, total, clearCart, getValidCart } = useCart();
   };
   
   // Hotel name from PublicMenu (same as restaurantSettings.name)
-  const hotelName = restaurantSettings?.name || 
-                    restaurantData?.name || 
-                    restaurantSettings?.hotelName || 
-                    "Restaurant";
-                    
-  const qrImage = restaurantSettings?.paymentQR;
-  
-  // 🔥🔥🔥 CRITICAL FIX: Sirf ownerUid use karo, customer UID bilkul nahi!
-  // Agar ownerUid nahi mila, toh URL wala restaurantId use karo
+const qrImage = restaurantSettings?.payment?.paymentQR;
+
+const paymentNumber = restaurantSettings?.payment?.paymentNumber;
   const effectiveRestaurantId = ownerUid || restaurantId;
   
   console.log("🔥 Effective Restaurant ID for order:", effectiveRestaurantId);
@@ -164,7 +180,7 @@ const { cart, total, clearCart, getValidCart } = useCart();
     const now = Date.now();
 
     try {
-      const maxPrepTime = Math.max(...cart.map((i) => Number(i.prepTime ?? 15)));
+const maxPrepTime = Math.max(...validCart.map((i) => Number(i.prepTime ?? 15)));
 
     const orderPayload = {
   restaurantId: effectiveRestaurantId,
@@ -275,9 +291,9 @@ const { cart, total, clearCart, getValidCart } = useCart();
         {/* Cart Summary */}
         <div className="border rounded-lg p-3 mb-4 bg-gray-50">
           <h3 className="font-semibold text-sm mb-2 text-gray-700">Order Summary</h3>
-          {cart.map((item) => (
-            <CartItem key={item.id} item={item} />
-          ))}
+         {getValidCart().map((item) => (
+  <CartItem key={item.id} item={item} />
+))}
         </div>
 
         {/* Total */}
@@ -507,17 +523,41 @@ const { cart, total, clearCart, getValidCart } = useCart();
             </label>
           </div>
 
-          {paymentMethod === "online" && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg text-center">
-              <p className="font-semibold mb-2 text-sm">Scan & Pay</p>
-              {qrImage ? (
-                <img src={qrImage} alt="UPI QR" className="w-48 h-48 mx-auto rounded-lg" />
-              ) : (
-                <p className="text-red-500 text-sm">QR code not available</p>
-              )}
-              <p className="text-xs text-gray-500 mt-2">Pay ₹{total}</p>
-            </div>
-          )}
+         {paymentMethod === "online" && (
+  <div className="border rounded-lg p-4 mb-4 text-center">
+
+    {qrImage && (
+      <img
+        src={qrImage}
+        alt="UPI QR"
+        className="w-48 mx-auto mb-3"
+      />
+    )}
+
+    {upiId && (
+      <p className="text-sm mb-1">
+        UPI ID: <b>{upiId}</b>
+      </p>
+    )}
+
+    {paymentNumber && (
+      <p className="text-sm">
+        Payment Number: <b>{paymentNumber}</b>
+      </p>
+    )}
+
+    <p className="text-xs text-gray-500 mt-2">
+      Scan QR or pay using UPI ID
+    </p>
+
+  </div>
+)}
+<a
+  href={`upi://pay?pa=${upiId}&pn=${hotelName}&am=${total}&cu=INR`}
+  className="block mt-3 px-4 py-2 bg-green-600 text-white rounded-lg text-center"
+>
+  Pay ₹{total} via UPI
+</a>
         </div>
 
         {/* Restaurant Info */}

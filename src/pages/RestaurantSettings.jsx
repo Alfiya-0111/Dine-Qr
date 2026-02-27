@@ -17,7 +17,10 @@ const [whatsappNumber, setWhatsappNumber] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [loading, setLoading] = useState(false);
   const [videoUploading, setVideoUploading] = useState(false);
-
+const [upiId, setUpiId] = useState("");
+const [paymentNumber, setPaymentNumber] = useState("");
+const [paymentQR, setPaymentQR] = useState("");
+const [paymentQRFile, setPaymentQRFile] = useState(null);
   const [theme, setTheme] = useState({
     primary: "#8A244B",
     secondary: "#ffffff",
@@ -118,34 +121,56 @@ const [whatsappNumber, setWhatsappNumber] = useState("");
   };
 
   // Load data
-  useEffect(() => {
-    if (!restaurantId) return;
-  const ref = dbRef(realtimeDB, `restaurants/${restaurantId}`);
-  onValue(ref, (snap) => {
+ useEffect(() => {
+  if (!restaurantId) return;
+
+  const restaurantRef = dbRef(realtimeDB, `restaurants/${restaurantId}`);
+
+  onValue(restaurantRef, (snap) => {
     if (!snap.exists()) return;
+
     const data = snap.val();
 
-      setName(data.name || "");
-      setLogo(data.logo || "");
-      setPhone(data.contact?.phone || "");
-      setEmail(data.contact?.email || "");
-      setAddress(data.contact?.address || "");
-      setTheme({
-        primary: data.theme?.primary || "#8A244B",
-        secondary: data.theme?.secondary || "#ffffff",
-        border: data.theme?.border || "#8A244B",
-        background: data.theme?.background || "#ffffff",
-      });
-      setAboutData({
-        heroVideo: data.about?.heroVideo || "",
-        description: data.about?.description || "",
-        sectionImage: data.about?.sectionImage || "",
-        sectionText: data.about?.sectionText || "",
-        stats: data.about?.stats || { experience: "", customers: "", dishes: "" },
-      });
-       setWhatsappNumber(data.whatsappNumber || "");
+    // Basic info
+    setName(data.name || "");
+    setLogo(data.logo || "");
+
+    // Contact
+    setPhone(data.contact?.phone || "");
+    setEmail(data.contact?.email || "");
+    setAddress(data.contact?.address || "");
+
+    // WhatsApp
+    setWhatsappNumber(data.whatsappNumber || "");
+
+    // Theme
+    setTheme({
+      primary: data.theme?.primary || "#8A244B",
+      secondary: data.theme?.secondary || "#ffffff",
+      border: data.theme?.border || "#8A244B",
+      background: data.theme?.background || "#ffffff",
     });
-  }, [restaurantId]);
+
+    // About page
+    setAboutData({
+      heroVideo: data.about?.heroVideo || "",
+      description: data.about?.description || "",
+      sectionImage: data.about?.sectionImage || "",
+      sectionText: data.about?.sectionText || "",
+      stats: data.about?.stats || {
+        experience: "",
+        customers: "",
+        dishes: "",
+      },
+    });
+
+    // ⭐ Payment data
+    setUpiId(data.payment?.upiId || "");
+    setPaymentNumber(data.payment?.paymentNumber || "");
+    setPaymentQR(data.payment?.paymentQR || "");
+  });
+
+}, [restaurantId]);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -195,58 +220,73 @@ const [whatsappNumber, setWhatsappNumber] = useState("");
   };
 
   // ✅ UPDATED: All uploads to Cloudinary
-  const handleSave = async () => {
-    try {
-      setLoading(true);
+const handleSave = async () => {
+  try {
+    setLoading(true);
 
-      // Hero Video
-      let heroVideoURL = aboutData.heroVideo;
-      if (heroVideoFile instanceof File) {
-        setVideoUploading(true);
-        setUploadProgress(0);
-        heroVideoURL = await uploadToCloudinaryWithProgress(heroVideoFile, "video");
-        setVideoUploading(false);
-      }
-
-      // Section Image → Cloudinary
-      let sectionImageURL = aboutData.sectionImage;
-      if (aboutImageFile instanceof File) {
-        sectionImageURL = await uploadImageToCloudinary(aboutImageFile);
-      }
-
-      // Logo → Cloudinary
-      let logoURL = logo;
-      if (logoFile instanceof File) {
-        logoURL = await uploadImageToCloudinary(logoFile);
-      }
-
-      // Save everything
-      await update(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
-        name,
-        logo: logoURL,
-        contact: { phone, email, address },
-           whatsappNumber,
-        theme,
-        about: {
-          heroVideo: heroVideoURL,
-          description: aboutData.description,
-          sectionText: aboutData.sectionText,
-          sectionImage: sectionImageURL,
-          stats: aboutData.stats,
-        },
-      });
-
-      setHeroVideoFile(null);
-      setAboutImageFile(null);
-      setLogoFile(null);
-      alert("✅ Saved successfully!");
-    } catch (err) {
-      console.error(err);
-      alert("❌ Error: " + err.message);
-    } finally {
-      setLoading(false);
+    // Hero Video
+    let heroVideoURL = aboutData.heroVideo;
+    if (heroVideoFile instanceof File) {
+      setVideoUploading(true);
+      setUploadProgress(0);
+      heroVideoURL = await uploadToCloudinaryWithProgress(heroVideoFile, "video");
+      setVideoUploading(false);
     }
-  };
+
+    // Section Image
+    let sectionImageURL = aboutData.sectionImage;
+    if (aboutImageFile instanceof File) {
+      sectionImageURL = await uploadImageToCloudinary(aboutImageFile);
+    }
+
+    // Logo
+    let logoURL = logo;
+    if (logoFile instanceof File) {
+      logoURL = await uploadImageToCloudinary(logoFile);
+    }
+
+    // Payment QR
+    let qrURL = paymentQR;
+    if (paymentQRFile instanceof File) {
+      qrURL = await uploadImageToCloudinary(paymentQRFile);
+    }
+
+    // Save all data
+    await update(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
+      name,
+      logo: logoURL,
+      contact: { phone, email, address },
+      whatsappNumber,
+      theme,
+
+      payment: {
+        upiId: upiId,
+        paymentNumber: paymentNumber,
+        paymentQR: qrURL,
+      },
+
+      about: {
+        heroVideo: heroVideoURL,
+        description: aboutData.description,
+        sectionText: aboutData.sectionText,
+        sectionImage: sectionImageURL,
+        stats: aboutData.stats,
+      },
+    });
+
+    setHeroVideoFile(null);
+    setAboutImageFile(null);
+    setLogoFile(null);
+    setPaymentQRFile(null);
+
+    alert("✅ Saved successfully!");
+  } catch (err) {
+    console.error(err);
+    alert("❌ Error: " + err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="max-w-3xl mx-auto p-6">
@@ -426,6 +466,49 @@ const [whatsappNumber, setWhatsappNumber] = useState("");
     className="w-full border rounded-lg px-4 py-2"
   />
   <p className="text-xs text-gray-500 mt-1">Customers will send orders to this WhatsApp number</p>
+</div>
+{/* Payment Settings */}
+<h3 className="text-xl font-bold mt-10 mb-4">Payment Settings</h3>
+
+<div className="space-y-4 mb-6">
+
+  <input
+    type="text"
+    placeholder="UPI ID (example: restaurant@upi)"
+    value={upiId}
+    onChange={(e) => setUpiId(e.target.value)}
+    className="w-full border rounded-lg px-4 py-2"
+  />
+
+  <input
+    type="text"
+    placeholder="Payment Phone Number"
+    value={paymentNumber}
+    onChange={(e) => setPaymentNumber(e.target.value)}
+    className="w-full border rounded-lg px-4 py-2"
+  />
+
+  <div>
+    <label className="block text-sm font-medium mb-1">
+      Upload UPI QR Code
+    </label>
+
+    {paymentQR && (
+      <img
+        src={paymentQR}
+        alt="QR"
+        className="w-40 mb-2 rounded border"
+      />
+    )}
+
+    <input
+      type="file"
+      accept="image/*"
+      onChange={(e) => setPaymentQRFile(e.target.files[0])}
+      className="block w-full text-sm"
+    />
+  </div>
+
 </div>
       {/* Save */}
       <button

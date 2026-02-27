@@ -135,7 +135,7 @@ export default function MenuItems() {
                     </td>
                     <td className="px-4 py-2 flex gap-2">
                       <Link
-                        to="/dashboard/add-item"
+                        to="/dashboard/add-item/add-item"
                         state={{ editData: item }}
                       >
                         <button className="bg-[#FCB53B] text-white px-3 py-1 rounded hover:opacity-90 transition">
