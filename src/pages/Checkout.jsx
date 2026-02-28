@@ -7,7 +7,7 @@ import { useCart } from "../context/CartContext";
 import CartItem from "../components/CartItem";
 
 export default function Checkout() {
-const { cart, total, clearCart, getValidCart } = useCart();
+  const { cart, total, clearCart, getValidCart } = useCart();
   const { restaurantId } = useParams();
   
   // Customer Info States
@@ -29,67 +29,69 @@ const { cart, total, clearCart, getValidCart } = useCart();
   const [paymentMethod, setPaymentMethod] = useState("online");
   const [ownerUid, setOwnerUid] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-const [paymentQR, setPaymentQR] = useState("");
+  const [paymentQR, setPaymentQR] = useState("");
   const [upiId, setUpiId] = useState("");
-const [hotelName, setHotelName] = useState("");
+  const [paymentNumber, setPaymentNumber] = useState(""); // ✅ FIXED: Added missing state
+  const [hotelName, setHotelName] = useState("");
+  
   const navigate = useNavigate();
   const today = new Date().toISOString().split('T')[0];
 
   // Check if phone is required based on order type
   const isPhoneRequired = orderType === "delivery" || orderType === "takeaway";
 
-useEffect(() => {
-  if (!restaurantId) {
-    console.log("❌ No restaurantId in URL");
-    return;
-  }
-
-  const settingsRef = ref(realtimeDB, `restaurants/${restaurantId}`);
-
-  const unsubscribe = onValue(settingsRef, (snap) => {
-    if (!snap.exists()) {
-      console.log("❌ Restaurant data not found");
-      setIsLoading(false);
+  useEffect(() => {
+    if (!restaurantId) {
+      console.log("❌ No restaurantId in URL");
       return;
     }
 
-    const data = snap.val();
+    const settingsRef = ref(realtimeDB, `restaurants/${restaurantId}`);
 
-    // Restaurant data
-    setRestaurantData(data);
-    setRestaurantSettings(data.settings || data);
+    const unsubscribe = onValue(settingsRef, (snap) => {
+      if (!snap.exists()) {
+        console.log("❌ Restaurant data not found");
+        setIsLoading(false);
+        return;
+      }
 
-    // Owner UID
-    const actualOwnerUid =
-      data.ownerUid || data.adminId || data.userId || restaurantId;
+      const data = snap.val();
 
-    setOwnerUid(actualOwnerUid);
+      // Restaurant data
+      setRestaurantData(data);
+      setRestaurantSettings(data.settings || data);
 
-    // Hotel name
-    setHotelName(
-      data.name ||
-      data.settings?.name ||
-      data.settings?.hotelName ||
-      "Restaurant"
-    );
+      // Owner UID
+      const actualOwnerUid =
+        data.ownerUid || data.adminId || data.userId || restaurantId;
 
-    // Payment settings
-    setUpiId(data.payment?.upiId || "");
-    setPaymentNumber(data.payment?.paymentNumber || "");
-    setPaymentQR(data.payment?.paymentQR || "");
+      setOwnerUid(actualOwnerUid);
 
-    console.log("✅ Restaurant loaded:", data.name);
-    console.log("✅ Owner UID:", actualOwnerUid);
+      // Hotel name
+      setHotelName(
+        data.name ||
+        data.settings?.name ||
+        data.settings?.hotelName ||
+        "Restaurant"
+      );
 
-    setIsLoading(false);
-  });
+      // Payment settings
+      setUpiId(data.payment?.upiId || "");
+      setPaymentNumber(data.payment?.paymentNumber || ""); // ✅ FIXED: Added setPaymentNumber
+      setPaymentQR(data.payment?.paymentQR || "");
 
-  const now = new Date();
-  setOrderTime(now.toTimeString().slice(0, 5));
-  setOrderDate(today);
+      console.log("✅ Restaurant loaded:", data.name);
+      console.log("✅ Owner UID:", actualOwnerUid);
 
-  return () => unsubscribe();
-}, [restaurantId, today]);
+      setIsLoading(false);
+    });
+
+    const now = new Date();
+    setOrderTime(now.toTimeString().slice(0, 5));
+    setOrderDate(today);
+
+    return () => unsubscribe();
+  }, [restaurantId, today]);
 
   // Theme from restaurant settings
   const theme = restaurantSettings?.theme || {
@@ -97,10 +99,7 @@ useEffect(() => {
     border: "#8A244B",
   };
   
-  // Hotel name from PublicMenu (same as restaurantSettings.name)
-const qrImage = restaurantSettings?.payment?.paymentQR;
-
-const paymentNumber = restaurantSettings?.payment?.paymentNumber;
+  const qrImage = restaurantSettings?.payment?.paymentQR;
   const effectiveRestaurantId = ownerUid || restaurantId;
   
   console.log("🔥 Effective Restaurant ID for order:", effectiveRestaurantId);
@@ -124,10 +123,10 @@ const paymentNumber = restaurantSettings?.payment?.paymentNumber;
   const handlePlaceOrder = async () => {
     const validCart = getValidCart();
    
-  if (validCart.length === 0) {
-    alert("Your cart has no valid items. Please add items again.");
-    return;
-  }
+    if (validCart.length === 0) {
+      alert("Your cart has no valid items. Please add items again.");
+      return;
+    }
 
     if (!auth.currentUser) {
       alert("Login required");
@@ -178,63 +177,57 @@ const paymentNumber = restaurantSettings?.payment?.paymentNumber;
     }
 
     const now = Date.now();
+    const maxPrepTime = Math.max(...validCart.map((i) => Number(i.prepTime ?? 15)));
+
+    // ✅ FIXED: Correct order payload structure
+    const orderPayload = {
+      restaurantId: effectiveRestaurantId,
+      userId: auth.currentUser.uid,
+
+      customerInfo: {
+        name: customerName.trim(),
+        phone: customerPhone.trim() || null,
+        email: customerEmail.trim() || null,
+      },
+
+      orderDetails: {
+        type: orderType,
+        tableNumber: orderType === "dine-in" ? tableNumber.trim() : null,
+        numberOfGuests: parseInt(numberOfGuests) || 1,
+        orderDate,
+        orderTime,
+        specialInstructions: specialInstructions.trim() || null,
+      },
+
+      hotelName,
+      paymentMethod,
+      paymentStatus: paymentMethod === "cash" ? "pending_cash" : "pending_online",
+
+      // ✅ FIXED: Simplified items array (removed order-level fields from items)
+      items: validCart.map((item) => ({
+        dishId: item.id,
+        name: item.name,
+        image: item.image || "",
+        qty: Number(item.qty) || 1,
+        price: Number(item.price) || 0,
+        spicePreference: item.spicePreference || "normal",
+        prepTime: Number(item.prepTime ?? 15),
+      })),
+
+      total: validCart.reduce(
+        (sum, item) => sum + (Number(item.price) || 0) * (Number(item.qty) || 1),
+        0
+      ),
+
+      // ✅ FIXED: Order-level status and timestamps (not in items)
+      status: "confirmed",
+      confirmedAt: now,
+      prepStartedAt: now,
+      prepEndsAt: now + maxPrepTime * 60000,
+      createdAt: now,
+    };
 
     try {
-const maxPrepTime = Math.max(...validCart.map((i) => Number(i.prepTime ?? 15)));
-
-    const orderPayload = {
-  restaurantId: effectiveRestaurantId,
-
-  userId: auth.currentUser.uid,
-
-  customerInfo: {
-    name: customerName.trim(),
-    phone: customerPhone.trim() || null,
-    email: customerEmail.trim() || null,
-  },
-
-  orderDetails: {
-    type: orderType,
-    tableNumber: orderType === "dine-in" ? tableNumber.trim() : null,
-    numberOfGuests: parseInt(numberOfGuests) || 1,
-    orderDate,
-    orderTime,
-    specialInstructions: specialInstructions.trim() || null,
-  },
-
-  hotelName,
-  paymentMethod,
-  paymentStatus: paymentMethod === "cash" ? "pending_cash" : "pending_online",
-
-  items: validCart.map((item) => {
-    const prepTime = Number(item.prepTime ?? 15);
-
-    return {
-      dishId: item.id,
-      name: item.name,
-      image: item.image || "",
-      qty: Number(item.qty) || 1,
-      price: Number(item.price) || 0,
-      spicePreference: item.spicePreference || "normal",
-      prepTime,
-       status: "confirmed",
-     confirmedAt: now,
-    prepStartedAt: now,
-    prepEndsAt: now + maxPrepTime * 60000,
-    };
-  }),
-
-  total: validCart.reduce(
-    (sum, item) => sum + (Number(item.price) || 0) * (Number(item.qty) || 1),
-    0
-  ),
-
-  prepStartedAt: now,
-  prepEndsAt: now + maxPrepTime * 60000,
-  status: "preparing",
-  createdAt: now,
-};
-
       console.log("📝 Saving order with restaurantId:", effectiveRestaurantId);
       console.log("📝 Order items:", orderPayload.items);
       
@@ -291,9 +284,9 @@ const maxPrepTime = Math.max(...validCart.map((i) => Number(i.prepTime ?? 15)));
         {/* Cart Summary */}
         <div className="border rounded-lg p-3 mb-4 bg-gray-50">
           <h3 className="font-semibold text-sm mb-2 text-gray-700">Order Summary</h3>
-         {getValidCart().map((item) => (
-  <CartItem key={item.id} item={item} />
-))}
+          {getValidCart().map((item) => (
+            <CartItem key={item.id} item={item} />
+          ))}
         </div>
 
         {/* Total */}
@@ -523,41 +516,42 @@ const maxPrepTime = Math.max(...validCart.map((i) => Number(i.prepTime ?? 15)));
             </label>
           </div>
 
-         {paymentMethod === "online" && (
-  <div className="border rounded-lg p-4 mb-4 text-center">
+          {/* ✅ FIXED: Online payment section with UPI link inside conditional */}
+          {paymentMethod === "online" && (
+            <div className="border rounded-lg p-4 mb-4 text-center mt-3">
+              {qrImage && (
+                <img
+                  src={qrImage}
+                  alt="UPI QR"
+                  className="w-48 mx-auto mb-3"
+                />
+              )}
 
-    {qrImage && (
-      <img
-        src={qrImage}
-        alt="UPI QR"
-        className="w-48 mx-auto mb-3"
-      />
-    )}
+              {upiId && (
+                <p className="text-sm mb-1">
+                  UPI ID: <b>{upiId}</b>
+                </p>
+              )}
 
-    {upiId && (
-      <p className="text-sm mb-1">
-        UPI ID: <b>{upiId}</b>
-      </p>
-    )}
+              {paymentNumber && (
+                <p className="text-sm">
+                  Payment Number: <b>{paymentNumber}</b>
+                </p>
+              )}
 
-    {paymentNumber && (
-      <p className="text-sm">
-        Payment Number: <b>{paymentNumber}</b>
-      </p>
-    )}
+              <p className="text-xs text-gray-500 mt-2">
+                Scan QR or pay using UPI ID
+              </p>
 
-    <p className="text-xs text-gray-500 mt-2">
-      Scan QR or pay using UPI ID
-    </p>
-
-  </div>
-)}
-<a
-  href={`upi://pay?pa=${upiId}&pn=${hotelName}&am=${total}&cu=INR`}
-  className="block mt-3 px-4 py-2 bg-green-600 text-white rounded-lg text-center"
->
-  Pay ₹{total} via UPI
-</a>
+              {/* ✅ FIXED: UPI Link is now inside online payment block */}
+              <a
+                href={`upi://pay?pa=${upiId}&pn=${hotelName}&am=${total}&cu=INR`}
+                className="block mt-3 px-4 py-2 bg-green-600 text-white rounded-lg text-center hover:bg-green-700 transition-colors"
+              >
+                Pay ₹{total} via UPI
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Restaurant Info */}

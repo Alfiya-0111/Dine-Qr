@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import { ref, onValue, update, remove } from "firebase/database";
+import { useEffect, useState } from "react";
+import { ref, onValue, update, remove, set } from "firebase/database"; // 🔥 ADDED 'set' here
 import { realtimeDB } from "../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { initWhatsAppAutoProcessor } from "../utils/whatsappAutoProcessor";
@@ -14,8 +14,9 @@ export default function AdminOrders() {
   const [customFilter, setCustomFilter] = useState(false);
   const [showAllOrders, setShowAllOrders] = useState(true);
   const [debugInfo, setDebugInfo] = useState({ total: 0, matched: 0, rejected: [], statuses: {} });
+
   const [autoCompleteEnabled, setAutoCompleteEnabled] = useState(true);
-  
+
   const auth = getAuth();
 
   const MY_RESTAURANT_IDS = [
@@ -23,73 +24,357 @@ export default function AdminOrders() {
     "NhIbH4whfIWIUu4raonrqlEiYUr1",
   ];
 
+  // Auth listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
+        console.log("✅ Admin authenticated:", user.uid);
         setRestaurantId(user.uid);
       } else {
+        console.log("❌ No admin user");
         setRestaurantId(null);
       }
       setLoading(false);
     });
     return () => unsubscribe();
   }, []);
-  useEffect(() => {
-  const unsubscribe = initWhatsAppAutoProcessor(restaurantId);
-  return () => unsubscribe();
-}, [restaurantId]);
-// AdminOrders.js में add करो - existing useEffect के अंदर
 
+  // 🔥🔥🔥 MAIN ORDERS LISTENER - Sab orders yahan se aayenge
+  useEffect(() => {
+    if (!restaurantId) {
+      console.log("ℹ️ No restaurantId, skipping orders listener");
+      return;
+    }
+
+    console.log("🔥 Starting MAIN orders listener for:", restaurantId);
+
+    // 🔥 Main 'orders' node se listen karo - yahan sab orders hain
+    const ordersRef = ref(realtimeDB, 'orders');
+
+    const unsubscribeOrders = onValue(ordersRef, (snapshot) => {
+      const data = snapshot.val();
+
+      if (!data) {
+        console.log("ℹ️ No orders in main node");
+        setOrders([]);
+        return;
+      }
+
+      console.log("📦 Total orders in Firebase:", Object.keys(data).length);
+
+      // 🔥 Filter orders for this restaurant
+      const myOrders = Object.entries(data).filter(([orderId, order]) => {
+        const orderRestId = String(order?.restaurantId || "").trim();
+        const currentUserId = String(restaurantId || "").trim();
+
+        // 🔥 Match condition: order.restaurantId === admin.uid
+        const isMyOrder = orderRestId === currentUserId || 
+                         orderRestId === restaurantId ||
+                         MY_RESTAURANT_IDS.includes(orderRestId);
+
+        if (isMyOrder) {
+          console.log(`✅ Order ${orderId.slice(-6)} matched:`, {
+            orderRestId,
+            currentUserId,
+            status: order?.status,
+            type: order?.type || 'regular'
+          });
+        }
+
+        return isMyOrder;
+      }).map(([id, order]) => ({
+        id,
+        ...order,
+        source: order?.type || order?.source || 'regular'
+      }));
+
+      console.log("✅ My orders count:", myOrders.length);
+      setOrders(myOrders);
+
+      // Debug info update
+      setDebugInfo(prev => ({
+        ...prev,
+        total: Object.keys(data).length,
+        matched: myOrders.length,
+        statuses: myOrders.reduce((acc, o) => {
+          acc[o.status] = (acc[o.status] || 0) + 1;
+          return acc;
+        }, {})
+      }));
+    });
+
+    return () => {
+      console.log("🛑 Stopping main orders listener");
+      unsubscribeOrders();
+    };
+  }, [restaurantId]);
+
+  // 🔥 WHATSAPP LISTENER - Simplified version
+// 🔥 WHATSAPP AUTO-PROCESSOR - External utility use karo
 useEffect(() => {
   if (!restaurantId) return;
 
-  // 🔥🔥🔥 WHATSAPP AUTO-PROCESSOR
-  const whatsappOrdersRef = ref(realtimeDB, `whatsappOrders/${restaurantId}`);
+  console.log("🔥 Initializing WhatsApp Auto Processor for:", restaurantId);
   
-  const unsubscribeWhatsApp = onValue(whatsappOrdersRef, async (snapshot) => {
-    const orders = snapshot.val();
-    if (!orders) return;
-
-    Object.entries(orders).forEach(async ([orderId, order]) => {
-      // Sirf "new" status wale orders ko auto-process karo
-      if (order.whatsappStatus === "new") {
-        console.log(` Auto-processing WhatsApp order: ${orderId}`);
-        
-        const now = Date.now();
-        const maxPrepTime = Math.max(...(order.items || []).map(i => i.prepTime || 15));
-        
-        try {
-          // Immediately confirm kar do
-          await update(ref(realtimeDB), {
-            [`orders/${orderId}/status`]: "confirmed",
-            [`orders/${orderId}/confirmedAt`]: now,
-            [`orders/${orderId}/prepStartedAt`]: now,
-            [`orders/${orderId}/prepEndsAt`]: now + (maxPrepTime * 60 * 1000),
-            [`orders/${orderId}/autoConfirmed`]: true,
-            [`whatsappOrders/${restaurantId}/${orderId}/whatsappStatus`]: "auto_confirmed",
-            [`whatsappOrders/${restaurantId}/${orderId}/autoConfirmedAt`]: now
-          });
-          
-          console.log(`✅ Order ${orderId} auto-confirmed`);
-          
-        } catch (error) {
-          console.error("Auto-confirm error:", error);
-        }
-      }
-    });
-  });
-
-  // Regular orders listener
-  const ordersRef = ref(realtimeDB, "orders");
-  const unsubscribeOrders = onValue(ordersRef, (snapshot) => {
-    // ... existing code ...
-  });
-
+  // External utility function call karo
+  const unsubscribe = initWhatsAppAutoProcessor(restaurantId);
+  
   return () => {
-    unsubscribeWhatsApp();
-    unsubscribeOrders();
+    console.log("🛑 Stopping WhatsApp Auto Processor");
+    unsubscribe();
   };
 }, [restaurantId]);
+
+  // 🔥 Simplified auto-confirm function
+  // const autoConfirmOrder = async (orderId, order) => {
+  //   try {
+  //     const now = Date.now();
+  //     const maxPrepTime = Math.max(...(order.items || []).map(i => i.prepTime || 15));
+      
+  //     console.log(`🚀 Auto-confirming: ${orderId}`);
+
+  //     // 1. Update main orders node
+  //     await update(ref(realtimeDB, `orders/${orderId}`), {
+  //       status: "confirmed",
+  //       confirmedAt: now,
+  //       prepStartedAt: now,
+  //       prepEndsAt: now + (maxPrepTime * 60 * 1000),
+  //       autoConfirmed: true,
+  //       updatedAt: now,
+  //       whatsappStatus: "auto_confirmed"
+  //     });
+
+  //     // 2. Update whatsappOrders node
+  //     await update(ref(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
+  //       whatsappStatus: "auto_confirmed",
+  //       status: "confirmed",
+  //       autoConfirmedAt: now,
+  //       updatedAt: now,
+  //       processing: false
+  //     });
+
+  //     // 3. Create kitchen order (optional - skip if permission issues)
+  //     try {
+  //       await set(ref(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`), {
+  //         ...order,
+  //         kitchenStatus: "confirmed",
+  //         status: "confirmed",
+  //         confirmedAt: now,
+  //         prepStartedAt: now,
+  //         prepEndsAt: now + (maxPrepTime * 60 * 1000),
+  //         updatedAt: now
+  //       });
+  //     } catch (kitchenErr) {
+  //       console.log("⚠️ Kitchen order skipped:", kitchenErr.message);
+  //     }
+
+  //     console.log(`✅ Auto-confirmed: ${orderId}`);
+      
+  //     // Show success toast
+  //     if (typeof toast !== 'undefined') {
+  //       toast.success(`Order #${orderId.slice(-6)} auto-confirmed!`);
+  //     }
+
+  //   } catch (error) {
+  //     console.error(`❌ Auto-confirm failed:`, error);
+      
+  //     // Reset processing flag
+  //     await update(ref(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
+  //       processing: false,
+  //       error: error.message
+  //     }).catch(() => {});
+  //   }
+  // };
+
+  // Timer update har second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const currentTime = Date.now();
+      setNow(currentTime);
+
+      if (autoCompleteEnabled) {
+        orders.forEach(order => {
+          if (order.status === 'preparing' && order.prepEndsAt && currentTime >= order.prepEndsAt) {
+            console.log(`⏰ Auto-completing order ${order.id}`);
+            updateStatus(order.id, "completed");
+          }
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [orders, autoCompleteEnabled]);
+
+  const deleteOrder = async (id) => {
+    if (!window.confirm("Delete this order permanently?")) return;
+    try {
+      await remove(ref(realtimeDB, `orders/${id}`));
+      // 🔥 Also delete from whatsappOrders if exists
+      await remove(ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`)).catch(() => {});
+      await remove(ref(realtimeDB, `kitchenOrders/${restaurantId}/${id}`)).catch(() => {});
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("Failed to delete order");
+    }
+  };
+
+  // 🔥🔥🔥 MANUAL BILL GENERATION
+  const generateBill = async (order) => {
+    try {
+      if (order.bill) {
+        alert("Bill already generated! User can view it.");
+        return;
+      }
+
+      const billData = {
+        orderId: order.id,
+        customerName: order.customerInfo?.name || order.customerName,
+        hotelName: order.hotelName,
+        orderDate: order.orderDetails?.orderDate || order.orderDate,
+        total: order.total,
+        items: order.items,
+        generatedAt: Date.now(),
+        generatedBy: "admin",
+        status: "ready_for_customer"
+      };
+
+      // ✅ Individual update
+      const orderRef = ref(realtimeDB, `orders/${order.id}`);
+      await update(orderRef, { 
+        bill: billData,
+        billGeneratedAt: Date.now()
+      });
+
+      alert("✅ Bill Generated! Customer can now view and download it.");
+    } catch (error) {
+      console.error("Bill generation error:", error);
+      alert("Failed to generate bill");
+    }
+  };
+
+  const updatePaymentStatus = async (orderId, status) => {
+    try {
+      const orderRef = ref(realtimeDB, `orders/${orderId}`);
+      await update(orderRef, { paymentStatus: status });
+    } catch (error) {
+      console.error("Payment update error:", error);
+    }
+  };
+
+  // 🔥🔥🔥 FIXED updateStatus function
+  const updateStatus = async (id, status) => {
+    try {
+      const now = Date.now();
+      
+      // 1. Update main orders node
+      const orderRef = ref(realtimeDB, `orders/${id}`);
+      await update(orderRef, { 
+        status,
+        completedAt: status === "completed" ? now : null,
+        updatedAt: now
+      });
+      console.log(`✅ Order ${id} status updated to ${status}`);
+
+      // 2. Update whatsappOrders node (if exists) - 🔥 FIXED: Use set if update fails
+      try {
+        const whatsappRef = ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`);
+        await update(whatsappRef, {
+          status,
+          whatsappStatus: status,
+          updatedAt: now
+        });
+        console.log("✅ WhatsApp orders updated");
+      } catch (err) {
+        console.log("ℹ️ WhatsApp orders update failed, trying set:", err.message);
+        // 🔥 Try to create/update using set as fallback
+        try {
+          const whatsappRef = ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`);
+          await set(whatsappRef, {
+            status,
+            whatsappStatus: status,
+            updatedAt: now,
+            orderId: id,
+            restaurantId: restaurantId
+          });
+          console.log("✅ WhatsApp orders created/updated with set");
+        } catch (setErr) {
+          console.log("ℹ️ WhatsApp orders set also failed:", setErr.message);
+        }
+      }
+
+      // 3. Update kitchenOrders node with proper error handling
+      try {
+        const kitchenRef = ref(realtimeDB, `kitchenOrders/${restaurantId}/${id}`);
+        
+        // Check if kitchen order exists
+        const kitchenSnap = await new Promise((resolve) => {
+          onValue(kitchenRef, resolve, { onlyOnce: true });
+        });
+        
+        if (kitchenSnap.exists()) {
+          // Kitchen order exists - update it
+          await update(kitchenRef, {
+            status,
+            kitchenStatus: status,
+            updatedAt: now
+          });
+          console.log("✅ Kitchen orders updated");
+        } else {
+          // Kitchen order doesn't exist - create it
+          const orderSnap = await new Promise((resolve) => {
+            onValue(ref(realtimeDB, `orders/${id}`), resolve, { onlyOnce: true });
+          });
+          
+          if (orderSnap.exists()) {
+            const orderData = orderSnap.val();
+            await set(kitchenRef, {
+              ...orderData,
+              id,
+              status,
+              kitchenStatus: status,
+              updatedAt: now
+            });
+            console.log("✅ Kitchen order created during status update");
+          }
+        }
+      } catch (kitchenErr) {
+        console.error("❌ KitchenOrders update failed:", kitchenErr.message);
+        // Don't throw - let the main order update succeed
+      }
+
+    } catch (error) {
+      console.error("❌ Status update error:", error);
+      alert("Failed to update status: " + error.message);
+    }
+  };
+
+  const isMyRestaurantOrder = (order) => {
+    if (!order) return false;
+
+    if (showAllOrders) return true;
+
+    const orderRestId = String(order.restaurantId || "").trim();
+    const orderUserId = String(order.userId || "").trim();
+    const orderAdminId = String(order.adminId || "").trim();
+    const orderHotelId = String(order.hotelId || "").trim();
+    const currentUserId = String(restaurantId || "").trim();
+
+    const isMatch = MY_RESTAURANT_IDS.some(id => 
+      orderRestId === id || orderUserId === id || orderAdminId === id || orderHotelId === id
+    ) || (currentUserId && (
+      orderRestId === currentUserId || orderUserId === currentUserId || 
+      orderAdminId === currentUserId || orderHotelId === currentUserId
+    ));
+
+    return isMatch;
+  };
+
+  const normalizeItems = (items) => {
+    if (!items) return [];
+    if (Array.isArray(items)) return items;
+    if (typeof items === 'object') return Object.values(items);
+    return [];
+  };
 
   const isToday = (ts) => {
     if (!ts || isNaN(ts)) return false;
@@ -132,216 +417,6 @@ useEffect(() => {
     return orderDate >= startDate && orderDate <= endDate;
   };
 
-  // Timer update har second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const currentTime = Date.now();
-      setNow(currentTime);
-      
-      // Auto-complete logic
-      if (autoCompleteEnabled) {
-        orders.forEach(order => {
-          if (order.status === 'preparing' && order.prepEndsAt && currentTime >= order.prepEndsAt) {
-            console.log(`⏰ Auto-completing order ${order.id}`);
-            // 🔥 Sirf status complete karo, bill nahi generate karo
-            updateStatus(order.id, "completed");
-          }
-        });
-      }
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, [orders, autoCompleteEnabled]);
-
-  const deleteOrder = async (id) => {
-    if (!window.confirm("Delete this order permanently?")) return;
-    try {
-      await remove(ref(realtimeDB, `orders/${id}`));
-    } catch (error) {
-      console.error("Delete error:", error);
-      alert("Failed to delete order");
-    }
-  };
-
-  // 🔥🔥🔥 MANUAL BILL GENERATION - Complete hone ke baad alag se button
-  const generateBill = async (order) => {
-    try {
-      // Check if already has bill
-      if (order.bill) {
-        alert("Bill already generated! User can view it.");
-        return;
-      }
-
-      const billData = {
-        orderId: order.id,
-        customerName: order.customerInfo?.name || order.customerName,
-        hotelName: order.hotelName,
-        orderDate: order.orderDetails?.orderDate || order.orderDate,
-        total: order.total,
-        items: order.items,
-        generatedAt: Date.now(),
-        generatedBy: "admin", // 🔥 Track ki admin ne generate kiya
-        status: "ready_for_customer" // 🔥 Bill ready hai customer ke liye
-      };
-
-      await update(ref(realtimeDB, `orders/${order.id}`), { 
-        bill: billData,
-        billGeneratedAt: Date.now() // 🔥 Timestamp add karo
-      });
-      
-      alert("✅ Bill Generated! Customer can now view and download it.");
-    } catch (error) {
-      console.error("Bill generation error:", error);
-      alert("Failed to generate bill");
-    }
-  };
-
-  const updatePaymentStatus = async (orderId, status) => {
-    try {
-      await update(ref(realtimeDB, `orders/${orderId}`), { paymentStatus: status });
-    } catch (error) {
-      console.error("Payment update error:", error);
-    }
-  };
-
-  const updateStatus = async (id, status) => {
-    try {
-      await update(ref(realtimeDB, `orders/${id}`), { 
-        status,
-        completedAt: status === "completed" ? Date.now() : null // 🔥 completedAt add karo
-      });
-    } catch (error) {
-      console.error("Status update error:", error);
-    }
-  };
-
-  const isMyRestaurantOrder = (order) => {
-    if (!order) return false;
-    
-    if (showAllOrders) return true;
-    
-    const orderRestId = String(order.restaurantId || "").trim();
-    const orderUserId = String(order.userId || "").trim();
-    const orderAdminId = String(order.adminId || "").trim();
-    const orderHotelId = String(order.hotelId || "").trim();
-    const currentUserId = String(restaurantId || "").trim();
-    
-    const isMatch = MY_RESTAURANT_IDS.some(id => 
-      orderRestId === id || orderUserId === id || orderAdminId === id || orderHotelId === id
-    ) || (currentUserId && (
-      orderRestId === currentUserId || orderUserId === currentUserId || 
-      orderAdminId === currentUserId || orderHotelId === currentUserId
-    ));
-    
-    return isMatch;
-  };
-
-  const normalizeItems = (items) => {
-    if (!items) return [];
-    if (Array.isArray(items)) return items;
-    if (typeof items === 'object') return Object.values(items);
-    return [];
-  };
-
-  useEffect(() => {
-    if (!restaurantId) return;
-
-    const ordersRef = ref(realtimeDB, "orders");
-
-    const unsubscribe = onValue(ordersRef, (snap) => {
-      if (!snap.exists()) {
-        setOrders([]);
-        setDishStats({});
-        return;
-      }
-
-      const data = snap.val();
-      const allOrders = [];
-      const stats = {};
-      const debug = { 
-        total: 0, 
-        matched: 0, 
-        rejected: [],
-        statuses: {}
-      };
-
-      Object.entries(data).forEach(([id, rawOrder]) => {
-        debug.total++;
-        
-        const order = JSON.parse(JSON.stringify(rawOrder));
-        order.id = id;
-        
-        const status = order.status || 'unknown';
-        debug.statuses[status] = (debug.statuses[status] || 0) + 1;
-        
-        if (!isMyRestaurantOrder(order)) {
-          debug.rejected.push({ 
-            id, 
-            restaurantId: order.restaurantId, 
-            userId: order.userId,
-            status: order.status 
-          });
-          return;
-        }
-        
-        debug.matched++;
-
-        let validCreatedAt = order.createdAt;
-        if (!validCreatedAt || isNaN(validCreatedAt)) {
-          validCreatedAt = Date.now();
-        }
-
-        const normalizedOrder = {
-          ...order,
-          id,
-          createdAt: validCreatedAt,
-          items: normalizeItems(order.items),
-          status: order.status || 'preparing',
-          customerName: order.customerInfo?.name || order.customerName || order.bill?.customerName || "Guest",
-          customerPhone: order.customerInfo?.phone || order.customerPhone || "N/A",
-          customerInfo: {
-            name: order.customerInfo?.name || order.customerName || "Guest",
-            phone: order.customerInfo?.phone || order.customerPhone || "N/A",
-            email: order.customerInfo?.email || "",
-            ...order.customerInfo
-          }
-        };
-
-        allOrders.push(normalizedOrder);
-
-        if (normalizedOrder.items) {
-          normalizedOrder.items.forEach((item) => {
-            if (!item || !item.dishId) return;
-            
-            if (!stats[item.dishId]) {
-              stats[item.dishId] = {
-                name: item.name || "Unknown",
-                image: item.image || "",
-                today: 0, yesterday: 0, week: 0, month: 0, total: 0,
-              };
-            }
-
-            const qty = Number(item.qty) || 0;
-            stats[item.dishId].total += qty;
-            if (isToday(validCreatedAt)) stats[item.dishId].today += qty;
-            if (isYesterday(validCreatedAt)) stats[item.dishId].yesterday += qty;
-            if (isThisWeek(validCreatedAt)) stats[item.dishId].week += qty;
-            if (isThisMonth(validCreatedAt)) stats[item.dishId].month += qty;
-          });
-        }
-      });
-
-      allOrders.sort((a, b) => b.createdAt - a.createdAt);
-      
-      console.log("✅ Orders loaded:", allOrders.length, "Debug:", debug);
-      setDebugInfo(debug);
-      setOrders(allOrders);
-      setDishStats(stats);
-    });
-
-    return () => unsubscribe();
-  }, [restaurantId, showAllOrders]);
-
   const getRemainingTime = (order) => {
     if (!order.prepEndsAt || isNaN(order.prepEndsAt)) return 0;
     const remaining = Math.ceil(Math.max(0, order.prepEndsAt - now) / 60000);
@@ -349,26 +424,6 @@ useEffect(() => {
   };
 
   const getFilteredValue = (dish) => dish[selectedFilter] || 0;
-
-  const getPaymentBadge = (order) => {
-    const method = order.paymentMethod || "online";
-    const status = order.paymentStatus || "pending";
-    
-    if (method === "cash") {
-      if (status === "pending_cash") {
-        return <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-bold">💵 Cash Pending</span>;
-      }
-      return <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold">💵 Cash Received</span>;
-    }
-    
-    if (status === "pending_online") {
-      return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-bold">💳 Online Pending</span>;
-    }
-    if (status === "paid_online") {
-      return <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold">💳 Online Paid</span>;
-    }
-    return <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-bold">💳 Payment</span>;
-  };
 
   const getFilteredOrders = () => {
     let filtered = orders;
@@ -383,15 +438,15 @@ useEffect(() => {
         case "yesterday":
           filtered = filtered.filter(order => isYesterday(order.createdAt));
           break;
-          case "week":
-            filtered = filtered.filter(order => isThisWeek(order.createdAt));
-            break;
-            case "month":
-              filtered = filtered.filter(order => isThisMonth(order.createdAt));
-              break;
-              case "total":
-                default:
-                  break;
+        case "week":
+          filtered = filtered.filter(order => isThisWeek(order.createdAt));
+          break;
+        case "month":
+          filtered = filtered.filter(order => isThisMonth(order.createdAt));
+          break;
+        case "total":
+        default:
+          break;
       }
     }
 
@@ -399,14 +454,14 @@ useEffect(() => {
   };
 
   const filteredOrders = getFilteredOrders();
-  
+
   const COMPLETED_STATUSES = ['completed', 'delivered', 'cancelled', 'rejected'];
-  
+
   const activeOrders = filteredOrders.filter(order => {
     const status = (order.status || '').toString().toLowerCase().trim();
     return !COMPLETED_STATUSES.includes(status);
   });
-  
+
   const completedOrders = filteredOrders.filter(order => {
     const status = (order.status || '').toString().toLowerCase().trim();
     return COMPLETED_STATUSES.includes(status);
@@ -418,17 +473,14 @@ useEffect(() => {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h2 className="text-2xl font-bold mb-4">🍽 Orders Dashboard</h2>
-      
+
       {/* DEBUG PANEL */}
       <div className="bg-red-100 p-3 mb-4 text-xs rounded border border-red-400">
         <p><strong>🐛 DEBUG:</strong> Admin ID: {restaurantId}</p>
-        <p>Total in Firebase: {debugInfo.total} | Matched: {debugInfo.matched} | Showing: {orders.length}</p>
-        <p>Rejected: {debugInfo.rejected?.length || 0}</p>
+        {/* <p>Total Orders: {orders.length} | WhatsApp Orders: {whatsappOrders.length}</p> */}
+        <p>Active: {activeOrders.length} | Completed: {completedOrders.length}</p>
         <p className="font-bold text-red-700">
           Status Distribution: {JSON.stringify(debugInfo.statuses)}
-        </p>
-        <p className="font-bold text-blue-700">
-          🟡 Active: {activeOrders.length} | ✅ Completed: {completedOrders.length}
         </p>
       </div>
 
@@ -461,7 +513,7 @@ useEffect(() => {
       {/* Date Filter Controls */}
       <div className="bg-white p-4 rounded-lg border mb-6 shadow-sm">
         <h3 className="font-bold mb-3">📅 Date Filter</h3>
-        
+
         <div className="flex gap-2 mb-4 flex-wrap">
           {[
             { key: "today", label: "Today" },
@@ -539,7 +591,7 @@ useEffect(() => {
         🟡 Active Orders 
         <span className="bg-yellow-500 text-white px-2 py-1 rounded-full text-sm">{activeOrders.length}</span>
       </h3>
-      
+
       {activeOrders.length === 0 ? (
         <div className="bg-gray-100 p-8 rounded text-center mb-8 border-2 border-dashed border-gray-300">
           <p className="text-gray-500 text-lg">No active orders</p>
@@ -567,7 +619,7 @@ useEffect(() => {
         ✅ Completed Orders
         <span className="bg-green-500 text-white px-2 py-1 rounded-full text-sm">{completedOrders.length}</span>
       </h3>
-      
+
       {completedOrders.length === 0 ? (
         <div className="bg-gray-100 p-8 rounded text-center mb-8 border-2 border-dashed border-gray-300">
           <p className="text-gray-500">No completed orders yet</p>
@@ -594,6 +646,10 @@ useEffect(() => {
 
 // Order Card Component
 function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePayment, onGenerateBill, autoCompleteEnabled }) {
+
+  // 🔥🔥🔥 WHATSAPP ORDER CHECK
+  const isWhatsAppOrder = order.source === 'whatsapp' || order.type === 'whatsapp' || order.whatsappStatus;
+
   const getRemainingTime = (prepEndsAt) => {
     if (!prepEndsAt || isNaN(prepEndsAt)) return 0;
     const remaining = Math.ceil(Math.max(0, prepEndsAt - now) / 60000);
@@ -601,7 +657,7 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
   };
 
   const remainingMinutes = isActive ? getRemainingTime(order.prepEndsAt) : 0;
-  
+
   const getTimerColor = () => {
     if (remainingMinutes <= 0) return "text-red-600 font-bold";
     if (remainingMinutes <= 2) return "text-orange-600 font-bold";
@@ -611,14 +667,14 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
   const getPaymentBadge = (order) => {
     const method = order.paymentMethod || "online";
     const status = order.paymentStatus || "pending";
-    
+
     if (method === "cash") {
       if (status === "pending_cash") {
         return <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-bold">💵 Cash Pending</span>;
       }
       return <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold">💵 Cash Received</span>;
     }
-    
+
     if (status === "pending_online") {
       return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-bold">💳 Online Pending</span>;
     }
@@ -634,12 +690,19 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
         isActive 
           ? order.status === "ready" ? "border-green-500 bg-green-50" : "border-yellow-300 bg-yellow-50"
           : "border-blue-300 bg-blue-50"
-      }`}
+      } ${isWhatsAppOrder ? 'border-l-4 border-l-green-500' : ''}`}
     >
       <div className="flex justify-between items-start mb-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <p className="font-bold text-sm">Order #{order.id?.slice(-6) || 'N/A'}</p>
+            <p className="font-bold text-sm">
+              Order #{order.id?.slice(-6) || 'N/A'}
+              {isWhatsAppOrder && (
+                <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">
+                  📱 WhatsApp
+                </span>
+              )}
+            </p>
             {getPaymentBadge(order)}
             {!isActive && <span className="px-2 py-1 bg-blue-200 text-blue-800 rounded text-xs">✅ Completed</span>}
             {isActive && remainingMinutes <= 0 && (
@@ -651,7 +714,7 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
           <p className="text-xs text-gray-500">
             📅 {order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"}
           </p>
-          
+
           {isActive && order.status === "preparing" && (
             <div className="mt-2 flex items-center gap-2">
               <span className="text-xs text-gray-600">⏱️ Remaining:</span>
@@ -664,7 +727,7 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
             </div>
           )}
         </div>
-        
+
         <div className="flex flex-col items-end gap-1">
           <span className={`text-xs font-bold capitalize px-2 py-1 rounded ${
             order.status === 'ready' ? 'bg-green-200 text-green-800' :
@@ -674,7 +737,7 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
           }`}>
             {order.status || 'unknown'}
           </span>
-          
+
           {isActive && order.prepEndsAt && order.prepStartedAt && (
             <div className="w-24 h-1 bg-gray-200 rounded-full mt-1 overflow-hidden">
               <div 
@@ -709,7 +772,7 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
         <h4 className="text-xs font-bold text-gray-700 mb-2">📋 Order Details</h4>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <p><span className="text-gray-500">Type:</span> 
-            <span className="capitalize font-medium ml-1">{order.orderDetails?.type || "dine-in"}</span>
+            <span className="capitalize font-medium ml-1">{order.orderDetails?.type || order.type || "dine-in"}</span>
           </p>
           {order.orderDetails?.tableNumber && (
             <p><span className="text-gray-500">Table:</span> #{order.orderDetails.tableNumber}</p>
@@ -762,7 +825,7 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
                   Mark Ready
                 </button>
               )}
-              
+
               <button 
                 onClick={() => onUpdateStatus(order.id, "completed")}
                 className={`px-3 py-1 rounded-lg text-xs ${
@@ -775,8 +838,7 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
               </button>
             </>
           )}
-          
-          {/* 🔥🔥🔥 MANUAL BILL BUTTON - Only for completed orders without bill */}
+
           {!isActive && order.status === 'completed' && !order.bill && (
             <button 
               onClick={() => onGenerateBill(order)}
@@ -785,14 +847,13 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
               🧾 Generate Bill
             </button>
           )}
-          
-          {/* 🔥 Bill already generated indicator */}
+
           {order.bill && (
             <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold">
               ✅ Bill Ready
             </span>
           )}
-          
+
           <button onClick={() => onDelete(order.id)}
             className="px-3 py-1 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700">
             Delete

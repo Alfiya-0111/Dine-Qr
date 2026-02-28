@@ -646,40 +646,38 @@ Sent via DineQR
 
 const handleDirectWhatsApp = async (item, customerData = null) => {
   const user = auth.currentUser;
+  
   if (!user) {
+    console.error("❌ No authenticated user");
     requireLogin();
     return;
   }
 
-  console.log("Full restaurantSettings:", restaurantSettings);
-  console.log("whatsappNumber:", restaurantSettings?.whatsappNumber);
-  console.log("contact:", restaurantSettings?.contact);
+  try {
+    await user.getIdToken(true);
+    console.log("✅ Token refreshed");
+  } catch (tokenError) {
+    console.error("❌ Token refresh failed:", tokenError);
+    requireLogin();
+    return;
+  }
 
-  let phone = null;
+  console.log("🔥 Creating WhatsApp order for restaurant:", restaurantId);
+  console.log("🔥 Current user:", user.uid);
+
+  let phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
   
-  if (restaurantSettings?.whatsappNumber) {
-    phone = restaurantSettings.whatsappNumber;
-    console.log("Using whatsappNumber:", phone);
-  }
-  else if (restaurantSettings?.contact?.phone) {
-    phone = restaurantSettings.contact.phone;
-    console.log("Using contact.phone:", phone);
-  }
-  else {
-    alert("❌ Restaurant WhatsApp number not found. Please check settings.");
+  if (!phone) {
+    toast.error("❌ Restaurant WhatsApp number not found.");
     return;
   }
 
   let cleanPhone = phone.toString().replace(/\D/g, '');
-  
-  console.log("Clean phone:", cleanPhone);
-
   if (!cleanPhone || cleanPhone.length < 10) {
-    alert("❌ Invalid WhatsApp number. Please check restaurant settings.");
+    toast.error("❌ Invalid WhatsApp number.");
     return;
   }
 
-  // 🔥🔥🔥 FIX: Order ko Firebase mein bhi save karo (jaise placeWhatsAppOrder mein hota hai)
   try {
     const orderRef = push(rtdbRef(realtimeDB, 'orders'));
     const orderId = orderRef.key;
@@ -687,7 +685,7 @@ const handleDirectWhatsApp = async (item, customerData = null) => {
     const enrichedItem = {
       dishId: item.id,
       name: item.name,
-      qty: 1, // Single item order
+      qty: 1,
       price: item.price,
       image: item.image || item.imageUrl || "",
       prepTime: item.prepTime || 15,
@@ -707,13 +705,13 @@ const handleDirectWhatsApp = async (item, customerData = null) => {
     const order = {
       id: orderId,
       userId: user.uid,
-      restaurantId: restaurantId,
+      restaurantId: String(restaurantId),
       customerName: customerData?.name || user.displayName || "Guest",
       customerPhone: customerData?.phone || user.phoneNumber || "",
       customerEmail: user.email || "",
       tableNumber: customerData?.tableNumber || "",
       specialInstructions: customerData?.specialInstructions || "",
-      items: [enrichedItem], // Single item array
+      items: [enrichedItem],
       type: "whatsapp",
       status: "pending",
       subtotal,
@@ -721,93 +719,124 @@ const handleDirectWhatsApp = async (item, customerData = null) => {
       total,
       createdAt: Date.now(),
       source: "whatsapp",
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      whatsappStatus: "new",
+      whatsappNumber: cleanPhone
     };
 
-    // Save to orders
+    console.log("🔥 Saving order:", order);
+
+    // ✅ STEP 1: Save to main orders node
     await set(orderRef, order);
+    console.log("✅ Order saved to orders node");
+
+    // 🔥 STEP 2: Save to whatsappOrders with EXACT structure
+    try {
+      const whatsappOrderData = {
+        ...order,
+        whatsappStatus: "new",
+        orderId: orderId,
+        userId: user.uid,
+        restaurantId: String(restaurantId),
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      
+      console.log("🔥 Saving to whatsappOrders:", whatsappOrderData);
+      
+      const whatsappOrderRef = rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`);
+      await set(whatsappOrderRef, whatsappOrderData);
+      
+      console.log("✅ Order saved to whatsappOrders node");
+    } catch (whatsappError) {
+      console.error("❌ whatsappOrders write failed:", whatsappError);
+      toast.error("Order created but auto-confirm may not work");
+    }
+
+    // 🔥 STEP 3: Create kitchen order with proper structure
+    // 🔥🔥🔥 CRITICAL FIX: Kitchen order abhi create karo, baad mein nahi
+    try {
+      const kitchenOrderData = {
+        id: orderId,
+        userId: user.uid,
+        restaurantId: String(restaurantId),
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        customerEmail: order.customerEmail,
+        tableNumber: order.tableNumber,
+        specialInstructions: order.specialInstructions,
+        items: [enrichedItem],
+        type: "whatsapp",
+        status: "pending",
+        kitchenStatus: "pending",
+        subtotal,
+        gst,
+        total,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        source: "whatsapp",
+        whatsappStatus: "new"
+      };
+      
+      const kitchenRef = rtdbRef(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`);
+      await set(kitchenRef, kitchenOrderData);
+      console.log("✅ Kitchen order created successfully");
+    } catch (kitchenErr) {
+      console.error("❌ Kitchen order creation failed:", kitchenErr);
+      // 🔥🔥🔥 Don't ignore this error - show it to user
+      toast.warning("Order placed but kitchen display may not update. Please contact restaurant.");
+    }
     
-    // Save to whatsappOrders (for admin panel)
-    await set(rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
-      ...order,
-      whatsappStatus: "new",
-      userId: user.uid,
-      restaurantId: restaurantId
-    });
+    // Create WhatsApp message
+    const message = `🍽️ *New Order #${orderId.slice(-6)}*\n\n` +
+      `👤 *Customer:* ${order.customerName}\n` +
+      `📱 *Phone:* ${order.customerPhone || 'N/A'}\n` +
+      (order.tableNumber ? `🪑 *Table:* ${order.tableNumber}\n` : '') +
+      `\n*Order Details:*\n` +
+      `• ${enrichedItem.name} x${enrichedItem.qty}\n` +
+      `  Price: ₹${enrichedItem.price}\n` +
+      (enrichedItem.spicePreference !== 'normal' ? `  Spice: ${enrichedItem.spicePreference}\n` : '') +
+      (enrichedItem.sweetLevel ? `  Sweet: ${enrichedItem.sweetLevel}\n` : '') +
+      `\n💰 *Subtotal:* ₹${subtotal.toFixed(2)}\n` +
+      `📊 *GST (5%):* ₹${gst.toFixed(2)}\n` +
+      `💵 *Total:* ₹${total.toFixed(2)}\n` +
+      (order.specialInstructions ? `\n📝 *Note:* ${order.specialInstructions}\n` : '') +
+      `\n⏱️ *Prep Time:* ${enrichedItem.prepTime} mins`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
     
-    // Save to kitchenOrders
-    await set(rtdbRef(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`), {
-      ...order,
-      kitchenStatus: "new",
-      type: "whatsapp",
-      userId: user.uid,
-      restaurantId: restaurantId,
-      createdAt: Date.now()
+    // Update order with WhatsApp URL
+    await update(orderRef, { 
+      whatsappUrl,
+      whatsappSentAt: Date.now(),
+      whatsappStatus: 'initiated'
     });
 
-    console.log("✅ Order saved to Firebase:", orderId);
+    // Open WhatsApp
+    window.open(whatsappUrl, '_blank');
+    
+    console.log("✅ WhatsApp order created successfully:", orderId);
+    
+    toast.success('Order sent to WhatsApp!', {
+      description: 'Restaurant will confirm shortly',
+      duration: 5000
+    });
+
+    // Reset modals
+    setShowWhatsAppCustomerModal(false);
+    setWhatsAppPayload(null);
+    setWhatsAppCustomerInfo({ name: '', phone: '', tableNumber: '', specialInstructions: '' });
 
   } catch (error) {
-    console.error("❌ Error saving order:", error);
-    // Continue to WhatsApp even if Firebase save fails
+    console.error("❌ Error creating WhatsApp order:", error);
+    
+    if (error.message?.includes('permission_denied')) {
+      toast.error("Permission denied. Please logout and login again.");
+    } else {
+      toast.error("Failed to create WhatsApp order: " + error.message);
+    }
   }
-
-  // Item details with all preferences
-  let itemDetails = `• ${item.name} - ₹${item.price}`;
-  
-  if (item.spicePreference && item.dishTasteProfile !== 'sweet') {
-    itemDetails += `\n   🌶️ Spice: ${item.spicePreference.toUpperCase()}`;
-  }
-  if (item.sweetLevel && item.dishTasteProfile === 'sweet') {
-    itemDetails += `\n   🍰 Sweetness: ${item.sweetLevel.toUpperCase()}`;
-  }
-  if (item.saltPreference && item.saltPreference !== 'normal') {
-    itemDetails += `\n   🧂 Salt: ${item.saltPreference.toUpperCase()}`;
-  }
-  if (item.salad?.qty > 0) {
-    itemDetails += `\n   🥗 Salad: ${item.salad.qty} plate`;
-  }
-  
-  itemDetails += `\n   ⏱️ Prep: ${item.prepTime || 15} min`;
-  if (item.image) {
-    itemDetails += `\n   📷 Image: ${item.image}`;
-  }
-
-  const customerName = customerData?.name || user.displayName || 'Guest';
-  const customerPhone = customerData?.phone || user.phoneNumber || 'N/A';
-  const tableNumber = customerData?.tableNumber || '';
-  const specialInstructions = customerData?.specialInstructions || '';
-
-  const message = `
-🍽️ *NEW ORDER - ${restaurantName || 'Restaurant'}* 🍽️
-${'━'.repeat(30)}
-
-👤 *Customer:* ${customerName}
-📱 *Phone:* ${customerPhone}
-${tableNumber ? `🪑 *Table:* ${tableNumber}\n` : ''}${specialInstructions ? `📝 *Note:* ${specialInstructions}\n` : ''}📧 *Email:* ${user.email || 'N/A'}
-
-🛒 *ORDER ITEM:*
-${itemDetails}
-
-${'━'.repeat(30)}
-💰 *Total:* ₹${item.price}
-⏰ *Prep Time:* ${item.prepTime || 15} minutes
-
-✅ Please confirm availability.
-
-🚀 Sent via DineQR
-`.trim();
-
-  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-  
-  console.log('Final WhatsApp URL:', whatsappUrl);
-  
-  window.open(whatsappUrl, '_blank');
-  
-  toast.success("Order placed via WhatsApp!", {
-    description: "Restaurant will confirm shortly",
-    duration: 3000
-  });
 };
   const generateWhatsAppMessageForCart = (order, restaurantName) => {
     const items = order.items.map((item, index) => {
