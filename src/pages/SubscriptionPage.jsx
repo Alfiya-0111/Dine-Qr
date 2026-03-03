@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref as rtdbRef, push, set, get, update } from 'firebase/database';
+import { ref as rtdbRef, push, set, get } from 'firebase/database';
 import { realtimeDB } from '../firebaseConfig';
 import { getAuth } from 'firebase/auth';
+import QRCode from 'qrcode'; // npm install qrcode
 
 // Plans - ALL FEATURES UNLOCKED, only dish limit differs
 const PLANS = [
@@ -82,14 +83,6 @@ const PLANS = [
   }
 ];
 
-// Aapke payment details - YEH CHANGE KAREIN
-const PAYMENT_DETAILS = {
-  upiId: 'yourname@okaxis',
-  phoneNumber: '9999999999',
-  qrCodeUrl: '/payment-qr.png',
-  accountName: 'Your Business Name'
-};
-
 export default function SubscriptionPage() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -101,10 +94,75 @@ export default function SubscriptionPage() {
   const [userPlan, setUserPlan] = useState(null);
   const [trialStatus, setTrialStatus] = useState(null);
   
+  // 🔥 AUTO-GENERATED QR CODE STATES
+  const [dynamicQrCode, setDynamicQrCode] = useState('');
+  const [qrLoading, setQrLoading] = useState(false);
+  
+  // Admin payment configuration
+  const [paymentDetails, setPaymentDetails] = useState({
+    upiId: 'contact@khaatogo.com',
+    phoneNumber: 'Contact Admin',
+    accountName: 'KhattaGo',
+    paytmNumber: '',
+    googlePayNumber: ''
+  });
+  
   const navigate = useNavigate();
   const auth = getAuth();
 
-  // Check current user status
+  // Load admin payment config
+  useEffect(() => {
+    const loadPaymentConfig = async () => {
+      try {
+        const configRef = rtdbRef(realtimeDB, 'admin/paymentConfig');
+        const snapshot = await get(configRef);
+        
+        if (snapshot.exists()) {
+          setPaymentDetails(snapshot.val());
+        }
+      } catch (error) {
+        console.error('Error loading payment config:', error);
+      }
+    };
+    
+    loadPaymentConfig();
+  }, []);
+
+  // 🔥 AUTO GENERATE QR WHEN PLAN SELECTED
+  useEffect(() => {
+    if (selectedPlan && selectedPlan.price > 0 && showPaymentModal) {
+      generateDynamicQR(selectedPlan);
+    }
+  }, [selectedPlan, showPaymentModal, paymentDetails]);
+
+  // Generate UPI QR Code dynamically
+  const generateDynamicQR = async (plan) => {
+    setQrLoading(true);
+    try {
+      // Create UPI payment URL with plan-specific amount
+      const upiUrl = `upi://pay?pa=${encodeURIComponent(paymentDetails.upiId)}&pn=${encodeURIComponent(paymentDetails.accountName)}&am=${plan.price}&cu=INR&tn=${encodeURIComponent(`KhattaGo ${plan.name} - ₹${plan.price}`)}`;
+      
+      // Generate QR code as base64 data URL
+      const qrDataUrl = await QRCode.toDataURL(upiUrl, {
+        width: 280,
+        margin: 2,
+        color: {
+          dark: '#8A244B', // Brand color
+          light: '#ffffff'
+        },
+        errorCorrectionLevel: 'H'
+      });
+      
+      setDynamicQrCode(qrDataUrl);
+    } catch (error) {
+      console.error('QR Generation failed:', error);
+      setDynamicQrCode('');
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  // Check user subscription status
   useEffect(() => {
     const checkUserStatus = async () => {
       const user = auth.currentUser;
@@ -117,7 +175,7 @@ export default function SubscriptionPage() {
         const data = snapshot.val();
         setUserPlan(data);
         
-        // Check trial status
+        // Calculate trial days left
         if (data.planId === 'trial' && data.expiresAt) {
           const now = Date.now();
           const daysLeft = Math.ceil((data.expiresAt - now) / (1000 * 60 * 60 * 24));
@@ -141,6 +199,9 @@ export default function SubscriptionPage() {
     setSelectedPlan(plan);
     setShowPaymentModal(true);
     setPaymentStep(1);
+    setTransactionId('');
+    setScreenshot(null);
+    setMessage('');
   };
 
   const activateTrial = async () => {
@@ -151,7 +212,6 @@ export default function SubscriptionPage() {
       return;
     }
 
-    // Check if already used trial
     const subRef = rtdbRef(realtimeDB, `subscriptions/${user.uid}`);
     const snapshot = await get(subRef);
     
@@ -161,7 +221,7 @@ export default function SubscriptionPage() {
     }
 
     try {
-      const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000); // 30 days
+      const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000);
       
       await set(rtdbRef(realtimeDB, `subscriptions/${user.uid}`), {
         planId: 'trial',
@@ -174,7 +234,6 @@ export default function SubscriptionPage() {
         trialUsed: true
       });
       
-      // Create notification
       await push(rtdbRef(realtimeDB, `notifications/${user.uid}`), {
         title: '🎉 Free Trial Activated!',
         message: '30 days unlimited access. Enjoy all features!',
@@ -182,7 +241,7 @@ export default function SubscriptionPage() {
         read: false
       });
       
-      alert('🎉 30 days free trial activated! Unlimited dishes, all features.');
+      alert('🎉 30 days free trial activated!');
       navigate('/dashboard/menu');
     } catch (error) {
       console.error('Error:', error);
@@ -219,7 +278,7 @@ export default function SubscriptionPage() {
 
       await push(rtdbRef(realtimeDB, `notifications/${user.uid}`), {
         title: 'Payment Submitted',
-        message: `Your payment for ${selectedPlan.name} is under review.`,
+        message: `Your payment for ${selectedPlan.name} (₹${selectedPlan.price}) is under review.`,
         type: 'payment',
         createdAt: Date.now(),
         read: false
@@ -229,6 +288,7 @@ export default function SubscriptionPage() {
       
       setTimeout(() => {
         setShowPaymentModal(false);
+        setSelectedPlan(null);
         navigate('/dashboard');
       }, 3000);
 
@@ -243,6 +303,20 @@ export default function SubscriptionPage() {
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
     alert('Copied: ' + text);
+  };
+
+  // Generate UPI app deep links
+  const getUpiAppLinks = () => {
+    if (!selectedPlan) return {};
+    
+    const baseParams = `pa=${encodeURIComponent(paymentDetails.upiId)}&pn=${encodeURIComponent(paymentDetails.accountName)}&am=${selectedPlan.price}&cu=INR`;
+    
+    return {
+      gpay: `tez://upi/pay?${baseParams}`,
+      phonepe: `phonepe://pay?${baseParams}`,
+      paytm: `paytmmp://pay?${baseParams}`,
+      generic: `upi://pay?${baseParams}&tn=${encodeURIComponent(`KhattaGo ${selectedPlan.name}`)}`
+    };
   };
 
   return (
@@ -282,9 +356,8 @@ export default function SubscriptionPage() {
               plan.popular ? 'ring-2 ring-[#8A244B]' : ''
             }`}
           >
-            {/* Badges */}
             {plan.badge && (
-              <div className="absolute top-0 left-0 bg-[#8A244B]  text-white text-xs font-bold px-4 py-1 rounded-br-xl z-10">
+              <div className="absolute top-0 left-0 bg-[#8A244B] text-white text-xs font-bold px-4 py-1 rounded-br-xl z-10">
                 {plan.badge}
               </div>
             )}
@@ -295,14 +368,12 @@ export default function SubscriptionPage() {
             )}
 
             <div className="p-6">
-              {/* Icon & Name */}
               <div className="text-center mb-4">
                 <div className="text-5xl mb-2">{plan.icon}</div>
                 <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
                 <p className="text-sm text-gray-500 mt-1">{plan.description}</p>
               </div>
 
-              {/* Dish Count */}
               <div className="text-center mb-4">
                 <div className="text-5xl font-bold text-transparent bg-clip-text bg-[#8A244B]">
                   {plan.dishes}
@@ -310,7 +381,6 @@ export default function SubscriptionPage() {
                 <div className="text-gray-500 font-medium">dishes</div>
               </div>
 
-              {/* Price */}
               <div className="text-center mb-4">
                 {plan.price === 0 ? (
                   <div className="text-3xl font-bold text-[#8A244B]">FREE</div>
@@ -324,7 +394,6 @@ export default function SubscriptionPage() {
                 )}
               </div>
 
-              {/* Features */}
               <ul className="space-y-2 mb-6 text-sm">
                 {plan.features.map((feature, idx) => (
                   <li key={idx} className="flex items-center gap-2 text-gray-600">
@@ -338,7 +407,6 @@ export default function SubscriptionPage() {
                 </li>
               </ul>
 
-              {/* CTA Button */}
               <button
                 onClick={() => handleSelectPlan(plan)}
                 disabled={userPlan?.planId === plan.id || (plan.id === 'trial' && userPlan?.trialUsed)}
@@ -417,80 +485,216 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
-      {/* Payment Modal */}
+      {/* Payment Modal with Auto-Generated QR */}
       {showPaymentModal && selectedPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
               <h3 className="text-lg font-bold">
-                {paymentStep === 1 ? 'Payment Details' : 'Verify Payment'}
+                {paymentStep === 1 ? `Pay ₹${selectedPlan.price}` : 'Verify Payment'}
               </h3>
-              <button onClick={() => setShowPaymentModal(false)} className="text-gray-500 text-2xl">×</button>
+              <button 
+                onClick={() => setShowPaymentModal(false)} 
+                className="text-gray-500 text-2xl hover:text-gray-700"
+              >
+                ×
+              </button>
             </div>
 
             <div className="p-6">
               {paymentStep === 1 ? (
                 <>
-                  <div className="bg-blue-50 rounded-xl p-4 mb-6 text-center">
-                    <h4 className="text-2xl font-bold text-blue-900">{selectedPlan.name}</h4>
-                    <div className="text-4xl font-bold text-blue-600 my-2">{selectedPlan.dishes} dishes</div>
-                    <div className="text-2xl font-bold text-gray-900">₹{selectedPlan.price}/month</div>
+                  {/* Plan Summary */}
+                  <div className="bg-gradient-to-r from-[#8A244B] to-[#f18e49] rounded-xl p-4 mb-6 text-center text-white">
+                    <h4 className="text-2xl font-bold">{selectedPlan.name}</h4>
+                    <div className="text-4xl font-bold my-2">{selectedPlan.dishes} dishes</div>
+                    <div className="text-3xl font-bold">₹{selectedPlan.price}/month</div>
                   </div>
 
-                  <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center">
-                    <p className="text-sm font-medium mb-2">Scan QR to Pay ₹{selectedPlan.price}</p>
-                    <div className="w-40 h-40 mx-auto bg-white rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                      <span className="text-4xl">📱</span>
-                    </div>
+                  {/* 🔥 AUTO-GENERATED DYNAMIC QR CODE */}
+                  <div className="bg-gray-50 rounded-xl p-6 mb-4 text-center border-2 border-dashed border-gray-300">
+                    <p className="text-sm font-medium mb-4 text-gray-700">
+                      Scan QR to Pay{' '}
+                      <span className="text-2xl font-bold text-[#8A244B]">
+                        ₹{selectedPlan.price}
+                      </span>
+                    </p>
+                    
+                    {qrLoading ? (
+                      <div className="w-48 h-48 mx-auto flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8A244B]"></div>
+                      </div>
+                    ) : dynamicQrCode ? (
+                      <div className="relative">
+                        <img 
+                          src={dynamicQrCode} 
+                          alt="Scan QR to Pay" 
+                          className="w-48 h-48 mx-auto rounded-lg shadow-lg"
+                        />
+                        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 bg-white px-3 py-1 rounded-full shadow-md text-xs font-bold text-[#8A244B] border">
+                          Auto-Generated
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-48 h-48 mx-auto bg-white rounded-lg border-2 border-gray-200 flex items-center justify-center">
+                        <span className="text-4xl">📱</span>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-gray-500 mt-4">
+                      Works with all UPI apps
+                    </p>
                   </div>
 
+                  {/* Quick Pay Buttons */}
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <a 
+                      href={getUpiAppLinks().gpay}
+                      className="flex flex-col items-center p-2 bg-blue-50 rounded-lg hover:bg-blue-100 transition"
+                    >
+                      <span className="text-2xl mb-1">G</span>
+                      <span className="text-xs font-medium text-blue-700">Google Pay</span>
+                    </a>
+                    <a 
+                      href={getUpiAppLinks().phonepe}
+                      className="flex flex-col items-center p-2 bg-purple-50 rounded-lg hover:bg-purple-100 transition"
+                    >
+                      <span className="text-2xl mb-1">P</span>
+                      <span className="text-xs font-medium text-purple-700">PhonePe</span>
+                    </a>
+                    <a 
+                      href={getUpiAppLinks().paytm}
+                      className="flex flex-col items-center p-2 bg-cyan-50 rounded-lg hover:bg-cyan-100 transition"
+                    >
+                      <span className="text-2xl mb-1">Pay</span>
+                      <span className="text-xs font-medium text-cyan-700">Paytm</span>
+                    </a>
+                  </div>
+
+                  {/* Payment Details */}
                   <div className="space-y-3 mb-4">
-                    <div className="bg-blue-50 rounded-lg p-3 flex justify-between">
+                    <div className="bg-blue-50 rounded-lg p-3 flex justify-between items-center">
                       <div>
                         <p className="text-xs text-gray-600">UPI ID</p>
-                        <p className="font-bold text-blue-700">{PAYMENT_DETAILS.upiId}</p>
+                        <p className="font-bold text-blue-700 text-sm">{paymentDetails.upiId}</p>
                       </div>
-                      <button onClick={() => copyToClipboard(PAYMENT_DETAILS.upiId)} className="text-blue-600 text-sm">Copy</button>
+                      <button 
+                        onClick={() => copyToClipboard(paymentDetails.upiId)} 
+                        className="text-blue-600 text-xs px-3 py-1 bg-white rounded hover:bg-blue-100 font-medium"
+                      >
+                        Copy
+                      </button>
                     </div>
-                    <div className="bg-green-50 rounded-lg p-3 flex justify-between">
-                      <div>
-                        <p className="text-xs text-gray-600">Phone Number</p>
-                        <p className="font-bold text-green-700">{PAYMENT_DETAILS.phoneNumber}</p>
+
+                    {paymentDetails.paytmNumber && (
+                      <div className="bg-blue-50 rounded-lg p-3 flex justify-between items-center">
+                        <div>
+                          <p className="text-xs text-gray-600">Paytm Number</p>
+                          <p className="font-bold text-blue-700 text-sm">{paymentDetails.paytmNumber}</p>
+                        </div>
+                        <button 
+                          onClick={() => copyToClipboard(paymentDetails.paytmNumber)} 
+                          className="text-blue-600 text-xs px-3 py-1 bg-white rounded hover:bg-blue-100 font-medium"
+                        >
+                          Copy
+                        </button>
                       </div>
-                      <button onClick={() => copyToClipboard(PAYMENT_DETAILS.phoneNumber)} className="text-green-600 text-sm">Copy</button>
+                    )}
+
+                    <div className="bg-green-50 rounded-lg p-3 flex justify-between items-center">
+                      <div>
+                        <p className="text-xs text-gray-600">Amount</p>
+                        <p className="font-bold text-green-700">₹{selectedPlan.price}</p>
+                      </div>
+                      <button 
+                        onClick={() => copyToClipboard(selectedPlan.price.toString())} 
+                        className="text-green-600 text-xs px-3 py-1 bg-white rounded hover:bg-green-100 font-medium"
+                      >
+                        Copy
+                      </button>
+                    </div>
+
+                    <div className="bg-purple-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-600">Account Name</p>
+                      <p className="font-bold text-purple-700 text-sm">{paymentDetails.accountName}</p>
                     </div>
                   </div>
 
-                  <button onClick={() => setPaymentStep(2)} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold">I've Paid → Next</button>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                    <p className="text-xs text-yellow-800 text-center">
+                      💡 <strong>Tip:</strong> QR scan karein ya UPI ID copy karke paste karein
+                    </p>
+                  </div>
+
+                  <button 
+                    onClick={() => setPaymentStep(2)} 
+                    className="w-full py-3 bg-[#8A244B] text-white rounded-xl font-bold hover:bg-[#f18e49] transition shadow-lg"
+                  >
+                    I've Paid ₹{selectedPlan.price} →
+                  </button>
                 </>
               ) : (
                 <>
+                  {/* Verification Step */}
                   <div className="text-center mb-6">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">✓</div>
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl">
+                      ✓
+                    </div>
                     <h4 className="text-lg font-bold">Verify Payment</h4>
+                    <p className="text-sm text-gray-500">
+                      {selectedPlan.name} (₹{selectedPlan.price})
+                    </p>
                   </div>
 
                   <div className="mb-4">
-                    <label className="block text-sm font-medium mb-2">Transaction ID / UTR *</label>
+                    <label className="block text-sm font-medium mb-2">
+                      UPI Transaction ID / UTR / Ref No *
+                    </label>
                     <input
                       type="text"
                       value={transactionId}
                       onChange={(e) => setTransactionId(e.target.value)}
                       placeholder="Example: 123456789012"
-                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-[#8A244B] outline-none"
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      UPI app ke success screen pe milenga
+                    </p>
                   </div>
 
                   <div className="mb-4">
-                    <label className="block text-sm font-medium mb-2">Screenshot (Optional)</label>
-                    <input type="file" accept="image/*" onChange={(e) => setScreenshot(e.target.files[0])} className="w-full p-2 border rounded-lg text-sm" />
+                    <label className="block text-sm font-medium mb-2">
+                      Payment Screenshot (Optional)
+                    </label>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={(e) => setScreenshot(e.target.files[0])} 
+                      className="w-full p-2 border rounded-lg text-sm" 
+                    />
                   </div>
 
-                  {message && <div className="bg-green-100 text-green-700 p-3 rounded-lg mb-4 text-sm text-center">{message}</div>}
+                  {message && (
+                    <div className="bg-green-100 text-green-700 p-3 rounded-lg mb-4 text-sm text-center">
+                      {message}
+                    </div>
+                  )}
 
-                  <button onClick={handleSubmitPayment} disabled={loading || !transactionId.trim()} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold disabled:opacity-50">
-                    {loading ? 'Submitting...' : 'Submit for Verification'}
-                  </button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setPaymentStep(1)} 
+                      className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-300 transition"
+                    >
+                      ← Back
+                    </button>
+                    <button 
+                      onClick={handleSubmitPayment} 
+                      disabled={loading || !transactionId.trim()} 
+                      className="flex-1 py-3 bg-green-600 text-white rounded-xl font-bold disabled:opacity-50 hover:bg-green-700 transition"
+                    >
+                      {loading ? 'Submitting...' : 'Submit'}
+                    </button>
+                  </div>
                 </>
               )}
             </div>

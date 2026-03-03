@@ -46,6 +46,8 @@ function App() {
   <Route path="analytics" element={<OwnerAnalytics />} />
   <Route path="feedback" element={<FeedbackTab />} />
   <Route path="susbcription" element={<SubscriptionPage/>}/>
+  <Route path="/pay/:planId" element={<PaymentSubmitPage />} />
+<Route path="/payment-status" element={<PaymentStatusPage />} /> // Status check 
 </Route>
 
         </Routes>
