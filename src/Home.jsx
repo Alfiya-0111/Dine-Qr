@@ -278,12 +278,12 @@ const HomePage = () => {
           >
             Start Free Trial <ArrowRight className="w-5 h-5" />
           </button>
-          <button 
-            onClick={() => navigate('/https://www.khaatogo.com/menu/NhIbH4whfIWIUu4raonrqlEiYUr1')}
-            className="bg-white text-[#8A244B] border-2 border-[#8A244B] px-6 sm:px-8 py-4 rounded-full font-semibold text-base sm:text-lg hover:bg-[#FDF2F4] transition flex items-center justify-center gap-2 whitespace-nowrap"
-          >
-            <QrCode className="w-5 h-5" /> View Demo Menu
-          </button>
+<button 
+  onClick={() => window.open('https://www.khaatogo.com/menu/NhIbH4whfIWIUu4raonrqlEiYUr1', '_blank')}
+  className="bg-white text-[#8A244B] border-2 border-[#8A244B] px-6 sm:px-8 py-4 rounded-full font-semibold text-base sm:text-lg hover:bg-[#FDF2F4] transition flex items-center justify-center gap-2 whitespace-nowrap"
+>
+  <QrCode className="w-5 h-5" /> View Demo Menu
+</button>
         </div>
         
         <div className="mt-8 flex items-center gap-4 text-sm text-gray-500 flex-wrap">
