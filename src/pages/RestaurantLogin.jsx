@@ -236,7 +236,7 @@ const handleGoogleLogin = async () => {
             Don't have an account?{" "}
             <span
               className="font-medium cursor-pointer text-[#8A244B]"
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/signup")}
             >
               Sign Up
             </span>

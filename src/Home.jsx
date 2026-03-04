@@ -1,6 +1,7 @@
 // src/pages/HomePage.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import khaatogologo from "../src/assets/khaatogologo.png";
 import { 
   QrCode, 
   Smartphone, 
@@ -191,7 +192,11 @@ const HomePage = () => {
               <div className="w-10 h-10 bg-[#8A244B] rounded-xl flex items-center justify-center">
                 <QrCode className="w-6 h-6 text-white" />
               </div>
-              <span className="text-2xl font-bold text-[#8A244B]">KhattaGo</span>
+        <img
+            src={khaatogologo}
+            alt="khaatogologo"
+            className="application_logo"
+          />
             </div>
             
             <div className="hidden md:flex items-center gap-8">
@@ -205,7 +210,7 @@ const HomePage = () => {
                 Login
               </button>
               <button 
-                onClick={() => navigate('/')}
+                onClick={() => navigate('/signup')}
                 className="bg-[#B45253] text-white px-6 py-2.5 rounded-full font-medium hover:bg-[#8A244B] transition shadow-md hover:shadow-lg"
               >
                 Get Started Free
@@ -247,124 +252,130 @@ const HomePage = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-[#FDF2F4] to-white overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-                <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-                Now with WhatsApp Orders!
+     <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-[#FDF2F4] to-white overflow-x-hidden">
+  <div className="max-w-7xl mx-auto">
+    <div className="grid lg:grid-cols-2 gap-12 items-center">
+      {/* Left Content */}
+      <div className="w-full">
+        <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
+          <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+          Now with WhatsApp Orders!
+        </div>
+        
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-gray-900 leading-tight mb-6 break-words">
+          Your Restaurant's <br/>
+          <span className="text-[#8A244B]">Digital Future</span> Starts Here
+        </h1>
+        
+        <p className="text-lg sm:text-xl text-gray-600 mb-8 leading-relaxed max-w-lg">
+          QR Menu + WhatsApp Orders + Table Booking. Everything you need to run your restaurant digitally. Zero commission, maximum profit.
+        </p>
+        
+        <div className="flex flex-col sm:flex-row gap-4 w-full">
+          <button 
+            onClick={() => navigate('/signup')}
+            className="bg-[#B45253] text-white px-6 sm:px-8 py-4 rounded-full font-semibold text-base sm:text-lg hover:bg-[#8A244B] transition shadow-lg hover:shadow-xl flex items-center justify-center gap-2 whitespace-nowrap"
+          >
+            Start Free Trial <ArrowRight className="w-5 h-5" />
+          </button>
+          <button 
+            onClick={() => navigate('/https://www.khaatogo.com/menu/NhIbH4whfIWIUu4raonrqlEiYUr1')}
+            className="bg-white text-[#8A244B] border-2 border-[#8A244B] px-6 sm:px-8 py-4 rounded-full font-semibold text-base sm:text-lg hover:bg-[#FDF2F4] transition flex items-center justify-center gap-2 whitespace-nowrap"
+          >
+            <QrCode className="w-5 h-5" /> View Demo Menu
+          </button>
+        </div>
+        
+        <div className="mt-8 flex items-center gap-4 text-sm text-gray-500 flex-wrap">
+          <div className="flex -space-x-2">
+            {[1,2,3,4].map((i) => (
+              <div key={i} className="w-8 h-8 rounded-full bg-[#8A244B] border-2 border-white flex items-center justify-center text-xs font-medium text-white">
+                {i}
               </div>
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 leading-tight mb-6">
-                Your Restaurant's <br/>
-                <span className="text-[#8A244B]">Digital Future</span> Starts Here
-              </h1>
-              <p className="text-xl text-gray-600 mb-8 leading-relaxed max-w-lg">
-                QR Menu + WhatsApp Orders + Table Booking. Everything you need to run your restaurant digitally. Zero commission, maximum profit.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <button 
-                  onClick={() => navigate('/')}
-                  className="bg-[#B45253] text-white px-8 py-4 rounded-full font-semibold text-lg hover:bg-[#8A244B] transition shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                >
-                  Start Free Trial <ArrowRight className="w-5 h-5" />
-                </button>
-                <button 
-                  onClick={() => navigate('/demo')}
-                  className="bg-white text-[#8A244B] border-2 border-[#8A244B] px-8 py-4 rounded-full font-semibold text-lg hover:bg-[#FDF2F4] transition flex items-center justify-center gap-2"
-                >
-                  <QrCode className="w-5 h-5" /> View Demo Menu
-                </button>
+            ))}
+          </div>
+          <p>Join 500+ restaurants already using KhattaGo</p>
+        </div>
+      </div>
+      
+      {/* Hero Mockup */}
+      <div className="relative w-full max-w-full">
+        <div className="absolute inset-0 bg-[#B45253] rounded-3xl transform rotate-3 opacity-20 blur-2xl"></div>
+        <div className="relative bg-white rounded-3xl shadow-2xl p-4 sm:p-6 border border-gray-100 w-full overflow-hidden">
+          
+          {/* Restaurant Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#FCB53B] rounded-full flex items-center justify-center text-xl sm:text-2xl">
+                👑
               </div>
-              <div className="mt-8 flex items-center gap-4 text-sm text-gray-500">
-                <div className="flex -space-x-2">
-                  {[1,2,3,4].map((i) => (
-                    <div key={i} className="w-8 h-8 rounded-full bg-[#8A244B] border-2 border-white flex items-center justify-center text-xs font-medium text-white">
-                      {i}
-                    </div>
-                  ))}
-                </div>
-                <p>Join 500+ restaurants already using KhattaGo</p>
+              <div>
+                <h3 className="font-bold text-[#8A244B] text-base sm:text-lg">Delhi Darbar</h3>
+                <p className="text-xs sm:text-sm text-gray-500">Fresh & highly rated dishes</p>
               </div>
             </div>
-            
-            {/* Hero Mockup */}
-            <div className="relative">
-              <div className="absolute inset-0 bg-[#B45253] rounded-3xl transform rotate-3 opacity-20 blur-2xl"></div>
-              <div className="relative bg-white rounded-3xl shadow-2xl p-6 border border-gray-100">
-                {/* Restaurant Header */}
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-[#FCB53B] rounded-full flex items-center justify-center text-2xl">
-                      👑
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-[#8A244B] text-lg">Delhi Darbar</h3>
-                      <p className="text-sm text-gray-500">Fresh & highly rated dishes</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button className="px-3 py-1.5 bg-gray-100 rounded-full text-sm font-medium text-gray-700">My Bookings</button>
-                    <button className="px-3 py-1.5 bg-[#B45253] text-white rounded-full text-sm font-medium hover:bg-[#8A244B]">Book Table</button>
-                  </div>
-                </div>
-
-                {/* Category Pills */}
-                <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-                  {['All', 'Non Veg • 7', 'Veg • 5', 'Drinks • 3', 'Pizza • 1'].map((cat, idx) => (
-                    <button 
-                      key={idx} 
-                      className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
-                        idx === 0 ? 'bg-[#8A244B] text-white' : 'bg-gray-100 text-gray-700 hover:bg-[#FDF2F4]'
-                      }`}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Search */}
-                <div className="relative mb-6">
-                  <input 
-                    type="text" 
-                    placeholder="Your dishes" 
-                    className="w-full px-4 py-3 rounded-full border border-gray-200 focus:outline-none focus:border-[#8A244B] focus:ring-2 focus:ring-[#8A244B]/20"
-                  />
-                  <span className="absolute right-4 top-3.5 text-gray-400">🔍</span>
-                </div>
-
-                {/* Dish Cards */}
-                <div className="grid grid-cols-2 gap-4">
-                  {[
-                    { name: 'Butter Chicken', price: '₹280', img: '🍗', rating: 4.5 },
-                    { name: 'Paneer Tikka', price: '₹220', img: '🧀', rating: 4.2 }
-                  ].map((dish, idx) => (
-                    <div key={idx} className="bg-gray-50 rounded-2xl p-3 border border-gray-100">
-                      <div className="aspect-square bg-white rounded-xl mb-3 flex items-center justify-center text-4xl">
-                        {dish.img}
-                      </div>
-                      <h4 className="font-bold text-[#8A244B] text-sm">{dish.name}</h4>
-                      <div className="flex items-center gap-1 mb-2">
-                        <Star className="w-3 h-3 fill-[#FCB53B] text-[#FCB53B]" />
-                        <span className="text-xs text-gray-600">{dish.rating}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-[#B45253]">{dish.price}</span>
-                      </div>
-                      <div className="mt-2 space-y-2">
-                        <button className="w-full py-2 bg-[#B45253] text-white rounded-lg text-xs font-medium hover:bg-[#8A244B] transition">Order Now</button>
-                        <button className="w-full py-2 bg-green-500 text-white rounded-lg text-xs font-medium flex items-center justify-center gap-1 hover:bg-green-600 transition">
-                          <span>💬</span> Order via WhatsApp
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button className="px-3 py-1.5 bg-gray-100 rounded-full text-xs sm:text-sm font-medium text-gray-700 whitespace-nowrap">My Bookings</button>
+              <button className="px-3 py-1.5 bg-[#B45253] text-white rounded-full text-xs sm:text-sm font-medium hover:bg-[#8A244B] whitespace-nowrap">Book Table</button>
             </div>
           </div>
+
+          {/* Category Pills */}
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide max-w-full">
+            {['All', 'Non Veg • 7', 'Veg • 5', 'Drinks • 3', 'Pizza • 1'].map((cat, idx) => (
+              <button 
+                key={idx} 
+                className={`px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap flex-shrink-0 ${
+                  idx === 0 ? 'bg-[#8A244B] text-white' : 'bg-gray-100 text-gray-700 hover:bg-[#FDF2F4]'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div className="relative mb-6">
+            <input 
+              type="text" 
+              placeholder="Your dishes" 
+              className="w-full px-4 py-3 rounded-full border border-gray-200 focus:outline-none focus:border-[#8A244B] focus:ring-2 focus:ring-[#8A244B]/20 text-sm sm:text-base"
+            />
+            <span className="absolute right-4 top-3.5 text-gray-400">🔍</span>
+          </div>
+
+          {/* Dish Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              { name: 'Butter Chicken', price: '₹280', img: '🍗', rating: 4.5 },
+              { name: 'Paneer Tikka', price: '₹220', img: '🧀', rating: 4.2 }
+            ].map((dish, idx) => (
+              <div key={idx} className="bg-gray-50 rounded-2xl p-3 border border-gray-100">
+                <div className="aspect-square bg-white rounded-xl mb-3 flex items-center justify-center text-3xl sm:text-4xl">
+                  {dish.img}
+                </div>
+                <h4 className="font-bold text-[#8A244B] text-sm sm:text-base">{dish.name}</h4>
+                <div className="flex items-center gap-1 mb-2">
+                  <Star className="w-3 h-3 fill-[#FCB53B] text-[#FCB53B]" />
+                  <span className="text-xs text-gray-600">{dish.rating}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[#B45253] text-sm sm:text-base">{dish.price}</span>
+                </div>
+                <div className="mt-2 space-y-2">
+                  <button className="w-full py-2 bg-[#B45253] text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-[#8A244B] transition">Order Now</button>
+                  <button className="w-full py-2 bg-green-500 text-white rounded-lg text-xs sm:text-sm font-medium flex items-center justify-center gap-1 hover:bg-green-600 transition">
+                    <span>💬</span> Order via WhatsApp
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      </section>
+      </div>
+    </div>
+  </div>
+</section>
 
       {/* Stats Section */}
       <section className="py-12 border-y border-gray-100 bg-white">
@@ -699,7 +710,11 @@ const HomePage = () => {
                 <div className="w-10 h-10 bg-[#8A244B] rounded-xl flex items-center justify-center">
                   <QrCode className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-2xl font-bold text-white">KhattaGo</span>
+               <img
+                 src={khaatogologo}
+                 alt="khaatogologo"
+                 className="application_logo"
+               />
               </div>
               <p className="text-gray-400 text-sm">
                 India's #1 QR Menu & Table Booking Platform. Dhaba ho ya 5-star hotel, sabke liye digital solution.

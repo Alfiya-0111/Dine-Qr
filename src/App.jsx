@@ -11,7 +11,7 @@ import FeedbackTab from "./components/FeedbackTab";
 import OwnerAnalytics from "./pages/OwnerAnalytics";
 import PaymentSubmitPage from "./pages/PaymentSubmitPage"
 import { AuthProvider } from "./context/AuthContext";
-import LoginModal from "./components/LoginModal"; // ✅ CUSTOMER LOGIN MODAL
+import LoginModal from "./components/LoginModal"; 
 import RestaurantSettings from "./pages/RestaurantSettings";
 import Checkout from "./pages/Checkout";
 import AdminOrders from "./pages/AdminOrders";
@@ -30,7 +30,7 @@ function App() {
         <Routes>
 <Route path="/" element={<Home />} />
           {/* 🔹 RESTAURANT OWNER ROUTES */}
-          {/* <Route path="/" element={<RestaurantSignup />} /> */}
+           <Route path="/signup" element={<RestaurantSignup />} /> 
           <Route path="/login" element={<RestaurantLogin />} />
 
           {/* 🔹 PUBLIC CUSTOMER MENU */}
