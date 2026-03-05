@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref as rtdbRef, onValue, query, orderByChild, equalTo } from 'firebase/database';
+import { ref as rtdbRef, onValue } from 'firebase/database';
 import { realtimeDB } from '../firebaseConfig';
-import { getAuth } from 'firebase/auth';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { 
   FaCheckCircle, 
   FaClock, 
@@ -53,47 +53,63 @@ const STATUS_CONFIG = {
 export default function PaymentStatusPage() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [user, setUser] = useState(null);
   const [activePayment, setActivePayment] = useState(null);
   const navigate = useNavigate();
   const auth = getAuth();
-
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) {
+useEffect(() => {
+  let dataUnsubscribe = null;
+  
+  const authUnsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    if (!currentUser) {
       navigate('/login');
+      setLoading(false);
       return;
     }
-
-    // Listen to all payments by this user
+    
+    setUser(currentUser);
+    
+    // IMPORTANT: User can only read specific payment, not whole list
+    // Query with orderByChild filter karo
     const paymentsRef = rtdbRef(realtimeDB, 'paymentRequests');
     
-    const unsubscribe = onValue(paymentsRef, (snapshot) => {
+    dataUnsubscribe = onValue(paymentsRef, (snapshot) => {
+      // Filter client side for user's payments
       if (snapshot.exists()) {
         const data = snapshot.val();
         const userPayments = Object.entries(data)
-          .filter(([key, value]) => value.userId === user.uid)
+          .filter(([key, value]) => value.userId === currentUser.uid)
           .map(([key, value]) => ({ id: key, ...value }))
           .sort((a, b) => b.submittedAt - a.submittedAt);
         
         setPayments(userPayments);
         if (userPayments.length > 0) {
-          setActivePayment(userPayments[0]); // Show latest by default
+          setActivePayment(userPayments[0]);
         }
       } else {
         setPayments([]);
       }
       setLoading(false);
+    }, (error) => {
+      console.error("Firebase error:", error);
+      setError(error.message);
+      setLoading(false);
     });
+  });
 
-    return () => unsubscribe();
-  }, [auth.currentUser, navigate]);
+  return () => {
+    authUnsubscribe();
+    if (dataUnsubscribe) dataUnsubscribe();
+  };
+}, [auth, navigate]);
 
   const getStatusConfig = (status) => {
     return STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   };
 
   const handleContactSupport = () => {
-    const message = `*Payment Support Request*\n\nUser ID: ${auth.currentUser?.uid}\nEmail: ${auth.currentUser?.email}\nPayment ID: ${activePayment?.id}\nTransaction ID: ${activePayment?.transactionId}\nStatus: ${activePayment?.status}`;
+    const message = `*Payment Support Request*\n\nUser ID: ${user?.uid}\nEmail: ${user?.email}\nPayment ID: ${activePayment?.id}\nTransaction ID: ${activePayment?.transactionId}\nStatus: ${activePayment?.status}`;
     window.open(`https://wa.me/917014949284?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -105,10 +121,30 @@ export default function PaymentStatusPage() {
     navigate('/dashboard/menu');
   };
 
+  // ERROR STATE
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="bg-white rounded-2xl shadow-lg p-8 text-center max-w-md">
+          <FaTimesCircle className="text-5xl text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-800 mb-2">Something went wrong</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full py-3 bg-[#8A244B] text-white rounded-xl font-bold hover:bg-[#f18e49] transition"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8A244B]"></div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8A244B] mb-4"></div>
+        <p className="text-gray-600">Loading your payments...</p>
       </div>
     );
   }
@@ -260,7 +296,7 @@ export default function PaymentStatusPage() {
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Payment History</h3>
             <div className="space-y-3">
-              {payments.map((payment, index) => {
+              {payments.map((payment) => {
                 const pConfig = PLAN_CONFIG[payment.planId] || {};
                 const isSelected = payment.id === activePayment?.id;
                 

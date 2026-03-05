@@ -9,7 +9,7 @@ import RestaurantLogin from "./pages/RestaurantLogin";
 import MenuItems from "./pages/MenuItems";
 import FeedbackTab from "./components/FeedbackTab";
 import OwnerAnalytics from "./pages/OwnerAnalytics";
-import PaymentSubmitPage from "./pages/PaymentSubmitPage"
+
 import { AuthProvider } from "./context/AuthContext";
 import LoginModal from "./components/LoginModal"; 
 import RestaurantSettings from "./pages/RestaurantSettings";
@@ -47,7 +47,7 @@ function App() {
             <Route path="analytics" element={<OwnerAnalytics />} />
             <Route path="feedback" element={<FeedbackTab />} />
             <Route path="subscription" element={<SubscriptionPage />} />
-            <Route path="pay/:planId" element={<PaymentSubmitPage />} />
+         
             <Route path="payment-status" element={<PaymentStatusPage />} />
           </Route>
 

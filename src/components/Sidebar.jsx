@@ -30,6 +30,9 @@ export default function Sidebar() {
           Feedback
         </Link>
         <Link to={`/dashboard/${restaurantId}/subscription`}>Subscription</Link>
+       
+          <Link to={`/dashboard/${restaurantId}/payment-status`}>PaymentStatus</Link>
+
       </nav>
     </div>
   );
