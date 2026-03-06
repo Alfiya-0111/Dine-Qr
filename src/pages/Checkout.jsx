@@ -120,129 +120,134 @@ export default function Checkout() {
     return true;
   };
 
-  const handlePlaceOrder = async () => {
-    const validCart = getValidCart();
-   
-    if (validCart.length === 0) {
-      alert("Your cart has no valid items. Please add items again.");
+const handlePlaceOrder = async () => {
+  const validCart = getValidCart();
+ 
+  if (validCart.length === 0) {
+    alert("Your cart has no valid items. Please add items again.");
+    return;
+  }
+
+  if (!auth.currentUser) {
+    alert("Login required");
+    return;
+  }
+
+  if (!customerName.trim()) {
+    alert("Please enter your name");
+    return;
+  }
+
+  // Phone validation - conditional
+  if (isPhoneRequired) {
+    if (!customerPhone.trim()) {
+      alert(`Phone number is required for ${orderType} orders`);
       return;
     }
-
-    if (!auth.currentUser) {
-      alert("Login required");
-      return;
-    }
-
-    if (!customerName.trim()) {
-      alert("Please enter your name");
-      return;
-    }
-
-    // Phone validation - conditional
-    if (isPhoneRequired) {
-      if (!customerPhone.trim()) {
-        alert(`Phone number is required for ${orderType} orders`);
-        return;
-      }
-      if (!isValidPhone(customerPhone)) {
-        alert("Please enter a valid 10-digit phone number");
-        return;
-      }
-    }
-
-    if (customerPhone && !isValidPhone(customerPhone)) {
+    if (!isValidPhone(customerPhone)) {
       alert("Please enter a valid 10-digit phone number");
       return;
     }
+  }
 
-    if (orderType === "dine-in" && !tableNumber.trim()) {
-      alert("Please enter table number");
-      return;
-    }
+  if (customerPhone && !isValidPhone(customerPhone)) {
+    alert("Please enter a valid 10-digit phone number");
+    return;
+  }
 
-    if (!orderDate || !orderTime) {
-      alert("Please select date and time");
-      return;
-    }
+  if (orderType === "dine-in" && !tableNumber.trim()) {
+    alert("Please enter table number");
+    return;
+  }
 
-    // 🔥🔥🔥 CRITICAL CHECK: Ensure we have valid restaurant ID
-    if (!effectiveRestaurantId) {
-      alert("Restaurant ID not found! Please refresh and try again.");
-      return;
-    }
+  if (!orderDate || !orderTime) {
+    alert("Please select date and time");
+    return;
+  }
 
-    // 🔥🔥🔥 CRITICAL CHECK: Validate cart items
-    if (!validateCartItems()) {
-      return;
-    }
+  // 🔥🔥🔥 CRITICAL CHECK: Ensure we have valid restaurant ID
+  if (!effectiveRestaurantId) {
+    alert("Restaurant ID not found! Please refresh and try again.");
+    return;
+  }
 
-    const now = Date.now();
-    const maxPrepTime = Math.max(...validCart.map((i) => Number(i.prepTime ?? 15)));
+  // 🔥🔥🔥 CRITICAL CHECK: Validate cart items
+  if (!validateCartItems()) {
+    return;
+  }
 
-    // ✅ FIXED: Correct order payload structure
-    const orderPayload = {
-      restaurantId: effectiveRestaurantId,
-      userId: auth.currentUser.uid,
+  const now = Date.now();
+  const maxPrepTime = Math.max(...validCart.map((i) => Number(i.prepTime ?? 15)));
 
-      customerInfo: {
-        name: customerName.trim(),
-        phone: customerPhone.trim() || null,
-        email: customerEmail.trim() || null,
-      },
+  // ✅ FIXED: Complete order payload with ALL customizations
+  const orderPayload = {
+    restaurantId: effectiveRestaurantId,
+    userId: auth.currentUser.uid,
 
-      orderDetails: {
-        type: orderType,
-        tableNumber: orderType === "dine-in" ? tableNumber.trim() : null,
-        numberOfGuests: parseInt(numberOfGuests) || 1,
-        orderDate,
-        orderTime,
-        specialInstructions: specialInstructions.trim() || null,
-      },
+    customerInfo: {
+      name: customerName.trim(),
+      phone: customerPhone.trim() || null,
+      email: customerEmail.trim() || null,
+    },
 
-      hotelName,
-      paymentMethod,
-      paymentStatus: paymentMethod === "cash" ? "pending_cash" : "pending_online",
+    orderDetails: {
+      type: orderType,
+      tableNumber: orderType === "dine-in" ? tableNumber.trim() : null,
+      numberOfGuests: parseInt(numberOfGuests) || 1,
+      orderDate,
+      orderTime,
+      specialInstructions: specialInstructions.trim() || null, // Order level instructions
+    },
 
-      // ✅ FIXED: Simplified items array (removed order-level fields from items)
-      items: validCart.map((item) => ({
-        dishId: item.id,
-        name: item.name,
-        image: item.image || "",
-        qty: Number(item.qty) || 1,
-        price: Number(item.price) || 0,
-        spicePreference: item.spicePreference || "normal",
-        prepTime: Number(item.prepTime ?? 15),
-      })),
+    hotelName,
+    paymentMethod,
+    paymentStatus: paymentMethod === "cash" ? "pending_cash" : "pending_online",
 
-      total: validCart.reduce(
-        (sum, item) => sum + (Number(item.price) || 0) * (Number(item.qty) || 1),
-        0
-      ),
-
-      // ✅ FIXED: Order-level status and timestamps (not in items)
-      status: "confirmed",
-      confirmedAt: now,
-      prepStartedAt: now,
-      prepEndsAt: now + maxPrepTime * 60000,
-      createdAt: now,
-    };
-
-    try {
-      console.log("📝 Saving order with restaurantId:", effectiveRestaurantId);
-      console.log("📝 Order items:", orderPayload.items);
+    // ✅ FIXED: Complete items array with ALL customizations
+    items: validCart.map((item) => ({
+      dishId: item.id,
+      name: item.name,
+      image: item.image || "",
+      qty: Number(item.qty) || 1,
+      price: Number(item.price) || 0,
+      prepTime: Number(item.prepTime ?? 15),
       
-      const newOrderRef = await push(ref(realtimeDB, "orders"), orderPayload);
-      
-      console.log("✅ Order saved with ID:", newOrderRef.key);
-      
-      clearCart();
-      alert("Order placed successfully! 🎉");
-      navigate(`/menu/${restaurantId}`);
-    } catch (err) {
-      console.error("❌ Order failed:", err);
-      alert("Order failed. Please try again.");
-    }
+      // 🎨 ALL CUSTOMIZATIONS - Yeh admin side dikhne ke liye zaroori hain
+      sweetnessLevel: item.sweetnessLevel || "normal",     // 🍯 Sweet
+      spicinessLevel: item.spicinessLevel || "normal",     // 🌶️ Spice  
+      saltLevel: item.saltLevel || "normal",               // 🧂 Salt
+      includeSalad: item.includeSalad || false,            // 🥗 Salad
+      specialInstructions: item.specialInstructions || "", // 📝 Instructions per dish
+    })),
+
+    total: validCart.reduce(
+      (sum, item) => sum + (Number(item.price) || 0) * (Number(item.qty) || 1),
+      0
+    ),
+
+    status: "confirmed",
+    confirmedAt: now,
+    prepStartedAt: now,
+    prepEndsAt: now + maxPrepTime * 60000,
+    createdAt: now,
   };
+
+  try {
+    console.log("📝 Saving order with restaurantId:", effectiveRestaurantId);
+    console.log("📝 Order items with customizations:", orderPayload.items);
+    
+    const newOrderRef = await push(ref(realtimeDB, "orders"), orderPayload);
+    
+    console.log("✅ Order saved with ID:", newOrderRef.key);
+    
+    clearCart();
+    alert("Order placed successfully! 🎉");
+    navigate(`/menu/${restaurantId}`);
+  } catch (err) {
+    console.error("❌ Order failed:", err);
+    alert("Order failed. Please try again.");
+  }
+};
 
   if (cart.length === 0) {
     return (

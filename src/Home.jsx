@@ -256,16 +256,16 @@ const HomePage = () => {
   <div className="max-w-7xl mx-auto">
     <div className="grid lg:grid-cols-2 gap-12 items-center">
       {/* Left Content */}
-      <div className="w-full">
-        <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
+      <div className="w-full  ">
+        <div className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
           <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
           Now with WhatsApp Orders!
         </div>
         
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-gray-900 leading-tight mb-6 break-words">
-          Your Restaurant's <br/>
-          <span className="text-[#8A244B]">Digital Future</span> Starts Here
-        </h1>
+       <h1 className="mobile_txt text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-gray-900 leading-tight mb-6 break-words">
+  Your Restaurant's <br/>
+  <span className="text-[#8A244B]">Digital Future</span> Starts Here
+</h1>
         
         <p className="text-lg sm:text-xl text-gray-600 mb-8 leading-relaxed max-w-lg">
           QR Menu + WhatsApp Orders + Table Booking. Everything you need to run your restaurant digitally. Zero commission, maximum profit.

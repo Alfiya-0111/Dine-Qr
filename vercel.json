@@ -1,8 +1,18 @@
 {
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/login",
+      "destination": "/login.html"
+    },
+    {
+      "source": "/menu/(.*)",
+      "destination": "/menu/$1"
+    },
+    {
+      "source": "/((?!api|_next|static|favicon.ico|robots.txt|sitemap.xml).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false
 }

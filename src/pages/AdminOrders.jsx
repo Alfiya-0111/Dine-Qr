@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
-import { ref, onValue, update, remove, set } from "firebase/database"; // 🔥 ADDED 'set' here
+import { useEffect, useState, useRef } from "react";
+import { ref, onValue, update, remove, set } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { initWhatsAppAutoProcessor } from "../utils/whatsappAutoProcessor";
+
 export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
-  const [dishStats, setDishStats] = useState({});
   const [now, setNow] = useState(Date.now());
   const [selectedFilter, setSelectedFilter] = useState("today");
   const [restaurantId, setRestaurantId] = useState(null);
@@ -13,9 +13,12 @@ export default function AdminOrders() {
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
   const [customFilter, setCustomFilter] = useState(false);
   const [showAllOrders, setShowAllOrders] = useState(true);
-  const [debugInfo, setDebugInfo] = useState({ total: 0, matched: 0, rejected: [], statuses: {} });
-
+  const [debugInfo, setDebugInfo] = useState({ total: 0, matched: 0, statuses: {} });
   const [autoCompleteEnabled, setAutoCompleteEnabled] = useState(true);
+  
+  // 🗣️ VOICE NOTIFICATION STATE
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const previousOrdersRef = useRef([]);
 
   const auth = getAuth();
 
@@ -23,6 +26,59 @@ export default function AdminOrders() {
     "V2BhX5ZFmYXW3HkeP2Su5S9WGOw1",
     "NhIbH4whfIWIUu4raonrqlEiYUr1",
   ];
+
+  // 🗣️ TEXT-TO-SPEECH FUNCTION
+  const speak = (text, priority = 'normal') => {
+    if (!voiceEnabled) return;
+    
+    // Check if browser supports TTS
+    if (!('speechSynthesis' in window)) {
+      console.log("Browser doesn't support text-to-speech");
+      return;
+    }
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Voice settings
+    utterance.lang = 'en-IN'; // Indian English
+    utterance.rate = 1; // Speed (0.1 to 2)
+    utterance.pitch = 1; // Pitch (0 to 2)
+    utterance.volume = 1; // Volume (0 to 1)
+
+    // Try to get a good voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(voice => 
+      voice.name.includes('Google') || 
+      voice.name.includes('Microsoft') ||
+      voice.name.includes('Female')
+    );
+    
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+    }
+
+    // Priority handling
+    if (priority === 'high') {
+      utterance.rate = 1.1; // Slightly faster for WhatsApp
+      utterance.pitch = 1.2; // Higher pitch for urgency
+    }
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // 🗣️ VOICE ANNOUNCEMENT FUNCTION
+  const announceOrder = (orderType) => {
+    if (orderType === 'whatsapp') {
+      // 🔥 WhatsApp Order - Urgent announcement
+      speak("New WhatsApp Order", 'high');
+    } else {
+      // 🔔 Normal Order - Standard announcement  
+      speak("New Order", 'normal');
+    }
+  };
 
   // Auth listener
   useEffect(() => {
@@ -39,7 +95,7 @@ export default function AdminOrders() {
     return () => unsubscribe();
   }, []);
 
-  // 🔥🔥🔥 MAIN ORDERS LISTENER - Sab orders yahan se aayenge
+  // 🔥🔥🔥 MAIN ORDERS LISTENER WITH VOICE NOTIFICATION
   useEffect(() => {
     if (!restaurantId) {
       console.log("ℹ️ No restaurantId, skipping orders listener");
@@ -48,7 +104,6 @@ export default function AdminOrders() {
 
     console.log("🔥 Starting MAIN orders listener for:", restaurantId);
 
-    // 🔥 Main 'orders' node se listen karo - yahan sab orders hain
     const ordersRef = ref(realtimeDB, 'orders');
 
     const unsubscribeOrders = onValue(ordersRef, (snapshot) => {
@@ -62,24 +117,14 @@ export default function AdminOrders() {
 
       console.log("📦 Total orders in Firebase:", Object.keys(data).length);
 
-      // 🔥 Filter orders for this restaurant
+      // Filter orders for this restaurant
       const myOrders = Object.entries(data).filter(([orderId, order]) => {
         const orderRestId = String(order?.restaurantId || "").trim();
         const currentUserId = String(restaurantId || "").trim();
 
-        // 🔥 Match condition: order.restaurantId === admin.uid
         const isMyOrder = orderRestId === currentUserId || 
                          orderRestId === restaurantId ||
                          MY_RESTAURANT_IDS.includes(orderRestId);
-
-        if (isMyOrder) {
-          console.log(`✅ Order ${orderId.slice(-6)} matched:`, {
-            orderRestId,
-            currentUserId,
-            status: order?.status,
-            type: order?.type || 'regular'
-          });
-        }
 
         return isMyOrder;
       }).map(([id, order]) => ({
@@ -89,6 +134,34 @@ export default function AdminOrders() {
       }));
 
       console.log("✅ My orders count:", myOrders.length);
+
+      // 🗣️🗣️🗣️ NEW ORDER DETECTION & VOICE ANNOUNCEMENT
+      const currentOrderIds = myOrders.map(o => o.id);
+      const previousOrderIds = previousOrdersRef.current.map(o => o.id);
+      
+      // Naye orders find karo jo pehle nahi the
+      const newOrders = myOrders.filter(order => !previousOrderIds.includes(order.id));
+      
+      if (newOrders.length > 0 && previousOrdersRef.current.length > 0) {
+        // Pehla load nahi hai, actual new order hai
+        newOrders.forEach(newOrder => {
+          const isWhatsApp = newOrder.source === 'whatsapp' || 
+                            newOrder.type === 'whatsapp' || 
+                            newOrder.whatsappStatus;
+          
+          console.log(`🗣️ Announcing ${isWhatsApp ? 'WhatsApp' : 'Regular'} order:`, newOrder.id);
+          
+          // 🎙️ Voice announcement
+          announceOrder(isWhatsApp ? 'whatsapp' : 'regular');
+          
+          // 🔔 Browser notification bhi dikhao
+          showBrowserNotification(newOrder, isWhatsApp);
+        });
+      }
+
+      // Ref update karo for next comparison
+      previousOrdersRef.current = myOrders;
+      
       setOrders(myOrders);
 
       // Debug info update
@@ -107,84 +180,41 @@ export default function AdminOrders() {
       console.log("🛑 Stopping main orders listener");
       unsubscribeOrders();
     };
-  }, [restaurantId]);
+  }, [restaurantId, voiceEnabled]);
 
-  // 🔥 WHATSAPP LISTENER - Simplified version
-// 🔥 WHATSAPP AUTO-PROCESSOR - External utility use karo
-useEffect(() => {
-  if (!restaurantId) return;
-
-  console.log("🔥 Initializing WhatsApp Auto Processor for:", restaurantId);
-  
-  // External utility function call karo
-  const unsubscribe = initWhatsAppAutoProcessor(restaurantId);
-  
-  return () => {
-    console.log("🛑 Stopping WhatsApp Auto Processor");
-    unsubscribe();
+  // 🔔 BROWSER NOTIFICATION FUNCTION
+  const showBrowserNotification = (order, isWhatsApp) => {
+    if (!("Notification" in window)) return;
+    
+    if (Notification.permission === "granted") {
+      new Notification(isWhatsApp ? "📱 New WhatsApp Order!" : "🍽️ New Order Received!", {
+        body: `Order #${order.id?.slice(-6)} - ₹${order.total || 0}\n${order.customerInfo?.name || 'Customer'}`,
+        icon: "/logo192.png",
+        tag: order.id,
+        requireInteraction: true
+      });
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          showBrowserNotification(order, isWhatsApp);
+        }
+      });
+    }
   };
-}, [restaurantId]);
 
-  // 🔥 Simplified auto-confirm function
-  // const autoConfirmOrder = async (orderId, order) => {
-  //   try {
-  //     const now = Date.now();
-  //     const maxPrepTime = Math.max(...(order.items || []).map(i => i.prepTime || 15));
-      
-  //     console.log(`🚀 Auto-confirming: ${orderId}`);
+  // 🔥 WHATSAPP AUTO-PROCESSOR
+  useEffect(() => {
+    if (!restaurantId) return;
 
-  //     // 1. Update main orders node
-  //     await update(ref(realtimeDB, `orders/${orderId}`), {
-  //       status: "confirmed",
-  //       confirmedAt: now,
-  //       prepStartedAt: now,
-  //       prepEndsAt: now + (maxPrepTime * 60 * 1000),
-  //       autoConfirmed: true,
-  //       updatedAt: now,
-  //       whatsappStatus: "auto_confirmed"
-  //     });
-
-  //     // 2. Update whatsappOrders node
-  //     await update(ref(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
-  //       whatsappStatus: "auto_confirmed",
-  //       status: "confirmed",
-  //       autoConfirmedAt: now,
-  //       updatedAt: now,
-  //       processing: false
-  //     });
-
-  //     // 3. Create kitchen order (optional - skip if permission issues)
-  //     try {
-  //       await set(ref(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`), {
-  //         ...order,
-  //         kitchenStatus: "confirmed",
-  //         status: "confirmed",
-  //         confirmedAt: now,
-  //         prepStartedAt: now,
-  //         prepEndsAt: now + (maxPrepTime * 60 * 1000),
-  //         updatedAt: now
-  //       });
-  //     } catch (kitchenErr) {
-  //       console.log("⚠️ Kitchen order skipped:", kitchenErr.message);
-  //     }
-
-  //     console.log(`✅ Auto-confirmed: ${orderId}`);
-      
-  //     // Show success toast
-  //     if (typeof toast !== 'undefined') {
-  //       toast.success(`Order #${orderId.slice(-6)} auto-confirmed!`);
-  //     }
-
-  //   } catch (error) {
-  //     console.error(`❌ Auto-confirm failed:`, error);
-      
-  //     // Reset processing flag
-  //     await update(ref(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
-  //       processing: false,
-  //       error: error.message
-  //     }).catch(() => {});
-  //   }
-  // };
+    console.log("🔥 Initializing WhatsApp Auto Processor for:", restaurantId);
+    
+    const unsubscribe = initWhatsAppAutoProcessor(restaurantId);
+    
+    return () => {
+      console.log("🛑 Stopping WhatsApp Auto Processor");
+      unsubscribe();
+    };
+  }, [restaurantId]);
 
   // Timer update har second
   useEffect(() => {
@@ -205,11 +235,12 @@ useEffect(() => {
     return () => clearInterval(timer);
   }, [orders, autoCompleteEnabled]);
 
+  // ... (baaki sab functions same hain - deleteOrder, generateBill, updateStatus, etc.)
+
   const deleteOrder = async (id) => {
     if (!window.confirm("Delete this order permanently?")) return;
     try {
       await remove(ref(realtimeDB, `orders/${id}`));
-      // 🔥 Also delete from whatsappOrders if exists
       await remove(ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`)).catch(() => {});
       await remove(ref(realtimeDB, `kitchenOrders/${restaurantId}/${id}`)).catch(() => {});
     } catch (error) {
@@ -218,7 +249,6 @@ useEffect(() => {
     }
   };
 
-  // 🔥🔥🔥 MANUAL BILL GENERATION
   const generateBill = async (order) => {
     try {
       if (order.bill) {
@@ -238,7 +268,6 @@ useEffect(() => {
         status: "ready_for_customer"
       };
 
-      // ✅ Individual update
       const orderRef = ref(realtimeDB, `orders/${order.id}`);
       await update(orderRef, { 
         bill: billData,
@@ -261,21 +290,17 @@ useEffect(() => {
     }
   };
 
-  // 🔥🔥🔥 FIXED updateStatus function
   const updateStatus = async (id, status) => {
     try {
       const now = Date.now();
       
-      // 1. Update main orders node
       const orderRef = ref(realtimeDB, `orders/${id}`);
       await update(orderRef, { 
         status,
         completedAt: status === "completed" ? now : null,
         updatedAt: now
       });
-      console.log(`✅ Order ${id} status updated to ${status}`);
 
-      // 2. Update whatsappOrders node (if exists) - 🔥 FIXED: Use set if update fails
       try {
         const whatsappRef = ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`);
         await update(whatsappRef, {
@@ -283,10 +308,7 @@ useEffect(() => {
           whatsappStatus: status,
           updatedAt: now
         });
-        console.log("✅ WhatsApp orders updated");
       } catch (err) {
-        console.log("ℹ️ WhatsApp orders update failed, trying set:", err.message);
-        // 🔥 Try to create/update using set as fallback
         try {
           const whatsappRef = ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`);
           await set(whatsappRef, {
@@ -296,31 +318,24 @@ useEffect(() => {
             orderId: id,
             restaurantId: restaurantId
           });
-          console.log("✅ WhatsApp orders created/updated with set");
         } catch (setErr) {
           console.log("ℹ️ WhatsApp orders set also failed:", setErr.message);
         }
       }
 
-      // 3. Update kitchenOrders node with proper error handling
       try {
         const kitchenRef = ref(realtimeDB, `kitchenOrders/${restaurantId}/${id}`);
-        
-        // Check if kitchen order exists
         const kitchenSnap = await new Promise((resolve) => {
           onValue(kitchenRef, resolve, { onlyOnce: true });
         });
         
         if (kitchenSnap.exists()) {
-          // Kitchen order exists - update it
           await update(kitchenRef, {
             status,
             kitchenStatus: status,
             updatedAt: now
           });
-          console.log("✅ Kitchen orders updated");
         } else {
-          // Kitchen order doesn't exist - create it
           const orderSnap = await new Promise((resolve) => {
             onValue(ref(realtimeDB, `orders/${id}`), resolve, { onlyOnce: true });
           });
@@ -334,12 +349,10 @@ useEffect(() => {
               kitchenStatus: status,
               updatedAt: now
             });
-            console.log("✅ Kitchen order created during status update");
           }
         }
       } catch (kitchenErr) {
         console.error("❌ KitchenOrders update failed:", kitchenErr.message);
-        // Don't throw - let the main order update succeed
       }
 
     } catch (error) {
@@ -348,33 +361,7 @@ useEffect(() => {
     }
   };
 
-  const isMyRestaurantOrder = (order) => {
-    if (!order) return false;
-
-    if (showAllOrders) return true;
-
-    const orderRestId = String(order.restaurantId || "").trim();
-    const orderUserId = String(order.userId || "").trim();
-    const orderAdminId = String(order.adminId || "").trim();
-    const orderHotelId = String(order.hotelId || "").trim();
-    const currentUserId = String(restaurantId || "").trim();
-
-    const isMatch = MY_RESTAURANT_IDS.some(id => 
-      orderRestId === id || orderUserId === id || orderAdminId === id || orderHotelId === id
-    ) || (currentUserId && (
-      orderRestId === currentUserId || orderUserId === currentUserId || 
-      orderAdminId === currentUserId || orderHotelId === currentUserId
-    ));
-
-    return isMatch;
-  };
-
-  const normalizeItems = (items) => {
-    if (!items) return [];
-    if (Array.isArray(items)) return items;
-    if (typeof items === 'object') return Object.values(items);
-    return [];
-  };
+  // ... (date filter functions same hain)
 
   const isToday = (ts) => {
     if (!ts || isNaN(ts)) return false;
@@ -416,14 +403,6 @@ useEffect(() => {
     endDate.setHours(23, 59, 59, 999);
     return orderDate >= startDate && orderDate <= endDate;
   };
-
-  const getRemainingTime = (order) => {
-    if (!order.prepEndsAt || isNaN(order.prepEndsAt)) return 0;
-    const remaining = Math.ceil(Math.max(0, order.prepEndsAt - now) / 60000);
-    return remaining;
-  };
-
-  const getFilteredValue = (dish) => dish[selectedFilter] || 0;
 
   const getFilteredOrders = () => {
     let filtered = orders;
@@ -474,10 +453,37 @@ useEffect(() => {
     <div className="p-6 max-w-7xl mx-auto">
       <h2 className="text-2xl font-bold mb-4">🍽 Orders Dashboard</h2>
 
+      {/* 🗣️ VOICE TOGGLE CONTROL */}
+      <div className="bg-indigo-100 p-3 mb-4 rounded border border-indigo-400 flex items-center justify-between">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input 
+            type="checkbox" 
+            checked={voiceEnabled}
+            onChange={(e) => setVoiceEnabled(e.target.checked)}
+            className="w-4 h-4 accent-indigo-600"
+          />
+          <span className="text-sm font-medium text-indigo-900">
+            🗣️ Voice Notifications {voiceEnabled ? 'ON' : 'OFF'}
+          </span>
+        </label>
+        <div className="text-xs text-indigo-700">
+          {voiceEnabled ? "🔊 Says: 'New Order' & 'New WhatsApp Order'" : "🔇 Voice muted"}
+        </div>
+        {/* Test Button */}
+        <button
+          onClick={() => {
+            speak("New Order");
+            setTimeout(() => speak("New WhatsApp Order", 'high'), 2000);
+          }}
+          className="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700"
+        >
+          🎙️ Test Voice
+        </button>
+      </div>
+
       {/* DEBUG PANEL */}
       <div className="bg-red-100 p-3 mb-4 text-xs rounded border border-red-400">
         <p><strong>🐛 DEBUG:</strong> Admin ID: {restaurantId}</p>
-        {/* <p>Total Orders: {orders.length} | WhatsApp Orders: {whatsappOrders.length}</p> */}
         <p>Active: {activeOrders.length} | Completed: {completedOrders.length}</p>
         <p className="font-bold text-red-700">
           Status Distribution: {JSON.stringify(debugInfo.statuses)}
@@ -647,7 +653,6 @@ useEffect(() => {
 // Order Card Component
 function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePayment, onGenerateBill, autoCompleteEnabled }) {
 
-  // 🔥🔥🔥 WHATSAPP ORDER CHECK
   const isWhatsAppOrder = order.source === 'whatsapp' || order.type === 'whatsapp' || order.whatsappStatus;
 
   const getRemainingTime = (prepEndsAt) => {
@@ -698,7 +703,7 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
             <p className="font-bold text-sm">
               Order #{order.id?.slice(-6) || 'N/A'}
               {isWhatsAppOrder && (
-                <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">
+                <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs animate-pulse">
                   📱 WhatsApp
                 </span>
               )}
