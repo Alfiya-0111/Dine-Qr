@@ -34,14 +34,54 @@ import LoginModal from "../components/LoginModal";
 import NewItemsSlider from "../components/Slider";
 import BottomCart from "../components/BottomCart";
 import CartSidebar from "../components/CartSidebar";
-
-// ================= READY NOTIFICATION COMPONENT =================
 // ================= DISH PROGRESS BAR COMPONENT =================
-const DishProgressBar = ({ item, theme, orderId, onDishReady }) => {
+const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => {
   const [progress, setProgress] = useState(0);
   const [isReady, setIsReady] = useState(false);
   const [showEnjoyMessage, setShowEnjoyMessage] = useState(false);
+  
+  // 🔥🔥🔥 REF INSTEAD OF STATE - Re-render pe reset nahi hoga
+  const localPrepStartedRef = useRef(false);
+  const autoStartAttemptedRef = useRef(false);
 
+  // 🔥🔥🔥 AUTO-START: Order confirmed/preparing pe prep start karo
+  useEffect(() => {
+    // Already ready hai
+    if (item.itemStatus === "ready" || item.itemReadyAt) {
+      setIsReady(true);
+      setProgress(100);
+      return;
+    }
+
+    // 🔥 AUTO-START TRIGGER: Order status confirmed ya preparing hai
+    const shouldAutoStart = 
+      (orderStatus === 'confirmed' || orderStatus === 'preparing') && 
+      !item.prepStartedAt && 
+      !localPrepStartedRef.current &&
+      !autoStartAttemptedRef.current;
+
+    if (shouldAutoStart) {
+      console.log(`🔥 Auto-starting prep for: ${item.name} (Order: ${orderId})`);
+      const now = Date.now();
+      
+      // 🔥 Mark karo ki attempt ho chuka hai - re-render pe dubara nahi hoga
+      localPrepStartedRef.current = true;
+      autoStartAttemptedRef.current = true;
+      
+      // 🔥 Firebase mein prep start karo (silently, error ignore karo agar already exist)
+      const itemRef = rtdbRef(realtimeDB, `orders/${orderId}/items/${item.dishId || item.id}`);
+      update(itemRef, {
+        prepStartedAt: now,
+        prepTime: item.prepTime || 15,
+        itemStatus: "preparing"
+      }).catch(err => {
+        // Already updated ho sakta hai, ignore karo
+        console.log("Prep already started or error:", err.message);
+      });
+    }
+  }, [orderStatus, item.prepStartedAt, item.dishId, item.id, orderId, item.name, item.prepTime, item.itemStatus, item.itemReadyAt]);
+
+  // Progress calculation
   useEffect(() => {
     if (item.itemStatus === "ready" || item.itemReadyAt) {
       setIsReady(true);
@@ -49,12 +89,16 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady }) => {
       return;
     }
 
-    if (!item.prepStartedAt || !item.prepTime) return;
+    // Agar prep start nahi hua, kuch mat dikhavo (waiting state)
+    if (!item.prepStartedAt && !localPrepStartedRef.current) {
+      setProgress(0);
+      return;
+    }
 
     const calculateProgress = () => {
       const now = Date.now();
-      const start = item.prepStartedAt;
-      const totalTime = item.prepTime * 60 * 1000;
+      const start = item.prepStartedAt || Date.now();
+      const totalTime = (item.prepTime || 15) * 60 * 1000;
       const elapsed = now - start;
       
       let percent = Math.min(100, Math.floor((elapsed / totalTime) * 100));
@@ -62,25 +106,23 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady }) => {
       
       setProgress(percent);
       
+      // 100% complete hone pe
       if (percent >= 100 && !isReady) {
         setIsReady(true);
         setShowEnjoyMessage(true);
         
-        // 🔥 Sirf parent ko notify karo, sound parent handle karega
         if (onDishReady) {
           onDishReady(item.name, orderId);
         }
         
-        // Update Firebase status
+        // Firebase mein ready status update karo
         const itemRef = rtdbRef(realtimeDB, `orders/${orderId}/items/${item.dishId || item.id}`);
         update(itemRef, {
           itemStatus: "ready",
           itemReadyAt: Date.now()
-        }).catch(err => console.log("Already updated:", err));
+        }).catch(() => {});
         
-        setTimeout(() => {
-          setShowEnjoyMessage(false);
-        }, 5000);
+        setTimeout(() => setShowEnjoyMessage(false), 5000);
       }
     };
 
@@ -89,6 +131,7 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady }) => {
     return () => clearInterval(interval);
   }, [item.prepStartedAt, item.prepTime, orderId, item.dishId, item.id, isReady, onDishReady, item.itemStatus, item.itemReadyAt]);
 
+  // READY STATE
   if (isReady || progress >= 100 || item.itemStatus === "ready") {
     return (
       <div className="w-full">
@@ -108,42 +151,62 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady }) => {
     );
   }
 
-  if (!item.prepStartedAt) {
+  // 🔥 WAITING STATE: Ab "Waiting to start" nahi dikhayenge, seedha progress bar chalega
+  // Agar prep start nahi hua toh bhi 0% se start hoga jaldi hi
+  if (!item.prepStartedAt && !localPrepStartedRef.current) {
     return (
       <div className="w-full mt-1">
-        <div className="flex items-center gap-1 text-yellow-600 text-xs">
-          <span>⏳ Waiting to start</span>
+        <div className="flex items-center gap-1 text-blue-600 text-xs mb-1">
+          <span className="animate-pulse">🔥</span>
+          <span>Starting preparation...</span>
+        </div>
+        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-blue-400 rounded-full animate-pulse"
+            style={{ width: '5%' }}
+          />
         </div>
       </div>
     );
   }
 
+  // COOKING STATE
+  const timeLeft = Math.ceil(((100 - progress) / 100) * (item.prepTime || 15));
+  
   return (
     <div className="w-full mt-1">
       <div className="flex justify-between items-center mb-1">
-        <span className="text-[10px] text-gray-500">Cooking...</span>
+        <span className="text-[10px] text-gray-500 flex items-center gap-1">
+          <span className="animate-pulse">👨‍🍳</span> Cooking...
+        </span>
         <span className="text-[10px] font-bold" style={{ color: theme?.primary || "#8A244B" }}>
           {progress}%
         </span>
       </div>
-      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+      
+      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
         <div 
           className="h-full transition-all duration-1000 ease-linear rounded-full relative"
           style={{ 
             width: `${progress}%`,
-            backgroundColor: theme?.primary || "#8A244B"
+            backgroundColor: theme?.primary || "#8A244B",
+            boxShadow: '0 0 8px rgba(138, 36, 75, 0.3)'
           }}
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
         </div>
       </div>
+      
       <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
-        <span>⏱️ {item.prepTime}min</span>
-        <span>{Math.ceil((item.prepTime * (100 - progress)) / 100)}min left</span>
+        <span>⏱️ {item.prepTime || 15} min total</span>
+        <span className={timeLeft <= 2 ? "text-red-500 font-bold" : ""}>
+          {timeLeft <= 0 ? "Almost ready!" : `~${timeLeft} min left`}
+        </span>
       </div>
     </div>
   );
 };
+// ================= ACTIVE ORDER CARD COMPONENT =================
 // ================= ACTIVE ORDER CARD COMPONENT =================
 const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWhatsApp, isProcessed, onDishReady }) => {
   const statusConfig = {
@@ -155,10 +218,11 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
   };
   
   const status = statusConfig[order.status] || statusConfig.pending;
+  
+  // 🔥🔥🔥 FIX: Check if order is completed (should NOT show bill buttons)
   const isCompleted = order.status === 'completed';
   
-  // const audioRef = useRef(null);
-
+  // 🔥🔥🔥 FIX: Check if all items are ready (show bill buttons when ready but NOT completed)
   const getItemsArray = (items) => {
     if (!items) return [];
     if (Array.isArray(items)) return items;
@@ -167,6 +231,22 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
   };
 
   const orderItems = getItemsArray(order.items);
+  
+  // Check if all items are ready
+  const allItemsReady = orderItems.length > 0 && orderItems.every(item => 
+    item.itemStatus === "ready" || item.itemReadyAt
+  );
+  
+  // Check if any item is ready (for showing bill buttons)
+  const hasReadyItems = orderItems.some(item => 
+    item.itemStatus === "ready" || item.itemReadyAt
+  );
+
+  // 🔥🔥🔥 IMPORTANT: Show bill buttons ONLY when:
+  // 1. Order is NOT completed (isCompleted === false)
+  // 2. Items are ready (hasReadyItems === true)
+  // 3. Bill is NOT already processed (isProcessed === false)
+  const shouldShowBillButtons = !isCompleted && hasReadyItems && !isProcessed;
 
   return (
     <div id={`order-${order.id}`} className="bg-white rounded-xl p-4 mb-4 shadow-lg border-2 border-gray-100">
@@ -187,72 +267,70 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
       
       {/* Items with Individual Progress Bars */}
       <div className="space-y-3 mb-3">
-        {orderItems.length === 0 ? (
-          <div className="text-center text-gray-400 text-sm py-2">No items found</div>
-        ) : (
-          orderItems.map((item, idx) => (
-            <div key={idx} className="flex flex-col p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-3 flex-1">
-                  {item.image && (
-                    <img src={item.image} className="w-12 h-12 rounded-lg object-cover" alt="" />
-                  )}
-                  <div className="flex-1">
-                    <span className="text-sm font-medium block">{item.name || 'Unknown Item'}</span>
-                    <span className="text-xs text-gray-500">
-                      × {item.qty || 1}
+        {orderItems.map((item, idx) => (
+          <div key={idx} className="flex flex-col p-3 bg-gray-50 rounded-lg border border-gray-100">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-3 flex-1">
+                {item.image && (
+                  <img src={item.image} className="w-12 h-12 rounded-lg object-cover" alt="" />
+                )}
+                <div className="flex-1">
+                  <span className="text-sm font-medium block">{item.name || 'Unknown Item'}</span>
+                  <span className="text-xs text-gray-500">
+                    × {item.qty || 1}
 
-                      {/* 🌶 SPICE - Non-sweet dishes ke liye */}
-                      {item.dishTasteProfile !== "sweet" && item.spicePreference && (
-                        ` • 🌶️ ${item.spicePreference}`
-                      )}
+                    {/* 🌶 SPICE - Non-sweet dishes ke liye */}
+                    {item.dishTasteProfile !== "sweet" && item.spicePreference && (
+                      ` • 🌶️ ${item.spicePreference}`
+                    )}
 
-                      {/* 🧂 SALT - Sirf agar "normal" nahi hai */}
-                      {item.saltPreference && item.saltPreference !== "normal" && (
-                        ` • 🧂 ${item.saltPreference}`
-                      )}
+                    {/* 🧂 SALT - Sirf agar "normal" nahi hai */}
+                    {item.saltPreference && item.saltPreference !== "normal" && (
+                      ` • 🧂 ${item.saltPreference}`
+                    )}
 
-                      {/* 🍰 SWEETNESS - Sweet dishes ke liye */}
-                      {item.dishTasteProfile === "sweet" && item.sweetLevel && (
-                        ` • 🍰 ${item.sweetLevel}`
-                      )}
+                    {/* 🍰 SWEETNESS - Sweet dishes ke liye */}
+                    {item.dishTasteProfile === "sweet" && item.sweetLevel && (
+                      ` • 🍰 ${item.sweetLevel}`
+                    )}
 
-                      {/* 🥗 SALAD */}
-                      {item.salad?.qty > 0 && (
-                        ` • 🥗 ${item.salad.qty}`
-                      )}
-                    </span>
-                  </div>
+                    {/* 🥗 SALAD */}
+                    {item.salad?.qty > 0 && (
+                      ` • 🥗 ${item.salad.qty}`
+                    )}
+                  </span>
                 </div>
-                <span className="text-sm font-bold ml-2">₹{(item.price || 0) * (item.qty || 1)}</span>
               </div>
-              
-              {/* Progress Bar - sirf active orders mein */}
-              {order.status !== 'pending' && order.status !== 'completed' && (
-                <div className="mt-2 pt-2 border-t border-gray-200">
-                 <DishProgressBar 
-  item={item} 
-  theme={theme} 
-  orderId={order.id}
-  onDishReady={onDishReady}
-/>
-                </div>
-              )}
-              
-              {/* Ready status */}
-              {(item.itemStatus === 'ready' || item.itemReadyAt) && (
-                <div className="mt-2 pt-2 border-t border-gray-200">
-                  <div className="flex items-center gap-1 text-green-600 font-bold text-xs">
-                    <span>✅ Ready</span>
-                    <span className="text-[10px] text-gray-400">
-                      ({new Date(item.itemReadyAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})
-                    </span>
-                  </div>
-                </div>
-              )}
+              <span className="text-sm font-bold ml-2">₹{(item.price || 0) * (item.qty || 1)}</span>
             </div>
-          ))
-        )}
+            
+            {/* Progress Bar - sirf active orders mein (NOT completed) */}
+            {!isCompleted && order.status !== 'pending' && (
+              <div className="mt-2 pt-2 border-t border-gray-200">
+                <DishProgressBar 
+                  key={`${order.id}-${item.dishId || item.id}`}
+                  item={item} 
+                  theme={theme} 
+                  orderId={order.id}
+                  orderStatus={order.status}
+                  onDishReady={onDishReady}
+                />
+              </div>
+            )}
+            
+            {/* Ready status - always show if ready */}
+            {(item.itemStatus === 'ready' || item.itemReadyAt) && (
+              <div className="mt-2 pt-2 border-t border-gray-200">
+                <div className="flex items-center gap-1 text-green-600 font-bold text-xs">
+                  <span>✅ Ready</span>
+                  <span className="text-[10px] text-gray-400">
+                    ({new Date(item.itemReadyAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
       
       {/* Total */}
@@ -267,18 +345,32 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
         </div>
       </div>
 
-      {/* Completed Order Actions */}
-      {isCompleted && !isProcessed && (
+      {/* 🔥🔥🔥 BILL BUTTONS - Show when items ready but order NOT completed */}
+      {shouldShowBillButtons && (
         <div className="space-y-2 mt-3 pt-3 border-t border-gray-200">
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center mb-3">
-            <p className="text-green-700 font-bold text-sm">🎉 Order Completed! 😋</p>
+            <p className="text-green-700 font-bold text-sm">🎉 Your Order is Ready!</p>
             <p className="text-green-600 text-xs mt-1">Download your bill or share on WhatsApp</p>
           </div>
           
           <div className="grid grid-cols-2 gap-2">
+            {/* Download Bill Button */}
             <button
               onClick={() => onGenerateBill(order)}
-              className="py-2.5 px-4 bg-blue-500 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:bg-blue-600 transition shadow-sm"
+              style={{ 
+                border: `2px solid ${theme.primary}`,
+                color: theme.primary,
+                backgroundColor: '#ffffff'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = theme.primary;
+                e.currentTarget.style.color = '#ffffff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#ffffff';
+                e.currentTarget.style.color = theme.primary;
+              }}
+              className="py-2.5 px-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -286,9 +378,23 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
               Download Bill
             </button>
             
+            {/* Share on WhatsApp Button */}
             <button
               onClick={() => onShareWhatsApp(order)}
-              className="py-2.5 px-4 bg-green-500 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:bg-green-600 transition shadow-sm"
+              style={{ 
+                border: `2px solid #22c55e`,
+                color: '#22c55e',
+                backgroundColor: '#ffffff'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#22c55e';
+                e.currentTarget.style.color = '#ffffff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#ffffff';
+                e.currentTarget.style.color = '#22c55e';
+              }}
+              className="py-2.5 px-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300"
             >
               <FaWhatsapp className="w-4 h-4" />
               Share Bill
@@ -297,7 +403,8 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
         </div>
       )}
 
-      {isCompleted && isProcessed && (
+      {/* Processed State - Bill already downloaded/shared */}
+      {!isCompleted && isProcessed && (
         <div className="mt-3 pt-3 border-t border-gray-200">
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
             <p className="text-gray-600 font-bold text-sm">✅ Bill Processed</p>
@@ -311,8 +418,25 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
           </button>
         </div>
       )}
+
+      {/* Completed Order - No buttons, just thank you message */}
+      {isCompleted && (
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+            <p className="text-green-700 font-bold text-sm">✨ Order Completed!</p>
+            <p className="text-green-600 text-xs mt-1">Thank you for dining with us! 🙏</p>
+          </div>
+          <button
+            onClick={() => onMarkViewed(order.id)}
+            className="w-full mt-2 py-2 text-gray-500 text-xs hover:text-gray-700 transition"
+          >
+            Mark as viewed & hide
+          </button>
+        </div>
+      )}
       
-      {order.status === 'ready' && (
+      {/* Ready to collect button - only when order status is 'ready' */}
+      {order.status === 'ready' && !isCompleted && (
         <button
           onClick={() => onMarkViewed(order.id)}
           className="w-full mt-3 py-2 bg-green-500 text-white rounded-lg font-bold animate-pulse"
@@ -580,36 +704,37 @@ const handleDishReady = useCallback((dishName, orderId) => {
     }
   }, []);
 
-  const updateActiveOrders = useCallback((data) => {
-    const now = Date.now();
-    const twentySecondsAgo = now - (20 * 1000);
-    
-    const myOrders = Object.entries(data)
-      .filter(([id, order]) => {
-        if (order.userId !== userId) return false;
-        if (order.restaurantId !== restaurantId) return false;
-        if (viewedOrdersRef.current.has(id)) return false;
-        
-        if (['pending', 'confirmed', 'preparing', 'ready'].includes(order.status)) {
-          return true;
-        }
-        
-        if (order.status === 'completed') {
-          const completedAt = order.completedAt || order.updatedAt || order.createdAt;
-          return completedAt > twentySecondsAgo;
-        }
-        
-        return false;
-      })
-      .map(([id, order]) => ({
-        id,
-        ...order,
-        total: Number(order.total) || 0
-      }))
-      .sort((a, b) => b.createdAt - a.createdAt);
-    
-    setActiveOrder(myOrders);
-  }, [userId, restaurantId]);
+const updateActiveOrders = useCallback((data) => {
+  const now = Date.now();
+  const twentySecondsAgo = now - (20 * 1000);
+  
+  const myOrders = Object.entries(data)
+    .filter(([id, order]) => {
+      if (order.userId !== userId) return false;
+      if (order.restaurantId !== restaurantId) return false;
+      if (viewedOrdersRef.current.has(id)) return false;
+      
+      // 🔥🔥🔥 FIX: Completed orders ko immediately hide karo (20 sec delay hatao)
+      if (order.status === 'completed') {
+        return false; // Completed orders ko bilkul mat dikhavo
+      }
+      
+      // Active orders dikhavo
+      if (['pending', 'confirmed', 'preparing', 'ready'].includes(order.status)) {
+        return true;
+      }
+      
+      return false;
+    })
+    .map(([id, order]) => ({
+      id,
+      ...order,
+      total: Number(order.total) || 0
+    }))
+    .sort((a, b) => b.createdAt - a.createdAt);
+  
+  setActiveOrder(myOrders);
+}, [userId, restaurantId]);
 
   // ================= WHATSAPP ORDER FUNCTIONS =================
   const generateWhatsAppMessage = (item, restaurantName) => {
@@ -1100,27 +1225,6 @@ ${window.location.origin}/admin/orders/${order.id}
       console.error("❌ Failed to place WhatsApp order:", error);
     }
   };
-
-  // ================= EXISTING FUNCTIONS =================
-// const handleDishReady = useCallback((dishName, orderId) => {
-//   const id = Date.now() + Math.random();
-//   setReadyDishes(prev => [...prev, { id, dishName, orderId }]);
-  
-//   // Notification show karo
-//   if ("Notification" in window && Notification.permission === "granted") {
-//     new Notification(`🍽️ ${dishName} Ready!`, {
-//       body: "Your dish is ready to serve!",
-//       icon: '/logo.png'
-//     });
-//   }
-  
-//   toast.success(`${dishName} is Ready!`, {
-//     description: "Enjoy your meal 😋",
-//     duration: 5000
-//   });
-// }, []);
-
-
   const removeNotification = (id) => {
     setReadyNotifications(prev => prev.filter(n => n.id !== id));
   };

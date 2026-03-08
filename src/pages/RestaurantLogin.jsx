@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { auth } from "../firebaseConfig";
+import FaceLogin from "../components/admin/FaceLogin";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "../firebaseConfig";
 import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
@@ -14,12 +17,52 @@ import khaatogologo from "../assets/khaatogologo.png";
 import { Helmet } from "react-helmet";
 export default function RestaurantLogin() {
   const navigate = useNavigate();
-
+const [showFaceLogin, setShowFaceLogin] = useState(false);
+const [faceData, setFaceData] = useState(null);
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [remember, setRemember] = useState(false);
 const googleProvider = new GoogleAuthProvider();
+const handleFaceDetected = async (faceData) => {
+  try {
+    // Check if face exists in database
+    const usersRef = collection(db, "faceAuth");
+    const querySnapshot = await getDocs(usersRef);
+    
+    let matchedUser = null;
+    
+    querySnapshot.forEach((doc) => {
+      const userFaceData = doc.data();
+      if (userFaceData.faceDescriptor) {
+        const distance = faceapi.euclideanDistance(
+          new Float32Array(userFaceData.faceDescriptor),
+          faceData.descriptor
+        );
+        
+        // Threshold: 0.6 (lower is better match)
+        if (distance < 0.6) {
+          matchedUser = userFaceData;
+        }
+      }
+    });
+
+    if (matchedUser) {
+      // Auto-fill email and show success
+      setForm({ ...form, email: matchedUser.email });
+      toast.success(`Welcome back, ${matchedUser.name}!`);
+      setShowFaceLogin(false);
+      
+      // Optional: Auto-login if password saved (not recommended for security)
+    } else {
+      toast.error("Face not recognized. Please use email/password.");
+      setShowFaceLogin(false);
+    }
+  } catch (error) {
+    console.error("Face login error:", error);
+    toast.error("Face login failed");
+  }
+};
   // 🔁 Load saved email
   useEffect(() => {
     const savedEmail = localStorage.getItem("rememberEmail");
@@ -214,7 +257,23 @@ const handleGoogleLogin = async () => {
   <span className="px-3 text-sm text-gray-500">OR</span>
   <div className="flex-grow h-px bg-gray-300"></div>
 </div>
-
+{showFaceLogin && (
+  <FaceLogin
+    onFaceDetected={handleFaceDetected}
+    onClose={() => setShowFaceLogin(false)}
+  />
+)}
+<button
+  onClick={() => setShowFaceLogin(true)}
+  disabled={loading}
+  className="w-full py-3 mb-2 rounded-xl font-semibold border transition flex items-center justify-center gap-3 hover:bg-gray-50 disabled:opacity-60 mt-3"
+  style={{ borderColor: "#8A244B", color: "#8A244B" }}
+>
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+  Login with Face
+</button>
 {/* Google Login */}
 <button
   onClick={handleGoogleLogin}

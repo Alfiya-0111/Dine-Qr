@@ -748,12 +748,12 @@ const HomePage = () => {
               </ul>
             </div>
           </div>
-          <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-gray-500 text-sm">© 2024 KhattaGo. All rights reserved.</p>
-            <div className="flex gap-4">
-              <span className="text-gray-600 text-sm">Made with ❤️ in India</span>
-            </div>
-          </div>
+        <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+  <p className="text-gray-500 text-sm">© {new Date().getFullYear()} Khaatogo. All rights reserved.</p>
+  <div className="flex gap-4">
+    <span className="text-gray-600 text-sm">Made with ❤️ in India</span>
+  </div>
+</div>
         </div>
       </footer>
     </div>

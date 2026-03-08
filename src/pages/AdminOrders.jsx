@@ -1,8 +1,20 @@
 import { useEffect, useState, useRef } from "react";
-import { ref, onValue, update, remove, set } from "firebase/database";
+import { ref, onValue, update, remove, set, get } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { initWhatsAppAutoProcessor } from "../utils/whatsappAutoProcessor";
+
+const getItemsArray = (items) => {
+  if (!items) return [];
+  if (Array.isArray(items)) return items;
+  if (typeof items === 'object') {
+    return Object.entries(items).map(([key, value]) => ({
+      ...value,
+      _key: key
+    }));
+  }
+  return [];
+};
 
 export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
@@ -15,7 +27,8 @@ export default function AdminOrders() {
   const [showAllOrders, setShowAllOrders] = useState(true);
   const [debugInfo, setDebugInfo] = useState({ total: 0, matched: 0, statuses: {} });
   const [autoCompleteEnabled, setAutoCompleteEnabled] = useState(true);
-  
+  const [restaurantSettings, setRestaurantSettings] = useState(null);
+
   // 🗣️ VOICE NOTIFICATION STATE
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const previousOrdersRef = useRef([]);
@@ -30,41 +43,24 @@ export default function AdminOrders() {
   // 🗣️ TEXT-TO-SPEECH FUNCTION
   const speak = (text, priority = 'normal') => {
     if (!voiceEnabled) return;
-    
-    // Check if browser supports TTS
-    if (!('speechSynthesis' in window)) {
-      console.log("Browser doesn't support text-to-speech");
-      return;
-    }
+    if (!('speechSynthesis' in window)) return;
 
-    // Cancel any ongoing speech
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);
-    
-    // Voice settings
-    utterance.lang = 'en-IN'; // Indian English
-    utterance.rate = 1; // Speed (0.1 to 2)
-    utterance.pitch = 1; // Pitch (0 to 2)
-    utterance.volume = 1; // Volume (0 to 1)
+    utterance.lang = 'en-IN';
+    utterance.rate = priority === 'high' ? 1.1 : 1;
+    utterance.pitch = priority === 'high' ? 1.2 : 1;
+    utterance.volume = 1;
 
-    // Try to get a good voice
     const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(voice => 
+    const preferredVoice = voices.find(v => 
       voice.name.includes('Google') || 
       voice.name.includes('Microsoft') ||
       voice.name.includes('Female')
     );
     
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
-    }
-
-    // Priority handling
-    if (priority === 'high') {
-      utterance.rate = 1.1; // Slightly faster for WhatsApp
-      utterance.pitch = 1.2; // Higher pitch for urgency
-    }
+    if (preferredVoice) utterance.voice = preferredVoice;
 
     window.speechSynthesis.speak(utterance);
   };
@@ -72,13 +68,25 @@ export default function AdminOrders() {
   // 🗣️ VOICE ANNOUNCEMENT FUNCTION
   const announceOrder = (orderType) => {
     if (orderType === 'whatsapp') {
-      // 🔥 WhatsApp Order - Urgent announcement
       speak("New WhatsApp Order", 'high');
     } else {
-      // 🔔 Normal Order - Standard announcement  
       speak("New Order", 'normal');
     }
   };
+
+  // Restaurant settings listener
+  useEffect(() => {
+    if (!restaurantId) return;
+    
+    const settingsRef = ref(realtimeDB, `restaurants/${restaurantId}`);
+    const unsubscribe = onValue(settingsRef, (snap) => {
+      if (snap.exists()) {
+        setRestaurantSettings(snap.val());
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [restaurantId]);
 
   // Auth listener
   useEffect(() => {
@@ -95,92 +103,96 @@ export default function AdminOrders() {
     return () => unsubscribe();
   }, []);
 
-  // 🔥🔥🔥 MAIN ORDERS LISTENER WITH VOICE NOTIFICATION
-  useEffect(() => {
-    if (!restaurantId) {
-      console.log("ℹ️ No restaurantId, skipping orders listener");
+// 🔥🔥🔥 MAIN ORDERS LISTENER WITH VOICE NOTIFICATION
+useEffect(() => {
+  if (!restaurantId) {
+    console.log("ℹ️ No restaurantId, skipping orders listener");
+    return;
+  }
+
+  console.log("🔥 Starting MAIN orders listener for:", restaurantId);
+
+  const ordersRef = ref(realtimeDB, `orders`);
+
+  const unsubscribeOrders = onValue(ordersRef, (snapshot) => {
+    const data = snapshot.val();
+
+    if (!data) {
+      console.log("ℹ️ No orders in main node");
+      setOrders([]);
       return;
     }
 
-    console.log("🔥 Starting MAIN orders listener for:", restaurantId);
+    console.log("📦 Total orders in Firebase:", Object.keys(data).length);
 
-    const ordersRef = ref(realtimeDB, 'orders');
+    // 🔥🔥🔥 FIX: Better restaurant ID matching
+    const myOrders = Object.entries(data).filter(([orderId, order]) => {
+      if (!order) return false;
+      
+      const orderRestId = String(order?.restaurantId || "").trim();
+      const currentUserId = String(restaurantId || "").trim();
+      
+      // Check multiple ways to match
+      const isMyOrder = 
+        orderRestId === currentUserId || 
+        orderRestId === restaurantId ||
+        MY_RESTAURANT_IDS.includes(orderRestId) ||
+        order.userId === restaurantId || // Sometimes userId is used
+        order.adminId === restaurantId;  // Sometimes adminId is used
 
-    const unsubscribeOrders = onValue(ordersRef, (snapshot) => {
-      const data = snapshot.val();
-
-      if (!data) {
-        console.log("ℹ️ No orders in main node");
-        setOrders([]);
-        return;
+      // Debug logging
+      if (isMyOrder) {
+        console.log(`✅ Matched order ${orderId} for restaurant ${orderRestId}`);
       }
 
-      console.log("📦 Total orders in Firebase:", Object.keys(data).length);
+      return isMyOrder;
+    }).map(([id, order]) => ({
+      id,
+      ...order,
+      source: order?.type || order?.source || 'regular'
+    }));
 
-      // Filter orders for this restaurant
-      const myOrders = Object.entries(data).filter(([orderId, order]) => {
-        const orderRestId = String(order?.restaurantId || "").trim();
-        const currentUserId = String(restaurantId || "").trim();
+    console.log("✅ My orders count:", myOrders.length);
+    console.log("📋 Order IDs:", myOrders.map(o => o.id));
 
-        const isMyOrder = orderRestId === currentUserId || 
-                         orderRestId === restaurantId ||
-                         MY_RESTAURANT_IDS.includes(orderRestId);
+    // 🗣️🗣️🗣️ NEW ORDER DETECTION & VOICE ANNOUNCEMENT
+    const currentOrderIds = myOrders.map(o => o.id);
+    const previousOrderIds = previousOrdersRef.current.map(o => o.id);
+    
+    const newOrders = myOrders.filter(order => !previousOrderIds.includes(order.id));
+    
+    if (newOrders.length > 0 && previousOrdersRef.current.length > 0) {
+      newOrders.forEach(newOrder => {
+        const isWhatsApp = newOrder.source === 'whatsapp' || 
+                          newOrder.type === 'whatsapp' || 
+                          newOrder.whatsappStatus;
+        
+        console.log(`🗣️ Announcing ${isWhatsApp ? 'WhatsApp' : 'Regular'} order:`, newOrder.id);
+        
+        announceOrder(isWhatsApp ? 'whatsapp' : 'regular');
+        showBrowserNotification(newOrder, isWhatsApp);
+      });
+    }
 
-        return isMyOrder;
-      }).map(([id, order]) => ({
-        id,
-        ...order,
-        source: order?.type || order?.source || 'regular'
-      }));
+    previousOrdersRef.current = myOrders;
+    setOrders(myOrders);
 
-      console.log("✅ My orders count:", myOrders.length);
+    setDebugInfo(prev => ({
+      ...prev,
+      total: Object.keys(data).length,
+      matched: myOrders.length,
+      statuses: myOrders.reduce((acc, o) => {
+        acc[o.status] = (acc[o.status] || 0) + 1;
+        return acc;
+      }, {})
+    }));
+  });
 
-      // 🗣️🗣️🗣️ NEW ORDER DETECTION & VOICE ANNOUNCEMENT
-      const currentOrderIds = myOrders.map(o => o.id);
-      const previousOrderIds = previousOrdersRef.current.map(o => o.id);
-      
-      // Naye orders find karo jo pehle nahi the
-      const newOrders = myOrders.filter(order => !previousOrderIds.includes(order.id));
-      
-      if (newOrders.length > 0 && previousOrdersRef.current.length > 0) {
-        // Pehla load nahi hai, actual new order hai
-        newOrders.forEach(newOrder => {
-          const isWhatsApp = newOrder.source === 'whatsapp' || 
-                            newOrder.type === 'whatsapp' || 
-                            newOrder.whatsappStatus;
-          
-          console.log(`🗣️ Announcing ${isWhatsApp ? 'WhatsApp' : 'Regular'} order:`, newOrder.id);
-          
-          // 🎙️ Voice announcement
-          announceOrder(isWhatsApp ? 'whatsapp' : 'regular');
-          
-          // 🔔 Browser notification bhi dikhao
-          showBrowserNotification(newOrder, isWhatsApp);
-        });
-      }
-
-      // Ref update karo for next comparison
-      previousOrdersRef.current = myOrders;
-      
-      setOrders(myOrders);
-
-      // Debug info update
-      setDebugInfo(prev => ({
-        ...prev,
-        total: Object.keys(data).length,
-        matched: myOrders.length,
-        statuses: myOrders.reduce((acc, o) => {
-          acc[o.status] = (acc[o.status] || 0) + 1;
-          return acc;
-        }, {})
-      }));
-    });
-
-    return () => {
-      console.log("🛑 Stopping main orders listener");
-      unsubscribeOrders();
-    };
-  }, [restaurantId, voiceEnabled]);
+  return () => {
+    console.log("🛑 Stopping main orders listener");
+    unsubscribeOrders();
+  };
+}, [restaurantId, voiceEnabled]);
 
   // 🔔 BROWSER NOTIFICATION FUNCTION
   const showBrowserNotification = (order, isWhatsApp) => {
@@ -202,40 +214,164 @@ export default function AdminOrders() {
     }
   };
 
-  // 🔥 WHATSAPP AUTO-PROCESSOR
-  useEffect(() => {
-    if (!restaurantId) return;
+  // 🔥🔥🔥 TIMER EFFECT WITH AUTO-COMPLETE AND AUTO-BILL GENERATION
+useEffect(() => {
+  const timer = setInterval(() => {
+    const currentTime = Date.now();
+    setNow(currentTime);
 
-    console.log("🔥 Initializing WhatsApp Auto Processor for:", restaurantId);
+    if (!autoCompleteEnabled) return;
+
+  orders.forEach(order => {
+
+  if (
+    order.status === "preparing" &&
+    order.prepEndsAt &&
+    currentTime >= order.prepEndsAt &&
+    !order.completedAt
+  ) {
+    completeOrderAndGenerateBill(order.id);
+  }
+
+});
+
+  }, 1000);
+
+  return () => clearInterval(timer);
+}, [orders, autoCompleteEnabled]);
+
+  // 🔥🔥🔥 NEW FUNCTION: Complete order + Generate bill automatically
+  const completeOrderAndGenerateBill = async (orderId) => {
+    console.log(`🔄 [DEBUG] Auto-completing and generating bill for order ${orderId}`);
     
-    const unsubscribe = initWhatsAppAutoProcessor(restaurantId);
-    
-    return () => {
-      console.log("🛑 Stopping WhatsApp Auto Processor");
-      unsubscribe();
-    };
-  }, [restaurantId]);
+    try {
+      const now = Date.now();
+      const orderRef = ref(realtimeDB, `orders/${orderId}`);
+      
+      // Pehle order data fetch karo
+      const orderSnap = await get(orderRef);
+      
+      if (!orderSnap.exists()) {
+        console.log(`❌ [DEBUG] Order ${orderId} not found`);
+        return;
+      }
+      
+      const orderData = orderSnap.val();
+      
+      // Agar already completed hai toh skip karo
+      if (orderData.status === 'completed') {
+        console.log(`ℹ️ [DEBUG] Order ${orderId} already completed`);
+        return;
+      }
+      
+      // 🔥🔥🔥 BILL DATA PREPARE KARO (agar nahi hai)
+      let billData = null;
+      if (!orderData.bill) {
+        const rawItems = orderData.items;
+        let formattedItems = [];
+        
+        if (Array.isArray(rawItems)) {
+          formattedItems = rawItems.map((item, idx) => ({
+            name: item?.name || item?.dishName || `Item ${idx + 1}`,
+            qty: item?.qty || item?.quantity || 1,
+            price: item?.price || 0
+          }));
+        } else if (typeof rawItems === 'object' && rawItems !== null) {
+          formattedItems = Object.entries(rawItems).map(([key, item], idx) => ({
+            name: item?.name || item?.dishName || `Item ${idx + 1}`,
+            qty: item?.qty || item?.quantity || 1,
+            price: item?.price || 0
+          }));
+        }
 
-  // Timer update har second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const currentTime = Date.now();
-      setNow(currentTime);
-
-      if (autoCompleteEnabled) {
-        orders.forEach(order => {
-          if (order.status === 'preparing' && order.prepEndsAt && currentTime >= order.prepEndsAt) {
-            console.log(`⏰ Auto-completing order ${order.id}`);
-            updateStatus(order.id, "completed");
-          }
+        billData = {
+          orderId: orderId,
+          customerName: orderData.customerInfo?.name || orderData.customerName || "Guest",
+          hotelName: orderData.hotelName || "Restaurant",
+          orderDate: orderData.orderDetails?.orderDate || orderData.orderDate || now,
+          total: orderData.total || 0,
+          items: formattedItems,
+          generatedAt: now,
+          generatedBy: "system_auto",
+          status: "ready_for_customer"
+        };
+        
+        console.log(`[DEBUG] Bill prepared for order ${orderId}:`, {
+          customerName: billData.customerName,
+          itemsCount: billData.items.length,
+          total: billData.total
         });
       }
-    }, 1000);
 
-    return () => clearInterval(timer);
-  }, [orders, autoCompleteEnabled]);
+      // 🔥🔥🔥 EK SAATH STATUS UPDATE + BILL SAVE KARO
+      const updates = {
+        status: "completed",
+        completedAt: now,
+        updatedAt: now,
+        ...(billData && { 
+          bill: billData,
+          billGeneratedAt: now,
+          billAutoGenerated: true
+        })
+      };
 
-  // ... (baaki sab functions same hain - deleteOrder, generateBill, updateStatus, etc.)
+      await update(orderRef, updates);
+      
+      console.log(`✅ [DEBUG] Order ${orderId} auto-completed with bill generated`);
+
+      // WhatsApp orders update karo
+      try {
+        const whatsappRef = ref(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`);
+        await update(whatsappRef, {
+          status: "completed",
+          whatsappStatus: "completed",
+          updatedAt: now
+        });
+      } catch (err) {
+        console.log(`[DEBUG] WhatsApp orders update skipped:`, err.message);
+      }
+
+      // Kitchen orders update karo
+      try {
+        const kitchenRef = ref(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`);
+        await update(kitchenRef, {
+          status: "completed",
+          kitchenStatus: "completed",
+          updatedAt: now
+        });
+      } catch (kitchenErr) {
+        console.log(`[DEBUG] Kitchen orders update skipped:`, kitchenErr.message);
+      }
+
+    } catch (error) {
+      console.error("❌ [DEBUG] Auto-complete error:", error);
+    }
+  };
+
+  // 🔥🔥🔥 MANUAL STATUS UPDATE (Sirf Ready/Preparing ke liye)
+ const updateStatus = async (id, status) => {
+
+  const order = orders.find(o => o.id === id);
+
+  const now = Date.now();
+  const orderRef = ref(realtimeDB, `orders/${id}`);
+
+  const updates = { 
+    status,
+    updatedAt: now
+  };
+
+if (status === "preparing") {
+
+  const prepTime = order?.prepTime || 5;
+
+  updates.prepStartedAt = now;
+  updates.prepEndsAt = now + prepTime * 60 * 1000;
+
+}
+
+  await update(orderRef, updates);
+}
 
   const deleteOrder = async (id) => {
     if (!window.confirm("Delete this order permanently?")) return;
@@ -249,10 +385,11 @@ export default function AdminOrders() {
     }
   };
 
+  // 🔥🔥🔥 MANUAL BILL GENERATE (Agar auto-fail ho jaye toh backup)
   const generateBill = async (order) => {
     try {
       if (order.bill) {
-        alert("Bill already generated! User can view it.");
+        alert("Bill already generated!");
         return;
       }
 
@@ -274,7 +411,7 @@ export default function AdminOrders() {
         billGeneratedAt: Date.now()
       });
 
-      alert("✅ Bill Generated! Customer can now view and download it.");
+      alert("✅ Bill Generated!");
     } catch (error) {
       console.error("Bill generation error:", error);
       alert("Failed to generate bill");
@@ -290,79 +427,7 @@ export default function AdminOrders() {
     }
   };
 
-  const updateStatus = async (id, status) => {
-    try {
-      const now = Date.now();
-      
-      const orderRef = ref(realtimeDB, `orders/${id}`);
-      await update(orderRef, { 
-        status,
-        completedAt: status === "completed" ? now : null,
-        updatedAt: now
-      });
-
-      try {
-        const whatsappRef = ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`);
-        await update(whatsappRef, {
-          status,
-          whatsappStatus: status,
-          updatedAt: now
-        });
-      } catch (err) {
-        try {
-          const whatsappRef = ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`);
-          await set(whatsappRef, {
-            status,
-            whatsappStatus: status,
-            updatedAt: now,
-            orderId: id,
-            restaurantId: restaurantId
-          });
-        } catch (setErr) {
-          console.log("ℹ️ WhatsApp orders set also failed:", setErr.message);
-        }
-      }
-
-      try {
-        const kitchenRef = ref(realtimeDB, `kitchenOrders/${restaurantId}/${id}`);
-        const kitchenSnap = await new Promise((resolve) => {
-          onValue(kitchenRef, resolve, { onlyOnce: true });
-        });
-        
-        if (kitchenSnap.exists()) {
-          await update(kitchenRef, {
-            status,
-            kitchenStatus: status,
-            updatedAt: now
-          });
-        } else {
-          const orderSnap = await new Promise((resolve) => {
-            onValue(ref(realtimeDB, `orders/${id}`), resolve, { onlyOnce: true });
-          });
-          
-          if (orderSnap.exists()) {
-            const orderData = orderSnap.val();
-            await set(kitchenRef, {
-              ...orderData,
-              id,
-              status,
-              kitchenStatus: status,
-              updatedAt: now
-            });
-          }
-        }
-      } catch (kitchenErr) {
-        console.error("❌ KitchenOrders update failed:", kitchenErr.message);
-      }
-
-    } catch (error) {
-      console.error("❌ Status update error:", error);
-      alert("Failed to update status: " + error.message);
-    }
-  };
-
-  // ... (date filter functions same hain)
-
+  // Date filter functions
   const isToday = (ts) => {
     if (!ts || isNaN(ts)) return false;
     const d = new Date(ts);
@@ -469,7 +534,6 @@ export default function AdminOrders() {
         <div className="text-xs text-indigo-700">
           {voiceEnabled ? "🔊 Says: 'New Order' & 'New WhatsApp Order'" : "🔇 Voice muted"}
         </div>
-        {/* Test Button */}
         <button
           onClick={() => {
             speak("New Order");
@@ -615,6 +679,7 @@ export default function AdminOrders() {
               onUpdatePayment={updatePaymentStatus}
               onGenerateBill={generateBill}
               autoCompleteEnabled={autoCompleteEnabled}
+              theme={restaurantSettings?.theme}  
             />
           ))}
         </div>
@@ -650,10 +715,21 @@ export default function AdminOrders() {
   );
 }
 
-// Order Card Component
-function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePayment, onGenerateBill, autoCompleteEnabled }) {
+// 🔥🔥🔥 ORDER CARD COMPONENT - COMPLETE BUTTON HATA DIYA
+function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePayment, onGenerateBill, autoCompleteEnabled, theme }) {
 
   const isWhatsAppOrder = order.source === 'whatsapp' || order.type === 'whatsapp' || order.whatsappStatus;
+
+  const getDishProgress = (item) => {
+    if (!item.prepStartedAt || item.itemStatus === 'ready') return null;
+    
+    const totalTime = (item.prepTime || 15) * 60 * 1000;
+    const elapsed = now - item.prepStartedAt;
+    const percent = Math.min(100, Math.floor((elapsed / totalTime) * 100));
+    const remaining = Math.ceil((totalTime - elapsed) / 60000);
+    
+    return { percent, remaining, total: item.prepTime || 15 };
+  };
 
   const getRemainingTime = (prepEndsAt) => {
     if (!prepEndsAt || isNaN(prepEndsAt)) return 0;
@@ -720,9 +796,10 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
             📅 {order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"}
           </p>
 
+          {/* Overall Order Timer */}
           {isActive && order.status === "preparing" && (
             <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs text-gray-600">⏱️ Remaining:</span>
+              <span className="text-xs text-gray-600">⏱️ Order Time Remaining:</span>
               <span className={`text-sm ${getTimerColor()}`}>
                 {remainingMinutes > 0 ? `${remainingMinutes} min` : "TIME'S UP!"}
               </span>
@@ -743,6 +820,7 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
             {order.status || 'unknown'}
           </span>
 
+          {/* Overall Progress Bar */}
           {isActive && order.prepEndsAt && order.prepStartedAt && (
             <div className="w-24 h-1 bg-gray-200 rounded-full mt-1 overflow-hidden">
               <div 
@@ -751,7 +829,7 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
                   remainingMinutes <= 2 ? 'bg-orange-500' : 'bg-green-500'
                 }`}
                 style={{
-                  width: `${Math.max(0, Math.min(100, (remainingMinutes * 60000) / (order.prepEndsAt - order.prepStartedAt) * 100))}%`
+width: `${Math.min(100, ((now - order.prepStartedAt) / (order.prepEndsAt - order.prepStartedAt)) * 100)}%`
                 }}
               />
             </div>
@@ -773,37 +851,73 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
         </div>
       </div>
 
-      <div className="bg-white rounded-lg p-3 mb-3 border">
-        <h4 className="text-xs font-bold text-gray-700 mb-2">📋 Order Details</h4>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <p><span className="text-gray-500">Type:</span> 
-            <span className="capitalize font-medium ml-1">{order.orderDetails?.type || order.type || "dine-in"}</span>
-          </p>
-          {order.orderDetails?.tableNumber && (
-            <p><span className="text-gray-500">Table:</span> #{order.orderDetails.tableNumber}</p>
-          )}
-          <p><span className="text-gray-500">Date:</span> {order.orderDetails?.orderDate || "N/A"}</p>
-          <p><span className="text-gray-500">Payment:</span> 
-            <span className="capitalize font-medium ml-1">
-              {order.paymentMethod === "cash" ? "💵 Cash" : "💳 Online"}
-            </span>
-          </p>
-        </div>
-      </div>
-
-      <div className="border rounded-lg p-2 mb-3 bg-white">
-        <h4 className="text-xs font-bold text-gray-700 mb-2">🍽️ Items ({order.items?.length || 0})</h4>
-        {order.items?.length > 0 ? (
-          order.items.map((item, index) => (
-            <div key={`${order.id}-${item?.dishId || index}`} className="flex items-center gap-3 border-b py-2 last:border-0">
-              <img src={item?.image} className="w-12 h-12 rounded-lg object-cover" alt={item?.name || 'Item'} />
-              <div className="flex-1">
-                <p className="text-sm font-semibold">{item?.name || 'Unknown'}</p>
-                <p className="text-xs text-gray-500">Qty: {item?.qty || 0} × ₹{item?.price || 0}</p>
-              </div>
-              <span className="text-sm font-bold text-gray-600">₹{(item?.price || 0) * (item?.qty || 0)}</span>
-            </div>
-          ))
+      {/* ITEMS WITH INDIVIDUAL PROGRESS BARS */}
+      <div className="border rounded-lg p-3 mb-3 bg-white">
+        <h4 className="text-xs font-bold text-gray-700 mb-2">
+          🍽️ Items ({getItemsArray(order.items).length})
+        </h4>
+        {getItemsArray(order.items).length > 0 ? (
+          <div className="space-y-3">
+            {getItemsArray(order.items).map((item, index) => {
+              const progress = getDishProgress(item);
+              const isDishReady = item.itemStatus === 'ready' || item.itemReadyAt;
+              
+              return (
+                <div key={`${order.id}-${item?.dishId || index}`} className="flex flex-col p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <img src={item?.image} className="w-12 h-12 rounded-lg object-cover" alt={item?.name || 'Item'} />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold">{item?.name || 'Unknown'}</p>
+                      <p className="text-xs text-gray-500">Qty: {item?.qty || 0} × ₹{item?.price || 0}</p>
+                      
+                      {/* Individual Dish Progress Bar */}
+                      {isActive && order.status !== 'pending' && progress && !isDishReady && (
+                        <div className="mt-2">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                              <span className="animate-pulse">👨‍🍳</span> Cooking...
+                            </span>
+                            <span className="text-[10px] font-bold" style={{ color: theme?.primary || "#8A244B" }}>
+                              {progress.percent}%
+                            </span>
+                          </div>
+                          
+                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
+                            <div 
+                              className="h-full transition-all duration-1000 ease-linear rounded-full"
+                              style={{ 
+                                width: `${progress.percent}%`,
+                                backgroundColor: theme?.primary || "#8A244B",
+                                boxShadow: '0 0 8px rgba(138, 36, 75, 0.3)'
+                              }}
+                            />
+                          </div>
+                          
+                          <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
+                            <span>⏱️ {progress.total} min total</span>
+                            <span className={progress.remaining <= 2 ? "text-red-500 font-bold" : ""}>
+                              {progress.remaining <= 0 ? "Almost ready!" : `~${progress.remaining} min left`}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Ready Status */}
+                      {isDishReady && (
+                        <div className="mt-2 flex items-center gap-1 text-green-600 font-bold text-xs">
+                          <span>✅ Ready</span>
+                          <span className="text-[10px] text-gray-400 ml-1">
+                            ({new Date(item.itemReadyAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-sm font-bold text-gray-600">₹{(item?.price || 0) * (item?.qty || 0)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <p className="text-xs text-gray-500 italic">No items</p>
         )}
@@ -822,28 +936,30 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
           )}
         </div>
         <div className="flex gap-2">
+          {/* 🔥🔥🔥 SIRF ACTIVE ORDERS KE LIYE BUTTONS */}
           {isActive && (
             <>
-              {order.status === 'preparing' && remainingMinutes > 0 && (
-                <button onClick={() => onUpdateStatus(order.id, "ready")}
-                  className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700">
+              {/* Sirf preparing status pe "Mark Ready" dikhavo */}
+              {order.status === 'preparing' && (
+                <button 
+                  onClick={() => onUpdateStatus(order.id, "ready")}
+                  className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700"
+                >
                   Mark Ready
                 </button>
               )}
 
-              <button 
-                onClick={() => onUpdateStatus(order.id, "completed")}
-                className={`px-3 py-1 rounded-lg text-xs ${
-                  remainingMinutes <= 0 
-                    ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
-                    : 'bg-blue-600 hover:bg-blue-700'
-                } text-white`}
-              >
-                {remainingMinutes <= 0 ? '⏰ Complete Now' : '✅ Complete'}
-              </button>
+              {/* 🔥🔥🔥 "COMPLETE" BUTTON HATA DIYA - Ab sirf auto-complete hoga */}
+              {/* 
+                PURANA CODE (HATA DIYA):
+                <button onClick={() => onUpdateStatus(order.id, "completed")}>
+                  Complete Now
+                </button>
+              */}
             </>
           )}
 
+          {/* 🔥🔥🔥 COMPLETED ORDERS MEIN MANUAL BILL GENERATE BUTTON (BACKUP) */}
           {!isActive && order.status === 'completed' && !order.bill && (
             <button 
               onClick={() => onGenerateBill(order)}
@@ -853,6 +969,7 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
             </button>
           )}
 
+          {/* Bill already generated hai toh show karo */}
           {order.bill && (
             <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold">
               ✅ Bill Ready

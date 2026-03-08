@@ -204,21 +204,22 @@ const handlePlaceOrder = async () => {
     paymentStatus: paymentMethod === "cash" ? "pending_cash" : "pending_online",
 
     // ✅ FIXED: Complete items array with ALL customizations
-    items: validCart.map((item) => ({
-      dishId: item.id,
-      name: item.name,
-      image: item.image || "",
-      qty: Number(item.qty) || 1,
-      price: Number(item.price) || 0,
-      prepTime: Number(item.prepTime ?? 15),
-      
-      // 🎨 ALL CUSTOMIZATIONS - Yeh admin side dikhne ke liye zaroori hain
-      sweetnessLevel: item.sweetnessLevel || "normal",     // 🍯 Sweet
-      spicinessLevel: item.spicinessLevel || "normal",     // 🌶️ Spice  
-      saltLevel: item.saltLevel || "normal",               // 🧂 Salt
-      includeSalad: item.includeSalad || false,            // 🥗 Salad
-      specialInstructions: item.specialInstructions || "", // 📝 Instructions per dish
-    })),
+items: validCart.reduce((acc, item) => {
+  acc[item.id] = {
+    dishId: item.id,
+    name: item.name,
+    image: item.image || "",
+    qty: Number(item.qty) || 1,
+    price: Number(item.price) || 0,
+    prepTime: Number(item.prepTime ?? 15),
+    sweetnessLevel: item.sweetnessLevel || "normal",
+    spicinessLevel: item.spicinessLevel || "normal",
+    saltLevel: item.saltLevel || "normal",
+    includeSalad: item.includeSalad || false,
+    specialInstructions: item.specialInstructions || "",
+  };
+  return acc;
+}, {}),
 
     total: validCart.reduce(
       (sum, item) => sum + (Number(item.price) || 0) * (Number(item.qty) || 1),

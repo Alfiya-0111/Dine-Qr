@@ -26,6 +26,19 @@
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
+.face-login-overlay {
+  backdrop-filter: blur(5px);
+}
+
+.face-capture-btn {
+  background: linear-gradient(135deg, #8A244B 0%, #B45253 100%);
+  box-shadow: 0 4px 15px rgba(138, 36, 75, 0.3);
+}
+
+.face-capture-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(138, 36, 75, 0.4);
+}
 /* smoke css */
 /* ================= SPICE SMOKE EFFECT ================= */
 
