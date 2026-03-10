@@ -263,6 +263,7 @@ const handleGoogleLogin = async () => {
     onClose={() => setShowFaceLogin(false)}
   />
 )}
+
 <button
   onClick={() => setShowFaceLogin(true)}
   disabled={loading}

@@ -174,16 +174,17 @@ export default function RestaurantSignup() {
       </div>
 
       {/* ✅ Face Register Modal - AT THE END */}
-      {showFaceRegister && (
-        <FaceLogin 
-          onFaceDetected={(data) => {
-            setFaceDescriptor(data.descriptor);
-            setShowFaceRegister(false);
-            toast.success("Face registered successfully! You can now login with face.");
-          }}
-          onClose={() => setShowFaceRegister(false)}
-        />
-      )}
+     {showFaceRegister && (
+  <FaceLogin 
+    mode="register"  
+    onFaceDetected={(data) => {
+      setFaceDescriptor(data.descriptor);
+      setShowFaceRegister(false);
+      toast.success("Face registered successfully!");
+    }}
+    onClose={() => setShowFaceRegister(false)}
+  />
+)}
     </>
   );
 }
