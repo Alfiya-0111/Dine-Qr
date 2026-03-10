@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { ref, onValue, update, remove, set, get } from "firebase/database";
+import { ref, onValue, update, remove, set, get, query, limitToLast } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { initWhatsAppAutoProcessor } from "../utils/whatsappAutoProcessor";
@@ -17,6 +17,7 @@ const getItemsArray = (items) => {
 };
 
 export default function AdminOrders() {
+   const completingOrdersRef = useRef(new Set());
   const [orders, setOrders] = useState([]);
   const [now, setNow] = useState(Date.now());
   const [selectedFilter, setSelectedFilter] = useState("today");
@@ -24,14 +25,16 @@ export default function AdminOrders() {
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
   const [customFilter, setCustomFilter] = useState(false);
-  const [showAllOrders, setShowAllOrders] = useState(true);
   const [debugInfo, setDebugInfo] = useState({ total: 0, matched: 0, statuses: {} });
   const [autoCompleteEnabled, setAutoCompleteEnabled] = useState(true);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
 
   // 🗣️ VOICE NOTIFICATION STATE
   const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [waiterCalls, setWaiterCalls] = useState([]);
   const previousOrdersRef = useRef([]);
+  const announcedOrdersRef = useRef(new Set());
+const ordersRefState = useRef([]);
 
   const auth = getAuth();
 
@@ -41,29 +44,39 @@ export default function AdminOrders() {
   ];
 
   // 🗣️ TEXT-TO-SPEECH FUNCTION
-  const speak = (text, priority = 'normal') => {
-    if (!voiceEnabled) return;
-    if (!('speechSynthesis' in window)) return;
+const speak = (text, priority = "normal") => {
+  if (!voiceEnabled) return;
+  if (!("speechSynthesis" in window)) return;
 
-    window.speechSynthesis.cancel();
+  window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-IN';
-    utterance.rate = priority === 'high' ? 1.1 : 1;
-    utterance.pitch = priority === 'high' ? 1.2 : 1;
-    utterance.volume = 1;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "en-IN";
+  utterance.rate = priority === "high" ? 1.1 : 1;
+  utterance.pitch = priority === "high" ? 1.2 : 1;
+  utterance.volume = 1;
 
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v => 
-      voice.name.includes('Google') || 
-      voice.name.includes('Microsoft') ||
-      voice.name.includes('Female')
-    );
-    
-    if (preferredVoice) utterance.voice = preferredVoice;
+  let voices = window.speechSynthesis.getVoices();
 
-    window.speechSynthesis.speak(utterance);
-  };
+  if (!voices.length) {
+    window.speechSynthesis.onvoiceschanged = () => {
+      voices = window.speechSynthesis.getVoices();
+    };
+  }
+
+  const preferredVoice = voices.find(
+    (v) =>
+      v.lang.includes("en-IN") ||
+      v.name.includes("Google") ||
+      v.name.includes("Microsoft")
+  );
+
+  if (preferredVoice) {
+    utterance.voice = preferredVoice;
+  }
+
+  window.speechSynthesis.speak(utterance);
+};
 
   // 🗣️ VOICE ANNOUNCEMENT FUNCTION
   const announceOrder = (orderType) => {
@@ -73,7 +86,55 @@ export default function AdminOrders() {
       speak("New Order", 'normal');
     }
   };
+useEffect(() => {
+  if (!restaurantId) return;
 
+  initWhatsAppAutoProcessor(restaurantId);
+
+}, [restaurantId]);
+// ===== WAITER CALLS LISTENER =====
+const prevWaiterCallsCount = useRef(0);
+
+useEffect(() => {
+  if (!restaurantId) return;
+
+  const waiterRef = ref(realtimeDB, `waiterCalls/${restaurantId}`);
+  const unsubscribe = onValue(waiterRef, (snap) => {
+    const data = snap.val();
+    if (!data) {
+      prevWaiterCallsCount.current = 0;
+      setWaiterCalls([]);
+      return;
+    }
+
+    const calls = Object.entries(data)
+      .filter(([id, call]) => call.status === 'pending')
+      .map(([id, call]) => ({ id, ...call }))
+      .sort((a, b) => b.calledAt - a.calledAt);
+
+    // Ref se compare karo — stale closure ka issue nahi hoga
+    if (calls.length > prevWaiterCallsCount.current) {
+      speak("Waiter call from table", "high");
+    }
+
+    prevWaiterCallsCount.current = calls.length;
+    setWaiterCalls(calls);
+  });
+
+  return () => unsubscribe();
+}, [restaurantId]);
+
+// Waiter call dismiss karo
+const dismissWaiterCall = async (callId) => {
+  try {
+    await update(ref(realtimeDB, `waiterCalls/${restaurantId}/${callId}`), {
+      status: 'attended',
+      attendedAt: Date.now()
+    });
+  } catch (err) {
+    console.error("Dismiss error:", err);
+  }
+};
   // Restaurant settings listener
   useEffect(() => {
     if (!restaurantId) return;
@@ -112,9 +173,10 @@ useEffect(() => {
 
   console.log("🔥 Starting MAIN orders listener for:", restaurantId);
 
-  const ordersRef = ref(realtimeDB, `orders`);
+const ordersRef = ref(realtimeDB, `orders`);
+const ordersQuery = query(ordersRef, limitToLast(500));
 
-  const unsubscribeOrders = onValue(ordersRef, (snapshot) => {
+const unsubscribeOrders = onValue(ordersQuery, (snapshot) => {
     const data = snapshot.val();
 
     if (!data) {
@@ -126,31 +188,21 @@ useEffect(() => {
     console.log("📦 Total orders in Firebase:", Object.keys(data).length);
 
     // 🔥🔥🔥 FIX: Better restaurant ID matching
-    const myOrders = Object.entries(data).filter(([orderId, order]) => {
-      if (!order) return false;
-      
-      const orderRestId = String(order?.restaurantId || "").trim();
-      const currentUserId = String(restaurantId || "").trim();
-      
-      // Check multiple ways to match
-      const isMyOrder = 
-        orderRestId === currentUserId || 
-        orderRestId === restaurantId ||
-        MY_RESTAURANT_IDS.includes(orderRestId) ||
-        order.userId === restaurantId || // Sometimes userId is used
-        order.adminId === restaurantId;  // Sometimes adminId is used
+const myOrders = Object.entries(data)
+  .filter(([orderId, order]) => {
+    if (!order) return false;
 
-      // Debug logging
-      if (isMyOrder) {
-        console.log(`✅ Matched order ${orderId} for restaurant ${orderRestId}`);
-      }
+    const orderRestId = String(order?.restaurantId || "").trim();
+    const currentUserId = String(restaurantId || "").trim();
 
-      return isMyOrder;
-    }).map(([id, order]) => ({
-      id,
-      ...order,
-      source: order?.type || order?.source || 'regular'
-    }));
+    return orderRestId === currentUserId;
+  })
+  .map(([id, order]) => ({
+    id,
+    ...order,
+    source: order?.type || order?.source || "regular"
+  }))
+  .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
     console.log("✅ My orders count:", myOrders.length);
     console.log("📋 Order IDs:", myOrders.map(o => o.id));
@@ -162,21 +214,21 @@ useEffect(() => {
     const newOrders = myOrders.filter(order => !previousOrderIds.includes(order.id));
     
     if (newOrders.length > 0 && previousOrdersRef.current.length > 0) {
-      newOrders.forEach(newOrder => {
-        const isWhatsApp = newOrder.source === 'whatsapp' || 
-                          newOrder.type === 'whatsapp' || 
-                          newOrder.whatsappStatus;
-        
-        console.log(`🗣️ Announcing ${isWhatsApp ? 'WhatsApp' : 'Regular'} order:`, newOrder.id);
-        
-        announceOrder(isWhatsApp ? 'whatsapp' : 'regular');
-        showBrowserNotification(newOrder, isWhatsApp);
-      });
+    newOrders.forEach(newOrder => {
+
+  if (announcedOrdersRef.current.has(newOrder.id)) return;
+
+  announcedOrdersRef.current.add(newOrder.id);
+
+  const isWhatsApp = newOrder.source === 'whatsapp';
+
+  announceOrder(isWhatsApp ? 'whatsapp' : 'regular');
+
+});
     }
-
-    previousOrdersRef.current = myOrders;
-    setOrders(myOrders);
-
+previousOrdersRef.current = myOrders;
+setOrders(myOrders);
+ordersRefState.current = myOrders;
     setDebugInfo(prev => ({
       ...prev,
       total: Object.keys(data).length,
@@ -214,140 +266,87 @@ useEffect(() => {
     }
   };
 
-  // 🔥🔥🔥 TIMER EFFECT WITH AUTO-COMPLETE AND AUTO-BILL GENERATION
+
+
+  // 🔥🔥🔥 NEW FUNCTION: Complete order + Generate bill automatically
+const AUTO_COMPLETE_GRACE = 2 * 60 * 1000; // 2 minute ka buffer
+
+const completeOrderAndGenerateBill = async (orderId) => {
+  if (completingOrdersRef.current.has(orderId)) return;
+
+  completingOrdersRef.current.add(orderId);
+
+  try {
+    const now = Date.now();
+    const orderRef = ref(realtimeDB, `orders/${orderId}`);
+    const orderSnap = await get(orderRef);
+    if (!orderSnap.exists()) return;
+
+    const orderData = orderSnap.val();
+
+    // Agar already complete hai, exit
+    if (orderData.status === "completed" || orderData.completedAt) return;
+
+    // Sirf tab auto-complete karo jab grace period khatam ho jaye
+    const prepEndsAt = Number(orderData.prepEndsAt || 0);
+    if (now < prepEndsAt + AUTO_COMPLETE_GRACE) {
+      console.log(`⏳ Order ${orderId} ready hai, grace period wait kar rahe hain`);
+      return;
+    }
+
+    const updates = {
+      status: "completed",
+      completedAt: now,
+      updatedAt: now,
+      autoCompleted: true
+    };
+
+    await update(orderRef, updates);
+    console.log("✅ Order auto-completed:", orderId);
+  } catch (err) {
+    console.error("Auto complete error:", err);
+  } finally {
+    completingOrdersRef.current.delete(orderId);
+  }
+};
 useEffect(() => {
+
   const timer = setInterval(() => {
+
     const currentTime = Date.now();
     setNow(currentTime);
 
     if (!autoCompleteEnabled) return;
 
-  orders.forEach(order => {
+    const currentOrders = ordersRefState.current || [];
 
-  if (
-    order.status === "preparing" &&
-    order.prepEndsAt &&
-    currentTime >= order.prepEndsAt &&
-    !order.completedAt
-  ) {
-    completeOrderAndGenerateBill(order.id);
-  }
+ currentOrders
+  .filter(o => {
+    const status = String(o.status || "").toLowerCase();
+    return status !== "completed" && status !== "cancelled";
+  })
+  .forEach((order) => {
+    if (!order.prepEndsAt) return;
 
-});
+    const prepEnd = Number(order.prepEndsAt);
+    const currentTime = Date.now();
 
-  }, 1000);
+    if (currentTime >= prepEnd) {
+      // Pehle order ka status "ready" kar do
+      if (order.status !== "ready") {
+        console.log("⏰ Order ready mark kar rahe hain:", order.id);
+        updateStatus(order.id, "ready");
+      }
+
+      // Phir grace period ke baad auto-complete
+      completeOrderAndGenerateBill(order.id);
+    }
+  });
+  }, 2000);
 
   return () => clearInterval(timer);
-}, [orders, autoCompleteEnabled]);
 
-  // 🔥🔥🔥 NEW FUNCTION: Complete order + Generate bill automatically
-  const completeOrderAndGenerateBill = async (orderId) => {
-    console.log(`🔄 [DEBUG] Auto-completing and generating bill for order ${orderId}`);
-    
-    try {
-      const now = Date.now();
-      const orderRef = ref(realtimeDB, `orders/${orderId}`);
-      
-      // Pehle order data fetch karo
-      const orderSnap = await get(orderRef);
-      
-      if (!orderSnap.exists()) {
-        console.log(`❌ [DEBUG] Order ${orderId} not found`);
-        return;
-      }
-      
-      const orderData = orderSnap.val();
-      
-      // Agar already completed hai toh skip karo
-      if (orderData.status === 'completed') {
-        console.log(`ℹ️ [DEBUG] Order ${orderId} already completed`);
-        return;
-      }
-      
-      // 🔥🔥🔥 BILL DATA PREPARE KARO (agar nahi hai)
-      let billData = null;
-      if (!orderData.bill) {
-        const rawItems = orderData.items;
-        let formattedItems = [];
-        
-        if (Array.isArray(rawItems)) {
-          formattedItems = rawItems.map((item, idx) => ({
-            name: item?.name || item?.dishName || `Item ${idx + 1}`,
-            qty: item?.qty || item?.quantity || 1,
-            price: item?.price || 0
-          }));
-        } else if (typeof rawItems === 'object' && rawItems !== null) {
-          formattedItems = Object.entries(rawItems).map(([key, item], idx) => ({
-            name: item?.name || item?.dishName || `Item ${idx + 1}`,
-            qty: item?.qty || item?.quantity || 1,
-            price: item?.price || 0
-          }));
-        }
-
-        billData = {
-          orderId: orderId,
-          customerName: orderData.customerInfo?.name || orderData.customerName || "Guest",
-          hotelName: orderData.hotelName || "Restaurant",
-          orderDate: orderData.orderDetails?.orderDate || orderData.orderDate || now,
-          total: orderData.total || 0,
-          items: formattedItems,
-          generatedAt: now,
-          generatedBy: "system_auto",
-          status: "ready_for_customer"
-        };
-        
-        console.log(`[DEBUG] Bill prepared for order ${orderId}:`, {
-          customerName: billData.customerName,
-          itemsCount: billData.items.length,
-          total: billData.total
-        });
-      }
-
-      // 🔥🔥🔥 EK SAATH STATUS UPDATE + BILL SAVE KARO
-      const updates = {
-        status: "completed",
-        completedAt: now,
-        updatedAt: now,
-        ...(billData && { 
-          bill: billData,
-          billGeneratedAt: now,
-          billAutoGenerated: true
-        })
-      };
-
-      await update(orderRef, updates);
-      
-      console.log(`✅ [DEBUG] Order ${orderId} auto-completed with bill generated`);
-
-      // WhatsApp orders update karo
-      try {
-        const whatsappRef = ref(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`);
-        await update(whatsappRef, {
-          status: "completed",
-          whatsappStatus: "completed",
-          updatedAt: now
-        });
-      } catch (err) {
-        console.log(`[DEBUG] WhatsApp orders update skipped:`, err.message);
-      }
-
-      // Kitchen orders update karo
-      try {
-        const kitchenRef = ref(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`);
-        await update(kitchenRef, {
-          status: "completed",
-          kitchenStatus: "completed",
-          updatedAt: now
-        });
-      } catch (kitchenErr) {
-        console.log(`[DEBUG] Kitchen orders update skipped:`, kitchenErr.message);
-      }
-
-    } catch (error) {
-      console.error("❌ [DEBUG] Auto-complete error:", error);
-    }
-  };
-
+}, [autoCompleteEnabled]);
   // 🔥🔥🔥 MANUAL STATUS UPDATE (Sirf Ready/Preparing ke liye)
  const updateStatus = async (id, status) => {
 
@@ -356,12 +355,12 @@ useEffect(() => {
   const now = Date.now();
   const orderRef = ref(realtimeDB, `orders/${id}`);
 
-  const updates = { 
-    status,
-    updatedAt: now
-  };
+ const updates = { 
+  status: status.toLowerCase(),
+  updatedAt: now
+};
 
-if (status === "preparing") {
+if (status === "preparing" || status === "ready") {
 
   const prepTime = order?.prepTime || 5;
 
@@ -369,7 +368,7 @@ if (status === "preparing") {
   updates.prepEndsAt = now + prepTime * 60 * 1000;
 
 }
-
+console.log("Checking order:", order.id, order.prepEndsAt);
   await update(orderRef, updates);
 }
 
@@ -499,17 +498,17 @@ if (status === "preparing") {
 
   const filteredOrders = getFilteredOrders();
 
-  const COMPLETED_STATUSES = ['completed', 'delivered', 'cancelled', 'rejected'];
+const COMPLETED_STATUSES = ["completed","delivered","cancelled","rejected"];
 
-  const activeOrders = filteredOrders.filter(order => {
-    const status = (order.status || '').toString().toLowerCase().trim();
-    return !COMPLETED_STATUSES.includes(status);
-  });
+const activeOrders = filteredOrders.filter(order => {
+  const status = String(order.status || "").toLowerCase().trim();
+  return !COMPLETED_STATUSES.includes(status);
+});
 
-  const completedOrders = filteredOrders.filter(order => {
-    const status = (order.status || '').toString().toLowerCase().trim();
-    return COMPLETED_STATUSES.includes(status);
-  });
+const completedOrders = filteredOrders.filter(order => {
+  const status = String(order.status || "").toLowerCase().trim();
+  return COMPLETED_STATUSES.includes(status);
+});
 
   if (loading) return <div className="p-6">Loading...</div>;
   if (!restaurantId) return <div className="p-6 text-red-500">Please login as admin</div>;
@@ -569,15 +568,7 @@ if (status === "preparing") {
 
       {/* Show All Orders Toggle */}
       <div className="bg-blue-100 p-3 mb-4 rounded border border-blue-400">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input 
-            type="checkbox" 
-            checked={showAllOrders}
-            onChange={(e) => setShowAllOrders(e.target.checked)}
-            className="w-4 h-4"
-          />
-          <span className="text-sm font-medium">Show All Orders (Ignore Restaurant Filter)</span>
-        </label>
+      
       </div>
 
       {/* Date Filter Controls */}
@@ -639,7 +630,44 @@ if (status === "preparing") {
           </div>
         )}
       </div>
-
+{/* ===== WAITER CALLS PANEL ===== */}
+{waiterCalls.length > 0 && (
+  <div className="mb-6 bg-orange-50 border-2 border-orange-400 rounded-xl p-4 animate-pulse">
+    <h3 className="font-bold text-orange-800 mb-3 flex items-center gap-2">
+      🔔 Waiter Calls
+      <span className="bg-orange-500 text-white px-2 py-1 rounded-full text-xs">
+        {waiterCalls.length}
+      </span>
+    </h3>
+    <div className="space-y-2">
+      {waiterCalls.map(call => (
+        <div
+          key={call.id}
+          className="flex justify-between items-center bg-white p-3 rounded-lg border border-orange-200"
+        >
+          <div>
+            <p className="font-bold text-sm">
+              🪑 Table: {call.tableNumber || 'Unknown'}
+            </p>
+            <p className="text-xs text-gray-500">
+              👤 {call.customerName} •{" "}
+              {new Date(call.calledAt).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </p>
+          </div>
+          <button
+            onClick={() => dismissWaiterCall(call.id)}
+            className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 transition"
+          >
+            ✅ Attended
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-yellow-100 p-4 rounded-lg border border-yellow-400 text-center">
@@ -715,10 +743,74 @@ if (status === "preparing") {
   );
 }
 
-// 🔥🔥🔥 ORDER CARD COMPONENT - COMPLETE BUTTON HATA DIYA
+
 function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePayment, onGenerateBill, autoCompleteEnabled, theme }) {
 
   const isWhatsAppOrder = order.source === 'whatsapp' || order.type === 'whatsapp' || order.whatsappStatus;
+
+  // 🍯🌶️🧂 TASTE LEVEL BADGE COMPONENT - FIXED
+  const TasteBadge = ({ type, level }) => {
+    // Don't show if level is normal, null, or undefined
+    if (!level) return null;
+    
+    const configs = {
+     // TasteBadge ke andar configs object mein spiciness replace karo:
+spiciness: {
+  icon: '🌶️',
+  label: 'Spicy',
+  colors: {
+    normal:  'bg-green-50 text-green-700 border-green-200',
+    medium:  'bg-yellow-50 text-yellow-700 border-yellow-200',
+    spicy:   'bg-red-100 text-red-800 border-red-300',
+  }
+},
+// sweetness ke liye sweetLevel values: "less", "normal", "extra"
+sweetness: {
+  icon: '🍯',
+  label: 'Sweet',
+  colors: {
+    less:   'bg-blue-50 text-blue-700 border-blue-200',
+    normal: 'bg-blue-100 text-blue-800 border-blue-300',
+    extra:  'bg-blue-300 text-blue-950 border-blue-500',
+  }
+},
+// salt ke liye saltPreference values: "less", "normal", "extra"  
+salt: {
+  icon: '🧂',
+  label: 'Salt',
+  colors: {
+    less:   'bg-gray-50 text-gray-600 border-gray-200',
+    normal: 'bg-gray-100 text-gray-700 border-gray-300',
+    extra:  'bg-gray-300 text-gray-900 border-gray-500',
+  }
+}
+    };
+
+    const config = configs[type];
+    if (!config) return null;
+
+    // Handle both lowercase and capitalized levels
+    const normalizedLevel = level.toLowerCase();
+    const colorClass = config.colors[level] || config.colors[normalizedLevel] || 'bg-gray-100 text-gray-800 border-gray-300';
+
+    return (
+      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold border ${colorClass} shadow-sm`}>
+        <span className="text-sm">{config.icon}</span>
+        <span>{config.label}: {level}</span>
+      </span>
+    );
+  };
+
+  // 🥗 SALAD BADGE - FIXED
+  const SaladBadge = ({ include }) => {
+    if (!include || include === 'false' || include === false) return null;
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold border bg-green-50 text-green-700 border-green-200 shadow-sm">
+        <span className="text-sm">🥗</span>
+        <span>Salad Included</span>
+      </span>
+    );
+  };
 
   const getDishProgress = (item) => {
     if (!item.prepStartedAt || item.itemStatus === 'ready') return null;
@@ -765,17 +857,27 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
     return <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-bold">💳 Payment</span>;
   };
 
+  // Get order type icon
+  const getOrderTypeIcon = (type) => {
+    switch(type) {
+      case 'dine-in': return '🍽️';
+      case 'takeaway': return '📦';
+      case 'delivery': return '🛵';
+      default: return '🍽️';
+    }
+  };
+
   return (
     <div
       className={`border rounded-xl p-4 shadow-sm ${
         isActive 
-          ? order.status === "ready" ? "border-green-500 bg-green-50" : "border-yellow-300 bg-yellow-50"
+          ?order.status === "ready" || order.status === "completed" ? "border-green-500 bg-green-50" : "border-yellow-300 bg-yellow-50"
           : "border-blue-300 bg-blue-50"
       } ${isWhatsAppOrder ? 'border-l-4 border-l-green-500' : ''}`}
     >
       <div className="flex justify-between items-start mb-3">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <p className="font-bold text-sm">
               Order #{order.id?.slice(-6) || 'N/A'}
               {isWhatsAppOrder && (
@@ -829,7 +931,11 @@ function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePay
                   remainingMinutes <= 2 ? 'bg-orange-500' : 'bg-green-500'
                 }`}
                 style={{
-width: `${Math.min(100, ((now - order.prepStartedAt) / (order.prepEndsAt - order.prepStartedAt)) * 100)}%`
+                  width: `${Math.min(
+                    100,
+                    ((now - (order.prepStartedAt || now)) /
+                    Math.max(1, (order.prepEndsAt || now) - (order.prepStartedAt || now))) * 100
+                  )}%`
                 }}
               />
             </div>
@@ -837,8 +943,31 @@ width: `${Math.min(100, ((now - order.prepStartedAt) / (order.prepEndsAt - order
         </div>
       </div>
 
+      {/* CUSTOMER & ORDER DETAILS */}
       <div className="bg-white rounded-lg p-3 mb-3 border">
         <h4 className="text-xs font-bold text-gray-700 mb-2">👤 Customer Details</h4>
+        
+        {/* Order Type & Table Number */}
+        <div className="flex flex-wrap gap-2 mb-3">
+          <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-bold">
+            {getOrderTypeIcon(order.orderDetails?.type)} 
+            <span className="capitalize">{order.orderDetails?.type || 'Dine-in'}</span>
+          </span>
+          
+          {/* TABLE NUMBER */}
+          {order.orderDetails?.tableNumber && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-bold">
+              🪑 Table #{order.orderDetails.tableNumber}
+            </span>
+          )}
+          
+          {order.orderDetails?.numberOfGuests > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">
+              👥 {order.orderDetails.numberOfGuests} Guests
+            </span>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-2 text-xs">
           <p>
             <span className="text-gray-500">Name:</span> 
@@ -849,9 +978,17 @@ width: `${Math.min(100, ((now - order.prepStartedAt) / (order.prepEndsAt - order
             <span className="font-medium ml-1">{order.customerInfo?.phone || order.customerPhone || "N/A"}</span>
           </p>
         </div>
+        
+        {/* Order Level Special Instructions */}
+        {order.orderDetails?.specialInstructions && (
+          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+            <p className="text-[10px] font-bold text-yellow-800 mb-1">📝 Order Instructions:</p>
+            <p className="text-xs text-yellow-900">{order.orderDetails.specialInstructions}</p>
+          </div>
+        )}
       </div>
 
-      {/* ITEMS WITH INDIVIDUAL PROGRESS BARS */}
+      {/* ITEMS WITH FIXED TASTE BADGES */}
       <div className="border rounded-lg p-3 mb-3 bg-white">
         <h4 className="text-xs font-bold text-gray-700 mb-2">
           🍽️ Items ({getItemsArray(order.items).length})
@@ -864,15 +1001,49 @@ width: `${Math.min(100, ((now - order.prepStartedAt) / (order.prepEndsAt - order
               
               return (
                 <div key={`${order.id}-${item?.dishId || index}`} className="flex flex-col p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="flex items-center gap-3">
-                    <img src={item?.image} className="w-12 h-12 rounded-lg object-cover" alt={item?.name || 'Item'} />
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold">{item?.name || 'Unknown'}</p>
-                      <p className="text-xs text-gray-500">Qty: {item?.qty || 0} × ₹{item?.price || 0}</p>
+                  <div className="flex items-start gap-3">
+                    <img 
+                      src={item?.image || "/no-image.png"} 
+                      className="w-12 h-12 rounded-lg object-cover flex-shrink-0" 
+                      alt={item?.name || 'Item'} 
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <p className="text-sm font-semibold truncate">{item?.name || 'Unknown'}</p>
+                        <span className="text-sm font-bold text-gray-600 ml-2">₹{(item?.price || 0) * (item?.qty || 0)}</span>
+                      </div>
+                      
+                      <p className="text-xs text-gray-500 mb-2">Qty: {item?.qty || 0} × ₹{item?.price || 0}</p>
+                      
+                      {/* 🏷️ TASTE PREFERENCE BADGES - FIXED */}
+                <div className="flex flex-wrap gap-1.5 mb-2">
+  {/* Sweet dish hai toh sirf sweetness dikhao */}
+  {item.dishTasteProfile === "sweet" ? (
+    <>
+      <TasteBadge type="sweetness" level={item.sweetLevel} />
+      <TasteBadge type="salt" level={item.saltPreference} />
+    </>
+  ) : (
+    <>
+      {/* Non-sweet dish ke liye spice aur salt */}
+      <TasteBadge type="spiciness" level={item.spicePreference} />
+      <TasteBadge type="salt" level={item.saltPreference} />
+    </>
+  )}
+  <SaladBadge include={item.salad?.qty > 0} />
+</div>
+
+                      {/* Item Level Special Instructions */}
+                      {item.specialInstructions && (
+                        <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                          <p className="text-[10px] font-bold text-blue-800 mb-0.5">📝 Note:</p>
+                          <p className="text-xs text-blue-900">{item.specialInstructions}</p>
+                        </div>
+                      )}
                       
                       {/* Individual Dish Progress Bar */}
                       {isActive && order.status !== 'pending' && progress && !isDishReady && (
-                        <div className="mt-2">
+                        <div className="mt-3">
                           <div className="flex justify-between items-center mb-1">
                             <span className="text-[10px] text-gray-500 flex items-center gap-1">
                               <span className="animate-pulse">👨‍🍳</span> Cooking...
@@ -912,7 +1083,6 @@ width: `${Math.min(100, ((now - order.prepStartedAt) / (order.prepEndsAt - order
                         </div>
                       )}
                     </div>
-                    <span className="text-sm font-bold text-gray-600">₹{(item?.price || 0) * (item?.qty || 0)}</span>
                   </div>
                 </div>
               );
@@ -936,10 +1106,9 @@ width: `${Math.min(100, ((now - order.prepStartedAt) / (order.prepEndsAt - order
           )}
         </div>
         <div className="flex gap-2">
-          {/* 🔥🔥🔥 SIRF ACTIVE ORDERS KE LIYE BUTTONS */}
+          {/* Active Orders Buttons */}
           {isActive && (
             <>
-              {/* Sirf preparing status pe "Mark Ready" dikhavo */}
               {order.status === 'preparing' && (
                 <button 
                   onClick={() => onUpdateStatus(order.id, "ready")}
@@ -948,18 +1117,10 @@ width: `${Math.min(100, ((now - order.prepStartedAt) / (order.prepEndsAt - order
                   Mark Ready
                 </button>
               )}
-
-              {/* 🔥🔥🔥 "COMPLETE" BUTTON HATA DIYA - Ab sirf auto-complete hoga */}
-              {/* 
-                PURANA CODE (HATA DIYA):
-                <button onClick={() => onUpdateStatus(order.id, "completed")}>
-                  Complete Now
-                </button>
-              */}
             </>
           )}
 
-          {/* 🔥🔥🔥 COMPLETED ORDERS MEIN MANUAL BILL GENERATE BUTTON (BACKUP) */}
+          {/* Completed Orders - Generate Bill */}
           {!isActive && order.status === 'completed' && !order.bill && (
             <button 
               onClick={() => onGenerateBill(order)}
@@ -969,7 +1130,6 @@ width: `${Math.min(100, ((now - order.prepStartedAt) / (order.prepEndsAt - order
             </button>
           )}
 
-          {/* Bill already generated hai toh show karo */}
           {order.bill && (
             <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold">
               ✅ Bill Ready

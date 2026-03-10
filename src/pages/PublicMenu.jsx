@@ -34,26 +34,23 @@ import LoginModal from "../components/LoginModal";
 import NewItemsSlider from "../components/Slider";
 import BottomCart from "../components/BottomCart";
 import CartSidebar from "../components/CartSidebar";
+
 // ================= DISH PROGRESS BAR COMPONENT =================
 const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => {
   const [progress, setProgress] = useState(0);
   const [isReady, setIsReady] = useState(false);
   const [showEnjoyMessage, setShowEnjoyMessage] = useState(false);
   
-  // 🔥🔥🔥 REF INSTEAD OF STATE - Re-render pe reset nahi hoga
   const localPrepStartedRef = useRef(false);
   const autoStartAttemptedRef = useRef(false);
 
-  // 🔥🔥🔥 AUTO-START: Order confirmed/preparing pe prep start karo
   useEffect(() => {
-    // Already ready hai
     if (item.itemStatus === "ready" || item.itemReadyAt) {
       setIsReady(true);
       setProgress(100);
       return;
     }
 
-    // 🔥 AUTO-START TRIGGER: Order status confirmed ya preparing hai
     const shouldAutoStart = 
       (orderStatus === 'confirmed' || orderStatus === 'preparing') && 
       !item.prepStartedAt && 
@@ -64,24 +61,20 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
       console.log(`🔥 Auto-starting prep for: ${item.name} (Order: ${orderId})`);
       const now = Date.now();
       
-      // 🔥 Mark karo ki attempt ho chuka hai - re-render pe dubara nahi hoga
       localPrepStartedRef.current = true;
       autoStartAttemptedRef.current = true;
       
-      // 🔥 Firebase mein prep start karo (silently, error ignore karo agar already exist)
       const itemRef = rtdbRef(realtimeDB, `orders/${orderId}/items/${item.dishId || item.id}`);
       update(itemRef, {
         prepStartedAt: now,
         prepTime: item.prepTime || 15,
         itemStatus: "preparing"
       }).catch(err => {
-        // Already updated ho sakta hai, ignore karo
         console.log("Prep already started or error:", err.message);
       });
     }
   }, [orderStatus, item.prepStartedAt, item.dishId, item.id, orderId, item.name, item.prepTime, item.itemStatus, item.itemReadyAt]);
 
-  // Progress calculation
   useEffect(() => {
     if (item.itemStatus === "ready" || item.itemReadyAt) {
       setIsReady(true);
@@ -89,7 +82,6 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
       return;
     }
 
-    // Agar prep start nahi hua, kuch mat dikhavo (waiting state)
     if (!item.prepStartedAt && !localPrepStartedRef.current) {
       setProgress(0);
       return;
@@ -106,7 +98,6 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
       
       setProgress(percent);
       
-      // 100% complete hone pe
       if (percent >= 100 && !isReady) {
         setIsReady(true);
         setShowEnjoyMessage(true);
@@ -115,7 +106,6 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
           onDishReady(item.name, orderId);
         }
         
-        // Firebase mein ready status update karo
         const itemRef = rtdbRef(realtimeDB, `orders/${orderId}/items/${item.dishId || item.id}`);
         update(itemRef, {
           itemStatus: "ready",
@@ -131,7 +121,6 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
     return () => clearInterval(interval);
   }, [item.prepStartedAt, item.prepTime, orderId, item.dishId, item.id, isReady, onDishReady, item.itemStatus, item.itemReadyAt]);
 
-  // READY STATE
   if (isReady || progress >= 100 || item.itemStatus === "ready") {
     return (
       <div className="w-full">
@@ -151,8 +140,6 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
     );
   }
 
-  // 🔥 WAITING STATE: Ab "Waiting to start" nahi dikhayenge, seedha progress bar chalega
-  // Agar prep start nahi hua toh bhi 0% se start hoga jaldi hi
   if (!item.prepStartedAt && !localPrepStartedRef.current) {
     return (
       <div className="w-full mt-1">
@@ -170,7 +157,6 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
     );
   }
 
-  // COOKING STATE
   const timeLeft = Math.ceil(((100 - progress) / 100) * (item.prepTime || 15));
   
   return (
@@ -206,9 +192,9 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
     </div>
   );
 };
+
 // ================= ACTIVE ORDER CARD COMPONENT =================
-// ================= ACTIVE ORDER CARD COMPONENT =================
-const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWhatsApp, isProcessed, onDishReady }) => {
+const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWhatsApp, isProcessed, onDishReady, onReorder }) => {
   const statusConfig = {
     pending: { color: 'bg-yellow-100 text-yellow-800', icon: '⏳', label: 'Pending' },
     confirmed: { color: 'bg-green-100 text-green-800', icon: '✅', label: 'Confirmed' },
@@ -219,10 +205,8 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
   
   const status = statusConfig[order.status] || statusConfig.pending;
   
-  // 🔥🔥🔥 FIX: Check if order is completed (should NOT show bill buttons)
   const isCompleted = order.status === 'completed';
   
-  // 🔥🔥🔥 FIX: Check if all items are ready (show bill buttons when ready but NOT completed)
   const getItemsArray = (items) => {
     if (!items) return [];
     if (Array.isArray(items)) return items;
@@ -232,25 +216,18 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
 
   const orderItems = getItemsArray(order.items);
   
-  // Check if all items are ready
   const allItemsReady = orderItems.length > 0 && orderItems.every(item => 
     item.itemStatus === "ready" || item.itemReadyAt
   );
   
-  // Check if any item is ready (for showing bill buttons)
   const hasReadyItems = orderItems.some(item => 
     item.itemStatus === "ready" || item.itemReadyAt
   );
 
-  // 🔥🔥🔥 IMPORTANT: Show bill buttons ONLY when:
-  // 1. Order is NOT completed (isCompleted === false)
-  // 2. Items are ready (hasReadyItems === true)
-  // 3. Bill is NOT already processed (isProcessed === false)
   const shouldShowBillButtons = !isCompleted && hasReadyItems && !isProcessed;
 
   return (
     <div id={`order-${order.id}`} className="bg-white rounded-xl p-4 mb-4 shadow-lg border-2 border-gray-100">
-      {/* Header */}
       <div className="flex justify-between items-center mb-3">
         <div>
           <p className="text-sm font-bold">Order #{order.id.slice(-6)}</p>
@@ -265,7 +242,6 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
         </span>
       </div>
       
-      {/* Items with Individual Progress Bars */}
       <div className="space-y-3 mb-3">
         {orderItems.map((item, idx) => (
           <div key={idx} className="flex flex-col p-3 bg-gray-50 rounded-lg border border-gray-100">
@@ -279,22 +255,18 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
                   <span className="text-xs text-gray-500">
                     × {item.qty || 1}
 
-                    {/* 🌶 SPICE - Non-sweet dishes ke liye */}
                     {item.dishTasteProfile !== "sweet" && item.spicePreference && (
                       ` • 🌶️ ${item.spicePreference}`
                     )}
 
-                    {/* 🧂 SALT - Sirf agar "normal" nahi hai */}
-                    {item.saltPreference && item.saltPreference !== "normal" && (
-                      ` • 🧂 ${item.saltPreference}`
-                    )}
+                    {item.saltPreference && (
+  ` • 🧂 ${item.saltPreference}`
+)}
 
-                    {/* 🍰 SWEETNESS - Sweet dishes ke liye */}
                     {item.dishTasteProfile === "sweet" && item.sweetLevel && (
                       ` • 🍰 ${item.sweetLevel}`
                     )}
 
-                    {/* 🥗 SALAD */}
                     {item.salad?.qty > 0 && (
                       ` • 🥗 ${item.salad.qty}`
                     )}
@@ -304,7 +276,6 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
               <span className="text-sm font-bold ml-2">₹{(item.price || 0) * (item.qty || 1)}</span>
             </div>
             
-            {/* Progress Bar - sirf active orders mein (NOT completed) */}
             {!isCompleted && order.status !== 'pending' && (
               <div className="mt-2 pt-2 border-t border-gray-200">
                 <DishProgressBar 
@@ -318,7 +289,6 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
               </div>
             )}
             
-            {/* Ready status - always show if ready */}
             {(item.itemStatus === 'ready' || item.itemReadyAt) && (
               <div className="mt-2 pt-2 border-t border-gray-200">
                 <div className="flex items-center gap-1 text-green-600 font-bold text-xs">
@@ -333,7 +303,6 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
         ))}
       </div>
       
-      {/* Total */}
       <div className="flex justify-between items-center p-2 bg-gray-100 rounded-lg mb-3">
         <span className="font-bold">Total</span>
         <div className="text-right">
@@ -345,7 +314,6 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
         </div>
       </div>
 
-      {/* 🔥🔥🔥 BILL BUTTONS - Show when items ready but order NOT completed */}
       {shouldShowBillButtons && (
         <div className="space-y-2 mt-3 pt-3 border-t border-gray-200">
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center mb-3">
@@ -354,7 +322,6 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
           </div>
           
           <div className="grid grid-cols-2 gap-2">
-            {/* Download Bill Button */}
             <button
               onClick={() => onGenerateBill(order)}
               style={{ 
@@ -378,7 +345,6 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
               Download Bill
             </button>
             
-            {/* Share on WhatsApp Button */}
             <button
               onClick={() => onShareWhatsApp(order)}
               style={{ 
@@ -403,7 +369,6 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
         </div>
       )}
 
-      {/* Processed State - Bill already downloaded/shared */}
       {!isCompleted && isProcessed && (
         <div className="mt-3 pt-3 border-t border-gray-200">
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
@@ -419,23 +384,44 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
         </div>
       )}
 
-      {/* Completed Order - No buttons, just thank you message */}
-      {isCompleted && (
-        <div className="mt-3 pt-3 border-t border-gray-200">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-            <p className="text-green-700 font-bold text-sm">✨ Order Completed!</p>
-            <p className="text-green-600 text-xs mt-1">Thank you for dining with us! 🙏</p>
-          </div>
-          <button
-            onClick={() => onMarkViewed(order.id)}
-            className="w-full mt-2 py-2 text-gray-500 text-xs hover:text-gray-700 transition"
-          >
-            Mark as viewed & hide
-          </button>
-        </div>
-      )}
-      
-      {/* Ready to collect button - only when order status is 'ready' */}
+     {isCompleted && (
+  <div className="mt-3 pt-3 border-t border-gray-200">
+    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+      <p className="text-green-700 font-bold text-sm">✨ Order Completed!</p>
+      <p className="text-green-600 text-xs mt-1">Thank you for dining with us! 🙏</p>
+    </div>
+
+    {/* ===== REORDER BUTTON ===== */}
+    {onReorder && (
+      <button
+        onClick={() => onReorder(order)}
+        className="w-full mt-2 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 active:scale-95"
+        style={{
+          border: `2px solid ${theme.primary}`,
+          color: theme.primary,
+          backgroundColor: '#ffffff'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = theme.primary;
+          e.currentTarget.style.color = '#ffffff';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = '#ffffff';
+          e.currentTarget.style.color = theme.primary;
+        }}
+      >
+        🔄 Reorder Same Items
+      </button>
+    )}
+
+    <button
+      onClick={() => onMarkViewed(order.id)}
+      className="w-full mt-2 py-2 text-gray-500 text-xs hover:text-gray-700 transition"
+    >
+      Mark as viewed & hide
+    </button>
+  </div>
+)}
       {order.status === 'ready' && !isCompleted && (
         <button
           onClick={() => onMarkViewed(order.id)}
@@ -450,7 +436,6 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
 
 // ================= MAIN PUBLIC MENU COMPONENT =================
 export default function PublicMenu() {
-  // All states first
   const [aboutUs, setAboutUs] = useState(null);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
   const [spiceSelections, setSpiceSelections] = useState({});
@@ -466,8 +451,11 @@ export default function PublicMenu() {
   const [showMyBookings, setShowMyBookings] = useState(false);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
   const [whatsAppItem, setWhatsAppItem] = useState(null);
-  const [processedOrders, setProcessedOrders] = useState(new Set()); // ✅ Orders jinpe bill already download/share ho chuka
-
+  const [processedOrders, setProcessedOrders] = useState(new Set());
+const [waiterCalled, setWaiterCalled] = useState(false);
+const [waiterCooldown, setWaiterCooldown] = useState(false);
+const [queuePosition, setQueuePosition] = useState(null);
+const [dishNotes, setDishNotes] = useState({});
   const theme = restaurantSettings?.theme || {
     primary: "#8A244B",
     border: "#8A244B",
@@ -497,20 +485,21 @@ export default function PublicMenu() {
   
   const [userId, setUserId] = useState(null);
   const [showWhatsAppCustomerModal, setShowWhatsAppCustomerModal] = useState(false);
-const [whatsAppPayload, setWhatsAppPayload] = useState(null);
-const [whatsAppCustomerInfo, setWhatsAppCustomerInfo] = useState({
-  name: '',
-  phone: '',
-  tableNumber: '',
-  specialInstructions: ''
-});
+  const [whatsAppPayload, setWhatsAppPayload] = useState(null);
+  const [whatsAppCustomerInfo, setWhatsAppCustomerInfo] = useState({
+    name: '',
+    phone: '',
+    tableNumber: '',
+    specialInstructions: ''
+  });
+  
   const audioRef = useRef(null);
   const prevOrdersRef = useRef({});
   const viewedOrdersRef = useRef(new Set());
   const [viewedOrders, setViewedOrders] = useState(new Set());
- const [readyDishes, setReadyDishes] = useState([]);
-   const playedSoundsRef = useRef(new Set());
-  // Calculate category counts
+  const [readyDishes, setReadyDishes] = useState([]);
+  const playedSoundsRef = useRef(new Set());
+
   const categoryCounts = {};
   items.forEach(item => {
     if (item.categoryIds?.length) {
@@ -526,22 +515,19 @@ const [whatsAppCustomerInfo, setWhatsAppCustomerInfo] = useState({
       categoryCounts[cat.id] = (categoryCounts[cat.id] || 0) + 1;
     }
   });
-  // 🔥 Yeh function add karo
-const playReadySound = useCallback((dishName, orderId) => {  
 
-  const timeBucket = Math.floor(Date.now() / 10000); 
-  const soundId = `${orderId}-${dishName}-${timeBucket}`;
-  
-  if (playedSoundsRef.current.has(soundId)) return;
-  
-  playedSoundsRef.current.add(soundId);
-  
-  // Clean up after 20 seconds
-  setTimeout(() => {
-    playedSoundsRef.current.delete(soundId);
-  }, 20000);
+  const playReadySound = useCallback((dishName, orderId) => {  
+    const timeBucket = Math.floor(Date.now() / 10000); 
+    const soundId = `${orderId}-${dishName}-${timeBucket}`;
+    
+    if (playedSoundsRef.current.has(soundId)) return;
+    
+    playedSoundsRef.current.add(soundId);
+    
+    setTimeout(() => {
+      playedSoundsRef.current.delete(soundId);
+    }, 20000);
 
-    // 1. Play sound
     const audio = new Audio(readySound);
     audio.volume = 0.7;
     
@@ -554,10 +540,9 @@ const playReadySound = useCallback((dishName, orderId) => {
       window.addEventListener('click', playOnClick, { once: true });
     });
     
-    // 2. Speech
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(`Enjoy your ${dishName}! Your meal is ready!`);
+const utterance = new SpeechSynthesisUtterance(`Your ${dishName} is ready! Enjoy your meal!`);
       utterance.lang = 'en-IN';
       utterance.rate = 0.9;
       utterance.pitch = 1.1;
@@ -573,7 +558,6 @@ const playReadySound = useCallback((dishName, orderId) => {
       window.speechSynthesis.speak(utterance);
     }
     
-    // 3. Notification
     if ("Notification" in window && Notification.permission === "granted") {
       new Notification(`🍽️ ${dishName} Ready!`, {
         body: "Your dish is ready to serve! Enjoy your meal 😋",
@@ -582,26 +566,22 @@ const playReadySound = useCallback((dishName, orderId) => {
       });
     }
     
-    // 4. Toast
     toast.success(`${dishName} is Ready!`, {
       description: "Enjoy your meal 😋",
       duration: 5000
     });
     
-    // 5. Vibrate
     if (navigator.vibrate) {
       navigator.vibrate([200, 100, 200]);
     }
   }, []);
-// 🔥 Handler callback
-const handleDishReady = useCallback((dishName, orderId) => {
-  console.log(`🔔 Dish ready: ${dishName} (Order: ${orderId})`);
-  playReadySound(dishName, orderId);  
-}, [playReadySound]);
 
-  // ================= AUDIO NOTIFICATION SYSTEM =================
+  const handleDishReady = useCallback((dishName, orderId) => {
+    console.log(`🔔 Dish ready: ${dishName} (Order: ${orderId})`);
+    playReadySound(dishName, orderId);  
+  }, [playReadySound]);
+
   const playOrderCompleteAudio = useCallback(() => {
-    // 1. Play sound effect
     const audio = new Audio(readySound);
     audio.volume = 0.7;
     
@@ -614,11 +594,10 @@ const handleDishReady = useCallback((dishName, orderId) => {
       window.addEventListener('click', playOnClick, { once: true });
     });
     
-    // 2. Speech synthesis for "Enjoy your meal"
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       
-      const utterance = new SpeechSynthesisUtterance('Enjoy your meal! Thank you for dining with us!');
+const utterance = new SpeechSynthesisUtterance(`Thank you for dining with us at ${restaurantName || 'our restaurant'}! We hope to see you again!`);
       utterance.lang = 'en-US';
       utterance.rate = 0.9;
       utterance.pitch = 1.1;
@@ -637,8 +616,6 @@ const handleDishReady = useCallback((dishName, orderId) => {
     }
   }, []);
 
-  // ================= NOTIFICATION HANDLERS =================
-  // ================= NOTIFICATION HANDLERS =================
   const handleStatusChange = useCallback((order, oldStatus, newStatus) => {
     const messages = {
       confirmed: {
@@ -657,11 +634,10 @@ const handleDishReady = useCallback((dishName, orderId) => {
         sound: '/sounds/ready.mp3',
         persistent: true
       },
-      // 🔥🔥🔥 FIX: Completed pe sound mat bajao, sirf notification dikhavo
       completed: {
         title: '✨ Enjoy Your Meal!',
         message: 'Your order is complete. Thank you!',
-        sound: null // No sound for completed
+        sound: null
       }
     };
     
@@ -693,7 +669,6 @@ const handleDishReady = useCallback((dishName, orderId) => {
       } : undefined
     });
     
-    // 🔥🔥🔥 FIX: Sirf tabhi audio bajao jab sound file ho
     if (msg.sound) {
       const audio = new Audio(msg.sound);
       audio.play().catch(e => console.log('Audio play failed:', e));
@@ -705,26 +680,22 @@ const handleDishReady = useCallback((dishName, orderId) => {
   }, []);
 
 const updateActiveOrders = useCallback((data) => {
+  const TWO_MINUTES = 2 * 60 * 1000;
   const now = Date.now();
-  const twentySecondsAgo = now - (20 * 1000);
-  
+
   const myOrders = Object.entries(data)
     .filter(([id, order]) => {
       if (order.userId !== userId) return false;
       if (order.restaurantId !== restaurantId) return false;
       if (viewedOrdersRef.current.has(id)) return false;
-      
-      // 🔥🔥🔥 FIX: Completed orders ko immediately hide karo (20 sec delay hatao)
+      if (order.billOpened && order.status !== 'completed') return false;
+
       if (order.status === 'completed') {
-        return false; // Completed orders ko bilkul mat dikhavo
+        const completedAt = order.completedAt || order.updatedAt || order.createdAt;
+        if (now - completedAt > TWO_MINUTES) return false;
       }
-      
-      // Active orders dikhavo
-      if (['pending', 'confirmed', 'preparing', 'ready'].includes(order.status)) {
-        return true;
-      }
-      
-      return false;
+
+      return ['pending','confirmed','preparing','ready','completed'].includes(order.status);
     })
     .map(([id, order]) => ({
       id,
@@ -732,11 +703,10 @@ const updateActiveOrders = useCallback((data) => {
       total: Number(order.total) || 0
     }))
     .sort((a, b) => b.createdAt - a.createdAt);
-  
+
   setActiveOrder(myOrders);
 }, [userId, restaurantId]);
 
-  // ================= WHATSAPP ORDER FUNCTIONS =================
   const generateWhatsAppMessage = (item, restaurantName) => {
     const user = auth.currentUser;
     const message = `
@@ -759,7 +729,6 @@ Sent via DineQR
   const sendWhatsAppMessage = (phone, message) => {
     const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
     const encodedMessage = encodeURIComponent(message);
-    // const whatsappUrl = `https://wa.me/ ${cleanPhone}?text=${encodeURIComponent(message)}`;
     const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
     
     const newWindow = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
@@ -769,200 +738,192 @@ Sent via DineQR
     }
   };
 
-const handleDirectWhatsApp = async (item, customerData = null) => {
-  const user = auth.currentUser;
-  
-  if (!user) {
-    console.error("❌ No authenticated user");
-    requireLogin();
-    return;
-  }
-
-  try {
-    await user.getIdToken(true);
-    console.log("✅ Token refreshed");
-  } catch (tokenError) {
-    console.error("❌ Token refresh failed:", tokenError);
-    requireLogin();
-    return;
-  }
-
-  console.log("🔥 Creating WhatsApp order for restaurant:", restaurantId);
-  console.log("🔥 Current user:", user.uid);
-
-  let phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
-  
-  if (!phone) {
-    toast.error("❌ Restaurant WhatsApp number not found.");
-    return;
-  }
-
-  let cleanPhone = phone.toString().replace(/\D/g, '');
-  if (!cleanPhone || cleanPhone.length < 10) {
-    toast.error("❌ Invalid WhatsApp number.");
-    return;
-  }
-
-  try {
-    const orderRef = push(rtdbRef(realtimeDB, 'orders'));
-    const orderId = orderRef.key;
+  const handleDirectWhatsApp = async (item, customerData = null) => {
+    const user = auth.currentUser;
     
-    const enrichedItem = {
-      dishId: item.id,
-      name: item.name,
-      qty: 1,
-      price: item.price,
-      image: item.image || item.imageUrl || "",
-      prepTime: item.prepTime || 15,
-      spicePreference: item.spicePreference || "normal",
-      sweetLevel: item.sweetLevel || null,
-      saltPreference: item.saltPreference || null,
-      salad: item.salad || { qty: 0, taste: "normal" },
-      dishTasteProfile: item.dishTasteProfile || "normal",
-      description: item.description || "",
-      vegType: item.vegType || ""
-    };
-
-    const subtotal = item.price;
-    const gst = subtotal * 0.05;
-    const total = subtotal + gst;
-
-    const order = {
-      id: orderId,
-      userId: user.uid,
-      restaurantId: String(restaurantId),
-      customerName: customerData?.name || user.displayName || "Guest",
-      customerPhone: customerData?.phone || user.phoneNumber || "",
-      customerEmail: user.email || "",
-      tableNumber: customerData?.tableNumber || "",
-      specialInstructions: customerData?.specialInstructions || "",
-      items: [enrichedItem],
-      type: "whatsapp",
-      status: "pending",
-      subtotal,
-      gst,
-      total,
-      createdAt: Date.now(),
-      source: "whatsapp",
-      timestamp: Date.now(),
-      whatsappStatus: "new",
-      whatsappNumber: cleanPhone
-    };
-
-    console.log("🔥 Saving order:", order);
-
-    // ✅ STEP 1: Save to main orders node
-    await set(orderRef, order);
-    console.log("✅ Order saved to orders node");
-
-    // 🔥 STEP 2: Save to whatsappOrders with EXACT structure
-    try {
-      const whatsappOrderData = {
-        ...order,
-        whatsappStatus: "new",
-        orderId: orderId,
-        userId: user.uid,
-        restaurantId: String(restaurantId),
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      };
-      
-      console.log("🔥 Saving to whatsappOrders:", whatsappOrderData);
-      
-      const whatsappOrderRef = rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`);
-      await set(whatsappOrderRef, whatsappOrderData);
-      
-      console.log("✅ Order saved to whatsappOrders node");
-    } catch (whatsappError) {
-      console.error("❌ whatsappOrders write failed:", whatsappError);
-      toast.error("Order created but auto-confirm may not work");
+    if (!user) {
+      console.error("❌ No authenticated user");
+      requireLogin();
+      return;
     }
 
-    // 🔥 STEP 3: Create kitchen order with proper structure
-    // 🔥🔥🔥 CRITICAL FIX: Kitchen order abhi create karo, baad mein nahi
     try {
-      const kitchenOrderData = {
+      await user.getIdToken(true);
+      console.log("✅ Token refreshed");
+    } catch (tokenError) {
+      console.error("❌ Token refresh failed:", tokenError);
+      requireLogin();
+      return;
+    }
+
+    console.log("🔥 Creating WhatsApp order for restaurant:", restaurantId);
+    console.log("🔥 Current user:", user.uid);
+
+    let phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
+    
+    if (!phone) {
+      toast.error("❌ Restaurant WhatsApp number not found.");
+      return;
+    }
+
+    let cleanPhone = phone.toString().replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      toast.error("❌ Invalid WhatsApp number.");
+      return;
+    }
+
+    try {
+      const orderRef = push(rtdbRef(realtimeDB, 'orders'));
+      const orderId = orderRef.key;
+      
+      const enrichedItem = {
+        dishId: item.id,
+        name: item.name,
+        qty: 1,
+        price: item.price,
+        image: item.image || item.imageUrl || "",
+        prepTime: item.prepTime || 15,
+        spicePreference: item.spicePreference || "normal",
+        sweetLevel: item.sweetLevel || null,
+        saltPreference: item.saltPreference || null,
+        salad: item.salad || { qty: 0, taste: "normal" },
+        dishTasteProfile: item.dishTasteProfile || "normal",
+        description: item.description || "",
+        vegType: item.vegType || ""
+      };
+
+      const subtotal = item.price;
+      const gst = subtotal * 0.05;
+      const total = subtotal + gst;
+
+      const order = {
         id: orderId,
         userId: user.uid,
         restaurantId: String(restaurantId),
-        customerName: order.customerName,
-        customerPhone: order.customerPhone,
-        customerEmail: order.customerEmail,
-        tableNumber: order.tableNumber,
-        specialInstructions: order.specialInstructions,
+        customerName: customerData?.name || user.displayName || "Guest",
+        customerPhone: customerData?.phone || user.phoneNumber || "",
+        customerEmail: user.email || "",
+        tableNumber: customerData?.tableNumber || "",
+        specialInstructions: customerData?.specialInstructions || "",
         items: [enrichedItem],
         type: "whatsapp",
         status: "pending",
-        kitchenStatus: "pending",
         subtotal,
         gst,
         total,
         createdAt: Date.now(),
-        updatedAt: Date.now(),
         source: "whatsapp",
-        whatsappStatus: "new"
+        timestamp: Date.now(),
+        whatsappStatus: "new",
+        whatsappNumber: cleanPhone
       };
+
+      console.log("🔥 Saving order:", order);
+
+      await set(orderRef, order);
+      console.log("✅ Order saved to orders node");
+
+      try {
+        const whatsappOrderData = {
+          ...order,
+          whatsappStatus: "new",
+          orderId: orderId,
+          userId: user.uid,
+          restaurantId: String(restaurantId),
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        
+        console.log("🔥 Saving to whatsappOrders:", whatsappOrderData);
+        
+        const whatsappOrderRef = rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`);
+        await set(whatsappOrderRef, whatsappOrderData);
+        
+        console.log("✅ Order saved to whatsappOrders node");
+      } catch (whatsappError) {
+        console.error("❌ whatsappOrders write failed:", whatsappError);
+        toast.error("Order created but auto-confirm may not work");
+      }
+
+      try {
+        const kitchenOrderData = {
+          id: orderId,
+          userId: user.uid,
+          restaurantId: String(restaurantId),
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          customerEmail: order.customerEmail,
+          tableNumber: order.tableNumber,
+          specialInstructions: order.specialInstructions,
+          items: [enrichedItem],
+          type: "whatsapp",
+          status: "pending",
+          kitchenStatus: "pending",
+          subtotal,
+          gst,
+          total,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          source: "whatsapp",
+          whatsappStatus: "new"
+        };
+        
+        const kitchenRef = rtdbRef(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`);
+        await set(kitchenRef, kitchenOrderData);
+        console.log("✅ Kitchen order created successfully");
+      } catch (kitchenErr) {
+        console.error("❌ Kitchen order creation failed:", kitchenErr);
+        toast.warning("Order placed but kitchen display may not update. Please contact restaurant.");
+      }
       
-      const kitchenRef = rtdbRef(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`);
-      await set(kitchenRef, kitchenOrderData);
-      console.log("✅ Kitchen order created successfully");
-    } catch (kitchenErr) {
-      console.error("❌ Kitchen order creation failed:", kitchenErr);
-      // 🔥🔥🔥 Don't ignore this error - show it to user
-      toast.warning("Order placed but kitchen display may not update. Please contact restaurant.");
+      const message = `🍽️ *New Order #${orderId.slice(-6)}*\n\n` +
+        `👤 *Customer:* ${order.customerName}\n` +
+        `📱 *Phone:* ${order.customerPhone || 'N/A'}\n` +
+        (order.tableNumber ? `🪑 *Table:* ${order.tableNumber}\n` : '') +
+        `\n*Order Details:*\n` +
+        `• ${enrichedItem.name} x${enrichedItem.qty}\n` +
+        `  Price: ₹${enrichedItem.price}\n` +
+        (enrichedItem.spicePreference !== 'normal' ? `  Spice: ${enrichedItem.spicePreference}\n` : '') +
+        (enrichedItem.sweetLevel ? `  Sweet: ${enrichedItem.sweetLevel}\n` : '') +
+        `\n💰 *Subtotal:* ₹${subtotal.toFixed(2)}\n` +
+        `📊 *GST (5%):* ₹${gst.toFixed(2)}\n` +
+        `💵 *Total:* ₹${total.toFixed(2)}\n` +
+        (order.specialInstructions ? `\n📝 *Note:* ${order.specialInstructions}\n` : '') +
+        `\n⏱️ *Prep Time:* ${enrichedItem.prepTime} mins`;
+
+      const encodedMessage = encodeURIComponent(message);
+      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+      
+      await update(orderRef, { 
+        whatsappUrl,
+        whatsappSentAt: Date.now(),
+        whatsappStatus: 'initiated'
+      });
+
+      window.open(whatsappUrl, '_blank');
+      
+      console.log("✅ WhatsApp order created successfully:", orderId);
+      
+      toast.success('Order sent to WhatsApp!', {
+        description: 'Restaurant will confirm shortly',
+        duration: 5000
+      });
+
+      setShowWhatsAppCustomerModal(false);
+      setWhatsAppPayload(null);
+      setWhatsAppCustomerInfo({ name: '', phone: '', tableNumber: '', specialInstructions: '' });
+
+    } catch (error) {
+      console.error("❌ Error creating WhatsApp order:", error);
+      
+      if (error.message?.includes('permission_denied')) {
+        toast.error("Permission denied. Please logout and login again.");
+      } else {
+        toast.error("Failed to create WhatsApp order: " + error.message);
+      }
     }
-    
-    // Create WhatsApp message
-    const message = `🍽️ *New Order #${orderId.slice(-6)}*\n\n` +
-      `👤 *Customer:* ${order.customerName}\n` +
-      `📱 *Phone:* ${order.customerPhone || 'N/A'}\n` +
-      (order.tableNumber ? `🪑 *Table:* ${order.tableNumber}\n` : '') +
-      `\n*Order Details:*\n` +
-      `• ${enrichedItem.name} x${enrichedItem.qty}\n` +
-      `  Price: ₹${enrichedItem.price}\n` +
-      (enrichedItem.spicePreference !== 'normal' ? `  Spice: ${enrichedItem.spicePreference}\n` : '') +
-      (enrichedItem.sweetLevel ? `  Sweet: ${enrichedItem.sweetLevel}\n` : '') +
-      `\n💰 *Subtotal:* ₹${subtotal.toFixed(2)}\n` +
-      `📊 *GST (5%):* ₹${gst.toFixed(2)}\n` +
-      `💵 *Total:* ₹${total.toFixed(2)}\n` +
-      (order.specialInstructions ? `\n📝 *Note:* ${order.specialInstructions}\n` : '') +
-      `\n⏱️ *Prep Time:* ${enrichedItem.prepTime} mins`;
+  };
 
-    const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
-    
-    // Update order with WhatsApp URL
-    await update(orderRef, { 
-      whatsappUrl,
-      whatsappSentAt: Date.now(),
-      whatsappStatus: 'initiated'
-    });
-
-    // Open WhatsApp
-    window.open(whatsappUrl, '_blank');
-    
-    console.log("✅ WhatsApp order created successfully:", orderId);
-    
-    toast.success('Order sent to WhatsApp!', {
-      description: 'Restaurant will confirm shortly',
-      duration: 5000
-    });
-
-    // Reset modals
-    setShowWhatsAppCustomerModal(false);
-    setWhatsAppPayload(null);
-    setWhatsAppCustomerInfo({ name: '', phone: '', tableNumber: '', specialInstructions: '' });
-
-  } catch (error) {
-    console.error("❌ Error creating WhatsApp order:", error);
-    
-    if (error.message?.includes('permission_denied')) {
-      toast.error("Permission denied. Please logout and login again.");
-    } else {
-      toast.error("Failed to create WhatsApp order: " + error.message);
-    }
-  }
-};
   const generateWhatsAppMessageForCart = (order, restaurantName) => {
     const items = order.items.map((item, index) => {
       let details = [];
@@ -1225,6 +1186,7 @@ ${window.location.origin}/admin/orders/${order.id}
       console.error("❌ Failed to place WhatsApp order:", error);
     }
   };
+
   const removeNotification = (id) => {
     setReadyNotifications(prev => prev.filter(n => n.id !== id));
   };
@@ -1239,12 +1201,22 @@ ${window.location.origin}/admin/orders/${order.id}
       localStorage.setItem('viewedOrders', JSON.stringify(saved));
     }
   };
+useEffect(() => {
+  const TWO_MINUTES = 2 * 60 * 1000;
+  const now = Date.now();
 
-  // 🔥🔥🔥 MARK ORDER AS PROCESSED (Bill downloaded or shared)
+  activeOrder.forEach(order => {
+    if (order.status === 'completed') {
+      const completedAt = order.completedAt || order.updatedAt || order.createdAt;
+      if (now - completedAt > TWO_MINUTES) {
+        markOrderAsViewed(order.id);
+      }
+    }
+  });
+}, [activeOrder]);
   const markOrderAsProcessed = (orderId) => {
     setProcessedOrders(prev => new Set([...prev, orderId]));
     
-    // Save to localStorage so it persists on refresh
     const saved = JSON.parse(localStorage.getItem('processedOrders') || '[]');
     if (!saved.includes(orderId)) {
       saved.push(orderId);
@@ -1252,14 +1224,10 @@ ${window.location.origin}/admin/orders/${order.id}
     }
   };
 
-  // PDF Generate & Open
- const generateAndOpenBill = async (order) => {
+  const generateAndOpenBill = async (order) => {
     if (!order || !order.id) return console.error("Order is undefined or missing ID");
     
-    // ✅ Mark as processed immediately when customer clicks
     markOrderAsProcessed(order.id);
-    
-    // 🔥🔥🔥 FIX: Bill open karte hi order hide karo
     markOrderAsViewed(order.id);
 
     try {
@@ -1421,19 +1389,27 @@ ${window.location.origin}/admin/orders/${order.id}
         doc.save(`Bill-${Date.now()}.pdf`);
       }
 
-      // ✅ Play audio after bill is generated
-      playOrderCompleteAudio();
+     playOrderCompleteAudio();
 
-    } catch (err) {
+toast.success(`🙏 Thank you for dining with us at ${restaurantName}!`, {
+  description: "Hope to see you again! 😊",
+  duration: 6000
+});
+
+} catch (err) {
       console.error("Error generating bill:", err);
       alert("Bill generate karne mein error aaya: " + err.message);
     }
+    await update(rtdbRef(realtimeDB, `orders/${order.id}`), {
+      status: "completed",
+      completedAt: Date.now(),
+      billOpened: true
+    });
   };
 
   const shareBillOnWhatsApp = (order) => {
     if (!order) return;
     
-    // ✅ Mark as processed immediately when customer clicks
     markOrderAsProcessed(order.id);
     
     const bill = order.bill || generateBillText(order);
@@ -1480,8 +1456,12 @@ Sent via DineQR
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, "_blank");
     
-    // ✅ Play audio after sharing
     playOrderCompleteAudio();
+    update(rtdbRef(realtimeDB, `orders/${order.id}`), {
+      status: "completed",
+      completedAt: Date.now(),
+      billOpened: true
+    });
   };
 
   const generateBillText = (order) => {
@@ -1509,14 +1489,127 @@ Sent via DineQR
   };
 
   const visibleCategories = categories.filter(cat => categoryCounts[cat.id] > 0);
+// ===== CALL WAITER FUNCTION =====
+const callWaiter = async () => {
+  if (waiterCooldown || !userId) return;
 
-  // ================= USEEFFECTS =================
+  setWaiterCalled(true);
+  setWaiterCooldown(true);
+
+  try {
+    const waiterRef = push(rtdbRef(realtimeDB, `waiterCalls/${restaurantId}`));
+    await set(waiterRef, {
+      userId,
+      customerName: auth.currentUser?.displayName || "Guest",
+      tableNumber: activeOrder?.[0]?.tableNumber || "Unknown",
+      calledAt: Date.now(),
+      status: "pending",
+      orderId: activeOrder?.[0]?.id || null
+    });
+
+    toast.success("🔔 Waiter ko call kar diya!", {
+      description: "Waiter abhi aa raha hai",
+      duration: 4000
+    });
+  } catch (err) {
+    console.error("Waiter call failed:", err);
+    toast.error("Waiter call nahi ho saka, dobara try karo");
+  }
+
+  // 60 second cooldown — spam prevent karne ke liye
+  setTimeout(() => {
+    setWaiterCooldown(false);
+    setWaiterCalled(false);
+  }, 60000);
+};
+// ===== TABLE-SIDE REORDER =====
+const reorderItems = (order) => {
+  const orderItems = order.items
+    ? (Array.isArray(order.items) ? order.items : Object.values(order.items))
+    : [];
+
+  if (orderItems.length === 0) {
+    toast.error("No items found in this order");
+    return;
+  }
+
+  let addedCount = 0;
+
+  orderItems.forEach(item => {
+    if (!item || !item.name) return;
+
+    const cartPayload = {
+      id: item.dishId || item.id,
+      name: item.name,
+      price: Number(item.price) || 0,
+      image: item.image || "",
+      prepTime: Number(item.prepTime ?? 15),
+      dishTasteProfile: item.dishTasteProfile || "normal",
+      spicePreference: item.spicePreference || "normal",
+      sweetLevel: item.sweetLevel || null,
+      saltPreference: item.saltPreference || null,
+      salad: item.salad || { qty: 0, taste: "normal" },
+      specialInstructions: item.specialInstructions || "",
+      qty: Number(item.qty) || 1,
+    };
+
+    addToCart(cartPayload);
+    addedCount++;
+  });
+
+  toast.success(`🔄 ${addedCount} item${addedCount > 1 ? 's' : ''} cart mein add ho gaye!`, {
+    description: "Apni cart check karo aur order place karo",
+    duration: 4000
+  });
+
+  // Cart automatically open karo
+  setOpenCart(true);
+};
+// ===== LIVE QUEUE POSITION =====
+useEffect(() => {
+  if (!userId || !restaurantId || activeOrder.length === 0) {
+    setQueuePosition(null);
+    return;
+  }
+
+  const myOldestPendingOrder = activeOrder
+    .filter(o => o.status === 'pending' || o.status === 'confirmed')
+    .sort((a, b) => a.createdAt - b.createdAt)[0];
+
+  if (!myOldestPendingOrder) {
+    setQueuePosition(null);
+    return;
+  }
+
+  const ordersRef = rtdbRef(realtimeDB, 'orders');
+  const unsubscribe = onValue(ordersRef, (snap) => {
+    const data = snap.val();
+    if (!data) return;
+
+    const activeQueueOrders = Object.entries(data)
+      .filter(([id, order]) => {
+        return (
+          order.restaurantId === restaurantId &&
+          (order.status === 'pending' || order.status === 'confirmed') &&
+          order.createdAt <= myOldestPendingOrder.createdAt
+        );
+      })
+      .sort((a, b) => a[1].createdAt - b[1].createdAt);
+
+    const myPosition = activeQueueOrders.findIndex(
+      ([id]) => id === myOldestPendingOrder.id
+    ) + 1;
+
+    setQueuePosition(myPosition > 0 ? myPosition : null);
+  });
+
+  return () => unsubscribe();
+}, [userId, restaurantId, activeOrder]);
   useEffect(() => {
     const saved = JSON.parse(localStorage.getItem('viewedOrders') || '[]');
     saved.forEach(id => viewedOrdersRef.current.add(id));
     setViewedOrders(new Set(viewedOrdersRef.current));
     
-    // ✅ Load processed orders from localStorage
     const savedProcessed = JSON.parse(localStorage.getItem('processedOrders') || '[]');
     savedProcessed.forEach(id => setProcessedOrders(prev => new Set([...prev, id])));
   }, []);
@@ -1555,10 +1648,10 @@ Sent via DineQR
         const isNowReady = item.itemStatus === "ready" || 
           (item.prepStartedAt && (Date.now() - item.prepStartedAt) >= (item.prepTime * 60 * 1000));
         
-       if (isNowReady && !wasReady) {
-  prevOrdersRef.current[`${order.id}-${item.dishId}`] = true;
-  handleDishReady(item.name, order.id);  
-}
+        if (isNowReady && !wasReady) {
+          prevOrdersRef.current[`${order.id}-${item.dishId}`] = true;
+          handleDishReady(item.name, order.id);  
+        }
       });
     });
   }, [activeOrder, handleDishReady]);
@@ -1580,36 +1673,37 @@ Sent via DineQR
     
     return () => unsubscribe();
   }, []);
-useEffect(() => {
-  const unlockAudio = () => {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (AudioContext) {
-      const audioCtx = new AudioContext();
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
+
+  useEffect(() => {
+    const unlockAudio = () => {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        const audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
       }
-    }
+      
+      const audio = new Audio(readySound);
+      audio.volume = 0.01;
+      audio.play().then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+      }).catch(() => {});
+      
+      window.removeEventListener("click", unlockAudio);
+      window.removeEventListener("touchstart", unlockAudio);
+    };
     
-    const audio = new Audio(readySound);
-    audio.volume = 0.01;
-    audio.play().then(() => {
-      audio.pause();
-      audio.currentTime = 0;
-    }).catch(() => {});
+    window.addEventListener("click", unlockAudio);
+    window.addEventListener("touchstart", unlockAudio);
     
-    window.removeEventListener("click", unlockAudio);
-    window.removeEventListener("touchstart", unlockAudio);
-  };
-  
-  window.addEventListener("click", unlockAudio);
-  window.addEventListener("touchstart", unlockAudio);
-  
-  return () => {
-    window.removeEventListener("click", unlockAudio);
-    window.removeEventListener("touchstart", unlockAudio);
-  };
-}, []);
-  // Main Orders Listener with status change detection
+    return () => {
+      window.removeEventListener("click", unlockAudio);
+      window.removeEventListener("touchstart", unlockAudio);
+    };
+  }, []);
+
   useEffect(() => {
     if (!userId || !restaurantId) return;
     
@@ -1691,6 +1785,7 @@ useEffect(() => {
     return () => unsubscribe();
   }, [restaurantId]);
 
+  // ================= FIXED TRENDING DISHES USEEFFECT =================
   useEffect(() => {
     const ordersRef = rtdbRef(realtimeDB, "orders");
     const unsubscribe = onValue(ordersRef, (snap) => {
@@ -1702,7 +1797,16 @@ useEffect(() => {
 
       Object.values(data).forEach((order) => {
         if (order.createdAt >= last24h) {
-          countMap[order.dishId] = (countMap[order.dishId] || 0) + 1;
+          // 🔥 FIX: Convert items to array if it's an object
+          const items = order.items ? 
+            (Array.isArray(order.items) ? order.items : Object.values(order.items)) 
+            : [];
+          
+          items.forEach(item => {
+            if (item && item.dishId) {
+              countMap[item.dishId] = (countMap[item.dishId] || 0) + 1;
+            }
+          });
         }
       });
 
@@ -1716,7 +1820,6 @@ useEffect(() => {
     return () => unsubscribe();
   }, []);
 
-  // ================= HANDLERS =================
   const startVoiceSearch = () => {
     if (!("webkitSpeechRecognition" in window)) {
       alert("Voice search not supported");
@@ -1733,18 +1836,15 @@ useEffect(() => {
     recognition.start();
   };
 
-// ================= HANDLERS =================
-// ================= HANDLERS =================
-const handleOrderClick = (item, action = "order") => {
-  if (!item || !item.id) {
-    console.error("❌ Invalid item passed to handleOrderClick:", item);
-    return;
-  }
-  setTasteItem(item);
-  setTasteAction(action);
-};
+  const handleOrderClick = (item, action = "order") => {
+    if (!item || !item.id) {
+      console.error("❌ Invalid item passed to handleOrderClick:", item);
+      return;
+    }
+    setTasteItem(item);
+    setTasteAction(action);
+  };
 
-  // ================= FILTER & SORT LOGIC =================
   let filteredItems = [...items];
   if (search.trim()) {
     filteredItems = filteredItems.filter(
@@ -1782,7 +1882,6 @@ const handleOrderClick = (item, action = "order") => {
     });
   }
 
-  // ================= RENDER =================
   return (
     <>
       <Helmet>
@@ -1790,7 +1889,6 @@ const handleOrderClick = (item, action = "order") => {
         <meta name="description" content="Browse our delicious menu" />
       </Helmet>
       
-      {/* WhatsApp Quick Order Modal */}
       {showWhatsAppModal && whatsAppItem && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 animate-slideUp">
@@ -1833,7 +1931,7 @@ const handleOrderClick = (item, action = "order") => {
         </div>
       )}
 
-      <TableBookingModal 
+          <TableBookingModal 
         isOpen={showTableBooking} 
         onClose={() => setShowTableBooking(false)}
         restaurantId={restaurantId}
@@ -1851,8 +1949,6 @@ const handleOrderClick = (item, action = "order") => {
       ))}
       
       <div className="min-h-screen w-full">
-        {/* <audio ref={audioRef} src={readySound} preload="auto" /> */}
-        
         <div className="max-w-7xl w-full mx-auto px-4 pt-2" style={{ backgroundColor: theme.background }}>
           <div className="flex justify-end items-center gap-2 mb-2">
             <button
@@ -2037,19 +2133,57 @@ const handleOrderClick = (item, action = "order") => {
                     📋 Your Orders
                     <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">{activeOrder.length}</span>
                   </h3>
+                  {/* ===== LIVE QUEUE POSITION ===== */}
+{queuePosition && queuePosition > 0 && (
+  <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-3">
+    <div className="text-3xl font-black text-blue-600">#{queuePosition}</div>
+    <div>
+      <p className="font-bold text-blue-800 text-sm">Queue mein aapki position</p>
+      <p className="text-xs text-blue-600">
+        {queuePosition === 1
+          ? "🎉 Aap next hain! Thoda wait karo"
+          : `${queuePosition - 1} order${queuePosition - 1 > 1 ? 's' : ''} aapse pehle hain`}
+      </p>
+    </div>
+  </div>
+)}
+
+{/* ===== CALL WAITER BUTTON ===== */}
+{activeOrder.length > 0 && userId && (
+  <button
+    onClick={callWaiter}
+    disabled={waiterCooldown}
+    className={`w-full mb-3 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 ${
+      waiterCalled
+        ? 'bg-green-500 text-white'
+        : waiterCooldown
+        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+        : 'bg-orange-500 text-white hover:bg-orange-600 active:scale-95'
+    }`}
+  >
+    {waiterCalled ? (
+      <>✅ Waiter aa raha hai!</>
+    ) : waiterCooldown ? (
+      <>⏳ Please wait...</>
+    ) : (
+      <>🔔 Call Waiter</>
+    )}
+  </button>
+)}
                   
-                  {activeOrder.map((order) => (
-<ActiveOrderCard 
-  key={order.id}
-  order={order}
-  theme={theme}
-  onMarkViewed={markOrderAsViewed}
-  onGenerateBill={generateAndOpenBill}
-  onShareWhatsApp={shareBillOnWhatsApp}
-  isProcessed={processedOrders.has(order.id)}
-  onDishReady={handleDishReady}  
-/>
-                  ))}
+                {activeOrder.map((order) => (
+  <ActiveOrderCard 
+    key={order.id}
+    order={order}
+    theme={theme}
+    onMarkViewed={markOrderAsViewed}
+    onGenerateBill={generateAndOpenBill}
+    onShareWhatsApp={shareBillOnWhatsApp}
+    isProcessed={processedOrders.has(order.id)}
+    onDishReady={handleDishReady}
+    onReorder={reorderItems}
+  />
+))}
                 </div>
               )}
               
@@ -2200,26 +2334,26 @@ const handleOrderClick = (item, action = "order") => {
                             </button>
                           </div>
 
-   <button
-  onClick={() => handleOrderClick(item, "whatsapp")} 
-  style={{ 
-    border: `2px solid #22c55e`,
-    color: '#22c55e',
-    backgroundColor: '#ffffff'
-  }}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.backgroundColor = '#22c55e';
-    e.currentTarget.style.color = '#ffffff';
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.backgroundColor = '#ffffff';
-    e.currentTarget.style.color = '#22c55e';
-  }}
-  className="w-full mt-2 py-2 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 text-sm"
->
-  <FaWhatsapp className="w-[25px] h-[25px]" />
-  Order via WhatsApp
-</button>
+                          <button
+                            onClick={() => handleOrderClick(item, "whatsapp")} 
+                            style={{ 
+                              border: `2px solid #22c55e`,
+                              color: '#22c55e',
+                              backgroundColor: '#ffffff'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#22c55e';
+                              e.currentTarget.style.color = '#ffffff';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = '#ffffff';
+                              e.currentTarget.style.color = '#22c55e';
+                            }}
+                            className="w-full mt-2 py-2 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 text-sm"
+                          >
+                            <FaWhatsapp className="w-[25px] h-[25px]" />
+                            Order via WhatsApp
+                          </button>
 
                           <details className="mt-3">
                             <summary className="cursor-pointer text-sm text-gray-500">View reviews</summary>
@@ -2361,62 +2495,89 @@ const handleOrderClick = (item, action = "order") => {
                                 </>
                               )}
 
-                            <div className="flex gap-3 mt-4">
-  <button
-    onClick={() => {
-      const payload = {
-        ...tasteItem,
-        id: tasteItem.id,
-        name: tasteItem.name || tasteItem.dishName || "Unnamed Item",
-        price: Number(tasteItem.price) || 0,
-        image: tasteItem.imageUrl || tasteItem.image || "",
-        prepTime: Number(tasteItem.prepTime ?? 15),
-        dishTasteProfile: tasteItem.dishTasteProfile,
-        spicePreference: tasteItem.dishTasteProfile !== "sweet" ? (spiceSelections[tasteItem.id] || "normal") : null,
-        sweetLevel: tasteItem.dishTasteProfile === "sweet" ? (sweetSelections[tasteItem.id] || "normal") : null,
-        saltPreference: tasteItem.saltLevelEnabled ? (saltSelections[tasteItem.id] || "normal") : null,
-        salad: tasteItem.saladConfig?.enabled ? { 
-          qty: saladSelections[tasteItem.id] ? 1 : 0, 
-          taste: saladTaste[tasteItem.id] || "normal" 
-        } : { qty: 0, taste: "normal" }
-      };
-
-      if (tasteAction === "whatsapp") {
-        // 🔥 Pehle taste modal band karo, phir customer details modal dikhao
-        setWhatsAppPayload(payload);
-        setTasteItem(null);
-        setTasteAction(null);
-        setShowWhatsAppCustomerModal(true);
-      } else {
-        addToCart(payload);
-        
-        if (tasteAction === "order") {
-          setSelectedItem(tasteItem);
-        }
-        
-        setTasteItem(null);
-        setTasteAction(null);
-      }
-    }}
-    style={{
-      backgroundColor: '#ffffff',
-      border: `2px solid ${tasteAction === "whatsapp" ? "#25D366" : theme.primary}`,
-      color: tasteAction === "whatsapp" ? "#25D366" : theme.primary,
-      transition: 'all 0.3s ease'
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.backgroundColor = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
-      e.currentTarget.style.color = '#ffffff';
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.backgroundColor = '#ffffff';
-      e.currentTarget.style.color = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
-    }}
-    className="flex-1 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-[0.98]"
-  >
-    {tasteAction === "order" ? "Confirm Order 🚀" : tasteAction === "cart" ? "Add To Cart" : "Order via WhatsApp"}
-  </button>
+                              <div className="flex gap-3 mt-4">
+                                {/* ===== DISH CUSTOMIZATION NOTE ===== */}
+<div className="mb-3">
+  <p className="text-xs font-semibold mb-2">📝 Special Instructions (Optional)</p>
+  <textarea
+    value={dishNotes[tasteItem?.id] || ''}
+    onChange={(e) =>
+      setDishNotes(prev => ({ ...prev, [tasteItem.id]: e.target.value }))
+    }
+    placeholder="e.g. Less oil, no onion, extra cheese..."
+    rows={2}
+    className="w-full p-3 border-2 rounded-lg text-sm outline-none resize-none"
+    style={{ borderColor: theme.primary }}
+    maxLength={150}
+  />
+  <p className="text-[10px] text-gray-400 text-right mt-0.5">
+    {(dishNotes[tasteItem?.id] || '').length}/150
+  </p>
 </div>
+                                <button
+                                  onClick={() => {
+                                  const payload = {
+  id: tasteItem.id,
+  name: tasteItem.name || tasteItem.dishName || "Unnamed Item",
+  price: Number(tasteItem.price) || 0,
+  image: tasteItem.imageUrl || tasteItem.image || "",
+  prepTime: Number(tasteItem.prepTime ?? 15),
+  dishTasteProfile: tasteItem.dishTasteProfile,
+  vegType: tasteItem.vegType || "",
+  description: tasteItem.description || "",
+  specialInstructions: dishNotes[tasteItem.id] || "",
+  
+  // Sweet dish ke liye spice NULL, non-sweet ke liye value
+  spicePreference: tasteItem.dishTasteProfile !== "sweet" 
+    ? (spiceSelections[tasteItem.id] || "normal") 
+    : null,
+  sweetLevel: tasteItem.dishTasteProfile === "sweet" 
+    ? (sweetSelections[tasteItem.id] || "normal") 
+    : null,
+  saltPreference: tasteItem.saltLevelEnabled 
+    ? (saltSelections[tasteItem.id] || "normal") 
+    : null,
+  salad: tasteItem.saladConfig?.enabled 
+    ? { qty: saladSelections[tasteItem.id] ? 1 : 0, taste: saladTaste[tasteItem.id] || "normal" } 
+    : { qty: 0, taste: "normal" }
+};
+
+                                    if (tasteAction === "whatsapp") {
+                                      setWhatsAppPayload(payload);
+                                      setTasteItem(null);
+                                      setTasteAction(null);
+                                      setShowWhatsAppCustomerModal(true);
+                                    } else {
+                                      addToCart(payload);
+                                      
+                                      if (tasteAction === "order") {
+                                        setSelectedItem(tasteItem);
+                                      }
+                                      
+                                      setTasteItem(null);
+                                      setTasteAction(null);
+                                    }
+                                  }}
+                                  style={{
+                                    backgroundColor: '#ffffff',
+                                    border: `2px solid ${tasteAction === "whatsapp" ? "#25D366" : theme.primary}`,
+                                    color: tasteAction === "whatsapp" ? "#25D366" : theme.primary,
+                                    transition: 'all 0.3s ease'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
+                                    e.currentTarget.style.color = '#ffffff';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#ffffff';
+                                    e.currentTarget.style.color = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
+                                  }}
+                                  className="flex-1 py-3 rounded-xl font-bold hover:scale-[1.02] active:scale-[0.98]"
+                                >
+
+                                  {tasteAction === "order" ? "Confirm Order 🚀" : tasteAction === "cart" ? "Add To Cart" : "Order via WhatsApp"}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         )}
@@ -2536,109 +2697,108 @@ const handleOrderClick = (item, action = "order") => {
               restaurantSettings={restaurantSettings}  
               onWhatsAppOrder={handleWhatsAppOrderFromCart}  
             />
-            
           )}
-{showWhatsAppCustomerModal && whatsAppPayload && (
-  <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-    <div className="bg-white w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto animate-slideUp">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold flex items-center gap-2">
-          <FaWhatsapp className="text-green-500"/> WhatsApp Order
-        </h3>
-        <button 
-          onClick={() => {
-            setShowWhatsAppCustomerModal(false);
-            setWhatsAppPayload(null);
-          }}
-          className="p-2 hover:bg-gray-100 rounded-full"
-        >
-          <IoClose className="text-xl" />
-        </button>
-      </div>
-      
-      <div className="bg-green-50 p-3 rounded-xl mb-4">
-        <p className="font-medium text-sm mb-2">Item: {whatsAppPayload.name}</p>
-        <div className="flex justify-between font-bold">
-          <span>Total</span>
-          <span className="text-green-600">₹{whatsAppPayload.price}</span>
-        </div>
-      </div>
-      
-      <div className="space-y-3">
-        <div>
-          <label className="block text-sm font-medium mb-1">Your Name *</label>
-          <input
-            type="text"
-            value={whatsAppCustomerInfo.name}
-            onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, name: e.target.value})}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-            placeholder="Enter your name"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Phone Number *</label>
-          <input
-            type="tel"
-            value={whatsAppCustomerInfo.phone}
-            onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, phone: e.target.value})}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-            placeholder="+91 9876543210"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Table Number (Optional)</label>
-          <input
-            type="text"
-            value={whatsAppCustomerInfo.tableNumber}
-            onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, tableNumber: e.target.value})}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
-            placeholder="If dining in restaurant"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Special Instructions</label>
-          <textarea
-            value={whatsAppCustomerInfo.specialInstructions}
-            onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, specialInstructions: e.target.value})}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none"
-            rows="2"
-            placeholder="Any allergies or special requests..."
-          />
-        </div>
-      </div>
 
-      <div className="flex gap-3 mt-6">
-        <button
-          onClick={() => {
-            setShowWhatsAppCustomerModal(false);
-            setWhatsAppPayload(null);
-          }}
-          className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50 transition"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={() => {
-            if (!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone) {
-              alert('Please fill in your name and phone number');
-              return;
-            }
-            // 🔥 WhatsApp open karo with customer details
-            handleDirectWhatsApp(whatsAppPayload, whatsAppCustomerInfo);
-            setShowWhatsAppCustomerModal(false);
-            setWhatsAppPayload(null);
-            // Reset form
-            setWhatsAppCustomerInfo({ name: '', phone: '', tableNumber: '', specialInstructions: '' });
-          }}
-          disabled={!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone}
-          className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold transition hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          <FaWhatsapp /> Open WhatsApp
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+          {showWhatsAppCustomerModal && whatsAppPayload && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+              <div className="bg-white w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto animate-slideUp">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <FaWhatsapp className="text-green-500"/> WhatsApp Order
+                  </h3>
+                  <button 
+                    onClick={() => {
+                      setShowWhatsAppCustomerModal(false);
+                      setWhatsAppPayload(null);
+                    }}
+                    className="p-2 hover:bg-gray-100 rounded-full"
+                  >
+                    <IoClose className="text-xl" />
+                  </button>
+                </div>
+                
+                <div className="bg-green-50 p-3 rounded-xl mb-4">
+                  <p className="font-medium text-sm mb-2">Item: {whatsAppPayload.name}</p>
+                  <div className="flex justify-between font-bold">
+                    <span>Total</span>
+                    <span className="text-green-600">₹{whatsAppPayload.price}</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Your Name *</label>
+                    <input
+                      type="text"
+                      value={whatsAppCustomerInfo.name}
+                      onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, name: e.target.value})}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                      placeholder="Enter your name"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Phone Number *</label>
+                    <input
+                      type="tel"
+                      value={whatsAppCustomerInfo.phone}
+                      onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, phone: e.target.value})}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                      placeholder="+91 9876543210"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Table Number (Optional)</label>
+                    <input
+                      type="text"
+                      value={whatsAppCustomerInfo.tableNumber}
+                      onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, tableNumber: e.target.value})}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                      placeholder="If dining in restaurant"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Special Instructions</label>
+                    <textarea
+                      value={whatsAppCustomerInfo.specialInstructions}
+                      onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, specialInstructions: e.target.value})}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none"
+                      rows="2"
+                      placeholder="Any allergies or special requests..."
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => {
+                      setShowWhatsAppCustomerModal(false);
+                      setWhatsAppPayload(null);
+                    }}
+                    className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone) {
+                        alert('Please fill in your name and phone number');
+                        return;
+                      }
+                      handleDirectWhatsApp(whatsAppPayload, whatsAppCustomerInfo);
+                      setShowWhatsAppCustomerModal(false);
+                      setWhatsAppPayload(null);
+                      setWhatsAppCustomerInfo({ name: '', phone: '', tableNumber: '', specialInstructions: '' });
+                    }}
+                    disabled={!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone}
+                    className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold transition hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <FaWhatsapp /> Open WhatsApp
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {selectedItem && <OrderModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
           <LoginModal />
         </div>

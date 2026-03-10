@@ -204,6 +204,7 @@ const handlePlaceOrder = async () => {
     paymentStatus: paymentMethod === "cash" ? "pending_cash" : "pending_online",
 
     // ✅ FIXED: Complete items array with ALL customizations
+// FIXED - maps PublicMenu cart fields → AdminOrders display fields
 items: validCart.reduce((acc, item) => {
   acc[item.id] = {
     dishId: item.id,
@@ -212,10 +213,20 @@ items: validCart.reduce((acc, item) => {
     qty: Number(item.qty) || 1,
     price: Number(item.price) || 0,
     prepTime: Number(item.prepTime ?? 15),
-    sweetnessLevel: item.sweetnessLevel || "normal",
-    spicinessLevel: item.spicinessLevel || "normal",
-    saltLevel: item.saltLevel || "normal",
-    includeSalad: item.includeSalad || false,
+    dishTasteProfile: item.dishTasteProfile || "normal",
+
+    // ✅ Map PublicMenu field names → AdminOrders field names
+    sweetnessLevel: item.sweetLevel || item.sweetnessLevel || "normal",
+    spicinessLevel: item.spicePreference || item.spicinessLevel || "normal",
+    saltLevel: item.saltPreference || item.saltLevel || "normal",
+    includeSalad: (item.salad?.qty > 0) || item.includeSalad || false,
+
+    // Keep originals too for WhatsApp orders
+    spicePreference: item.spicePreference || "normal",
+    sweetLevel: item.sweetLevel || null,
+    saltPreference: item.saltPreference || null,
+    salad: item.salad || { qty: 0, taste: "normal" },
+
     specialInstructions: item.specialInstructions || "",
   };
   return acc;
@@ -288,12 +299,51 @@ items: validCart.reduce((acc, item) => {
         </div>
 
         {/* Cart Summary */}
-        <div className="border rounded-lg p-3 mb-4 bg-gray-50">
-          <h3 className="font-semibold text-sm mb-2 text-gray-700">Order Summary</h3>
-          {getValidCart().map((item) => (
-            <CartItem key={item.id} item={item} />
-          ))}
+       {/* Cart Summary */}
+<div className="border rounded-lg p-3 mb-4 bg-gray-50">
+  <h3 className="font-semibold text-sm mb-2 text-gray-700">Order Summary</h3>
+  {getValidCart().map((item) => (
+    <div key={item.id} className="mb-3">
+      <CartItem item={item} />
+      
+      {/* ===== DISH CUSTOMIZATION SUMMARY ===== */}
+      <div className="mt-1 ml-2 px-3 py-2 bg-white border border-gray-100 rounded-lg text-xs text-gray-600 space-y-1">
+        
+        {/* Taste preferences */}
+        <div className="flex flex-wrap gap-2">
+          {item.dishTasteProfile !== "sweet" && item.spicePreference && item.spicePreference !== "normal" && (
+            <span className="px-2 py-0.5 bg-red-50 text-red-700 rounded-full border border-red-100">
+              🌶️ {item.spicePreference}
+            </span>
+          )}
+          {item.dishTasteProfile === "sweet" && item.sweetLevel && item.sweetLevel !== "normal" && (
+            <span className="px-2 py-0.5 bg-yellow-50 text-yellow-700 rounded-full border border-yellow-100">
+              🍯 {item.sweetLevel}
+            </span>
+          )}
+          {item.saltPreference && item.saltPreference !== "normal" && (
+            <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full border border-gray-200">
+              🧂 {item.saltPreference}
+            </span>
+          )}
+          {item.salad?.qty > 0 && (
+            <span className="px-2 py-0.5 bg-green-50 text-green-700 rounded-full border border-green-100">
+              🥗 Salad x{item.salad.qty}
+            </span>
+          )}
         </div>
+
+        {/* Special note */}
+        {item.specialInstructions && (
+          <div className="flex items-start gap-1 mt-1 p-2 bg-yellow-50 border border-yellow-100 rounded-lg">
+            <span>📝</span>
+            <span className="text-yellow-800 italic">{item.specialInstructions}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  ))}
+</div>
 
         {/* Total */}
         <div className="flex justify-between font-bold text-lg mb-6 p-3 bg-gray-100 rounded-lg">

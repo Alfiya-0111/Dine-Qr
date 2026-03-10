@@ -32,7 +32,10 @@ export default function Sidebar() {
         <Link to={`/dashboard/${restaurantId}/subscription`}>Subscription</Link>
        
           <Link to={`/dashboard/${restaurantId}/payment-status`}>PaymentStatus</Link>
-
+           <Link to={`/dashboard/${restaurantId}/revenue`}>Revenue Dashboard</Link>
+<Link to={`/dashboard/${restaurantId}/kitchen-display`} >
+   Kitchen Display
+</Link>
       </nav>
     </div>
   );

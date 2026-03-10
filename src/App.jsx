@@ -18,7 +18,8 @@ import AdminOrders from "./pages/AdminOrders";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import SubscriptionPage from "./pages/SubscriptionPage";
 import PaymentStatusPage from "./pages/PaymentStatusPage";
-
+import RevenueDashboard from "./pages/admin/RevenueDashboard";
+import KitchenDisplay from "./pages/admin/KitchenDisplay";
 function App() {
   return (
     <AuthProvider>
@@ -49,6 +50,8 @@ function App() {
             <Route path="subscription" element={<SubscriptionPage />} />
          
             <Route path="payment-status" element={<PaymentStatusPage />} />
+            <Route path="revenue" element={<RevenueDashboard />} />
+            <Route path="kitchen-display" element={<KitchenDisplay />} />
           </Route>
 
         </Routes>
