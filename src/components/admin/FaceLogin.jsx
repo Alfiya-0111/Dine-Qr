@@ -48,18 +48,14 @@ const FaceLogin = ({ onFaceDetected, onClose, mode = "login" }) => {
         return;
       }
 
-      // Create canvas and capture frame
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
       
-      // Flip horizontally to match mirror view
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
       ctx.drawImage(video, 0, 0);
-      
-      // Reset transform
       ctx.setTransform(1, 0, 0, 1, 0, 0);
 
       const imageSrc = canvas.toDataURL('image/jpeg');
@@ -70,7 +66,6 @@ const FaceLogin = ({ onFaceDetected, onClose, mode = "login" }) => {
         return;
       }
 
-      // Convert to blob for face-api
       const response = await fetch(imageSrc);
       const blob = await response.blob();
       const img = await faceapi.bufferToImage(blob);
@@ -99,14 +94,14 @@ const FaceLogin = ({ onFaceDetected, onClose, mode = "login" }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+      <div className="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-sm sm:max-w-md">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-[#8A244B]">
+          <h3 className="text-lg sm:text-xl font-bold text-[#8A244B]">
             {mode === "register" ? "Register Your Face" : "Face Login"}
           </h3>
           <button 
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-2xl"
+            className="text-gray-500 hover:text-gray-700 text-xl sm:text-2xl"
           >
             ✕
           </button>
@@ -119,15 +114,15 @@ const FaceLogin = ({ onFaceDetected, onClose, mode = "login" }) => {
           </div>
         ) : (
           <>
-            {/* Camera Container with Face Guide */}
-            <div className="relative rounded-xl overflow-hidden mb-4 bg-gray-900 mx-auto" style={{ width: '320px', height: '320px' }}>
+            {/* Camera Container - Responsive */}
+            <div className="camera-container relative rounded-xl overflow-hidden mb-4 bg-gray-900 mx-auto">
               <Webcam
                 ref={webcamRef}
                 audio={false}
                 screenshotFormat="image/jpeg"
                 className="absolute inset-0 w-full h-full object-cover"
                 style={{
-                  transform: 'scaleX(-1)', // Mirror effect
+                  transform: 'scaleX(-1)',
                 }}
                 videoConstraints={{
                   facingMode: "user",
@@ -141,15 +136,15 @@ const FaceLogin = ({ onFaceDetected, onClose, mode = "login" }) => {
               
               {/* Face Guide Overlay */}
               <div className="absolute inset-0 pointer-events-none">
-                {/* Outer circle */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 border-2 border-white border-opacity-50 rounded-full"></div>
+                {/* Outer circle - responsive sizes */}
+                <div className="face-circle absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 border-2 border-white border-opacity-50 rounded-full"></div>
                 
-                {/* Corner markers */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-56 h-56">
-                  <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#B45253] rounded-tl-lg"></div>
-                  <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#B45253] rounded-tr-lg"></div>
-                  <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-[#B45253] rounded-bl-lg"></div>
-                  <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-[#B45253] rounded-br-lg"></div>
+                {/* Corner markers - responsive */}
+                <div className="corner-markers absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <div className="corner-marker absolute top-0 left-0 border-t-4 border-l-4 border-[#B45253] rounded-tl-lg"></div>
+                  <div className="corner-marker absolute top-0 right-0 border-t-4 border-r-4 border-[#B45253] rounded-tr-lg"></div>
+                  <div className="corner-marker absolute bottom-0 left-0 border-b-4 border-l-4 border-[#B45253] rounded-bl-lg"></div>
+                  <div className="corner-marker absolute bottom-0 right-0 border-b-4 border-r-4 border-[#B45253] rounded-br-lg"></div>
                 </div>
                 
                 {/* Center dot */}
@@ -170,7 +165,7 @@ const FaceLogin = ({ onFaceDetected, onClose, mode = "login" }) => {
             <button
               onClick={captureFace}
               disabled={isDetecting || !isModelLoaded || !cameraReady}
-              className="w-full py-3 rounded-xl font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              className="w-full py-3 rounded-xl font-semibold text-white transition hover:opacity-90 disabled:opacity-50 text-sm sm:text-base"
               style={{ backgroundColor: "#B45253" }}
             >
               {!cameraReady ? "Initializing Camera..." : 
@@ -180,6 +175,75 @@ const FaceLogin = ({ onFaceDetected, onClose, mode = "login" }) => {
           </>
         )}
       </div>
+
+      {/* CSS for responsive camera */}
+      <style>{`
+        .camera-container {
+          width: 280px;
+          height: 280px;
+        }
+        
+        .face-circle {
+          width: 160px;
+          height: 160px;
+        }
+        
+        .corner-markers {
+          width: 200px;
+          height: 200px;
+        }
+        
+        .corner-marker {
+          width: 24px;
+          height: 24px;
+        }
+        
+        /* Tablet and above (761px+) */
+        @media (min-width: 761px) {
+          .camera-container {
+            width: 320px;
+            height: 320px;
+          }
+          
+          .face-circle {
+            width: 192px;
+            height: 192px;
+          }
+          
+          .corner-markers {
+            width: 224px;
+            height: 224px;
+          }
+          
+          .corner-marker {
+            width: 32px;
+            height: 32px;
+          }
+        }
+        
+        /* Small mobile (below 360px) */
+        @media (max-width: 359px) {
+          .camera-container {
+            width: 240px;
+            height: 240px;
+          }
+          
+          .face-circle {
+            width: 140px;
+            height: 140px;
+          }
+          
+          .corner-markers {
+            width: 170px;
+            height: 170px;
+          }
+          
+          .corner-marker {
+            width: 20px;
+            height: 20px;
+          }
+        }
+      `}</style>
     </div>
   );
 };
