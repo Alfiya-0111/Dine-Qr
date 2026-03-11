@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ref as rtdbRef, onValue } from 'firebase/database';
+import { ref as rtdbRef, onValue, get } from 'firebase/database';
 import { realtimeDB } from '../firebaseConfig';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { 
@@ -58,51 +58,81 @@ export default function PaymentStatusPage() {
   const [activePayment, setActivePayment] = useState(null);
   const navigate = useNavigate();
   const auth = getAuth();
-useEffect(() => {
-  let dataUnsubscribe = null;
-  
-  const authUnsubscribe = onAuthStateChanged(auth, (currentUser) => {
-    if (!currentUser) {
-      navigate('/login');
-      setLoading(false);
-      return;
-    }
-    
-    setUser(currentUser);
-    
-    // IMPORTANT: User can only read specific payment, not whole list
-    // Query with orderByChild filter karo
-    const paymentsRef = rtdbRef(realtimeDB, 'paymentRequests');
-    
-    dataUnsubscribe = onValue(paymentsRef, (snapshot) => {
-      // Filter client side for user's payments
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const userPayments = Object.entries(data)
-          .filter(([key, value]) => value.userId === currentUser.uid)
-          .map(([key, value]) => ({ id: key, ...value }))
-          .sort((a, b) => b.submittedAt - a.submittedAt);
-        
-        setPayments(userPayments);
-        if (userPayments.length > 0) {
-          setActivePayment(userPayments[0]);
-        }
-      } else {
-        setPayments([]);
-      }
-      setLoading(false);
-    }, (error) => {
-      console.error("Firebase error:", error);
-      setError(error.message);
-      setLoading(false);
-    });
-  });
 
-  return () => {
-    authUnsubscribe();
-    if (dataUnsubscribe) dataUnsubscribe();
-  };
-}, [auth, navigate]);
+  useEffect(() => {
+    let dataUnsubscribe = null;
+
+    const authUnsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (!currentUser) {
+        navigate('/login');
+        setLoading(false);
+        return;
+      }
+
+      setUser(currentUser);
+
+      // ✅ STEP 1: userPaymentRequests/$uid se index listen karo — no permission issue!
+      const userIndexRef = rtdbRef(realtimeDB, `userPaymentRequests/${currentUser.uid}`);
+
+      dataUnsubscribe = onValue(
+        userIndexRef,
+        async (snapshot) => {
+          if (!snapshot.exists()) {
+            setPayments([]);
+            setLoading(false);
+            return;
+          }
+
+          const indexData = snapshot.val();
+          const requestIds = Object.keys(indexData);
+
+          try {
+            // ✅ STEP 2: Har requestId ke liye paymentRequests se full data fetch karo
+            // (user apni specific request padh sakta hai — $requestId rule se allowed hai)
+            const fullPaymentPromises = requestIds.map(async (requestId) => {
+              const fullRef = rtdbRef(realtimeDB, `paymentRequests/${requestId}`);
+              const fullSnap = await get(fullRef);
+              if (fullSnap.exists()) {
+                return { id: requestId, ...fullSnap.val() };
+              }
+              // Fallback: agar full data na mile, index data use karo
+              return { id: requestId, ...indexData[requestId] };
+            });
+
+            const userPayments = await Promise.all(fullPaymentPromises);
+            userPayments.sort((a, b) => b.submittedAt - a.submittedAt);
+
+            setPayments(userPayments);
+            if (userPayments.length > 0) {
+              setActivePayment(userPayments[0]);
+            }
+          } catch (err) {
+            console.error('Error fetching full payment details:', err);
+            // Fallback: sirf index data se show karo
+            const fallbackPayments = Object.entries(indexData)
+              .map(([key, value]) => ({ id: key, ...value }))
+              .sort((a, b) => b.submittedAt - a.submittedAt);
+            setPayments(fallbackPayments);
+            if (fallbackPayments.length > 0) {
+              setActivePayment(fallbackPayments[0]);
+            }
+          }
+
+          setLoading(false);
+        },
+        (err) => {
+          console.error('Firebase error:', err);
+          setError(err.message);
+          setLoading(false);
+        }
+      );
+    });
+
+    return () => {
+      authUnsubscribe();
+      if (dataUnsubscribe) dataUnsubscribe();
+    };
+  }, [auth, navigate]);
 
   const getStatusConfig = (status) => {
     return STATUS_CONFIG[status] || STATUS_CONFIG.pending;
@@ -121,7 +151,6 @@ useEffect(() => {
     navigate('/dashboard/menu');
   };
 
-  // ERROR STATE
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
@@ -159,7 +188,7 @@ useEffect(() => {
           <h2 className="text-xl font-bold text-gray-800 mb-2">No Payments Found</h2>
           <p className="text-gray-600 mb-6">You haven't submitted any payment requests yet.</p>
           <button
-            onClick={() => navigate('/subscription')}
+            onClick={() => navigate('/dashboard/menu/subscription')}
             className="w-full py-3 bg-[#8A244B] text-white rounded-xl font-bold hover:bg-[#f18e49] transition"
           >
             View Plans →
@@ -175,13 +204,11 @@ useEffect(() => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-8 px-4">
       <div className="max-w-3xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Payment Status</h1>
           <p className="text-gray-600 mt-2">Track your subscription payment</p>
         </div>
 
-        {/* Main Status Card */}
         <div className={`rounded-2xl shadow-lg border-2 p-8 mb-6 ${statusConfig.color}`}>
           <div className="text-center mb-6">
             <div className="flex justify-center mb-4">{statusConfig.icon}</div>
@@ -193,7 +220,6 @@ useEffect(() => {
             </p>
           </div>
 
-          {/* Payment Details */}
           <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 mb-6">
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
@@ -235,12 +261,10 @@ useEffect(() => {
             </div>
           </div>
 
-          {/* Action Message */}
           <div className={`${statusConfig.textColor} text-center font-medium mb-6`}>
             {statusConfig.action}
           </div>
 
-          {/* Action Buttons */}
           <div className="flex gap-3">
             {activePayment?.status === 'approved' ? (
               <button
@@ -282,7 +306,6 @@ useEffect(() => {
             )}
           </div>
 
-          {/* Rejection Reason */}
           {activePayment?.status === 'rejected' && activePayment?.rejectionReason && (
             <div className="mt-6 bg-red-100 border border-red-300 rounded-xl p-4">
               <p className="text-red-800 font-bold mb-1">Rejection Reason:</p>
@@ -291,7 +314,6 @@ useEffect(() => {
           )}
         </div>
 
-        {/* Payment History */}
         {payments.length > 1 && (
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Payment History</h3>
@@ -299,14 +321,14 @@ useEffect(() => {
               {payments.map((payment) => {
                 const pConfig = PLAN_CONFIG[payment.planId] || {};
                 const isSelected = payment.id === activePayment?.id;
-                
+
                 return (
                   <button
                     key={payment.id}
                     onClick={() => setActivePayment(payment)}
                     className={`w-full text-left p-4 rounded-xl border-2 transition ${
-                      isSelected 
-                        ? 'border-[#8A244B] bg-[#8A244B]/5' 
+                      isSelected
+                        ? 'border-[#8A244B] bg-[#8A244B]/5'
                         : 'border-gray-100 hover:border-gray-200'
                     }`}
                   >
@@ -338,13 +360,12 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Help Section */}
         <div className="mt-6 bg-blue-50 rounded-xl p-4">
           <h4 className="font-bold text-blue-900 mb-2">💡 Frequently Asked Questions</h4>
           <div className="space-y-2 text-sm text-blue-800">
-            <p><strong>Q: How long does verification take?</strong><br/>A: Usually 2-24 hours. Urgent? WhatsApp us.</p>
-            <p><strong>Q: What if my payment is rejected?</strong><br/>A: Check the reason, fix the issue, and submit again.</p>
-            <p><strong>Q: Can I get a refund?</strong><br/>A: Contact support within 7 days if plan not activated.</p>
+            <p><strong>Q: How long does verification take?</strong><br />A: Usually 2-24 hours. Urgent? WhatsApp us.</p>
+            <p><strong>Q: What if my payment is rejected?</strong><br />A: Check the reason, fix the issue, and submit again.</p>
+            <p><strong>Q: Can I get a refund?</strong><br />A: Contact support within 7 days if plan not activated.</p>
           </div>
         </div>
       </div>
