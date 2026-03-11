@@ -96,7 +96,7 @@ const handleFaceDetected = async (faceData) => {
         : localStorage.removeItem("rememberEmail");
 
       toast.success("Login successful 🎉");
-      navigate("/dashboard/menu");
+      navigate("/dashboard/menu/bookingtable");
     } catch (err) {
       toast.error(err.message.replace("Firebase:", ""));
     } finally {

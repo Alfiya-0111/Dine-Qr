@@ -60,7 +60,7 @@ export default function RestaurantSignup() {
       }
 
       toast.success("Restaurant account created successfully!");
-      navigate("/dashboard/menu");
+      navigate("/dashboard/menu/bookingtable");
     } catch (err) {
       toast.error(err.message);
     }
