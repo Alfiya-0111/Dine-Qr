@@ -29,6 +29,16 @@ function formatCountdown(ms) {
   return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
 }
 
+// ✅ NEW: Format last updated time
+function formatLastUpdated(ts) {
+  if (!ts) return "Never";
+  const diff = Math.floor((Date.now() - ts) / 1000);
+  if (diff < 5) return "Just now";
+  if (diff < 60) return `${diff}s ago`;
+  const min = Math.floor(diff / 60);
+  return `${min}m ago`;
+}
+
 const getItemsArray = (items) => {
   if (!items) return [];
   if (Array.isArray(items)) return items;
@@ -46,10 +56,10 @@ function OrderCard({ order, onUpdateStatus, tick }) {
   const items = getItemsArray(order.items);
 
   const statusConfig = {
-    pending:   { label: "Pending",   color: "bg-yellow-500", next: "confirmed",  nextLabel: "✅ Confirm" },
-    confirmed: { label: "Confirmed", color: "bg-blue-500",   next: "preparing",  nextLabel: "👨‍🍳 Start Cooking" },
-    preparing: { label: "Preparing", color: "bg-orange-500", next: "ready",      nextLabel: "🍽️ Mark Ready" },
-    ready:     { label: "Ready",     color: "bg-green-500",  next: "completed",  nextLabel: "✅ Complete Order" },
+    pending:   { label: "Pending",   color: "bg-yellow-500", next: "confirmed",  nextLabel: "✅ Confirm Order", nextColor: "#16a34a" },
+    confirmed: { label: "Confirmed", color: "bg-blue-500",   next: "preparing",  nextLabel: "👨‍🍳 Start Cooking", nextColor: PRIMARY },
+    preparing: { label: "Preparing", color: "bg-orange-500", next: "ready",      nextLabel: "🍽️ Mark Ready",    nextColor: "#7c3aed" },
+    ready:     { label: "Ready",     color: "bg-green-500",  next: "completed",  nextLabel: "✅ Complete Order", nextColor: "#64748b" },
     completed: { label: "Completed", color: "bg-gray-400",   next: null,         nextLabel: null },
   };
 
@@ -63,18 +73,34 @@ function OrderCard({ order, onUpdateStatus, tick }) {
     ? "border-orange-400 shadow-orange-100"
     : "border-gray-200";
 
+  // ✅ IMPROVEMENT 1: Pending orders get special "CONFIRM" highlight
+  const isPending = order.status === "pending";
+
   return (
-    <div className={`bg-white rounded-2xl border-2 shadow-lg flex flex-col ${cardBorder} overflow-hidden`}>
+    <div className={`bg-white rounded-2xl border-2 shadow-lg flex flex-col ${cardBorder} overflow-hidden ${isPending ? "ring-2 ring-yellow-400 ring-offset-1" : ""}`}>
+      
+      {/* HEADER */}
       <div
         className="px-4 py-3 flex items-center justify-between text-white"
-        style={{ backgroundColor: isCompleted ? "#9ca3af" : PRIMARY }}
+        style={{ backgroundColor: isCompleted ? "#9ca3af" : isPending ? "#d97706" : PRIMARY }}
       >
         <div>
           <p className="font-black text-lg leading-none">#{order.id?.slice(-6)}</p>
-          <p className="text-xs opacity-80 mt-0.5">
-            {order.tableNumber ? `🪑 Table ${order.tableNumber}` : order.customerName || "Guest"}
-          </p>
+          
+          {/* ✅ IMPROVEMENT 2: Table number bada aur bold */}
+          {order.tableNumber || order.orderDetails?.tableNumber ? (
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-base font-black bg-white/25 px-2 py-0.5 rounded-lg">
+                🪑 Table {order.tableNumber || order.orderDetails?.tableNumber}
+              </span>
+            </div>
+          ) : (
+            <p className="text-xs opacity-80 mt-0.5">
+              👤 {order.customerName || order.customerInfo?.name || "Guest"}
+            </p>
+          )}
         </div>
+
         <div className="text-right">
           <p className={`text-xl font-black font-mono ${
             isUrgent && !isCompleted ? "text-red-200 animate-pulse"
@@ -89,6 +115,15 @@ function OrderCard({ order, onUpdateStatus, tick }) {
         </div>
       </div>
 
+      {/* ✅ IMPROVEMENT 1: Pending order ke liye special confirm banner */}
+      {isPending && (
+        <div className="bg-yellow-50 border-b border-yellow-200 px-3 py-1.5 flex items-center gap-2">
+          <span className="animate-pulse text-sm">🔔</span>
+          <span className="text-xs font-black text-yellow-800">NEW ORDER — Confirmation Required!</span>
+        </div>
+      )}
+
+      {/* ITEMS LIST */}
       <div className="flex-1 p-3 space-y-2 overflow-y-auto max-h-64">
         {items.map((item, idx) => {
           const isDishReady = item.itemStatus === "ready" || item.itemReadyAt;
@@ -117,7 +152,7 @@ function OrderCard({ order, onUpdateStatus, tick }) {
                     {item.dishTasteProfile === "sweet" && item.sweetLevel && item.sweetLevel !== "normal" && (
                       <span className="text-[10px] px-1.5 py-0.5 bg-pink-100 text-pink-700 rounded font-bold">🍯 {item.sweetLevel}</span>
                     )}
-                    {item.saltPreference && item.saltPreference !== "normal" && (
+                    {item.saltPreference && item.saltPreference !== "normal" && item.dishTasteProfile !== "sweet" && (
                       <span className="text-[10px] px-1.5 py-0.5 bg-gray-200 text-gray-700 rounded font-bold">🧂 {item.saltPreference}</span>
                     )}
                     {item.salad?.qty > 0 && (
@@ -156,6 +191,7 @@ function OrderCard({ order, onUpdateStatus, tick }) {
         })}
       </div>
 
+      {/* Special instructions */}
       {(order.specialInstructions || order.orderDetails?.specialInstructions) && (
         <div className="mx-3 mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-[11px] text-yellow-800 font-medium">
@@ -164,12 +200,13 @@ function OrderCard({ order, onUpdateStatus, tick }) {
         </div>
       )}
 
+      {/* ACTION BUTTON */}
       {cfg.next && !isCompleted && (
         <div className="px-3 pb-3">
           <button
             onClick={() => onUpdateStatus(order.id, cfg.next)}
             className="w-full py-2.5 rounded-xl font-black text-sm text-white transition-all active:scale-95 hover:opacity-90"
-            style={{ backgroundColor: PRIMARY }}
+            style={{ backgroundColor: cfg.nextColor || PRIMARY }}
           >
             {cfg.nextLabel}
           </button>
@@ -193,10 +230,21 @@ export default function KitchenDisplay() {
   const [loading, setLoading] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [newOrderFlash, setNewOrderFlash] = useState(false);
+
+  // ✅ IMPROVEMENT 3: Last updated timestamp
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [lastUpdatedTick, setLastUpdatedTick] = useState(0);
+
   const prevOrderIdsRef = useRef(new Set());
   const announcedRef = useRef(new Set());
   const tick = useTimer();
   const auth = getAuth();
+
+  // ✅ Refresh last updated display every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => setLastUpdatedTick(t => t + 1), 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -236,9 +284,12 @@ export default function KitchenDisplay() {
     const ordersRef = ref(realtimeDB, "orders");
     const unsub = onValue(ordersRef, (snap) => {
       const data = snap.val();
+
+      // ✅ IMPROVEMENT 3: Last updated set karo
+      setLastUpdated(Date.now());
+
       if (!data) { setOrders([]); return; }
 
-      // Aaj ka din — midnight se start
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       const todayStartTs = todayStart.getTime();
@@ -248,9 +299,7 @@ export default function KitchenDisplay() {
       const myOrders = Object.entries(data)
         .filter(([, o]) => {
           if (String(o.restaurantId || "").trim() !== String(restaurantId).trim()) return false;
-          // Active orders — hamesha dikhao
           if (ACTIVE_STATUSES.includes(o.status)) return true;
-          // Completed — sirf aaj ke (midnight ke baad complete hue)
           if (o.status === "completed") {
             const completedAt = o.completedAt || o.updatedAt || o.createdAt || 0;
             return completedAt >= todayStartTs;
@@ -260,7 +309,6 @@ export default function KitchenDisplay() {
         .map(([id, o]) => ({ id, ...o }))
         .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
-      // Sound — sirf naye active orders ke liye
       myOrders.forEach(order => {
         if (
           !prevOrderIdsRef.current.has(order.id) &&
@@ -282,31 +330,47 @@ export default function KitchenDisplay() {
     return () => unsub();
   }, [restaurantId, playNewOrderSound]);
 
-  const handleUpdateStatus = async (orderId, newStatus) => {
-    const now = Date.now();
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return;
+const handleUpdateStatus = async (orderId, newStatus) => {
+  const now = Date.now();
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return;
 
-    const updates = { status: newStatus, updatedAt: now };
+  const updates = { status: newStatus, updatedAt: now };
 
-    if (newStatus === "preparing") {
-      const prepTime = Math.max(...getItemsArray(order.items).map(i => i.prepTime || 15));
-      updates.prepStartedAt = now;
-      updates.prepEndsAt = now + prepTime * 60 * 1000;
-      getItemsArray(order.items).forEach(item => {
-        const itemKey = item.dishId || item.id;
-        if (itemKey) {
-          update(ref(realtimeDB, `orders/${orderId}/items/${itemKey}`), {
-            prepStartedAt: now, prepTime: item.prepTime || 15, itemStatus: "preparing",
-          }).catch(() => {});
-        }
-      });
-    }
-    if (newStatus === "ready") updates.readyAt = now;
-    if (newStatus === "completed") updates.completedAt = now; // 24hr filter ke liye zaroori
+  if (newStatus === "preparing") {
+    const prepTime = Math.max(...getItemsArray(order.items).map(i => i.prepTime || 15));
+    updates.prepStartedAt = now;
+    updates.prepEndsAt = now + prepTime * 60 * 1000;
+    getItemsArray(order.items).forEach(item => {
+      const itemKey = item.dishId || item.id;
+      if (itemKey) {
+        update(ref(realtimeDB, `orders/${orderId}/items/${itemKey}`), {
+          prepStartedAt: now, prepTime: item.prepTime || 15, itemStatus: "preparing",
+        }).catch(() => {});
+      }
+    });
+  }
+  if (newStatus === "ready") {
+    updates.readyAt = now;
 
-    await update(ref(realtimeDB, `orders/${orderId}`), updates);
-  };
+    // ✅ AUTO-COMPLETE: 2 minute baad apne aap complete ho jayega
+    setTimeout(async () => {
+      try {
+        await update(ref(realtimeDB, `orders/${orderId}`), {
+          status: "completed",
+          completedAt: Date.now(),
+          updatedAt: Date.now(),
+          autoCompleted: true
+        });
+      } catch (e) {
+        console.error("Auto-complete failed:", e);
+      }
+    }, 2 * 60 * 1000); // 2 minutes
+  }
+  if (newStatus === "completed") updates.completedAt = now;
+
+  await update(ref(realtimeDB, `orders/${orderId}`), updates);
+};
 
   const pendingOrders   = orders.filter(o => o.status === "pending");
   const confirmedOrders = orders.filter(o => o.status === "confirmed");
@@ -315,10 +379,28 @@ export default function KitchenDisplay() {
   const completedOrders = orders.filter(o => o.status === "completed");
   const activeCount = pendingOrders.length + confirmedOrders.length + preparingOrders.length + readyOrders.length;
 
+  // ✅ IMPROVEMENT 3 + 4: Columns with count badges
   const columns = [
-    { label: "🆕 New Orders",   color: "bg-yellow-500", orders: [...pendingOrders, ...confirmedOrders] },
-    { label: "👨‍🍳 Cooking",     color: "bg-orange-500", orders: preparingOrders },
-    { label: "✅ Ready / Done", color: "bg-green-600",  orders: [...readyOrders, ...completedOrders] },
+    {
+      label: "🆕 New Orders",
+      color: "bg-yellow-500",
+      orders: [...pendingOrders, ...confirmedOrders],
+      // ✅ Pending orders ke liye alag count badge
+      pendingCount: pendingOrders.length,
+      confirmedCount: confirmedOrders.length,
+    },
+    {
+      label: "👨‍🍳 Cooking",
+      color: "bg-orange-500",
+      orders: preparingOrders,
+    },
+    {
+      label: "✅ Ready / Done",
+      color: "bg-green-600",
+      orders: [...readyOrders, ...completedOrders],
+      readyCount: readyOrders.length,
+      completedCount: completedOrders.length,
+    },
   ];
 
   if (loading) return (
@@ -347,6 +429,7 @@ export default function KitchenDisplay() {
             </p>
           </div>
         </div>
+
         <div className="flex items-center gap-4">
           <div className="text-center">
             <p className="text-xl font-black">{activeCount}</p>
@@ -360,6 +443,13 @@ export default function KitchenDisplay() {
             <p className="text-xl font-black">{completedOrders.length}</p>
             <p className="text-[10px] opacity-70">Done Today</p>
           </div>
+
+          {/* ✅ IMPROVEMENT 3: Last Updated indicator */}
+          <div className="text-center bg-white/10 px-3 py-1 rounded-lg">
+            <p className="text-xs font-bold opacity-90">🔄 Updated</p>
+            <p className="text-[10px] opacity-70">{formatLastUpdated(lastUpdated)}</p>
+          </div>
+
           <button
             onClick={() => setSoundEnabled(s => !s)}
             className="px-3 py-1.5 rounded-full text-xs font-bold border-2 border-white/40 transition-all hover:bg-white/20"
@@ -377,6 +467,19 @@ export default function KitchenDisplay() {
         </div>
       )}
 
+      {/* ✅ IMPROVEMENT 1: Pending orders alert bar */}
+      {pendingOrders.length > 0 && (
+        <div className="bg-yellow-400 text-yellow-900 px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="animate-bounce text-lg">⚠️</span>
+            <span className="font-black text-sm">
+              {pendingOrders.length} order{pendingOrders.length > 1 ? "s" : ""} waiting for confirmation!
+            </span>
+          </div>
+          <span className="text-xs font-medium opacity-80">Scroll to New Orders column →</span>
+        </div>
+      )}
+
       {/* NO ORDERS */}
       {orders.length === 0 && (
         <div className="flex-1 flex items-center justify-center">
@@ -384,6 +487,12 @@ export default function KitchenDisplay() {
             <p className="text-6xl mb-4">🍽️</p>
             <p className="text-2xl font-black text-gray-500">No Active Orders</p>
             <p className="text-gray-400 mt-2">Waiting for new orders...</p>
+            {/* ✅ Show last updated even when no orders */}
+            {lastUpdated && (
+              <p className="text-xs text-gray-400 mt-3">
+                Last checked: {formatLastUpdated(lastUpdated)}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -393,10 +502,53 @@ export default function KitchenDisplay() {
         <div className="flex-1 grid grid-cols-3 gap-3 p-3 overflow-hidden">
           {columns.map((col) => (
             <div key={col.label} className="flex flex-col min-h-0">
-              <div className={`${col.color} text-white rounded-xl px-4 py-2 flex items-center justify-between mb-2 flex-shrink-0`}>
+
+              {/* ✅ IMPROVEMENT 4: Column header with detailed count badges */}
+              <div className={`${col.color} text-white rounded-xl px-3 py-2 flex items-center justify-between mb-2 flex-shrink-0`}>
                 <span className="font-black text-sm">{col.label}</span>
-                <span className="bg-white/30 px-2 py-0.5 rounded-full text-xs font-black">{col.orders.length}</span>
+
+                <div className="flex items-center gap-1">
+                  {/* New Orders column: pending + confirmed alag badge */}
+                  {col.pendingCount !== undefined && (
+                    <>
+                      {col.pendingCount > 0 && (
+                        <span className="bg-red-500 text-white px-2 py-0.5 rounded-full text-xs font-black animate-pulse">
+                          {col.pendingCount} new
+                        </span>
+                      )}
+                      {col.confirmedCount > 0 && (
+                        <span className="bg-white/30 px-2 py-0.5 rounded-full text-xs font-black">
+                          {col.confirmedCount} conf
+                        </span>
+                      )}
+                    </>
+                  )}
+
+                  {/* Ready/Done column: ready + completed alag badge */}
+                  {col.readyCount !== undefined && (
+                    <>
+                      {col.readyCount > 0 && (
+                        <span className="bg-white text-green-700 px-2 py-0.5 rounded-full text-xs font-black">
+                          {col.readyCount} ready
+                        </span>
+                      )}
+                      {col.completedCount > 0 && (
+                        <span className="bg-white/30 px-2 py-0.5 rounded-full text-xs font-black">
+                          {col.completedCount} done
+                        </span>
+                      )}
+                    </>
+                  )}
+
+                  {/* Cooking column: simple count */}
+                  {col.pendingCount === undefined && col.readyCount === undefined && (
+                    <span className="bg-white/30 px-2 py-0.5 rounded-full text-xs font-black">
+                      {col.orders.length}
+                    </span>
+                  )}
+                </div>
               </div>
+
               <div className="flex-1 overflow-y-auto space-y-3 pr-1">
                 {col.orders.length === 0 ? (
                   <div className="text-center py-8 text-gray-400">

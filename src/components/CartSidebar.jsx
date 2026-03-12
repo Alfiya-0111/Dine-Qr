@@ -177,9 +177,10 @@ const navigate = useNavigate();
                       {item.dishTasteProfile === "sweet" && item.sweetLevel && (
                         <div>🍰 Sweetness: <span className="capitalize font-medium">{item.sweetLevel}</span></div>
                       )}
-                      {item.saltPreference && item.saltPreference !== "normal" && (
-                        <div>🧂 Salt: <span className="capitalize font-medium">{item.saltPreference}</span></div>
-                      )}
+{item.saltPreference && item.dishTasteProfile !== "sweet" && (
+
+  <div>🧂 Salt: <span className="capitalize font-medium">{item.saltPreference}</span></div>
+)}
                       {item.salad?.qty > 0 && (
                         <div>🥗 Salad: {item.salad.qty} Plate ({item.salad.taste})</div>
                       )}

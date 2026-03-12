@@ -224,7 +224,10 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
     item.itemStatus === "ready" || item.itemReadyAt
   );
 
-  const shouldShowBillButtons = !isCompleted && hasReadyItems && !isProcessed;
+ const shouldShowBillButtons = 
+  !isCompleted && 
+  (allItemsReady || order.status === 'ready') && 
+  !isProcessed;
 
   return (
     <div id={`order-${order.id}`} className="bg-white rounded-xl p-4 mb-4 shadow-lg border-2 border-gray-100">
@@ -2534,9 +2537,9 @@ useEffect(() => {
   sweetLevel: tasteItem.dishTasteProfile === "sweet" 
     ? (sweetSelections[tasteItem.id] || "normal") 
     : null,
-  saltPreference: tasteItem.saltLevelEnabled 
-    ? (saltSelections[tasteItem.id] || "normal") 
-    : null,
+saltPreference: tasteItem.dishTasteProfile === "sweet" 
+  ? null 
+  : (saltSelections[tasteItem.id] || "normal"),
   salad: tasteItem.saladConfig?.enabled 
     ? { qty: saladSelections[tasteItem.id] ? 1 : 0, taste: saladTaste[tasteItem.id] || "normal" } 
     : { qty: 0, taste: "normal" }

@@ -45,14 +45,15 @@ export default function CartItem({ item }) {
           )}
 
           {/* 🧂 SALT */}
-          {item.saltPreference && item.saltPreference !== "normal" && (
-            <p className="text-xs text-gray-600">
-              🧂 Salt:
-              <span className="ml-1 font-semibold capitalize">
-                {item.saltPreference}
-              </span>
-            </p>
-          )}
+        {item.saltPreference && item.dishTasteProfile !== "sweet" && (
+
+  <p className="text-xs text-gray-600">
+    🧂 Salt:
+    <span className="ml-1 font-semibold capitalize">
+      {item.saltPreference}
+    </span>
+  </p>
+)}
 
           {/* 🍯 SWEETNESS */}
           {isSweetDish && item.sweetLevel && (

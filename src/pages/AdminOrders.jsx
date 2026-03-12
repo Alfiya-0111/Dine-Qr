@@ -210,22 +210,23 @@ const myOrders = Object.entries(data)
     // 🗣️🗣️🗣️ NEW ORDER DETECTION & VOICE ANNOUNCEMENT
     const currentOrderIds = myOrders.map(o => o.id);
     const previousOrderIds = previousOrdersRef.current.map(o => o.id);
-    
-    const newOrders = myOrders.filter(order => !previousOrderIds.includes(order.id));
-    
-    if (newOrders.length > 0 && previousOrdersRef.current.length > 0) {
-    newOrders.forEach(newOrder => {
-
-  if (announcedOrdersRef.current.has(newOrder.id)) return;
-
-  announcedOrdersRef.current.add(newOrder.id);
-
-  const isWhatsApp = newOrder.source === 'whatsapp';
-
-  announceOrder(isWhatsApp ? 'whatsapp' : 'regular');
-
-});
-    }
+    const isInitialLoadRef = useRef(true);
+   if (isInitialLoadRef.current) {
+  // Pehli baar — sirf existing orders ko mark karo, announce mat karo
+  myOrders.forEach(order => announcedOrdersRef.current.add(order.id));
+  isInitialLoadRef.current = false;
+} else {
+  // Baad mein — naye orders detect karo aur announce karo
+  const newOrders = myOrders.filter(
+    order => !announcedOrdersRef.current.has(order.id)
+  );
+  newOrders.forEach(newOrder => {
+    announcedOrdersRef.current.add(newOrder.id);
+    const isWhatsApp = newOrder.source === 'whatsapp';
+    announceOrder(isWhatsApp ? 'whatsapp' : 'regular');
+    showBrowserNotification(newOrder, isWhatsApp); // Browser notification bhi
+  });
+}
 previousOrdersRef.current = myOrders;
 setOrders(myOrders);
 ordersRefState.current = myOrders;
