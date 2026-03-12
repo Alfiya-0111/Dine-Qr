@@ -94,7 +94,7 @@ export default function RestaurantSignup() {
             Create your restaurant account
           </h2>
           
-          <p className="text-red-500 text-center mb-4">Note: This application is under development process</p>
+         
 
           {/* Restaurant Name */}
           <input
