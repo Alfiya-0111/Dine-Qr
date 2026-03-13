@@ -14,7 +14,8 @@ import { Helmet } from "react-helmet";
 import { toast } from "sonner";
 import TableBookingModal from "../components/TableBookingModal"; 
 import MyBookings from "../components/MyBookings";
-
+import PromoPopup from './PromoPopup';
+import CouponBanner from "../components/CouponBanner";
 import {
   collection,
   getDocs,
@@ -160,6 +161,7 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
   const timeLeft = Math.ceil(((100 - progress) / 100) * (item.prepTime || 15));
   
   return (
+    
     <div className="w-full mt-1">
       <div className="flex justify-between items-center mb-1">
         <span className="text-[10px] text-gray-500 flex items-center gap-1">
@@ -306,14 +308,27 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
         ))}
       </div>
       
-      <div className="flex justify-between items-center p-2 bg-gray-100 rounded-lg mb-3">
+         <div className="flex justify-between items-start p-2 bg-gray-100 rounded-lg mb-3">
         <span className="font-bold">Total</span>
         <div className="text-right">
           <p className="text-xs text-gray-500">Subtotal: ₹{order.subtotal || 0}</p>
           <p className="text-xs text-gray-500">GST: ₹{order.gst || 0}</p>
+          {order.discount > 0 && (
+            <p className="text-xs text-green-600 font-medium">
+              🏷️ Discount ({order.couponCode}): −₹{order.discount}
+            </p>
+          )}
+          {order.discount > 0 && (
+            <p className="text-xs text-gray-400 line-through">
+              ₹{order.originalTotal || (Number(order.subtotal || 0) + Number(order.gst || 0))}
+            </p>
+          )}
           <p className="font-bold text-lg" style={{ color: theme.primary }}>
             ₹{order.total || 0}
           </p>
+          {order.discount > 0 && (
+            <p className="text-xs font-bold text-green-600">🎉 Saved ₹{order.discount}!</p>
+          )}
         </div>
       </div>
 
@@ -459,6 +474,8 @@ const [waiterCalled, setWaiterCalled] = useState(false);
 const [waiterCooldown, setWaiterCooldown] = useState(false);
 const [queuePosition, setQueuePosition] = useState(null);
 const [dishNotes, setDishNotes] = useState({});
+const [allCoupons, setAllCoupons] = useState({});
+const [appliedCoupon, setAppliedCoupon] = useState(null);
   const theme = restaurantSettings?.theme || {
     primary: "#8A244B",
     border: "#8A244B",
@@ -982,10 +999,12 @@ ${'━'.repeat(30)}
 ${'━'.repeat(30)}
 
 💵 *BILL SUMMARY:*
-   Subtotal: ₹${order.subtotal}
-   GST (5%): ₹${order.gst}
+     Subtotal: ₹${order.subtotal}
+   GST (5%): ₹${order.gst}${order.discount > 0 ? `
+   🏷️ Discount (${order.couponCode}): −₹${order.discount}` : ''}
    ${'─'.repeat(15)}
-   *TOTAL: ₹${order.total}* 💰
+   *TOTAL: ₹${order.total}* 💰${order.discount > 0 ? `
+   🎉 *You saved ₹${order.discount}!*` : ''}
 ${'━'.repeat(30)}
 
 ⏰ *Estimated Time:* ${Math.max(...order.items.map(i => i.prepTime || 15))} minutes
@@ -1050,103 +1069,122 @@ ${window.location.origin}/admin/orders/${order.id}
     console.log('Admin notification:', message);
   };
 
-  const placeWhatsAppOrder = async (orderData) => {
-    const user = auth.currentUser;
-    if (!user) {
-      requireLogin();
-      return null;
+ const placeWhatsAppOrder = async (orderData) => {
+  const user = auth.currentUser;
+  if (!user) { requireLogin(); return null; }
+ 
+  try {
+    await user.getIdToken(true);
+  } catch (tokenError) {
+    requireLogin();
+    return null;
+  }
+ 
+  try {
+    const orderRef = push(rtdbRef(realtimeDB, 'orders'));
+    const orderId = orderRef.key;
+ 
+    const items = orderData.items || [];
+    const subtotal = items.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
+    const gst = subtotal * 0.05;
+ 
+    // ✅ COUPON — passed from CartSidebar OR auto-detect karo
+    const couponToApply = orderData.couponCode
+      ? Object.values(allCoupons).find(c => c.code === orderData.couponCode) || null
+      : getBestCouponForOrder(subtotal);
+ 
+    const discount = calcCouponDiscount(couponToApply, subtotal);
+    const total = subtotal + gst - discount;
+ 
+    const detailedItems = items.map(item => ({
+      dishId: item.id,
+      name: item.name,
+      qty: item.qty || 1,
+      price: item.price,
+      image: item.image || item.imageUrl || "",
+      prepTime: item.prepTime || 15,
+      spicePreference: item.spicePreference || "normal",
+      sweetLevel: item.sweetLevel || null,
+      saltPreference: item.saltPreference || null,
+      salad: item.salad || { qty: 0, taste: "normal" },
+      dishTasteProfile: item.dishTasteProfile || "normal",
+      description: item.description || "",
+      vegType: item.vegType || ""
+    }));
+ 
+    const order = {
+      id: orderId,
+      userId: user.uid,
+      restaurantId: restaurantId,
+      customerName: orderData.customerName || user.displayName || "Guest",
+      customerPhone: orderData.customerPhone || user.phoneNumber || "",
+      customerEmail: user.email || "",
+      tableNumber: orderData.tableNumber || "",
+      specialInstructions: orderData.specialInstructions || "",
+      items: detailedItems,
+      type: "whatsapp",
+      status: "pending",
+      subtotal: parseFloat(subtotal.toFixed(2)),
+      gst: parseFloat(gst.toFixed(2)),
+      discount: parseFloat(discount.toFixed(2)),           // ✅ NEW
+      total: parseFloat(total.toFixed(2)),
+      originalTotal: parseFloat((subtotal + gst).toFixed(2)), // ✅ NEW
+      couponCode: couponToApply?.code || null,               // ✅ NEW
+      couponDiscount: parseFloat(discount.toFixed(2)),       // ✅ NEW
+      createdAt: Date.now(),
+      source: "whatsapp",
+      timestamp: Date.now()
+    };
+ 
+    await set(orderRef, order);
+    await set(rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
+      ...order, whatsappStatus: "new", userId: user.uid, restaurantId: restaurantId
+    });
+    await set(rtdbRef(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`), {
+      ...order, kitchenStatus: "new", type: "whatsapp", userId: user.uid, restaurantId: restaurantId, createdAt: Date.now()
+    });
+ 
+    const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
+    if (phone) {
+      const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
+      const customerMessage = generateWhatsAppMessageForCart(order, restaurantName);
+      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(customerMessage)}`;
+      window.open(whatsappUrl, '_blank');
     }
-
-    try {
-      await user.getIdToken(true);
-    } catch (tokenError) {
-      requireLogin();
-      return null;
-    }
-
-    try {
-      const orderRef = push(rtdbRef(realtimeDB, 'orders'));
-      const orderId = orderRef.key;
-      
-      const items = orderData.items || [];
-      const subtotal = items.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
-      const gst = subtotal * 0.05;
-      const total = subtotal + gst;
-
-      const detailedItems = items.map(item => ({
-        dishId: item.id,
-        name: item.name,
-        qty: item.qty || 1,
-        price: item.price,
-        image: item.image || item.imageUrl || "",
-        prepTime: item.prepTime || 15,
-        spicePreference: item.spicePreference || "normal",
-        sweetLevel: item.sweetLevel || null,
-        saltPreference: item.saltPreference || null,
-        salad: item.salad || { qty: 0, taste: "normal" },
-        dishTasteProfile: item.dishTasteProfile || "normal",
-        description: item.description || "",
-        vegType: item.vegType || ""
-      }));
-
-      const order = {
-        id: orderId,
-        userId: user.uid,
-        restaurantId: restaurantId,
-        customerName: orderData.customerName || user.displayName || "Guest",
-        customerPhone: orderData.customerPhone || user.phoneNumber || "",
-        customerEmail: user.email || "",
-        tableNumber: orderData.tableNumber || "",
-        specialInstructions: orderData.specialInstructions || "",
-        items: detailedItems,
-        type: "whatsapp",
-        status: "pending",
-        subtotal,
-        gst,
-        total,
-        createdAt: Date.now(),
-        source: "whatsapp",
-        timestamp: Date.now()
-      };
-
-      await set(orderRef, order);
-      await set(rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
-        ...order,
-        whatsappStatus: "new",
-        userId: user.uid,
-        restaurantId: restaurantId
-      });
-      await set(rtdbRef(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`), {
-        ...order,
-        kitchenStatus: "new",
-        type: "whatsapp",
-        userId: user.uid,
-        restaurantId: restaurantId,
-        createdAt: Date.now()
-      });
-
-      const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
-      if (phone) {
-        const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
-        const customerMessage = generateWhatsAppMessageForCart(order, restaurantName);
-        const adminMessage = generateAdminNotification(order, restaurantName);
-        
-        await sendAdminNotification(cleanPhone, adminMessage);
-        
-        const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(customerMessage)}`;
-        window.open(whatsappUrl, '_blank');
-      }
-
-      clearCart();
-      alert("✅ Order placed! Waiting for restaurant confirmation...");
-      return orderId;
-      
-    } catch (error) {
-      console.error("❌ WhatsApp order error:", error);
-      alert("❌ Order failed: " + error.message);
-      return null;
-    }
-  };
+ 
+    clearCart();
+    const saveMsg = discount > 0
+      ? `✅ Order placed! Coupon "${couponToApply.code}" applied — You saved ₹${discount.toFixed(0)}!`
+      : "✅ Order placed! Waiting for restaurant confirmation...";
+    alert(saveMsg);
+    return orderId;
+ 
+  } catch (error) {
+    console.error("❌ WhatsApp order error:", error);
+    alert("❌ Order failed: " + error.message);
+    return null;
+  }
+};
+ 
+// ── STEP 6: generateWhatsAppMessageForCart — BILL SUMMARY section mein
+//    existing lines ko replace karo ──
+ 
+// FIND karo ye lines:
+//    💵 *BILL SUMMARY:*
+//       Subtotal: ₹${order.subtotal}
+//       GST (5%): ₹${order.gst}
+ 
+// REPLACE karo is se:
+/*
+💵 *BILL SUMMARY:*
+   Subtotal: ₹${order.subtotal}
+   GST (5%): ₹${order.gst}${order.discount > 0 ? `
+   🏷️ Discount (${order.couponCode}): −₹${order.discount}` : ''}${order.discount > 0 ? `
+   ~~Original: ₹${order.originalTotal}~~` : ''}
+   ─────────────────
+   *TOTAL: ₹${order.total}* 💰${order.discount > 0 ? `
+   🎉 You saved ₹${order.discount}!` : ''}
+*/
 
   const handleWhatsAppOrderFromCart = async (orderData) => {
     if (cart.length === 0) {
@@ -1204,6 +1242,14 @@ ${window.location.origin}/admin/orders/${order.id}
       localStorage.setItem('viewedOrders', JSON.stringify(saved));
     }
   };
+  useEffect(() => {
+  if (!restaurantId) return;
+  const unsub = onValue(rtdbRef(realtimeDB, `coupons/${restaurantId}`), (snap) => {
+    if (snap.exists()) setAllCoupons(snap.val());
+    else setAllCoupons({});
+  });
+  return () => unsub();
+}, [restaurantId]);
 useEffect(() => {
   const TWO_MINUTES = 2 * 60 * 1000;
   const now = Date.now();
@@ -1217,6 +1263,29 @@ useEffect(() => {
     }
   });
 }, [activeOrder]);
+const getBestCouponForOrder = (subtotal) => {
+  const now = Date.now();
+  const valid = Object.values(allCoupons || {}).filter(c => {
+    if (!c.isActive) return false;
+    if (c.minOrder && subtotal < c.minOrder) return false;
+    if (c.expiryDate && new Date(c.expiryDate).getTime() < now) return false;
+    return true;
+  });
+  if (valid.length === 0) return null;
+  return valid.sort((a, b) => {
+    const dA = a.type === 'percent' ? Math.min((subtotal * a.value) / 100, a.maxDiscount || Infinity) : a.value;
+    const dB = b.type === 'percent' ? Math.min((subtotal * b.value) / 100, b.maxDiscount || Infinity) : b.value;
+    return dB - dA;
+  })[0];
+};
+const calcCouponDiscount = (coupon, subtotal) => {
+  if (!coupon) return 0;
+  if (coupon.type === 'percent') {
+    const raw = (subtotal * coupon.value) / 100;
+    return coupon.maxDiscount ? Math.min(raw, coupon.maxDiscount) : raw;
+  }
+  return Math.min(coupon.value, subtotal);
+};
   const markOrderAsProcessed = (orderId) => {
     setProcessedOrders(prev => new Set([...prev, orderId]));
     
@@ -1265,6 +1334,8 @@ useEffect(() => {
           gst: Number(gst),
           total: Number(total),
           generatedAt: Date.now(),
+          discount: Number(order.discount || 0),          // ✅ NEW
+  couponCode: order.couponCode || null, 
         };
 
         await update(rtdbRef(realtimeDB, `orders/${order.id}`), { bill });
@@ -1364,9 +1435,15 @@ useEffect(() => {
       safeText("Subtotal:", 120, y);
       safeText(`₹${subtotal.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
       y += 6;
-      safeText("GST (5%):", 120, y);
-      safeText(`₹${gst.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
-      y += 7;
+      const discountAmt = Number(bill.discount) || 0;
+if (discountAmt > 0) {
+  doc.setTextColor(34, 197, 94); // green
+  safeText(`Discount (${bill.couponCode || 'COUPON'}):`, 120, y);
+  safeText(`−₹${discountAmt.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
+  doc.setTextColor(0, 0, 0); // reset to black
+  y += 6;
+}
+y += 1;
       doc.setFontSize(13);
       safeText("Grand Total:", 120, y);
       safeText(`₹${total.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
@@ -1444,10 +1521,12 @@ ${order.items?.map((item, idx) => {
 
 ━━━━━━━━━━━━━━
 💵 *BILL SUMMARY:*
-   Subtotal: ₹${order.subtotal || 0}
-   GST (5%): ₹${order.gst || 0}
+ Subtotal: ₹${order.subtotal || 0}
+   GST (5%): ₹${order.gst || 0}${(order.discount > 0) ? `
+   🏷️ Discount (${order.couponCode}): −₹${order.discount}` : ''}
    ${'─'.repeat(15)}
-   *TOTAL: ₹${order.total || 0}* 💰
+   *TOTAL: ₹${order.total || 0}* 💰${(order.discount > 0) ? `
+   🎉 *You saved ₹${order.discount}!*` : ''}
 ━━━━━━━━━━━━━━
 
 🙏 Thank you for dining with us!
@@ -1891,7 +1970,10 @@ useEffect(() => {
         <title>{restaurantSettings?.name || restaurantName || "Digital Menu"}</title>
         <meta name="description" content="Browse our delicious menu" />
       </Helmet>
-      
+      <PromoPopup 
+  restaurantId={restaurantId} 
+  restaurantSettings={restaurantSettings} 
+/>
       {showWhatsAppModal && whatsAppItem && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 animate-slideUp">
@@ -2128,6 +2210,7 @@ useEffect(() => {
                   </button>
                 </div>
               </div>
+<CouponBanner restaurantId={restaurantId} theme={theme} />
 
               {/* Active Orders Section */}
               {activeOrder?.length > 0 && (
@@ -2291,9 +2374,12 @@ useEffect(() => {
                           <p className="text-sm text-gray-600 mt-2 line-clamp-2">{item.description}</p>
                           
                           <div className="mt-3">
-                            <Likes restaurantId={item.restaurantId} dishId={item.id} />
-                            <Rating restaurantId={item.restaurantId} dishId={item.id} />
-                          </div>
+  <Likes restaurantId={item.restaurantId} dishId={item.id} />
+  {/* ✅ Sirf tab dikhao jab rating ho */}
+  {(item.avgRating > 0) && (
+    <Rating restaurantId={item.restaurantId} dishId={item.id} />
+  )}
+</div>
 
                           <div className="grid grid-cols-2 gap-2 mt-4">
                             <button
