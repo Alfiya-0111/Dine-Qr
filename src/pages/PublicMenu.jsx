@@ -10,7 +10,7 @@ import readySound from "../assets/ready.mp3";
 import { FaWhatsapp } from "react-icons/fa";
 import {  IoClose } from "react-icons/io5";
 import jsPDF from "jspdf";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 import { toast } from "sonner";
 import TableBookingModal from "../components/TableBookingModal"; 
 import MyBookings from "../components/MyBookings";

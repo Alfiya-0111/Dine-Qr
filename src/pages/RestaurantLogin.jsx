@@ -14,7 +14,7 @@ import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import khaatogologo from "../assets/khaatogologo.png";
-import { Helmet } from "react-helmet";
+import { Helmet } from "react-helmet-async";
 export default function RestaurantLogin() {
   const navigate = useNavigate();
 const [showFaceLogin, setShowFaceLogin] = useState(false);
