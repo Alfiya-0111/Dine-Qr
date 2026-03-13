@@ -1970,7 +1970,7 @@ useEffect(() => {
         <title>{restaurantSettings?.name || restaurantName || "Digital Menu"}</title>
         <meta name="description" content="Browse our delicious menu" />
       </Helmet>
-      <PromoPopup 
+      <PromoPopup
   restaurantId={restaurantId} 
   restaurantSettings={restaurantSettings} 
 />
