@@ -20,7 +20,7 @@ import SubscriptionPage from "./pages/SubscriptionPage";
 import PaymentStatusPage from "./pages/PaymentStatusPage";
 import RevenueDashboard from "./pages/admin/RevenueDashboard";
 import KitchenDisplay from "./pages/admin/KitchenDisplay";
-import AdminCoupons from "./pages/admin/Admincoupons";
+import AdminCoupons from "./pages/admin/AdminCoupons";
 function App() {
   return (
     <AuthProvider>
