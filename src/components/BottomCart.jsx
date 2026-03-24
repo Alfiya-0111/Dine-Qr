@@ -7,23 +7,22 @@ export default function BottomCart({ onOpen, theme }) {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 p-4 flex justify-between items-center md:hidden"
-      style={{ backgroundColor: theme?.border }}
+      className="fixed bottom-0 left-0 right-0 p-4 flex justify-between items-center md:hidden z-40"
+      style={{ backgroundColor: theme?.primary }}
     >
-      <span className="text-white">
-        {cart.length} items • ₹{total}
+      <span className="text-white font-bold">
+        🛒 {cart.length} items • ₹{total}
       </span>
 
       <button
         onClick={onOpen}
+        className="px-4 py-2 rounded-lg font-bold transition"
         style={{
-          border: `2px solid ${theme?.border || theme?.primary}`,
-          color: theme?.border || theme?.primary,
-          backgroundColor: "transparent",
+          backgroundColor: '#ffffff',
+          color: theme?.primary,
         }}
-        className="px-4 py-1 rounded transition"
       >
-        View Cart
+        View Cart →
       </button>
     </div>
   );
