@@ -454,6 +454,7 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
 
 // ================= MAIN PUBLIC MENU COMPONENT =================
 export default function PublicMenu() {
+
   const [aboutUs, setAboutUs] = useState(null);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
   const [spiceSelections, setSpiceSelections] = useState({});
@@ -558,70 +559,183 @@ useEffect(() => {
 
   return () => unsubscribe();
 }, [restaurantId]);
-  const playReadySound = useCallback((dishName, orderId) => {  
-    const timeBucket = Math.floor(Date.now() / 10000); 
-    const soundId = `${orderId}-${dishName}-${timeBucket}`;
-    
-    if (playedSoundsRef.current.has(soundId)) return;
-    
-    playedSoundsRef.current.add(soundId);
-    
-    setTimeout(() => {
-      playedSoundsRef.current.delete(soundId);
-    }, 20000);
+ const playReadySound = useCallback((dishName, orderId) => {  
+  const timeBucket = Math.floor(Date.now() / 10000); 
+  const soundId = `${orderId}-${dishName}-${timeBucket}`;
+  
+  if (playedSoundsRef.current.has(soundId)) return;
+  playedSoundsRef.current.add(soundId);
+  
+  setTimeout(() => {
+    playedSoundsRef.current.delete(soundId);
+  }, 20000);
 
-    const audio = new Audio(readySound);
-    audio.volume = 0.7;
+  // ===== MOBILE FIX: Audio Context Resume =====
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (AudioContext) {
+    const audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
+  }
+
+  // ===== Play Audio File =====
+  const audio = new Audio(readySound);
+  audio.volume = 0.7;
+  
+  // Mobile ke liye: user interaction check ke baad play karo
+  const playAudio = () => {
+    audio.play()
+      .then(() => {
+        console.log('✅ Audio played successfully');
+      })
+      .catch(err => {
+        console.log('Audio play blocked (mobile restriction):', err);
+        // Agar autoplay block ho, toh notification dikhana zaroori hai
+      });
+  };
+
+  // Agar document already interacted hai, toh turant play karo
+  if (document.hasFocus() && document.visibilityState === 'visible') {
+    playAudio();
+  } else {
+    // Page visible hone pe play karo
+    const visibilityHandler = () => {
+      if (document.visibilityState === 'visible') {
+        playAudio();
+        document.removeEventListener('visibilitychange', visibilityHandler);
+      }
+    };
+    document.addEventListener('visibilitychange', visibilityHandler);
+    // Ya 100ms delay ke baad try karo
+    setTimeout(playAudio, 100);
+  }
+
+  // ===== MOBILE FIX: Speech Synthesis =====
+  if ('speechSynthesis' in window) {
+    // Pehle cancel karo (mobile mein stuck utterances clear karne ke liye)
+    window.speechSynthesis.cancel();
     
-    audio.play().catch(err => {
-      console.log('Audio autoplay blocked:', err);
-      const playOnClick = () => {
-        audio.play().catch(() => {});
-        window.removeEventListener('click', playOnClick);
-      };
-      window.addEventListener('click', playOnClick, { once: true });
-    });
-    
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-const utterance = new SpeechSynthesisUtterance(`Your ${dishName} is ready! Enjoy your meal!`);
+    // Thoda delay do (mobile browsers ke liye)
+    setTimeout(() => {
+      const utterance = new SpeechSynthesisUtterance(`Your ${dishName} is ready! Enjoy your meal!`);
       utterance.lang = 'en-IN';
       utterance.rate = 0.9;
       utterance.pitch = 1.1;
       utterance.volume = 1;
+
+      // Mobile: voices load hone ka wait karo
+      const speakWithVoice = () => {
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => v.name.includes('Google US English')) || 
+                              voices.find(v => v.name.includes('Samantha')) ||
+                              voices.find(v => v.lang === 'en-US') ||
+                              voices.find(v => v.lang === 'en-IN') ||
+                              voices[0]; // Fallback to first available voice
+        
+        if (preferredVoice) {
+          utterance.voice = preferredVoice;
+        }
+
+        // Mobile mein: speak() ko user gesture ke andar wrap karo
+        const doSpeak = () => {
+          window.speechSynthesis.speak(utterance);
+        };
+
+        // Agar page focused hai, toh turant speak karo
+        if (document.hasFocus()) {
+          doSpeak();
+        } else {
+          // Nahi toh thoda delay dekar try karo
+          setTimeout(doSpeak, 100);
+        }
+      };
+
+      // Agar voices available hain, toh turant speak karo
+      if (window.speechSynthesis.getVoices().length > 0) {
+        speakWithVoice();
+      } else {
+        // Nahi toh voices load hone ka wait karo
+        window.speechSynthesis.onvoiceschanged = speakWithVoice;
+        // Fallback: 500ms baad bhi try karo
+        setTimeout(speakWithVoice, 500);
+      }
+
+      // Mobile fix: Chrome 15-second timeout fix
+      // (Long text ko chunks mein split karo agar zaroorat ho)
+      const resumeInfinity = () => {
+        if (!window.speechSynthesis.speaking) return;
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+        setTimeout(resumeInfinity, 5000);
+      };
       
-      const voices = window.speechSynthesis.getVoices();
-      const preferredVoice = voices.find(v => v.name.includes('Google US English')) || 
-                            voices.find(v => v.name.includes('Samantha')) ||
-                            voices.find(v => v.lang === 'en-US');
-      
-      if (preferredVoice) utterance.voice = preferredVoice;
-      
-      window.speechSynthesis.speak(utterance);
-    }
-    
-    if ("Notification" in window && Notification.permission === "granted") {
+      utterance.onstart = () => {
+        if (!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+          resumeInfinity(); // Sirf desktop pe
+        }
+      };
+
+    }, 100); // 100ms delay for mobile
+  }
+  
+  // ===== Mobile Notification =====
+  if ("Notification" in window && Notification.permission === "granted") {
+    try {
       new Notification(`🍽️ ${dishName} Ready!`, {
         body: "Your dish is ready to serve! Enjoy your meal 😋",
         icon: '/logo.png',
-        requireInteraction: false
+        badge: '/badge.png',
+        tag: soundId,
+        requireInteraction: false,
+        vibrate: [200, 100, 200] // Mobile vibration
       });
+    } catch (e) {
+      console.log('Notification error:', e);
     }
-    
-    toast.success(`${dishName} is Ready!`, {
-      description: "Enjoy your meal 😋",
-      duration: 5000
-    });
-    
-    if (navigator.vibrate) {
-      navigator.vibrate([200, 100, 200]);
+  }
+  
+  // ===== Toast Notification (Mobile mein ye zyada reliable hai) =====
+  toast.success(`${dishName} is Ready!`, {
+    description: "Enjoy your meal 😋",
+    duration: 5000,
+    action: {
+      label: 'View Order',
+      onClick: () => {
+        // Scroll to order
+        const orderEl = document.getElementById(`order-${orderId}`);
+        if (orderEl) orderEl.scrollIntoView({ behavior: 'smooth' });
+      }
     }
-  }, []);
+  });
+  
+  // ===== Mobile Vibration =====
+  if (navigator.vibrate) {
+    navigator.vibrate([200, 100, 200, 100, 200]);
+  }
+}, []);
 
-  const handleDishReady = useCallback((dishName, orderId) => {
-    console.log(`🔔 Dish ready: ${dishName} (Order: ${orderId})`);
-    playReadySound(dishName, orderId);  
-  }, [playReadySound]);
+ const handleDishReady = useCallback((dishName, orderId) => {
+  console.log(`🔔 Dish ready: ${dishName} (Order: ${orderId})`);
+  
+  // Mobile fix: Ensure audio is unlocked before playing
+  // Force audio unlock attempt
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (AudioContext) {
+    const ctx = new AudioContext();
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => {
+        playReadySound(dishName, orderId);
+      }).catch(() => {
+        playReadySound(dishName, orderId); // Fallback
+      });
+    } else {
+      playReadySound(dishName, orderId);
+    }
+  } else {
+    playReadySound(dishName, orderId);
+  }
+}, [playReadySound]);
 
   const playOrderCompleteAudio = useCallback(() => {
     const audio = new Audio(readySound);
@@ -1272,6 +1386,40 @@ ${window.location.origin}/admin/orders/${order.id}
   });
   return () => unsub();
 }, [restaurantId]);
+// ================= MOBILE AUDIO KEEP-ALIVE =================
+useEffect(() => {
+  // Mobile browsers mein audio context frequently suspend ho jata hai
+  // Isliye har 30 second mein check karo
+  const interval = setInterval(() => {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+      const ctx = new AudioContext();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+    }
+  }, 30000);
+
+  // Page visibility change pe bhi resume karo
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        const ctx = new AudioContext();
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+      }
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
+  return () => {
+    clearInterval(interval);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
+}, []);
 useEffect(() => {
   const TWO_MINUTES = 2 * 60 * 1000;
   const now = Date.now();
@@ -1723,21 +1871,76 @@ useEffect(() => {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const unlockAudio = () => {
-      if (audioRef.current) {
-        audioRef.current.play()
-          .then(() => {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-          })
-          .catch(() => { });
+ // ================= MOBILE AUDIO UNLOCK FIX =================
+// Ye useEffect add karo - audio unlock ke liye
+useEffect(() => {
+  // Audio context unlock karne ke liye function
+  const unlockAudio = () => {
+    // 1. Web Audio API AudioContext resume karo
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+      const audioCtx = new AudioContext();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => {
+          console.log('🔊 AudioContext resumed successfully');
+        }).catch(err => {
+          console.log('AudioContext resume failed:', err);
+        });
       }
-      window.removeEventListener("click", unlockAudio);
-    };
-    window.addEventListener("click", unlockAudio);
-    return () => window.removeEventListener("click", unlockAudio);
-  }, []);
+    }
+
+    // 2. HTML5 Audio element se silent sound play karo
+    // (Ye mobile browsers mein audio permission unlock karta hai)
+    const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQQAAAAAAA==');
+    silentAudio.volume = 0.01;
+    silentAudio.play().then(() => {
+      console.log('🔊 Audio unlocked via silent play');
+      silentAudio.pause();
+    }).catch(() => {
+      console.log('Silent audio play failed (expected on first load)');
+    });
+
+    // 3. Speech Synthesis unlock karo (mobile ke liye important)
+    if ('speechSynthesis' in window) {
+      // Mobile Safari/Chrome ke liye: pehle empty utterance speak karo
+      const unlockUtterance = new SpeechSynthesisUtterance('');
+      unlockUtterance.volume = 0.01;
+      window.speechSynthesis.speak(unlockUtterance);
+      window.speechSynthesis.cancel(); // Immediately cancel
+      console.log('🔊 SpeechSynthesis unlocked');
+    }
+
+    // 4. Audio ref se bhi try karo agar available hai
+    if (audioRef.current) {
+      audioRef.current.volume = 0.01;
+      audioRef.current.play()
+        .then(() => {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          console.log('🔊 Audio ref unlocked');
+        })
+        .catch(() => {});
+    }
+  };
+
+  // Multiple events pe unlock karo (mobile ke liye important)
+  const events = ['click', 'touchstart', 'touchend', 'keydown'];
+  
+  events.forEach(event => {
+    window.addEventListener(event, unlockAudio, { once: true });
+  });
+
+  // Notification permission bhi le lo
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+
+  return () => {
+    events.forEach(event => {
+      window.removeEventListener(event, unlockAudio);
+    });
+  };
+}, []);
 
   useEffect(() => {
     if (!activeOrder?.length) return;
@@ -2832,10 +3035,14 @@ saltPreference: tasteItem.dishTasteProfile === "sweet"
 
     {/* ✅ Mobile Bottom Cart */}
     {cart.length > 0 && (
-      <BottomCart
-        onOpen={() => setOpenCart(true)}
-        theme={theme}
-      />
+    <BottomCart 
+  onOpen={() => {
+    console.log('Opening cart...');
+    setOpenCart(true);  // ← YE SAHI HAI!
+  }} 
+  theme={theme} 
+/>
+
     )}
 
     {/* ✅ CartSidebar YAHAN — same block mein */}

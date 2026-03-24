@@ -2,25 +2,32 @@ import { useEffect, useState } from "react";
 import { ref as dbRef, set, onValue, remove, update } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { getAuth } from "firebase/auth";
+import { QRCodeSVG } from "qrcode.react";
+import { FaQrcode, FaCopy, FaCheckCircle } from "react-icons/fa";
 
 export default function RestaurantSettings() {
   const auth = getAuth();
   const user = auth.currentUser;
   const restaurantId = user?.uid;
 
-  // ✅ CLOUDINARY CONFIG (Fixed - no spaces)
+  // ✅ CLOUDINARY CONFIG
   const CLOUD_NAME = "dgvjgl2ls";
   const UPLOAD_PRESET = "portfolio_upload";
   const IMGBB_API_KEY = "16ba543d3e3b1b10be04c8e657d6b18e";
   const MAX_VIDEO_SIZE = 5 * 1024 * 1024; // 5MB
-const [whatsappNumber, setWhatsappNumber] = useState("");
+
+  const [whatsappNumber, setWhatsappNumber] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [loading, setLoading] = useState(false);
   const [videoUploading, setVideoUploading] = useState(false);
-const [upiId, setUpiId] = useState("");
-const [paymentNumber, setPaymentNumber] = useState("");
-const [paymentQR, setPaymentQR] = useState("");
-const [paymentQRFile, setPaymentQRFile] = useState(null);
+  
+  // Payment states
+  const [upiId, setUpiId] = useState("");
+  const [paymentNumber, setPaymentNumber] = useState("");
+  const [paymentQR, setPaymentQR] = useState("");
+  const [paymentQRFile, setPaymentQRFile] = useState(null);
+  const [copied, setCopied] = useState(false);
+
   const [theme, setTheme] = useState({
     primary: "#8A244B",
     secondary: "#ffffff",
@@ -49,7 +56,14 @@ const [paymentQRFile, setPaymentQRFile] = useState(null);
   const [heroVideoFile, setHeroVideoFile] = useState(null);
   const [aboutImageFile, setAboutImageFile] = useState(null);
 
-  // ✅ CLOUDINARY IMAGE UPLOAD (New function)
+  // ✅ UPI ID Validation
+  const isValidUPI = (upi) => {
+    if (!upi) return true;
+    const upiRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+    return upiRegex.test(upi);
+  };
+
+  // ✅ CLOUDINARY IMAGE UPLOAD
   const uploadImageToCloudinary = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -63,26 +77,19 @@ const [paymentQRFile, setPaymentQRFile] = useState(null);
 
     const data = await res.json();
     if (!data.secure_url) throw new Error("Image upload failed");
-    
-    // Return optimized URL
     return data.secure_url.replace("/upload/", "/upload/q_auto,f_auto,w_800/");
   };
 
-  // ✅ CLOUDINARY VIDEO UPLOAD (Fixed URL)
+  // ✅ CLOUDINARY VIDEO UPLOAD
   const uploadToCloudinaryWithProgress = (file, resourceType = "video") => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       const formData = new FormData();
-
       formData.append("file", file);
       formData.append("upload_preset", UPLOAD_PRESET);
       formData.append("folder", `khaatogo/${restaurantId}/videos`);
 
-      // ✅ FIXED: No spaces in URL
-      xhr.open(
-        "POST",
-        `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`
-      );
+      xhr.open("POST", `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`);
 
       xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
@@ -93,11 +100,8 @@ const [paymentQRFile, setPaymentQRFile] = useState(null);
 
       xhr.onload = () => {
         const res = JSON.parse(xhr.responseText);
-        if (res.secure_url) {
-          resolve(res.secure_url);
-        } else {
-          reject("Upload failed: " + res.error?.message);
-        }
+        if (res.secure_url) resolve(res.secure_url);
+        else reject("Upload failed: " + res.error?.message);
       };
 
       xhr.onerror = () => reject("Network error");
@@ -105,81 +109,60 @@ const [paymentQRFile, setPaymentQRFile] = useState(null);
     });
   };
 
-  // ✅ IMGBB (Backup for old images)
+  // ✅ IMGBB (Backup)
   const uploadImageToImgbb = async (file) => {
     const formData = new FormData();
     formData.append("image", file);
-
     const res = await fetch(
       `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`,
       { method: "POST", body: formData }
     );
-
     const data = await res.json();
     if (!data.success) throw new Error("Image upload failed");
     return data.data.url;
   };
 
   // Load data
- useEffect(() => {
-  if (!restaurantId) return;
+  useEffect(() => {
+    if (!restaurantId) return;
+    const restaurantRef = dbRef(realtimeDB, `restaurants/${restaurantId}`);
 
-  const restaurantRef = dbRef(realtimeDB, `restaurants/${restaurantId}`);
+    onValue(restaurantRef, (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.val();
 
-  onValue(restaurantRef, (snap) => {
-    if (!snap.exists()) return;
-
-    const data = snap.val();
-
-    // Basic info
-    setName(data.name || "");
-    setLogo(data.logo || "");
-
-    // Contact
-    setPhone(data.contact?.phone || "");
-    setEmail(data.contact?.email || "");
-    setAddress(data.contact?.address || "");
-
-    // WhatsApp
-    setWhatsappNumber(data.whatsappNumber || "");
-
-    // Theme
-    setTheme({
-      primary: data.theme?.primary || "#8A244B",
-      secondary: data.theme?.secondary || "#ffffff",
-      border: data.theme?.border || "#8A244B",
-      background: data.theme?.background || "#ffffff",
+      setName(data.name || "");
+      setLogo(data.logo || "");
+      setPhone(data.contact?.phone || "");
+      setEmail(data.contact?.email || "");
+      setAddress(data.contact?.address || "");
+      setWhatsappNumber(data.whatsappNumber || "");
+      setTheme({
+        primary: data.theme?.primary || "#8A244B",
+        secondary: data.theme?.secondary || "#ffffff",
+        border: data.theme?.border || "#8A244B",
+        background: data.theme?.background || "#ffffff",
+      });
+      setAboutData({
+        heroVideo: data.about?.heroVideo || "",
+        description: data.about?.description || "",
+        sectionImage: data.about?.sectionImage || "",
+        sectionText: data.about?.sectionText || "",
+        stats: data.about?.stats || { experience: "", customers: "", dishes: "" },
+      });
+      // ⭐ Payment data
+      setUpiId(data.payment?.upiId || "");
+      setPaymentNumber(data.payment?.paymentNumber || "");
+      setPaymentQR(data.payment?.paymentQR || "");
     });
-
-    // About page
-    setAboutData({
-      heroVideo: data.about?.heroVideo || "",
-      description: data.about?.description || "",
-      sectionImage: data.about?.sectionImage || "",
-      sectionText: data.about?.sectionText || "",
-      stats: data.about?.stats || {
-        experience: "",
-        customers: "",
-        dishes: "",
-      },
-    });
-
-    // ⭐ Payment data
-    setUpiId(data.payment?.upiId || "");
-    setPaymentNumber(data.payment?.paymentNumber || "");
-    setPaymentQR(data.payment?.paymentQR || "");
-  });
-
-}, [restaurantId]);
+  }, [restaurantId]);
 
   useEffect(() => {
     if (!restaurantId) return;
     const catRef = dbRef(realtimeDB, `restaurants/${restaurantId}/categories`);
     onValue(catRef, (snap) => {
       if (snap.exists()) {
-        setCategories(
-          Object.entries(snap.val()).map(([id, data]) => ({ id, ...data }))
-        );
+        setCategories(Object.entries(snap.val()).map(([id, data]) => ({ id, ...data })));
       } else {
         setCategories([]);
       }
@@ -206,10 +189,7 @@ const [paymentQRFile, setPaymentQRFile] = useState(null);
     if (!editCategoryName.trim()) return;
     await set(
       dbRef(realtimeDB, `restaurants/${restaurantId}/categories/${editCategoryId}`),
-      {
-        name: editCategoryName,
-        order: categories.find((c) => c.id === editCategoryId)?.order || 1,
-      }
+      { name: editCategoryName, order: categories.find((c) => c.id === editCategoryId)?.order || 1 }
     );
     setEditCategoryId(null);
     setEditCategoryName("");
@@ -219,74 +199,86 @@ const [paymentQRFile, setPaymentQRFile] = useState(null);
     await remove(dbRef(realtimeDB, `restaurants/${restaurantId}/categories/${catId}`));
   };
 
+  // Copy UPI ID
+  const copyUPIId = () => {
+    navigator.clipboard.writeText(upiId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Generate test UPI URL for preview
+  const generateTestUPIUrl = () => {
+    if (!upiId) return '';
+    return `upi://pay?pa=${upiId}&pn=${encodeURIComponent(name || 'Restaurant')}&am=1&cu=INR&tn=TestPayment&tr=TEST${Date.now()}`;
+  };
+
   // ✅ UPDATED: All uploads to Cloudinary
-const handleSave = async () => {
-  try {
-    setLoading(true);
+  const handleSave = async () => {
+    try {
+      setLoading(true);
 
-    // Hero Video
-    let heroVideoURL = aboutData.heroVideo;
-    if (heroVideoFile instanceof File) {
-      setVideoUploading(true);
-      setUploadProgress(0);
-      heroVideoURL = await uploadToCloudinaryWithProgress(heroVideoFile, "video");
-      setVideoUploading(false);
+      // Validate UPI ID
+      if (upiId && !isValidUPI(upiId)) {
+        alert("❌ Invalid UPI ID format!");
+        setLoading(false);
+        return;
+      }
+
+      let heroVideoURL = aboutData.heroVideo;
+      if (heroVideoFile instanceof File) {
+        setVideoUploading(true);
+        setUploadProgress(0);
+        heroVideoURL = await uploadToCloudinaryWithProgress(heroVideoFile, "video");
+        setVideoUploading(false);
+      }
+
+      let sectionImageURL = aboutData.sectionImage;
+      if (aboutImageFile instanceof File) {
+        sectionImageURL = await uploadImageToCloudinary(aboutImageFile);
+      }
+
+      let logoURL = logo;
+      if (logoFile instanceof File) {
+        logoURL = await uploadImageToCloudinary(logoFile);
+      }
+
+      let qrURL = paymentQR;
+      if (paymentQRFile instanceof File) {
+        qrURL = await uploadImageToCloudinary(paymentQRFile);
+      }
+
+      await update(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
+        name,
+        logo: logoURL,
+        contact: { phone, email, address },
+        whatsappNumber,
+        theme,
+        payment: {
+          upiId: upiId,
+          paymentNumber: paymentNumber,
+          paymentQR: qrURL,
+        },
+        about: {
+          heroVideo: heroVideoURL,
+          description: aboutData.description,
+          sectionText: aboutData.sectionText,
+          sectionImage: sectionImageURL,
+          stats: aboutData.stats,
+        },
+      });
+
+      setHeroVideoFile(null);
+      setAboutImageFile(null);
+      setLogoFile(null);
+      setPaymentQRFile(null);
+      alert("✅ Saved successfully!");
+    } catch (err) {
+      console.error(err);
+      alert("❌ Error: " + err.message);
+    } finally {
+      setLoading(false);
     }
-
-    // Section Image
-    let sectionImageURL = aboutData.sectionImage;
-    if (aboutImageFile instanceof File) {
-      sectionImageURL = await uploadImageToCloudinary(aboutImageFile);
-    }
-
-    // Logo
-    let logoURL = logo;
-    if (logoFile instanceof File) {
-      logoURL = await uploadImageToCloudinary(logoFile);
-    }
-
-    // Payment QR
-    let qrURL = paymentQR;
-    if (paymentQRFile instanceof File) {
-      qrURL = await uploadImageToCloudinary(paymentQRFile);
-    }
-
-    // Save all data
-    await update(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
-      name,
-      logo: logoURL,
-      contact: { phone, email, address },
-      whatsappNumber,
-      theme,
-
-      payment: {
-        upiId: upiId,
-        paymentNumber: paymentNumber,
-        paymentQR: qrURL,
-      },
-
-      about: {
-        heroVideo: heroVideoURL,
-        description: aboutData.description,
-        sectionText: aboutData.sectionText,
-        sectionImage: sectionImageURL,
-        stats: aboutData.stats,
-      },
-    });
-
-    setHeroVideoFile(null);
-    setAboutImageFile(null);
-    setLogoFile(null);
-    setPaymentQRFile(null);
-
-    alert("✅ Saved successfully!");
-  } catch (err) {
-    console.error(err);
-    alert("❌ Error: " + err.message);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="max-w-3xl mx-auto p-6">
@@ -456,68 +448,215 @@ const handleSave = async () => {
         <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="border rounded-lg px-4 py-2" />
       </div>
       <input type="text" placeholder="Address" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full border rounded-lg px-4 py-2 mb-6" />
-<div className="mb-6">
-  <label className="block text-sm font-medium mb-1">WhatsApp Number (for Orders)</label>
-  <input 
-    type="text" 
-    placeholder="e.g. +91 9876543210" 
-    value={whatsappNumber} 
-    onChange={(e) => setWhatsappNumber(e.target.value)} 
-    className="w-full border rounded-lg px-4 py-2"
-  />
-  <p className="text-xs text-gray-500 mt-1">Customers will send orders to this WhatsApp number</p>
-</div>
-{/* Payment Settings */}
-<h3 className="text-xl font-bold mt-10 mb-4">Payment Settings</h3>
 
-<div className="space-y-4 mb-6">
+      {/* WhatsApp */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium mb-1">WhatsApp Number (for Orders)</label>
+        <input 
+          type="text" 
+          placeholder="e.g. +91 9876543210" 
+          value={whatsappNumber} 
+          onChange={(e) => setWhatsappNumber(e.target.value)} 
+          className="w-full border rounded-lg px-4 py-2"
+        />
+        <p className="text-xs text-gray-500 mt-1">Customers will send orders to this WhatsApp number</p>
+      </div>
 
-  <input
-    type="text"
-    placeholder="UPI ID (example: restaurant@upi)"
-    value={upiId}
-    onChange={(e) => setUpiId(e.target.value)}
-    className="w-full border rounded-lg px-4 py-2"
-  />
+      {/* ✅ PAYMENT SETTINGS - COMPLETE SECTION */}
+      <div className="border-t-2 border-gray-200 pt-8 mt-8">
+        <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
+          <span className="text-2xl">💳</span> Payment Settings
+        </h3>
+        
+        {/* Info Box */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+          <p className="text-sm text-blue-800">
+            <strong>🚀 Auto QR Generation:</strong> UPI ID daalne se checkout page par 
+            automatic QR code generate hoga bill amount ke hisaab se. Customer scan 
+            karega aur directly uske phone ke <strong>GPay/PhonePe/Paytm</strong> mein khulega.
+          </p>
+        </div>
 
-  <input
-    type="text"
-    placeholder="Payment Phone Number"
-    value={paymentNumber}
-    onChange={(e) => setPaymentNumber(e.target.value)}
-    className="w-full border rounded-lg px-4 py-2"
-  />
+        <div className="space-y-5 mb-6">
+          {/* UPI ID Input */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Merchant UPI ID <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="merchant@paytm, shop@ybl, name@okicici, etc."
+                value={upiId}
+                onChange={(e) => setUpiId(e.target.value)}
+                className={`w-full border-2 rounded-lg px-4 py-3 pr-12 outline-none transition-all ${
+                  upiId && !isValidUPI(upiId) 
+                    ? 'border-red-500 focus:border-red-500' 
+                    : 'border-gray-200 focus:border-[#8A244B]'
+                }`}
+              />
+              {upiId && (
+                <button
+                  onClick={copyUPIId}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 hover:bg-gray-100 rounded-lg transition"
+                  title="Copy UPI ID"
+                >
+                  {copied ? <FaCheckCircle className="text-green-500" /> : <FaCopy className="text-gray-400" />}
+                </button>
+              )}
+            </div>
+            {upiId && !isValidUPI(upiId) && (
+              <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                <span>⚠️</span> Invalid UPI ID format. Example: name@paytm
+              </p>
+            )}
+            <p className="text-xs text-gray-500 mt-1">
+              Valid formats: <code className="bg-gray-100 px-1 rounded">xxx@paytm</code>, 
+              <code className="bg-gray-100 px-1 rounded">xxx@ybl</code>, 
+              <code className="bg-gray-100 px-1 rounded">xxx@okaxis</code>, 
+              <code className="bg-gray-100 px-1 rounded">xxx@okicici</code>
+            </p>
+          </div>
 
-  <div>
-    <label className="block text-sm font-medium mb-1">
-      Upload UPI QR Code
-    </label>
+          {/* Payment Phone Number */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Payment Contact Number (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="+91 9876543210"
+              value={paymentNumber}
+              onChange={(e) => setPaymentNumber(e.target.value)}
+              className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 outline-none focus:border-[#8A244B] transition-all"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Customer payment issues pe contact karne ke liye
+            </p>
+          </div>
 
-    {paymentQR && (
-      <img
-        src={paymentQR}
-        alt="QR"
-        className="w-40 mb-2 rounded border"
-      />
-    )}
+          {/* Static QR Upload (Backup) */}
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Static UPI QR Code (Optional Backup)
+            </label>
+            
+            {paymentQR && (
+              <div className="relative inline-block mb-3">
+                <img 
+                  src={paymentQR} 
+                  alt="Payment QR" 
+                  className="w-32 h-32 rounded-lg border-2 border-gray-200 object-cover"
+                />
+                <button 
+                  onClick={() => {
+                    setPaymentQR('');
+                    setPaymentQRFile(null);
+                  }}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full text-xs flex items-center justify-center hover:bg-red-600 transition"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPaymentQRFile(e.target.files[0])}
+              className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-[#8A244B] file:text-white hover:file:bg-[#6a1a3a] transition"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Agar dynamic QR fail ho, toh yeh static QR customer ko dikhaya jayega
+            </p>
+          </div>
 
-    <input
-      type="file"
-      accept="image/*"
-      onChange={(e) => setPaymentQRFile(e.target.files[0])}
-      className="block w-full text-sm"
-    />
-  </div>
+          {/* ✅ LIVE QR PREVIEW */}
+          {upiId && isValidUPI(upiId) && (
+            <div className="mt-6 p-6 bg-gradient-to-br from-pink-50 to-white rounded-2xl border-2 border-[#8A244B]/20 shadow-lg">
+              <p className="font-bold text-lg mb-4 text-center text-[#8A244B] flex items-center justify-center gap-2">
+                <FaQrcode /> Live QR Preview
+              </p>
+              
+              <div className="flex flex-col items-center gap-4">
+                {/* QR Code */}
+                <div className="p-4 bg-white rounded-2xl shadow-xl">
+                  <QRCodeSVG
+                    value={generateTestUPIUrl()}
+                    size={180}
+                    level="H"
+                    includeMargin={true}
+                    imageSettings={logo ? {
+                      src: logo,
+                      height: 35,
+                      width: 35,
+                      excavate: true,
+                    } : undefined}
+                  />
+                </div>
 
-</div>
-      {/* Save */}
-      <button
-        onClick={handleSave}
-        disabled={loading}
-        className="bg-pink-600 text-white px-6 py-2 rounded-lg hover:bg-pink-700 disabled:opacity-50"
-      >
-        {loading ? "Saving..." : "Save Settings"}
-      </button>
+                {/* Info */}
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-medium text-gray-700">
+                    Scan with GPay, PhonePe, Paytm
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Test amount: <span className="font-bold text-[#8A244B]">₹1</span> (demo)
+                  </p>
+                  <p className="text-xs text-[#8A244B] font-mono bg-white px-3 py-1 rounded-full border">
+                    {upiId}
+                  </p>
+                </div>
+
+                {/* Test Instructions */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-800 w-full">
+                  <p className="font-medium mb-1">🧪 Test karne ke steps:</p>
+                  <ol className="list-decimal list-inside space-y-0.5">
+                    <li>QR code scan karo apne phone se</li>
+                    <li>GPay/PhonePe automatically khulega</li>
+                    <li>Amount ₹1 auto-filled hoga</li>
+                    <li>UPI PIN daalo (actual payment nahi hoga test mode mein)</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* No UPI ID State */}
+          {!upiId && (
+            <div className="p-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 text-center">
+              <FaQrcode className="text-4xl text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">
+                UPI ID enter karne se yahan live QR preview dikhne lagega
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Save Button */}
+      <div className="sticky bottom-0 bg-white pt-4 pb-2 border-t mt-8">
+        <button
+          onClick={handleSave}
+          disabled={loading || (upiId && !isValidUPI(upiId))}
+          className="w-full bg-[#8A244B] text-white px-6 py-4 rounded-xl font-bold text-lg hover:bg-[#6a1a3a] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg active:scale-95"
+        >
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              Saving...
+            </span>
+          ) : (
+            "💾 Save All Settings"
+          )}
+        </button>
+        
+        {upiId && !isValidUPI(upiId) && (
+          <p className="text-red-500 text-xs text-center mt-2">
+            ⚠️ Please fix UPI ID format before saving
+          </p>
+        )}
+      </div>
     </div>
   );
 }

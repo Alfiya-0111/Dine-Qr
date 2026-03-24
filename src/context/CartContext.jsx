@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 
 const CartContext = createContext();
 
@@ -104,6 +104,15 @@ export const CartProvider = ({ children }) => {
     return sum + (price * qty);
   }, 0);
 
+  // ✅ GET CART TOTAL - CheckoutPage ke liye
+  const getCartTotal = useCallback(() => {
+    return cart.reduce((sum, i) => {
+      const price = Number(i?.price) || 0;
+      const qty = Number(i?.qty) || 0;
+      return sum + (price * qty);
+    }, 0);
+  }, [cart]);
+
   // 🔥 GET VALID CART FOR CHECKOUT
   const getValidCart = () => {
     return cart.filter(item => 
@@ -126,6 +135,7 @@ export const CartProvider = ({ children }) => {
         updateQty, 
         clearCart, 
         total,
+        getCartTotal,  // ✅ ADDED for CheckoutPage
         getValidCart,
         cartCount: cart.length 
       }}

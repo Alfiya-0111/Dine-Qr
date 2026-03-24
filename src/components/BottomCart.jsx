@@ -7,7 +7,7 @@ export default function BottomCart({ onOpen, theme }) {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 p-4 flex justify-between items-center md:hidden z-40"
+      className="fixed bottom-0 left-0 right-0 p-4 flex justify-between items-center md:hidden z-[999]"
       style={{ backgroundColor: theme?.primary }}
     >
       <span className="text-white font-bold">
@@ -16,12 +16,13 @@ export default function BottomCart({ onOpen, theme }) {
 
       <button
         onClick={(e) => {
+          e.preventDefault();
           e.stopPropagation();
-          onOpen();
+          if (typeof onOpen === "function") onOpen();
         }}
         className="px-4 py-2 rounded-lg font-bold transition active:scale-95"
         style={{
-          backgroundColor: '#ffffff',
+          backgroundColor: "#ffffff",
           color: theme?.primary,
         }}
       >
