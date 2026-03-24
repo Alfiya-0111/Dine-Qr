@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 export default function Sidebar() {
     const { restaurantId } = useParams();
   return (
-    <div className="fixed top-0 left-0 h-screen w-52 bg-[#8A244B] text-white p-6 flex flex-col">
+    <div className="fixed top-0 left-0 h-screen w-52 bg-[#8A244B] text-white p-6 flex flex-col overflow-auto">
       {/* Brand / Dashboard Title */}
       <h2 className="text-2xl font-bold mb-8 text-center">Dashboard</h2>
 

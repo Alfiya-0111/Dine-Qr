@@ -32,14 +32,57 @@ export default function KitchenLiveOrders() {
   }, []);
 
   const updateOrderStatus = async (orderId, newStatus) => {
-    const user = auth.currentUser;
-    const orderRef = rtdbRef(realtimeDB, `kitchenOrders/${user.uid}/${orderId}`);
+  const user = auth.currentUser;
+  const orderRef = rtdbRef(realtimeDB, `kitchenOrders/${user.uid}/${orderId}`);
+  
+  await update(orderRef, {
+    status: newStatus,
+    updatedAt: Date.now()
+  });
+
+  // ✅ Jab "preparing" ho toh broadcast karo
+  if (newStatus === 'preparing') {
+    const order = orders.find(o => o.id === orderId);
+    if (order?.items?.length) {
+      const broadcastRef = rtdbRef(realtimeDB, `restaurants/${user.uid}/liveKitchen`);
+      await update(broadcastRef, {
+        cookingItems: order.items.map(item => ({
+          name: item.name,
+          dishId: item.dishId || item.id,
+          prepTime: item.prepTime || 15,
+          startedAt: Date.now(),
+        })),
+        updatedAt: Date.now(),
+        restaurantId: user.uid
+      });
+    }
+  }
+
+  // ✅ Jab "ready" ya "complete" ho toh broadcast clear karo
+  if (newStatus === 'ready' || newStatus === 'completed') {
+    const broadcastRef = rtdbRef(realtimeDB, `restaurants/${user.uid}/liveKitchen`);
+    const order = orders.find(o => o.id === orderId);
     
-    await update(orderRef, {
-      status: newStatus,
-      updatedAt: Date.now()
-    });
-  };
+    // Sirf us order ke items hataao, baaki rehne do
+    const remainingCookingOrders = orders.filter(o => 
+      o.status === 'preparing' && o.id !== orderId
+    );
+    
+    if (remainingCookingOrders.length === 0) {
+      await update(broadcastRef, { cookingItems: null, updatedAt: Date.now() });
+    } else {
+      const allCookingItems = remainingCookingOrders.flatMap(o => 
+        (o.items || []).map(item => ({
+          name: item.name,
+          dishId: item.dishId || item.id,
+          prepTime: item.prepTime || 15,
+          startedAt: item.prepStartedAt || Date.now(),
+        }))
+      );
+      await update(broadcastRef, { cookingItems: allCookingItems, updatedAt: Date.now() });
+    }
+  }
+};
 
   const completeOrder = async (orderId) => {
     const user = auth.currentUser;

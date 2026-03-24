@@ -9,10 +9,11 @@ import { ref as rtdbRef, onValue } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 
 // ================= COUPON LOGIC =================
+// Admin `discountType` + `discountValue` save karta hai — yahi use karo
 function getBestCoupon(coupons, subtotal) {
   const now = Date.now();
   const valid = Object.values(coupons || {}).filter(c => {
-    if (!c.isActive) return false;
+    if (!c.active) return false;                                          // ✅ 'active' field
     if (c.minOrder && subtotal < c.minOrder) return false;
     if (c.expiryDate && new Date(c.expiryDate).getTime() < now) return false;
     return true;
@@ -20,25 +21,22 @@ function getBestCoupon(coupons, subtotal) {
 
   if (valid.length === 0) return null;
 
-  // Sort by best discount value
   return valid.sort((a, b) => {
-    const discountA = a.type === 'percent'
-      ? Math.min((subtotal * a.value) / 100, a.maxDiscount || Infinity)
-      : a.value;
-    const discountB = b.type === 'percent'
-      ? Math.min((subtotal * b.value) / 100, b.maxDiscount || Infinity)
-      : b.value;
-    return discountB - discountA;
+    const dA = calcDiscount(a, subtotal);
+    const dB = calcDiscount(b, subtotal);
+    return dB - dA;
   })[0];
 }
 
 function calcDiscount(coupon, subtotal) {
   if (!coupon) return 0;
-  if (coupon.type === 'percent') {
-    const raw = (subtotal * coupon.value) / 100;
+  // ✅ Admin 'discountType' + 'discountValue' save karta hai
+  if (coupon.discountType === 'percent') {
+    const raw = (subtotal * coupon.discountValue) / 100;
     return coupon.maxDiscount ? Math.min(raw, coupon.maxDiscount) : raw;
   }
-  return Math.min(coupon.value, subtotal);
+  // flat
+  return Math.min(coupon.discountValue, subtotal);
 }
 
 export default function CartSidebar({ open, onClose, theme, restaurantId, restaurantSettings, onWhatsAppOrder }) {
@@ -66,29 +64,37 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
   const discount = calcDiscount(appliedCoupon, total);
   const grandTotal = total + gst - discount;
 
-  // ===== FETCH COUPONS FROM FIREBASE =====
+  // ===== FETCH COUPONS FROM FIREBASE (real-time) =====
   useEffect(() => {
     if (!restaurantId) return;
-    const couponsRef = rtdbRef(realtimeDB, `coupons/${restaurantId}`);
-    const unsub = onValue(couponsRef, (snap) => {
-      if (snap.exists()) {
-        setAllCoupons(snap.val());
-      } else {
-        setAllCoupons({});
-      }
+    const unsub = onValue(rtdbRef(realtimeDB, `coupons/${restaurantId}`), (snap) => {
+      setAllCoupons(snap.exists() ? snap.val() : {});
     });
     return () => unsub();
   }, [restaurantId]);
 
-  // ===== AUTO-APPLY BEST COUPON WHEN CART OPENS =====
+  // ===== AUTO-APPLY BEST COUPON =====
+  // Jab bhi cart khule ya subtotal/coupons badle — best coupon auto-apply karo
   useEffect(() => {
     if (!open || total === 0) return;
+
+    // Agar user ne manually koi coupon lagaya hai toh auto-override mat karo
+    if (appliedCoupon && !autoApplied) return;
+
     const best = getBestCoupon(allCoupons, total);
-    if (best && !appliedCoupon) {
+
+    if (best) {
+      // Naya best coupon hai — apply karo
       setAppliedCoupon(best);
       setAutoApplied(true);
-      setCouponSuccess(`🎉 "${best.code}" auto-applied! Save ₹${calcDiscount(best, total).toFixed(0)}`);
+      const saved = calcDiscount(best, total);
+      setCouponSuccess(`🎉 "${best.code}" auto-applied! You save ₹${saved.toFixed(0)}`);
       setCouponError('');
+    } else if (autoApplied) {
+      // Pehle auto-applied tha, ab eligible nahi — remove karo
+      setAppliedCoupon(null);
+      setAutoApplied(false);
+      setCouponSuccess('');
     }
   }, [open, allCoupons, total]);
 
@@ -102,25 +108,17 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
     const found = Object.values(allCoupons).find(c => c.code?.toUpperCase() === code);
     const now = Date.now();
 
-    if (!found) {
-      setCouponError('❌ Invalid coupon code');
-      return;
-    }
-    if (!found.isActive) {
-      setCouponError('❌ This coupon is no longer active');
-      return;
-    }
+    if (!found) { setCouponError('❌ Invalid coupon code'); return; }
+    if (!found.active) { setCouponError('❌ This coupon is no longer active'); return; }
     if (found.minOrder && total < found.minOrder) {
-      setCouponError(`❌ Minimum order ₹${found.minOrder} required`);
-      return;
+      setCouponError(`❌ Minimum order ₹${found.minOrder} required`); return;
     }
     if (found.expiryDate && new Date(found.expiryDate).getTime() < now) {
-      setCouponError('❌ This coupon has expired');
-      return;
+      setCouponError('❌ This coupon has expired'); return;
     }
 
     setAppliedCoupon(found);
-    setAutoApplied(false);
+    setAutoApplied(false); // manual apply — auto-override band karo
     const saved = calcDiscount(found, total);
     setCouponSuccess(`✅ "${found.code}" applied! You save ₹${saved.toFixed(0)}`);
     setCouponInput('');
@@ -133,22 +131,6 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
     setCouponError('');
     setCouponInput('');
   };
-
-  // ===== RE-EVALUATE AUTO-COUPON WHEN CART CHANGES =====
-  useEffect(() => {
-    if (!autoApplied || !appliedCoupon) return;
-    // Recheck if still valid
-    const valid = getBestCoupon(allCoupons, total);
-    if (!valid || valid.code !== appliedCoupon.code) {
-      // Switch to new best or remove
-      if (valid) {
-        setAppliedCoupon(valid);
-        setCouponSuccess(`🎉 "${valid.code}" auto-applied! Save ₹${calcDiscount(valid, total).toFixed(0)}`);
-      } else {
-        removeCoupon();
-      }
-    }
-  }, [total]);
 
   const handleCheckout = () => {
     if (cart.length === 0) return;
@@ -177,7 +159,11 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
       tableNumber: customerInfo.tableNumber,
       specialInstructions: customerInfo.specialInstructions,
       couponCode: appliedCoupon?.code || null,
-      discount: discount || 0,
+      discount: parseFloat(discount.toFixed(2)),
+      subtotal: parseFloat(total.toFixed(2)),
+      gst: parseFloat(gst.toFixed(2)),
+      total: parseFloat(grandTotal.toFixed(2)),
+      originalTotal: parseFloat((total + gst).toFixed(2)),
       items: cart.map(item => ({
         id: item.id, name: item.name, qty: item.qty || 1, price: item.price,
         image: item.image, prepTime: item.prepTime, spicePreference: item.spicePreference,
@@ -191,8 +177,15 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
       if (phone) {
         const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
         const items = cart.map(i => `${i.name} x${i.qty || 1}`).join(', ');
-        const couponLine = appliedCoupon ? ` Coupon: ${appliedCoupon.code} (-₹${discount.toFixed(0)}).` : '';
-        const message = `Hi, I'm ${customerInfo.name} (${customerInfo.phone}). I want to order: ${items}.${couponLine} Total: ₹${grandTotal.toFixed(0)}. ${customerInfo.tableNumber ? `Table: ${customerInfo.tableNumber}. ` : ''}${customerInfo.specialInstructions || ''}`;
+        const couponLine = appliedCoupon
+          ? ` Coupon: ${appliedCoupon.code} (-₹${discount.toFixed(0)}).`
+          : '';
+        const message =
+          `Hi, I'm ${customerInfo.name} (${customerInfo.phone}). ` +
+          `I want to order: ${items}.${couponLine} ` +
+          `Total: ₹${grandTotal.toFixed(0)}. ` +
+          (customerInfo.tableNumber ? `Table: ${customerInfo.tableNumber}. ` : '') +
+          (customerInfo.specialInstructions || '');
         window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
         setShowQuickWhatsAppCheckout(false);
         clearCart();
@@ -220,7 +213,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
 
   if (!open) return null;
 
-  // ===== BILL SUMMARY COMPONENT =====
+  // ===== BILL SUMMARY =====
   const BillSummary = ({ highlightColor = theme.primary }) => (
     <div className="space-y-2 mb-4 p-3 bg-white rounded-xl">
       <div className="flex justify-between text-sm text-gray-600">
@@ -234,7 +227,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
       {appliedCoupon && discount > 0 && (
         <div className="flex justify-between text-sm text-green-600 font-medium">
           <span>🏷️ Discount ({appliedCoupon.code})</span>
-          <span>- ₹{discount.toFixed(2)}</span>
+          <span>− ₹{discount.toFixed(2)}</span>
         </div>
       )}
       <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
@@ -254,6 +247,12 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
     </div>
   );
 
+  // ===== AVAILABLE COUPONS HINT (only active + not expired) =====
+  const availableCoupons = Object.values(allCoupons).filter(c =>
+    c.active &&
+    (!c.expiryDate || new Date(c.expiryDate).getTime() > Date.now())
+  );
+
   return (
     <>
       {/* Overlay */}
@@ -261,6 +260,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
 
       {/* Sidebar */}
       <div className="fixed right-0 top-0 h-full w-full sm:w-[400px] bg-white z-50 shadow-2xl flex flex-col">
+
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b-2" style={{ borderColor: theme.primary }}>
           <div>
@@ -340,31 +340,36 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
             {/* ===== COUPON SECTION ===== */}
             <div className="mb-3">
               {appliedCoupon ? (
-                <div className="flex items-center justify-between bg-green-50 border border-green-300 rounded-xl px-3 py-2">
+                /* Applied coupon pill */
+                <div className="flex items-center justify-between bg-green-50 border border-green-300 rounded-xl px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-green-600 text-lg">🏷️</span>
+                    <span className="text-lg">🏷️</span>
                     <div>
-                      <p className="text-green-700 font-bold text-sm">{appliedCoupon.code}</p>
+                      <p className="text-green-700 font-black text-sm">{appliedCoupon.code}</p>
                       <p className="text-green-600 text-xs">
-                        {appliedCoupon.type === 'percent'
-                          ? `${appliedCoupon.value}% off`
-                          : `₹${appliedCoupon.value} off`}
+                        {appliedCoupon.discountType === 'percent'
+                          ? `${appliedCoupon.discountValue}% off`
+                          : `₹${appliedCoupon.discountValue} off`}
                         {autoApplied && ' • Auto-applied ✨'}
                       </p>
                     </div>
                   </div>
-                  <button onClick={removeCoupon} className="text-red-400 hover:text-red-600 text-xs font-medium transition">
-                    Remove
-                  </button>
+                  <div className="text-right">
+                    <p className="text-green-700 font-black text-sm">−₹{discount.toFixed(0)}</p>
+                    <button onClick={removeCoupon} className="text-red-400 hover:text-red-600 text-xs font-medium transition">
+                      Remove
+                    </button>
+                  </div>
                 </div>
               ) : (
+                /* Manual input */
                 <div className="flex gap-2">
                   <input
                     value={couponInput}
                     onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
                     onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
                     placeholder="Enter coupon code"
-                    className="flex-1 px-3 py-2 border-2 rounded-xl text-sm outline-none focus:border-opacity-80 uppercase"
+                    className="flex-1 px-3 py-2 border-2 rounded-xl text-sm outline-none uppercase font-mono"
                     style={{ borderColor: theme.primary }}
                   />
                   <button
@@ -377,25 +382,22 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
                 </div>
               )}
 
-              {couponError && <p className="text-red-500 text-xs mt-1 ml-1">{couponError}</p>}
-              {couponSuccess && !appliedCoupon && <p className="text-green-600 text-xs mt-1 ml-1">{couponSuccess}</p>}
+              {couponError && <p className="text-red-500 text-xs mt-1.5 ml-1">{couponError}</p>}
+              {couponSuccess && <p className="text-green-600 text-xs mt-1.5 ml-1 font-medium">{couponSuccess}</p>}
 
-              {/* Available coupons hint */}
-              {!appliedCoupon && Object.values(allCoupons).filter(c => c.isActive).length > 0 && (
-                <div className="mt-2 flex gap-1 flex-wrap">
-                  {Object.values(allCoupons)
-                    .filter(c => c.isActive && (!c.expiryDate || new Date(c.expiryDate).getTime() > Date.now()))
-                    .slice(0, 3)
-                    .map(c => (
-                      <button
-                        key={c.code}
-                        onClick={() => { setCouponInput(c.code); setCouponError(''); }}
-                        className="text-xs px-2 py-1 rounded-full border border-dashed transition hover:opacity-80"
-                        style={{ borderColor: theme.primary, color: theme.primary }}
-                      >
-                        {c.code}
-                      </button>
-                    ))}
+              {/* Available coupon chips — sirf tab dikhao jab koi applied nahi */}
+              {!appliedCoupon && availableCoupons.length > 0 && (
+                <div className="mt-2 flex gap-1.5 flex-wrap">
+                  {availableCoupons.slice(0, 3).map(c => (
+                    <button
+                      key={c.code}
+                      onClick={() => { setCouponInput(c.code); setCouponError(''); }}
+                      className="text-xs px-2.5 py-1 rounded-full border border-dashed transition hover:opacity-80 font-mono font-bold"
+                      style={{ borderColor: theme.primary, color: theme.primary }}
+                    >
+                      {c.code}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -403,6 +405,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
             {/* Bill Summary */}
             <BillSummary />
 
+            {/* Action Buttons */}
             <div className="space-y-3">
               <button
                 onClick={handleCheckout}
@@ -411,7 +414,9 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
               >
                 🍽️ Place Order
                 <span className="text-sm font-normal">₹{grandTotal.toFixed(0)}</span>
-                {appliedCoupon && <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">Coupon Applied ✓</span>}
+                {appliedCoupon && (
+                  <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">Coupon ✓</span>
+                )}
               </button>
 
               <button
@@ -441,7 +446,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
         )}
       </div>
 
-      {/* Normal Checkout Modal */}
+      {/* ===== NORMAL CHECKOUT MODAL ===== */}
       {showCheckout && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto animate-slideUp">
@@ -451,35 +456,20 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
                 <IoClose className="text-xl" />
               </button>
             </div>
-            <div className="bg-gray-50 p-3 rounded-xl mb-4">
-              <p className="font-medium text-sm mb-2">{cartCount} items</p>
-              <div className="max-h-32 overflow-y-auto space-y-1">
-                {cart.map((item, idx) => (
-                  <div key={idx} className="flex justify-between text-sm">
-                    <span className="truncate">{item.name} x{item.qty || 1}</span>
-                    <span>₹{(item.price * (item.qty || 1)).toFixed(0)}</span>
-                  </div>
-                ))}
-              </div>
-              <BillSummary highlightColor={theme.primary} />
-            </div>
+            <BillSummary highlightColor={theme.primary} />
             <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium mb-1">Name *</label>
-                <input type="text" value={customerInfo.name} onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })} className="w-full p-3 border border-gray-300 rounded-lg outline-none" placeholder="Your name" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Phone *</label>
-                <input type="tel" value={customerInfo.phone} onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })} className="w-full p-3 border border-gray-300 rounded-lg outline-none" placeholder="+91..." />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Table Number</label>
-                <input type="text" value={customerInfo.tableNumber} onChange={(e) => setCustomerInfo({ ...customerInfo, tableNumber: e.target.value })} className="w-full p-3 border border-gray-300 rounded-lg outline-none" placeholder="If dining in" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Special Instructions</label>
-                <textarea value={customerInfo.specialInstructions} onChange={(e) => setCustomerInfo({ ...customerInfo, specialInstructions: e.target.value })} className="w-full p-3 border border-gray-300 rounded-lg outline-none resize-none" rows="2" placeholder="Any special requests..." />
-              </div>
+              {['name', 'phone', 'tableNumber', 'specialInstructions'].map((field) => (
+                <div key={field}>
+                  <label className="block text-sm font-medium mb-1">
+                    {field === 'name' ? 'Your Name *' : field === 'phone' ? 'Phone *' : field === 'tableNumber' ? 'Table Number (Optional)' : 'Special Instructions'}
+                  </label>
+                  {field === 'specialInstructions' ? (
+                    <textarea value={customerInfo[field]} onChange={(e) => setCustomerInfo({ ...customerInfo, [field]: e.target.value })} className="w-full p-3 border border-gray-300 rounded-lg outline-none resize-none" rows="2" placeholder="Any special requests..." />
+                  ) : (
+                    <input type={field === 'phone' ? 'tel' : 'text'} value={customerInfo[field]} onChange={(e) => setCustomerInfo({ ...customerInfo, [field]: e.target.value })} className="w-full p-3 border border-gray-300 rounded-lg outline-none" />
+                  )}
+                </div>
+              ))}
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowCheckout(false)} className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50 transition">Cancel</button>
@@ -491,7 +481,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
         </div>
       )}
 
-      {/* WhatsApp Sync Checkout Modal */}
+      {/* ===== WHATSAPP SYNC CHECKOUT MODAL ===== */}
       {showWhatsAppCheckout && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto animate-slideUp">
@@ -499,25 +489,13 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
               <h3 className="text-xl font-bold flex items-center gap-2"><FaWhatsapp className="text-green-500" /> WhatsApp Order</h3>
               <button onClick={() => setShowWhatsAppCheckout(false)} className="p-2 hover:bg-gray-100 rounded-full"><IoClose className="text-xl" /></button>
             </div>
-            <div className="bg-green-50 p-3 rounded-xl mb-4">
-              <p className="font-medium text-sm mb-2">{cartCount} items</p>
-              <div className="max-h-32 overflow-y-auto space-y-1">
-                {cart.map((item, idx) => (
-                  <div key={idx} className="flex justify-between text-sm">
-                    <span className="truncate">{item.name} x{item.qty || 1}</span>
-                    <span>₹{(item.price * (item.qty || 1)).toFixed(0)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t mt-2 pt-2 space-y-1">
-                {appliedCoupon && <div className="flex justify-between text-sm text-green-600"><span>🏷️ {appliedCoupon.code}</span><span>- ₹{discount.toFixed(0)}</span></div>}
-                <div className="flex justify-between font-bold"><span>Total</span><span className="text-green-600">₹{grandTotal.toFixed(0)}</span></div>
-              </div>
-            </div>
+            <BillSummary highlightColor="#22c55e" />
             <div className="space-y-3">
               {['name', 'phone', 'tableNumber', 'specialInstructions'].map((field) => (
                 <div key={field}>
-                  <label className="block text-sm font-medium mb-1 capitalize">{field === 'tableNumber' ? 'Table Number (Optional)' : field === 'specialInstructions' ? 'Special Instructions' : field === 'name' ? 'Your Name *' : 'Phone Number *'}</label>
+                  <label className="block text-sm font-medium mb-1">
+                    {field === 'name' ? 'Your Name *' : field === 'phone' ? 'Phone Number *' : field === 'tableNumber' ? 'Table Number (Optional)' : 'Special Instructions'}
+                  </label>
                   {field === 'specialInstructions' ? (
                     <textarea value={customerInfo[field]} onChange={(e) => setCustomerInfo({ ...customerInfo, [field]: e.target.value })} className="w-full p-3 border border-gray-300 rounded-lg outline-none resize-none" rows="2" placeholder="Any allergies or special requests..." />
                   ) : (
@@ -536,7 +514,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
         </div>
       )}
 
-      {/* Quick WhatsApp Checkout Modal */}
+      {/* ===== QUICK WHATSAPP CHECKOUT MODAL ===== */}
       {showQuickWhatsAppCheckout && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto animate-slideUp">
@@ -544,25 +522,13 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
               <h3 className="text-xl font-bold flex items-center gap-2"><FaWhatsapp className="text-green-500" /> Quick WhatsApp</h3>
               <button onClick={() => setShowQuickWhatsAppCheckout(false)} className="p-2 hover:bg-gray-100 rounded-full"><IoClose className="text-xl" /></button>
             </div>
-            <div className="bg-green-50 p-3 rounded-xl mb-4">
-              <p className="font-medium text-sm mb-2">{cartCount} items</p>
-              <div className="max-h-32 overflow-y-auto space-y-1">
-                {cart.map((item, idx) => (
-                  <div key={idx} className="flex justify-between text-sm">
-                    <span className="truncate">{item.name} x{item.qty || 1}</span>
-                    <span>₹{(item.price * (item.qty || 1)).toFixed(0)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t mt-2 pt-2 space-y-1">
-                {appliedCoupon && <div className="flex justify-between text-sm text-green-600"><span>🏷️ {appliedCoupon.code}</span><span>- ₹{discount.toFixed(0)}</span></div>}
-                <div className="flex justify-between font-bold"><span>Total</span><span className="text-green-600">₹{grandTotal.toFixed(0)}</span></div>
-              </div>
-            </div>
+            <BillSummary highlightColor="#22c55e" />
             <div className="space-y-3">
               {['name', 'phone', 'tableNumber', 'specialInstructions'].map((field) => (
                 <div key={field}>
-                  <label className="block text-sm font-medium mb-1">{field === 'tableNumber' ? 'Table Number (Optional)' : field === 'specialInstructions' ? 'Special Instructions' : field === 'name' ? 'Your Name *' : 'Phone Number *'}</label>
+                  <label className="block text-sm font-medium mb-1">
+                    {field === 'name' ? 'Your Name *' : field === 'phone' ? 'Phone Number *' : field === 'tableNumber' ? 'Table Number (Optional)' : 'Special Instructions'}
+                  </label>
                   {field === 'specialInstructions' ? (
                     <textarea value={customerInfo[field]} onChange={(e) => setCustomerInfo({ ...customerInfo, [field]: e.target.value })} className="w-full p-3 border border-gray-300 rounded-lg outline-none resize-none" rows="2" placeholder="Any allergies or special requests..." />
                   ) : (

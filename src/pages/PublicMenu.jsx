@@ -476,6 +476,9 @@ const [queuePosition, setQueuePosition] = useState(null);
 const [dishNotes, setDishNotes] = useState({});
 const [allCoupons, setAllCoupons] = useState({});
 const [appliedCoupon, setAppliedCoupon] = useState(null);
+const [liveKitchenItems, setLiveKitchenItems] = useState([]);
+const [showLiveKitchenBanner, setShowLiveKitchenBanner] = useState(false);
+const [dismissedKitchenNotif, setDismissedKitchenNotif] = useState(false);
   const theme = restaurantSettings?.theme || {
     primary: "#8A244B",
     border: "#8A244B",
@@ -535,7 +538,26 @@ const [appliedCoupon, setAppliedCoupon] = useState(null);
       categoryCounts[cat.id] = (categoryCounts[cat.id] || 0) + 1;
     }
   });
+// ✅ Live Kitchen Broadcast listener
+useEffect(() => {
+  if (!restaurantId) return;
 
+  const liveRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}/liveKitchen`);
+  
+  const unsubscribe = onValue(liveRef, (snap) => {
+    const data = snap.val();
+    if (data?.cookingItems && data.cookingItems.length > 0) {
+      setLiveKitchenItems(data.cookingItems);
+      setShowLiveKitchenBanner(true);
+      setDismissedKitchenNotif(false); // naya broadcast aaya toh phir dikhao
+    } else {
+      setLiveKitchenItems([]);
+      setShowLiveKitchenBanner(false);
+    }
+  });
+
+  return () => unsubscribe();
+}, [restaurantId]);
   const playReadySound = useCallback((dishName, orderId) => {  
     const timeBucket = Math.floor(Date.now() / 10000); 
     const soundId = `${orderId}-${dishName}-${timeBucket}`;
@@ -1970,10 +1992,68 @@ useEffect(() => {
         <title>{restaurantSettings?.name || restaurantName || "Digital Menu"}</title>
         <meta name="description" content="Browse our delicious menu" />
       </Helmet>
-      <PromoPopup
+<PromoPopup
   restaurantId={restaurantId} 
   restaurantSettings={restaurantSettings} 
 />
+
+{/* ✅ Live Kitchen Banner — YE ADD KARO */}
+{showLiveKitchenBanner && !dismissedKitchenNotif && liveKitchenItems.length > 0 && (
+  <div className="fixed bottom-24 left-0 right-0 z-50 px-4 flex flex-col gap-2 pointer-events-none">
+    {liveKitchenItems.map((dish, idx) => (
+      <div
+        key={idx}
+        className="pointer-events-auto bg-white border-2 rounded-2xl shadow-2xl p-4 flex items-center gap-3 animate-slideUp mx-auto w-full max-w-md"
+        style={{ borderColor: theme.primary }}
+      >
+        <div 
+          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+          style={{ backgroundColor: `${theme.primary}15` }}
+        >
+          🔥
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-sm" style={{ color: theme.primary }}>
+            Kitchen mein ban raha hai!
+          </p>
+          <p className="font-bold text-base truncate">{dish.name}</p>
+          <p className="text-xs text-gray-500">
+            ⏱️ ~{dish.prepTime || 15} min • Fresh & Hot!
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1 flex-shrink-0">
+          <button
+            onClick={() => {
+              const dishEl = document.getElementById(`dish-${dish.dishId}`);
+              if (dishEl) {
+                dishEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                dishEl.style.transition = 'box-shadow 0.3s';
+                dishEl.style.boxShadow = `0 0 0 3px ${theme.primary}`;
+                setTimeout(() => {
+                  dishEl.style.boxShadow = '';
+                }, 3000);
+              }
+              setDismissedKitchenNotif(true);
+            }}
+            className="px-3 py-1.5 text-white text-xs font-bold rounded-lg transition"
+            style={{ backgroundColor: theme.primary }}
+          >
+            Try It! 👀
+          </button>
+          <button
+            onClick={() => setDismissedKitchenNotif(true)}
+            className="px-3 py-1.5 text-gray-400 text-xs rounded-lg hover:bg-gray-100 transition"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
+
       {showWhatsAppModal && whatsAppItem && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 animate-slideUp">
