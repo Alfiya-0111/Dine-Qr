@@ -2813,60 +2813,42 @@ saltPreference: tasteItem.dishTasteProfile === "sweet"
             </div>
           )}
 
-          {activeTab === "menu" && (
-            <>
-              <button
-                onClick={() => setOpenCart(true)}
-                style={{ "--theme-color": theme.primary }}
-                className="
-                  group relative hidden md:block fixed top-20 right-4 z-30
-                  bg-white
-                  p-3 rounded-full shadow-lg
-                  border-2 border-[var(--theme-color)]
-                  transition-all duration-300
-                  hover:bg-[var(--theme-color)]
-                "
-              >
-                <IoCartOutline
-                  className="
-                    w-[35px] h-[35px]
-                    text-[var(--theme-color)]
-                    transition-all duration-300
-                    group-hover:text-white
-                  "
-                />
+       
+{activeTab === "menu" && (
+  <>
+    {/* Desktop Cart Button */}
+    <button
+      onClick={() => setOpenCart(true)}
+      style={{ "--theme-color": theme.primary }}
+      className="group relative hidden md:block fixed top-20 right-4 z-30 bg-white p-3 rounded-full shadow-lg border-2 border-[var(--theme-color)] transition-all duration-300 hover:bg-[var(--theme-color)]"
+    >
+      <IoCartOutline className="w-[35px] h-[35px] text-[var(--theme-color)] transition-all duration-300 group-hover:text-white" />
+      {cart.length > 0 && (
+        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+          {cart.length}
+        </span>
+      )}
+    </button>
 
-                {cart.length > 0 && (
-                  <span className="
-                    absolute -top-1 -right-1
-                    bg-red-500 text-white text-xs
-                    w-5 h-5 flex items-center justify-center
-                    rounded-full
-                  ">
-                    {cart.length}
-                  </span>
-                )}
-              </button>
+    {/* ✅ Mobile Bottom Cart */}
+    {cart.length > 0 && (
+      <BottomCart
+        onOpen={() => setOpenCart(true)}
+        theme={theme}
+      />
+    )}
 
-              {cart.length > 0 && (
-                <BottomCart
-                  onOpen={() => setOpenCart(true)}
-                  theme={theme}
-                />
-              )}
-            </>
-          )}
-
-          {activeTab === "menu" && (
-            <CartSidebar 
-              open={openCart} 
-              onClose={() => setOpenCart(false)} 
-              theme={theme} 
-              restaurantId={restaurantId}
-              restaurantSettings={restaurantSettings}  
-              onWhatsAppOrder={handleWhatsAppOrderFromCart}  
-            />
-          )}
+    {/* ✅ CartSidebar YAHAN — same block mein */}
+    <CartSidebar 
+      open={openCart} 
+      onClose={() => setOpenCart(false)} 
+      theme={theme} 
+      restaurantId={restaurantId}
+      restaurantSettings={restaurantSettings}  
+      onWhatsAppOrder={handleWhatsAppOrderFromCart}  
+    />
+  </>
+)}
 
           {showWhatsAppCustomerModal && whatsAppPayload && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">

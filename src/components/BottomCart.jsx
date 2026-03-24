@@ -15,8 +15,11 @@ export default function BottomCart({ onOpen, theme }) {
       </span>
 
       <button
-        onClick={onOpen}
-        className="px-4 py-2 rounded-lg font-bold transition"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpen();
+        }}
+        className="px-4 py-2 rounded-lg font-bold transition active:scale-95"
         style={{
           backgroundColor: '#ffffff',
           color: theme?.primary,
