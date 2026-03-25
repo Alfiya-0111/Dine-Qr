@@ -4,20 +4,320 @@ import { realtimeDB } from "../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { initWhatsAppAutoProcessor } from "../utils/whatsappAutoProcessor";
 
+const PRIMARY = "#8A244B";
+
 const getItemsArray = (items) => {
   if (!items) return [];
   if (Array.isArray(items)) return items;
-  if (typeof items === 'object') {
-    return Object.entries(items).map(([key, value]) => ({
-      ...value,
-      _key: key
-    }));
+  if (typeof items === "object") {
+    return Object.entries(items).map(([key, value]) => ({ ...value, _key: key }));
   }
   return [];
 };
 
+// ─── TASTE BADGE ─────────────────────────────────────────────
+const TasteBadge = ({ type, level }) => {
+  if (!level || level === "normal") return null;
+  const configs = {
+    spiciness: {
+      icon: "🌶️", label: "Spicy",
+      colors: { medium: "#fef9c3|#854d0e", spicy: "#fee2e2|#991b1b", hot: "#fecaca|#7f1d1d" },
+    },
+    sweetness: {
+      icon: "🍯", label: "Sweet",
+      colors: { less: "#eff6ff|#1e40af", extra: "#dbeafe|#1e3a8a" },
+    },
+    salt: {
+      icon: "🧂", label: "Salt",
+      colors: { less: "#f9fafb|#4b5563", extra: "#f3f4f6|#111827" },
+    },
+  };
+  const config = configs[type];
+  if (!config) return null;
+  const normalized = level.toLowerCase();
+  const colorPair = config.colors[level] || config.colors[normalized] || "#f3f4f6|#374151";
+  const [bg, color] = colorPair.split("|");
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700,
+      background: bg, color,
+    }}>
+      {config.icon} {config.label}: {level}
+    </span>
+  );
+};
+
+const SaladBadge = ({ include }) => {
+  if (!include || include === "false" || include === false) return null;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: "#dcfce7", color: "#166534" }}>
+      🥗 Salad
+    </span>
+  );
+};
+
+// ─── ORDER CARD ───────────────────────────────────────────────
+function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePayment, onGenerateBill, autoCompleteEnabled, theme }) {
+  const isWhatsApp = order.source === "whatsapp" || order.type === "whatsapp" || !!order.whatsappStatus;
+
+  const getDishProgress = (item) => {
+    if (!item.prepStartedAt || item.itemStatus === "ready") return null;
+    const totalTime = (item.prepTime || 15) * 60 * 1000;
+    const elapsed = now - item.prepStartedAt;
+    const percent = Math.min(100, Math.floor((elapsed / totalTime) * 100));
+    const remaining = Math.ceil((totalTime - elapsed) / 60000);
+    return { percent, remaining, total: item.prepTime || 15 };
+  };
+
+  const getRemainingTime = (prepEndsAt) => {
+    if (!prepEndsAt || isNaN(prepEndsAt)) return 0;
+    return Math.ceil(Math.max(0, prepEndsAt - now) / 60000);
+  };
+
+  const remainingMinutes = isActive ? getRemainingTime(order.prepEndsAt) : 0;
+
+  const statusColors = {
+    pending:   { bg: "#fef9c3", color: "#854d0e" },
+    confirmed: { bg: "#dbeafe", color: "#1e40af" },
+    preparing: { bg: "#fef3c7", color: "#92400e" },
+    ready:     { bg: "#dcfce7", color: "#166534" },
+    completed: { bg: "#dbeafe", color: "#1e40af" },
+    cancelled: { bg: "#fee2e2", color: "#991b1b" },
+  };
+
+  const sc = statusColors[order.status] || { bg: "#f3f4f6", color: "#374151" };
+
+  const paymentBadge = () => {
+    const method = order.paymentMethod || "online";
+    const status = order.paymentStatus || "pending";
+    if (method === "cash") {
+      return status === "pending_cash"
+        ? <span style={badgeStyle("#fff7ed", "#c2410c")}>💵 Cash Pending</span>
+        : <span style={badgeStyle("#dcfce7", "#166534")}>💵 Cash Received</span>;
+    }
+    if (status === "pending_online") return <span style={badgeStyle("#fefce8", "#854d0e")}>💳 Online Pending</span>;
+    if (status === "paid_online") return <span style={badgeStyle("#dcfce7", "#166534")}>💳 Online Paid</span>;
+    return <span style={badgeStyle("#f3f4f6", "#374151")}>💳 Payment</span>;
+  };
+
+  const badgeStyle = (bg, color) => ({
+    display: "inline-flex", alignItems: "center", padding: "2px 8px",
+    borderRadius: 6, fontSize: 11, fontWeight: 700, background: bg, color,
+  });
+
+  const orderTypeIcon = { "dine-in": "🍽️", takeaway: "📦", delivery: "🛵" };
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        .oc-wrap { font-family: 'DM Sans', sans-serif; border-radius: 16px; padding: 16px; margin-bottom: 12px; border: 1.5px solid #e5e7eb; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .oc-wrap.active { border-color: #fbbf24; background: #fffbeb; }
+        .oc-wrap.active.ready { border-color: #4ade80; background: #f0fdf4; }
+        .oc-wrap.completed { border-color: #93c5fd; background: #eff6ff; }
+        .oc-wrap.whatsapp { border-left: 4px solid #22c55e !important; }
+        .oc-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .oc-id { font-weight: 800; font-size: 15px; color: #111827; }
+        .oc-badges { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }
+        .oc-date { font-size: 11px; color: #9ca3af; margin-top: 3px; }
+        .oc-timer-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+        .oc-section { background: #fff; border: 1px solid #f3f4f6; border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+        .oc-section-title { font-size: 12px; font-weight: 700; color: #6b7280; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .oc-customer-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        @media (max-width: 400px) { .oc-customer-grid { grid-template-columns: 1fr; } }
+        .oc-customer-row { font-size: 12px; color: #374151; }
+        .oc-customer-row span { color: #9ca3af; }
+        .oc-item { display: flex; gap: 10px; padding: 10px; background: #f9fafb; border-radius: 10px; border: 1px solid #f3f4f6; margin-bottom: 8px; }
+        .oc-item:last-child { margin-bottom: 0; }
+        .oc-item-img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+        .oc-item-body { flex: 1; min-width: 0; }
+        .oc-item-name { font-weight: 700; font-size: 13px; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .oc-item-price { font-size: 12px; color: #6b7280; margin-top: 1px; }
+        .oc-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .oc-progress-bar { height: 5px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin-top: 6px; }
+        .oc-progress-fill { height: 100%; border-radius: 4px; transition: width 1s linear; }
+        .oc-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #f3f4f6; flex-wrap: wrap; gap: 8px; }
+        .oc-total { font-weight: 800; font-size: 18px; color: #111827; }
+        .oc-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .oc-btn { padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; font-family: 'DM Sans', sans-serif; transition: opacity 0.15s; }
+        .oc-btn:hover { opacity: 0.85; }
+        .oc-btn-green  { background: #16a34a; color: #fff; }
+        .oc-btn-purple { background: #7c3aed; color: #fff; }
+        .oc-btn-red    { background: #dc2626; color: #fff; }
+        .oc-btn-orange { background: #d97706; color: #fff; }
+        .oc-instr { background: #fefce8; border: 1px solid #fde047; border-radius: 8px; padding: 6px 10px; margin-top: 8px; font-size: 11px; color: #92400e; }
+      `}</style>
+
+      <div className={`oc-wrap ${isActive ? (order.status === "ready" ? "active ready" : "active") : "completed"} ${isWhatsApp ? "whatsapp" : ""}`}>
+
+        {/* Header */}
+        <div className="oc-header">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="oc-id">
+              Order #{order.id?.slice(-6) || "N/A"}
+              {isWhatsApp && (
+                <span style={{ marginLeft: 8, padding: "1px 8px", background: "#dcfce7", color: "#166534", borderRadius: 6, fontSize: 11, fontWeight: 700 }}>
+                  📱 WhatsApp
+                </span>
+              )}
+            </div>
+            <div className="oc-badges">
+              {paymentBadge()}
+              {!isActive && <span style={badgeStyle("#dbeafe", "#1e40af")}>✅ Completed</span>}
+              {isActive && remainingMinutes <= 0 && order.status === "preparing" && (
+                <span style={{ ...badgeStyle("#fee2e2", "#991b1b"), animation: "pulse 1s infinite" }}>⏰ TIME UP!</span>
+              )}
+              <span style={{ ...badgeStyle(sc.bg, sc.color), textTransform: "capitalize" }}>
+                {order.status || "unknown"}
+              </span>
+            </div>
+            <div className="oc-date">
+              📅 {order.createdAt ? new Date(order.createdAt).toLocaleString("en-IN") : "N/A"}
+            </div>
+            {isActive && order.status === "preparing" && (
+              <div className="oc-timer-row">
+                <span style={{ fontSize: 12, color: "#6b7280" }}>⏱️ Remaining:</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: remainingMinutes <= 0 ? "#dc2626" : remainingMinutes <= 2 ? "#d97706" : "#16a34a" }}>
+                  {remainingMinutes > 0 ? `${remainingMinutes} min` : "TIME'S UP!"}
+                </span>
+                {autoCompleteEnabled && remainingMinutes <= 0 && (
+                  <span style={{ fontSize: 11, color: "#7c3aed" }}>(Auto-completing...)</span>
+                )}
+                {order.prepEndsAt && order.prepStartedAt && (
+                  <div style={{ width: 80, height: 5, background: "#e5e7eb", borderRadius: 4, overflow: "hidden" }}>
+                    <div style={{
+                      height: "100%", borderRadius: 4, transition: "width 1s linear",
+                      background: remainingMinutes <= 0 ? "#dc2626" : remainingMinutes <= 2 ? "#d97706" : "#16a34a",
+                      width: `${Math.min(100, ((now - (order.prepStartedAt || now)) / Math.max(1, (order.prepEndsAt || now) - (order.prepStartedAt || now))) * 100)}%`,
+                    }} />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Customer Details */}
+        <div className="oc-section">
+          <div className="oc-section-title">👤 Customer Details</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+            <span style={badgeStyle("#f3e8ff", "#6b21a8")}>
+              {orderTypeIcon[order.orderDetails?.type] || "🍽️"} {order.orderDetails?.type || "Dine-in"}
+            </span>
+            {order.orderDetails?.tableNumber && (
+              <span style={badgeStyle("#fff7ed", "#c2410c")}>🪑 Table #{order.orderDetails.tableNumber}</span>
+            )}
+            {order.orderDetails?.numberOfGuests > 0 && (
+              <span style={badgeStyle("#eff6ff", "#1e40af")}>👥 {order.orderDetails.numberOfGuests} Guests</span>
+            )}
+          </div>
+          <div className="oc-customer-grid">
+            <div className="oc-customer-row"><span>Name: </span><strong>{order.customerInfo?.name || order.customerName || "N/A"}</strong></div>
+            <div className="oc-customer-row"><span>Phone: </span><strong>{order.customerInfo?.phone || order.customerPhone || "N/A"}</strong></div>
+          </div>
+          {order.orderDetails?.specialInstructions && (
+            <div className="oc-instr">📝 {order.orderDetails.specialInstructions}</div>
+          )}
+        </div>
+
+        {/* Items */}
+        <div className="oc-section">
+          <div className="oc-section-title">🍽️ Items ({getItemsArray(order.items).length})</div>
+          {getItemsArray(order.items).length === 0 ? (
+            <p style={{ fontSize: 12, color: "#9ca3af", fontStyle: "italic" }}>No items</p>
+          ) : (
+            getItemsArray(order.items).map((item, idx) => {
+              const progress = getDishProgress(item);
+              const isDishReady = item.itemStatus === "ready" || item.itemReadyAt;
+              return (
+                <div key={`${order.id}-${item?.dishId || idx}`} className="oc-item">
+                  <img src={item?.image || "/no-image.png"} className="oc-item-img" alt={item?.name || "Item"} />
+                  <div className="oc-item-body">
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 4 }}>
+                      <div className="oc-item-name">{item?.name || "Unknown"}</div>
+                      <span style={{ fontWeight: 800, fontSize: 13, color: "#374151", flexShrink: 0 }}>₹{(item?.price || 0) * (item?.qty || 0)}</span>
+                    </div>
+                    <div className="oc-item-price">Qty: {item?.qty || 0} × ₹{item?.price || 0}</div>
+                    <div className="oc-tags">
+                      {item.dishTasteProfile === "sweet" ? (
+                        <>
+                          <TasteBadge type="sweetness" level={item.sweetLevel} />
+                          <TasteBadge type="salt" level={item.saltPreference} />
+                        </>
+                      ) : (
+                        <>
+                          <TasteBadge type="spiciness" level={item.spicePreference} />
+                          <TasteBadge type="salt" level={item.saltPreference} />
+                        </>
+                      )}
+                      <SaladBadge include={item.salad?.qty > 0} />
+                    </div>
+                    {item.specialInstructions && (
+                      <div style={{ marginTop: 6, padding: "4px 8px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, fontSize: 11, color: "#1e40af" }}>
+                        📝 {item.specialInstructions}
+                      </div>
+                    )}
+                    {isActive && order.status !== "pending" && progress && !isDishReady && (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#6b7280", marginBottom: 2 }}>
+                          <span>👨‍🍳 Cooking... {progress.percent}%</span>
+                          <span style={{ fontWeight: 700, color: progress.remaining <= 2 ? "#dc2626" : "#6b7280" }}>
+                            {progress.remaining <= 0 ? "Almost ready!" : `~${progress.remaining} min left`}
+                          </span>
+                        </div>
+                        <div className="oc-progress-bar">
+                          <div className="oc-progress-fill" style={{ width: `${progress.percent}%`, background: theme?.primary || PRIMARY }} />
+                        </div>
+                      </div>
+                    )}
+                    {isDishReady && (
+                      <div style={{ marginTop: 4, fontSize: 12, color: "#16a34a", fontWeight: 700 }}>✅ Ready</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="oc-footer">
+          <div>
+            <div className="oc-total">₹{order.total || 0}</div>
+            {order.paymentMethod === "cash" && order.paymentStatus === "pending_cash" && (
+              <button className="oc-btn oc-btn-green" style={{ marginTop: 6 }} onClick={() => onUpdatePayment(order.id, "cash_received")}>
+                ✅ Mark Cash Received
+              </button>
+            )}
+          </div>
+          <div className="oc-actions">
+            {isActive && order.status === "preparing" && (
+              <button className="oc-btn oc-btn-green" onClick={() => onUpdateStatus(order.id, "ready")}>🍽️ Mark Ready</button>
+            )}
+            {isActive && order.status === "pending" && (
+              <button className="oc-btn oc-btn-orange" onClick={() => onUpdateStatus(order.id, "confirmed")}>✅ Confirm</button>
+            )}
+            {isActive && order.status === "confirmed" && (
+              <button className="oc-btn" style={{ background: PRIMARY, color: "#fff" }} onClick={() => onUpdateStatus(order.id, "preparing")}>👨‍🍳 Start Cooking</button>
+            )}
+            {!isActive && order.status === "completed" && !order.bill && (
+              <button className="oc-btn oc-btn-purple" onClick={() => onGenerateBill(order)}>🧾 Generate Bill</button>
+            )}
+            {order.bill && (
+              <span style={{ padding: "7px 12px", background: "#dcfce7", color: "#166534", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>✅ Bill Ready</span>
+            )}
+            <button className="oc-btn oc-btn-red" onClick={() => onDelete(order.id)}>🗑️ Delete</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── MAIN COMPONENT ───────────────────────────────────────────
 export default function AdminOrders() {
-   const completingOrdersRef = useRef(new Set());
+  const completingOrdersRef = useRef(new Set());
   const [orders, setOrders] = useState([]);
   const [now, setNow] = useState(Date.now());
   const [selectedFilter, setSelectedFilter] = useState("today");
@@ -28,1121 +328,391 @@ export default function AdminOrders() {
   const [debugInfo, setDebugInfo] = useState({ total: 0, matched: 0, statuses: {} });
   const [autoCompleteEnabled, setAutoCompleteEnabled] = useState(true);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
-
-  // 🗣️ VOICE NOTIFICATION STATE
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [waiterCalls, setWaiterCalls] = useState([]);
+  const [showDebug, setShowDebug] = useState(false); // ✅ debug panel toggle
+
   const previousOrdersRef = useRef([]);
   const announcedOrdersRef = useRef(new Set());
-const ordersRefState = useRef([]);
+  const ordersRefState = useRef([]);
+  const prevWaiterCallsCount = useRef(0);
+  const isInitialLoadRef = useRef(true);
 
   const auth = getAuth();
 
-  const MY_RESTAURANT_IDS = [
-    "V2BhX5ZFmYXW3HkeP2Su5S9WGOw1",
-    "NhIbH4whfIWIUu4raonrqlEiYUr1",
-  ];
-
-  // 🗣️ TEXT-TO-SPEECH FUNCTION
-const speak = (text, priority = "normal") => {
-  if (!voiceEnabled) return;
-  if (!("speechSynthesis" in window)) return;
-
-  window.speechSynthesis.cancel();
-
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-IN";
-  utterance.rate = priority === "high" ? 1.1 : 1;
-  utterance.pitch = priority === "high" ? 1.2 : 1;
-  utterance.volume = 1;
-
-  let voices = window.speechSynthesis.getVoices();
-
-  if (!voices.length) {
-    window.speechSynthesis.onvoiceschanged = () => {
-      voices = window.speechSynthesis.getVoices();
-    };
-  }
-
-  const preferredVoice = voices.find(
-    (v) =>
-      v.lang.includes("en-IN") ||
-      v.name.includes("Google") ||
-      v.name.includes("Microsoft")
-  );
-
-  if (preferredVoice) {
-    utterance.voice = preferredVoice;
-  }
-
-  window.speechSynthesis.speak(utterance);
-};
-
-  // 🗣️ VOICE ANNOUNCEMENT FUNCTION
-  const announceOrder = (orderType) => {
-    if (orderType === 'whatsapp') {
-      speak("New WhatsApp Order", 'high');
-    } else {
-      speak("New Order", 'normal');
-    }
+  // ── SPEAK ──
+  const speak = (text, priority = "normal") => {
+    if (!voiceEnabled || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-IN"; u.rate = priority === "high" ? 1.1 : 1;
+    u.pitch = priority === "high" ? 1.2 : 1; u.volume = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const pref = voices.find(v => v.lang.includes("en-IN") || v.name.includes("Google"));
+    if (pref) u.voice = pref;
+    window.speechSynthesis.speak(u);
   };
-useEffect(() => {
-  if (!restaurantId) return;
 
-  initWhatsAppAutoProcessor(restaurantId);
-
-}, [restaurantId]);
-// ===== WAITER CALLS LISTENER =====
-const prevWaiterCallsCount = useRef(0);
-
-useEffect(() => {
-  if (!restaurantId) return;
-
-  const waiterRef = ref(realtimeDB, `waiterCalls/${restaurantId}`);
-  const unsubscribe = onValue(waiterRef, (snap) => {
-    const data = snap.val();
-    if (!data) {
-      prevWaiterCallsCount.current = 0;
-      setWaiterCalls([]);
-      return;
-    }
-
-    const calls = Object.entries(data)
-      .filter(([id, call]) => call.status === 'pending')
-      .map(([id, call]) => ({ id, ...call }))
-      .sort((a, b) => b.calledAt - a.calledAt);
-
-    // Ref se compare karo — stale closure ka issue nahi hoga
-    if (calls.length > prevWaiterCallsCount.current) {
-      speak("Waiter call from table", "high");
-    }
-
-    prevWaiterCallsCount.current = calls.length;
-    setWaiterCalls(calls);
-  });
-
-  return () => unsubscribe();
-}, [restaurantId]);
-
-// Waiter call dismiss karo
-const dismissWaiterCall = async (callId) => {
-  try {
-    await update(ref(realtimeDB, `waiterCalls/${restaurantId}/${callId}`), {
-      status: 'attended',
-      attendedAt: Date.now()
-    });
-  } catch (err) {
-    console.error("Dismiss error:", err);
-  }
-};
-  // Restaurant settings listener
-  useEffect(() => {
-    if (!restaurantId) return;
-    
-    const settingsRef = ref(realtimeDB, `restaurants/${restaurantId}`);
-    const unsubscribe = onValue(settingsRef, (snap) => {
-      if (snap.exists()) {
-        setRestaurantSettings(snap.val());
-      }
-    });
-    
-    return () => unsubscribe();
-  }, [restaurantId]);
-
-  // Auth listener
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        console.log("✅ Admin authenticated:", user.uid);
-        setRestaurantId(user.uid);
-      } else {
-        console.log("❌ No admin user");
-        setRestaurantId(null);
-      }
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-// 🔥🔥🔥 MAIN ORDERS LISTENER WITH VOICE NOTIFICATION
-useEffect(() => {
-  if (!restaurantId) {
-    console.log("ℹ️ No restaurantId, skipping orders listener");
-    return;
-  }
-
-  console.log("🔥 Starting MAIN orders listener for:", restaurantId);
-
-const ordersRef = ref(realtimeDB, `orders`);
-const ordersQuery = query(ordersRef, limitToLast(500));
-
-const unsubscribeOrders = onValue(ordersQuery, (snapshot) => {
-    const data = snapshot.val();
-
-    if (!data) {
-      console.log("ℹ️ No orders in main node");
-      setOrders([]);
-      return;
-    }
-
-    console.log("📦 Total orders in Firebase:", Object.keys(data).length);
-
-    // 🔥🔥🔥 FIX: Better restaurant ID matching
-const myOrders = Object.entries(data)
-  .filter(([orderId, order]) => {
-    if (!order) return false;
-
-    const orderRestId = String(order?.restaurantId || "").trim();
-    const currentUserId = String(restaurantId || "").trim();
-
-    return orderRestId === currentUserId;
-  })
-  .map(([id, order]) => ({
-    id,
-    ...order,
-    source: order?.type || order?.source || "regular"
-  }))
-  .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-    console.log("✅ My orders count:", myOrders.length);
-    console.log("📋 Order IDs:", myOrders.map(o => o.id));
-
-    // 🗣️🗣️🗣️ NEW ORDER DETECTION & VOICE ANNOUNCEMENT
-    const currentOrderIds = myOrders.map(o => o.id);
-    const previousOrderIds = previousOrdersRef.current.map(o => o.id);
-    const isInitialLoadRef = useRef(true);
-   if (isInitialLoadRef.current) {
-  // Pehli baar — sirf existing orders ko mark karo, announce mat karo
-  myOrders.forEach(order => announcedOrdersRef.current.add(order.id));
-  isInitialLoadRef.current = false;
-} else {
-  // Baad mein — naye orders detect karo aur announce karo
-  const newOrders = myOrders.filter(
-    order => !announcedOrdersRef.current.has(order.id)
-  );
-  newOrders.forEach(newOrder => {
-    announcedOrdersRef.current.add(newOrder.id);
-    const isWhatsApp = newOrder.source === 'whatsapp';
-    announceOrder(isWhatsApp ? 'whatsapp' : 'regular');
-    showBrowserNotification(newOrder, isWhatsApp); // Browser notification bhi
-  });
-}
-previousOrdersRef.current = myOrders;
-setOrders(myOrders);
-ordersRefState.current = myOrders;
-    setDebugInfo(prev => ({
-      ...prev,
-      total: Object.keys(data).length,
-      matched: myOrders.length,
-      statuses: myOrders.reduce((acc, o) => {
-        acc[o.status] = (acc[o.status] || 0) + 1;
-        return acc;
-      }, {})
-    }));
-  });
-
-  return () => {
-    console.log("🛑 Stopping main orders listener");
-    unsubscribeOrders();
-  };
-}, [restaurantId, voiceEnabled]);
-
-  // 🔔 BROWSER NOTIFICATION FUNCTION
   const showBrowserNotification = (order, isWhatsApp) => {
     if (!("Notification" in window)) return;
-    
     if (Notification.permission === "granted") {
-      new Notification(isWhatsApp ? "📱 New WhatsApp Order!" : "🍽️ New Order Received!", {
-        body: `Order #${order.id?.slice(-6)} - ₹${order.total || 0}\n${order.customerInfo?.name || 'Customer'}`,
-        icon: "/logo192.png",
-        tag: order.id,
-        requireInteraction: true
+      new Notification(isWhatsApp ? "📱 New WhatsApp Order!" : "🍽️ New Order!", {
+        body: `Order #${order.id?.slice(-6)} — ₹${order.total || 0}\n${order.customerInfo?.name || "Customer"}`,
+        icon: "/logo192.png", tag: order.id, requireInteraction: true,
       });
     } else if (Notification.permission !== "denied") {
-      Notification.requestPermission().then(permission => {
-        if (permission === "granted") {
-          showBrowserNotification(order, isWhatsApp);
-        }
-      });
+      Notification.requestPermission().then(p => { if (p === "granted") showBrowserNotification(order, isWhatsApp); });
     }
   };
 
+  // ── AUTH ──
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) setRestaurantId(user.uid);
+      else setRestaurantId(null);
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
 
+  // ── WHATSAPP PROCESSOR ──
+  useEffect(() => {
+    if (!restaurantId) return;
+    initWhatsAppAutoProcessor(restaurantId);
+  }, [restaurantId]);
 
-  // 🔥🔥🔥 NEW FUNCTION: Complete order + Generate bill automatically
-const AUTO_COMPLETE_GRACE = 2 * 60 * 1000; // 2 minute ka buffer
+  // ── RESTAURANT SETTINGS ──
+  useEffect(() => {
+    if (!restaurantId) return;
+    const unsub = onValue(ref(realtimeDB, `restaurants/${restaurantId}`), (snap) => {
+      if (snap.exists()) setRestaurantSettings(snap.val());
+    });
+    return () => unsub();
+  }, [restaurantId]);
 
-const completeOrderAndGenerateBill = async (orderId) => {
-  if (completingOrdersRef.current.has(orderId)) return;
+  // ── WAITER CALLS ──
+  useEffect(() => {
+    if (!restaurantId) return;
+    const unsub = onValue(ref(realtimeDB, `waiterCalls/${restaurantId}`), (snap) => {
+      const data = snap.val();
+      if (!data) { prevWaiterCallsCount.current = 0; setWaiterCalls([]); return; }
+      const calls = Object.entries(data)
+        .filter(([, c]) => c.status === "pending")
+        .map(([id, c]) => ({ id, ...c }))
+        .sort((a, b) => b.calledAt - a.calledAt);
+      if (calls.length > prevWaiterCallsCount.current) speak("Waiter call from table", "high");
+      prevWaiterCallsCount.current = calls.length;
+      setWaiterCalls(calls);
+    });
+    return () => unsub();
+  }, [restaurantId]);
 
-  completingOrdersRef.current.add(orderId);
+  const dismissWaiterCall = async (callId) => {
+    await update(ref(realtimeDB, `waiterCalls/${restaurantId}/${callId}`), { status: "attended", attendedAt: Date.now() });
+  };
 
-  try {
-    const now = Date.now();
-    const orderRef = ref(realtimeDB, `orders/${orderId}`);
-    const orderSnap = await get(orderRef);
-    if (!orderSnap.exists()) return;
+  // ── ORDERS LISTENER ──
+  useEffect(() => {
+    if (!restaurantId) return;
+    const ordersQuery = query(ref(realtimeDB, "orders"), limitToLast(500));
+    const unsub = onValue(ordersQuery, (snap) => {
+      const data = snap.val();
+      if (!data) { setOrders([]); return; }
 
-    const orderData = orderSnap.val();
+      const myOrders = Object.entries(data)
+        .filter(([, o]) => o && String(o.restaurantId || "").trim() === String(restaurantId).trim())
+        .map(([id, o]) => ({ id, ...o, source: o.type || o.source || "regular" }))
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-    // Agar already complete hai, exit
-    if (orderData.status === "completed" || orderData.completedAt) return;
-
-    // Sirf tab auto-complete karo jab grace period khatam ho jaye
-    const prepEndsAt = Number(orderData.prepEndsAt || 0);
-    if (now < prepEndsAt + AUTO_COMPLETE_GRACE) {
-      console.log(`⏳ Order ${orderId} ready hai, grace period wait kar rahe hain`);
-      return;
-    }
-
-    const updates = {
-      status: "completed",
-      completedAt: now,
-      updatedAt: now,
-      autoCompleted: true
-    };
-
-    await update(orderRef, updates);
-    console.log("✅ Order auto-completed:", orderId);
-  } catch (err) {
-    console.error("Auto complete error:", err);
-  } finally {
-    completingOrdersRef.current.delete(orderId);
-  }
-};
-useEffect(() => {
-
-  const timer = setInterval(() => {
-
-    const currentTime = Date.now();
-    setNow(currentTime);
-
-    if (!autoCompleteEnabled) return;
-
-    const currentOrders = ordersRefState.current || [];
-
- currentOrders
-  .filter(o => {
-    const status = String(o.status || "").toLowerCase();
-    return status !== "completed" && status !== "cancelled";
-  })
-  .forEach((order) => {
-    if (!order.prepEndsAt) return;
-
-    const prepEnd = Number(order.prepEndsAt);
-    const currentTime = Date.now();
-
-    if (currentTime >= prepEnd) {
-      // Pehle order ka status "ready" kar do
-      if (order.status !== "ready") {
-        console.log("⏰ Order ready mark kar rahe hain:", order.id);
-        updateStatus(order.id, "ready");
+      if (isInitialLoadRef.current) {
+        myOrders.forEach(o => announcedOrdersRef.current.add(o.id));
+        isInitialLoadRef.current = false;
+      } else {
+        myOrders
+          .filter(o => !announcedOrdersRef.current.has(o.id))
+          .forEach(o => {
+            announcedOrdersRef.current.add(o.id);
+            speak(o.source === "whatsapp" ? "New WhatsApp Order" : "New Order", o.source === "whatsapp" ? "high" : "normal");
+            showBrowserNotification(o, o.source === "whatsapp");
+          });
       }
 
-      // Phir grace period ke baad auto-complete
-      completeOrderAndGenerateBill(order.id);
+      previousOrdersRef.current = myOrders;
+      ordersRefState.current = myOrders;
+      setOrders(myOrders);
+      setDebugInfo({
+        total: Object.keys(data).length,
+        matched: myOrders.length,
+        statuses: myOrders.reduce((acc, o) => { acc[o.status] = (acc[o.status] || 0) + 1; return acc; }, {}),
+      });
+    });
+    return () => unsub();
+  }, [restaurantId, voiceEnabled]);
+
+  // ── AUTO-COMPLETE TIMER ──
+  const AUTO_COMPLETE_GRACE = 2 * 60 * 1000;
+
+  const completeOrderAndGenerateBill = async (orderId) => {
+    if (completingOrdersRef.current.has(orderId)) return;
+    completingOrdersRef.current.add(orderId);
+    try {
+      const snap = await get(ref(realtimeDB, `orders/${orderId}`));
+      if (!snap.exists()) return;
+      const d = snap.val();
+      if (d.status === "completed" || d.completedAt) return;
+      const prepEndsAt = Number(d.prepEndsAt || 0);
+      if (Date.now() < prepEndsAt + AUTO_COMPLETE_GRACE) return;
+      await update(ref(realtimeDB, `orders/${orderId}`), { status: "completed", completedAt: Date.now(), updatedAt: Date.now(), autoCompleted: true });
+    } catch (e) { console.error(e); }
+    finally { completingOrdersRef.current.delete(orderId); }
+  };
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+      if (!autoCompleteEnabled) return;
+      (ordersRefState.current || [])
+        .filter(o => !["completed", "cancelled"].includes(String(o.status || "").toLowerCase()))
+        .forEach(o => {
+          if (!o.prepEndsAt) return;
+          if (Date.now() >= Number(o.prepEndsAt)) {
+            if (o.status !== "ready") updateStatus(o.id, "ready");
+            completeOrderAndGenerateBill(o.id);
+          }
+        });
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [autoCompleteEnabled]);
+
+  // ── STATUS UPDATE ──
+  const updateStatus = async (id, status) => {
+    const order = ordersRefState.current.find(o => o.id === id);
+    const t = Date.now();
+    const updates = { status: status.toLowerCase(), updatedAt: t };
+    if (status === "preparing" || status === "ready") {
+      const prepTime = order?.prepTime || 5;
+      updates.prepStartedAt = t;
+      updates.prepEndsAt = t + prepTime * 60 * 1000;
     }
-  });
-  }, 2000);
-
-  return () => clearInterval(timer);
-
-}, [autoCompleteEnabled]);
-  // 🔥🔥🔥 MANUAL STATUS UPDATE (Sirf Ready/Preparing ke liye)
- const updateStatus = async (id, status) => {
-
-  const order = orders.find(o => o.id === id);
-
-  const now = Date.now();
-  const orderRef = ref(realtimeDB, `orders/${id}`);
-
- const updates = { 
-  status: status.toLowerCase(),
-  updatedAt: now
-};
-
-if (status === "preparing" || status === "ready") {
-
-  const prepTime = order?.prepTime || 5;
-
-  updates.prepStartedAt = now;
-  updates.prepEndsAt = now + prepTime * 60 * 1000;
-
-}
-console.log("Checking order:", order.id, order.prepEndsAt);
-  await update(orderRef, updates);
-}
+    await update(ref(realtimeDB, `orders/${id}`), updates);
+  };
 
   const deleteOrder = async (id) => {
     if (!window.confirm("Delete this order permanently?")) return;
-    try {
-      await remove(ref(realtimeDB, `orders/${id}`));
-      await remove(ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`)).catch(() => {});
-      await remove(ref(realtimeDB, `kitchenOrders/${restaurantId}/${id}`)).catch(() => {});
-    } catch (error) {
-      console.error("Delete error:", error);
-      alert("Failed to delete order");
-    }
+    await remove(ref(realtimeDB, `orders/${id}`));
+    await remove(ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`)).catch(() => {});
   };
 
-  // 🔥🔥🔥 MANUAL BILL GENERATE (Agar auto-fail ho jaye toh backup)
   const generateBill = async (order) => {
-    try {
-      if (order.bill) {
-        alert("Bill already generated!");
-        return;
-      }
-
-      const billData = {
-        orderId: order.id,
-        customerName: order.customerInfo?.name || order.customerName,
-        hotelName: order.hotelName,
-        orderDate: order.orderDetails?.orderDate || order.orderDate,
-        total: order.total,
-        items: order.items,
-        generatedAt: Date.now(),
-        generatedBy: "admin",
-        status: "ready_for_customer"
-      };
-
-      const orderRef = ref(realtimeDB, `orders/${order.id}`);
-      await update(orderRef, { 
-        bill: billData,
-        billGeneratedAt: Date.now()
-      });
-
-      alert("✅ Bill Generated!");
-    } catch (error) {
-      console.error("Bill generation error:", error);
-      alert("Failed to generate bill");
-    }
+    if (order.bill) { alert("Bill already generated!"); return; }
+    const billData = { orderId: order.id, customerName: order.customerInfo?.name, total: order.total, items: order.items, generatedAt: Date.now(), generatedBy: "admin", status: "ready_for_customer" };
+    await update(ref(realtimeDB, `orders/${order.id}`), { bill: billData, billGeneratedAt: Date.now() });
+    alert("✅ Bill Generated!");
   };
 
   const updatePaymentStatus = async (orderId, status) => {
-    try {
-      const orderRef = ref(realtimeDB, `orders/${orderId}`);
-      await update(orderRef, { paymentStatus: status });
-    } catch (error) {
-      console.error("Payment update error:", error);
-    }
+    await update(ref(realtimeDB, `orders/${orderId}`), { paymentStatus: status });
   };
 
-  // Date filter functions
-  const isToday = (ts) => {
-    if (!ts || isNaN(ts)) return false;
-    const d = new Date(ts);
-    const t = new Date();
-    return d.toDateString() === t.toDateString();
-  };
-
-  const isYesterday = (ts) => {
-    if (!ts || isNaN(ts)) return false;
-    const d = new Date(ts);
-    const y = new Date();
-    y.setDate(y.getDate() - 1);
-    return d.toDateString() === y.toDateString();
-  };
-
-  const isThisWeek = (ts) => {
-    if (!ts || isNaN(ts)) return false;
-    const d = new Date(ts);
-    const n = new Date();
-    const weekStart = new Date(n);
-    weekStart.setDate(n.getDate() - n.getDay());
-    weekStart.setHours(0, 0, 0, 0);
-    return d >= weekStart;
-  };
-
-  const isThisMonth = (ts) => {
-    if (!ts || isNaN(ts)) return false;
-    const d = new Date(ts);
-    const n = new Date();
-    return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear();
-  };
-
-  const isInDateRange = (ts, start, end) => {
-    if (!ts || isNaN(ts)) return false;
-    const orderDate = new Date(ts);
-    const startDate = start ? new Date(start) : new Date(0);
-    const endDate = end ? new Date(end) : new Date(8640000000000000);
-    endDate.setHours(23, 59, 59, 999);
-    return orderDate >= startDate && orderDate <= endDate;
-  };
+  // ── DATE FILTERS ──
+  const isToday = (ts) => ts && new Date(ts).toDateString() === new Date().toDateString();
+  const isYesterday = (ts) => { if (!ts) return false; const y = new Date(); y.setDate(y.getDate() - 1); return new Date(ts).toDateString() === y.toDateString(); };
+  const isThisWeek = (ts) => { if (!ts) return false; const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay()); ws.setHours(0,0,0,0); return new Date(ts) >= ws; };
+  const isThisMonth = (ts) => { if (!ts) return false; const n = new Date(); return new Date(ts).getMonth() === n.getMonth() && new Date(ts).getFullYear() === n.getFullYear(); };
+  const isInDateRange = (ts, s, e) => { if (!ts) return false; const d = new Date(ts), sd = s ? new Date(s) : new Date(0), ed = e ? new Date(e) : new Date(8640000000000000); ed.setHours(23,59,59,999); return d >= sd && d <= ed; };
 
   const getFilteredOrders = () => {
-    let filtered = orders;
-
-    if (customFilter && dateRange.start && dateRange.end) {
-      filtered = filtered.filter(order => isInDateRange(order.createdAt, dateRange.start, dateRange.end));
-    } else {
-      switch (selectedFilter) {
-        case "today":
-          filtered = filtered.filter(order => isToday(order.createdAt));
-          break;
-        case "yesterday":
-          filtered = filtered.filter(order => isYesterday(order.createdAt));
-          break;
-        case "week":
-          filtered = filtered.filter(order => isThisWeek(order.createdAt));
-          break;
-        case "month":
-          filtered = filtered.filter(order => isThisMonth(order.createdAt));
-          break;
-        case "total":
-        default:
-          break;
-      }
+    if (customFilter && dateRange.start && dateRange.end)
+      return orders.filter(o => isInDateRange(o.createdAt, dateRange.start, dateRange.end));
+    switch (selectedFilter) {
+      case "today":     return orders.filter(o => isToday(o.createdAt));
+      case "yesterday": return orders.filter(o => isYesterday(o.createdAt));
+      case "week":      return orders.filter(o => isThisWeek(o.createdAt));
+      case "month":     return orders.filter(o => isThisMonth(o.createdAt));
+      default:          return orders;
     }
-
-    return filtered;
   };
 
   const filteredOrders = getFilteredOrders();
+  const DONE = ["completed", "delivered", "cancelled", "rejected"];
+  const activeOrders    = filteredOrders.filter(o => !DONE.includes(String(o.status || "").toLowerCase().trim()));
+  const completedOrders = filteredOrders.filter(o =>  DONE.includes(String(o.status || "").toLowerCase().trim()));
 
-const COMPLETED_STATUSES = ["completed","delivered","cancelled","rejected"];
-
-const activeOrders = filteredOrders.filter(order => {
-  const status = String(order.status || "").toLowerCase().trim();
-  return !COMPLETED_STATUSES.includes(status);
-});
-
-const completedOrders = filteredOrders.filter(order => {
-  const status = String(order.status || "").toLowerCase().trim();
-  return COMPLETED_STATUSES.includes(status);
-});
-
-  if (loading) return <div className="p-6">Loading...</div>;
-  if (!restaurantId) return <div className="p-6 text-red-500">Please login as admin</div>;
-
-  return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h2 className="text-2xl font-bold mb-4">🍽 Orders Dashboard</h2>
-
-      {/* 🗣️ VOICE TOGGLE CONTROL */}
-      <div className="bg-indigo-100 p-3 mb-4 rounded border border-indigo-400 flex items-center justify-between">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input 
-            type="checkbox" 
-            checked={voiceEnabled}
-            onChange={(e) => setVoiceEnabled(e.target.checked)}
-            className="w-4 h-4 accent-indigo-600"
-          />
-          <span className="text-sm font-medium text-indigo-900">
-            🗣️ Voice Notifications {voiceEnabled ? 'ON' : 'OFF'}
-          </span>
-        </label>
-        <div className="text-xs text-indigo-700">
-          {voiceEnabled ? "🔊 Says: 'New Order' & 'New WhatsApp Order'" : "🔇 Voice muted"}
-        </div>
-        <button
-          onClick={() => {
-            speak("New Order");
-            setTimeout(() => speak("New WhatsApp Order", 'high'), 2000);
-          }}
-          className="px-3 py-1 bg-indigo-600 text-white rounded text-xs hover:bg-indigo-700"
-        >
-          🎙️ Test Voice
-        </button>
-      </div>
-
-      {/* DEBUG PANEL */}
-      <div className="bg-red-100 p-3 mb-4 text-xs rounded border border-red-400">
-        <p><strong>🐛 DEBUG:</strong> Admin ID: {restaurantId}</p>
-        <p>Active: {activeOrders.length} | Completed: {completedOrders.length}</p>
-        <p className="font-bold text-red-700">
-          Status Distribution: {JSON.stringify(debugInfo.statuses)}
-        </p>
-      </div>
-
-      {/* AUTO-COMPLETE TOGGLE */}
-      <div className="bg-purple-100 p-3 mb-4 rounded border border-purple-400">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input 
-            type="checkbox" 
-            checked={autoCompleteEnabled}
-            onChange={(e) => setAutoCompleteEnabled(e.target.checked)}
-            className="w-4 h-4"
-          />
-          <span className="text-sm font-medium text-purple-900">⏰ Auto-Complete Orders (When prep time finishes)</span>
-        </label>
-      </div>
-
-      {/* Show All Orders Toggle */}
-      <div className="bg-blue-100 p-3 mb-4 rounded border border-blue-400">
-      
-      </div>
-
-      {/* Date Filter Controls */}
-      <div className="bg-white p-4 rounded-lg border mb-6 shadow-sm">
-        <h3 className="font-bold mb-3">📅 Date Filter</h3>
-
-        <div className="flex gap-2 mb-4 flex-wrap">
-          {[
-            { key: "today", label: "Today" },
-            { key: "yesterday", label: "Yesterday" },
-            { key: "week", label: "This Week" },
-            { key: "month", label: "This Month" },
-            { key: "total", label: "All Time" },
-            { key: "custom", label: "Custom Range" },
-          ].map((filter) => (
-            <button
-              key={filter.key}
-              onClick={() => {
-                setSelectedFilter(filter.key);
-                setCustomFilter(filter.key === "custom");
-              }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                selectedFilter === filter.key
-                  ? "bg-[#8A244B] text-white border-[#8A244B]"
-                  : "bg-white hover:bg-gray-50"
-              }`}
-            >
-              {filter.label}
-            </button>
-          ))}
-        </div>
-
-        {customFilter && (
-          <div className="flex gap-4 items-end bg-gray-50 p-3 rounded">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
-              <input
-                type="date"
-                value={dateRange.start}
-                onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
-                className="border rounded px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
-              <input
-                type="date"
-                value={dateRange.end}
-                onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
-                className="border rounded px-3 py-2 text-sm"
-              />
-            </div>
-            <button
-              onClick={() => setCustomFilter(false)}
-              className="px-4 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
-            >
-              Apply
-            </button>
-          </div>
-        )}
-      </div>
-{/* ===== WAITER CALLS PANEL ===== */}
-{waiterCalls.length > 0 && (
-  <div className="mb-6 bg-orange-50 border-2 border-orange-400 rounded-xl p-4 animate-pulse">
-    <h3 className="font-bold text-orange-800 mb-3 flex items-center gap-2">
-      🔔 Waiter Calls
-      <span className="bg-orange-500 text-white px-2 py-1 rounded-full text-xs">
-        {waiterCalls.length}
-      </span>
-    </h3>
-    <div className="space-y-2">
-      {waiterCalls.map(call => (
-        <div
-          key={call.id}
-          className="flex justify-between items-center bg-white p-3 rounded-lg border border-orange-200"
-        >
-          <div>
-            <p className="font-bold text-sm">
-              🪑 Table: {call.tableNumber || 'Unknown'}
-            </p>
-            <p className="text-xs text-gray-500">
-              👤 {call.customerName} •{" "}
-              {new Date(call.calledAt).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </p>
-          </div>
-          <button
-            onClick={() => dismissWaiterCall(call.id)}
-            className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs font-bold hover:bg-green-600 transition"
-          >
-            ✅ Attended
-          </button>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-      {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-yellow-100 p-4 rounded-lg border border-yellow-400 text-center">
-          <p className="text-2xl font-bold text-yellow-800">{activeOrders.length}</p>
-          <p className="text-xs text-yellow-700">Active Orders</p>
-        </div>
-        <div className="bg-green-100 p-4 rounded-lg border border-green-400 text-center">
-          <p className="text-2xl font-bold text-green-800">{completedOrders.length}</p>
-          <p className="text-xs text-green-700">Completed</p>
-        </div>
-        <div className="bg-blue-100 p-4 rounded-lg border border-blue-400 text-center">
-          <p className="text-2xl font-bold text-blue-800">₹{filteredOrders.reduce((sum, o) => sum + (o.total || 0), 0)}</p>
-          <p className="text-xs text-blue-700">Total Revenue</p>
-        </div>
-      </div>
-
-      {/* ACTIVE ORDERS */}
-      <h3 className="font-bold mt-8 mb-2 text-lg flex items-center gap-2">
-        🟡 Active Orders 
-        <span className="bg-yellow-500 text-white px-2 py-1 rounded-full text-sm">{activeOrders.length}</span>
-      </h3>
-
-      {activeOrders.length === 0 ? (
-        <div className="bg-gray-100 p-8 rounded text-center mb-8 border-2 border-dashed border-gray-300">
-          <p className="text-gray-500 text-lg">No active orders</p>
-        </div>
-      ) : (
-        <div className="space-y-4 mb-8">
-          {activeOrders.map((order) => (
-            <OrderCard 
-              key={order.id} 
-              order={order} 
-              now={now}
-              isActive={true}
-              onDelete={deleteOrder}
-              onUpdateStatus={updateStatus}
-              onUpdatePayment={updatePaymentStatus}
-              onGenerateBill={generateBill}
-              autoCompleteEnabled={autoCompleteEnabled}
-              theme={restaurantSettings?.theme}  
-            />
-          ))}
-        </div>
-      )}
-
-      {/* COMPLETED ORDERS */}
-      <h3 className="font-bold mt-8 mb-2 text-lg flex items-center gap-2">
-        ✅ Completed Orders
-        <span className="bg-green-500 text-white px-2 py-1 rounded-full text-sm">{completedOrders.length}</span>
-      </h3>
-
-      {completedOrders.length === 0 ? (
-        <div className="bg-gray-100 p-8 rounded text-center mb-8 border-2 border-dashed border-gray-300">
-          <p className="text-gray-500">No completed orders yet</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {completedOrders.map((order) => (
-            <OrderCard 
-              key={order.id} 
-              order={order} 
-              now={now}
-              isActive={false}
-              onDelete={deleteOrder}
-              onUpdateStatus={updateStatus}
-              onUpdatePayment={updatePaymentStatus}
-              onGenerateBill={generateBill}
-            />
-          ))}
-        </div>
-      )}
+  if (loading) return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", flexDirection: "column", gap: 12, fontFamily: "'DM Sans', sans-serif" }}>
+      <div style={{ width: 40, height: 40, border: "4px solid #e5e7eb", borderTop: `4px solid ${PRIMARY}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <span style={{ color: PRIMARY, fontWeight: 600 }}>Loading orders...</span>
     </div>
   );
-}
 
-
-function OrderCard({ order, now, isActive, onDelete, onUpdateStatus, onUpdatePayment, onGenerateBill, autoCompleteEnabled, theme }) {
-
-  const isWhatsAppOrder = order.source === 'whatsapp' || order.type === 'whatsapp' || order.whatsappStatus;
-
-  // 🍯🌶️🧂 TASTE LEVEL BADGE COMPONENT - FIXED
-  const TasteBadge = ({ type, level }) => {
-    // Don't show if level is normal, null, or undefined
-    if (!level) return null;
-    
-    const configs = {
-     // TasteBadge ke andar configs object mein spiciness replace karo:
-spiciness: {
-  icon: '🌶️',
-  label: 'Spicy',
-  colors: {
-    normal:  'bg-green-50 text-green-700 border-green-200',
-    medium:  'bg-yellow-50 text-yellow-700 border-yellow-200',
-    spicy:   'bg-red-100 text-red-800 border-red-300',
-  }
-},
-// sweetness ke liye sweetLevel values: "less", "normal", "extra"
-sweetness: {
-  icon: '🍯',
-  label: 'Sweet',
-  colors: {
-    less:   'bg-blue-50 text-blue-700 border-blue-200',
-    normal: 'bg-blue-100 text-blue-800 border-blue-300',
-    extra:  'bg-blue-300 text-blue-950 border-blue-500',
-  }
-},
-// salt ke liye saltPreference values: "less", "normal", "extra"  
-salt: {
-  icon: '🧂',
-  label: 'Salt',
-  colors: {
-    less:   'bg-gray-50 text-gray-600 border-gray-200',
-    normal: 'bg-gray-100 text-gray-700 border-gray-300',
-    extra:  'bg-gray-300 text-gray-900 border-gray-500',
-  }
-}
-    };
-
-    const config = configs[type];
-    if (!config) return null;
-
-    // Handle both lowercase and capitalized levels
-    const normalizedLevel = level.toLowerCase();
-    const colorClass = config.colors[level] || config.colors[normalizedLevel] || 'bg-gray-100 text-gray-800 border-gray-300';
-
-    return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold border ${colorClass} shadow-sm`}>
-        <span className="text-sm">{config.icon}</span>
-        <span>{config.label}: {level}</span>
-      </span>
-    );
-  };
-
-  // 🥗 SALAD BADGE - FIXED
-  const SaladBadge = ({ include }) => {
-    if (!include || include === 'false' || include === false) return null;
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold border bg-green-50 text-green-700 border-green-200 shadow-sm">
-        <span className="text-sm">🥗</span>
-        <span>Salad Included</span>
-      </span>
-    );
-  };
-
-  const getDishProgress = (item) => {
-    if (!item.prepStartedAt || item.itemStatus === 'ready') return null;
-    
-    const totalTime = (item.prepTime || 15) * 60 * 1000;
-    const elapsed = now - item.prepStartedAt;
-    const percent = Math.min(100, Math.floor((elapsed / totalTime) * 100));
-    const remaining = Math.ceil((totalTime - elapsed) / 60000);
-    
-    return { percent, remaining, total: item.prepTime || 15 };
-  };
-
-  const getRemainingTime = (prepEndsAt) => {
-    if (!prepEndsAt || isNaN(prepEndsAt)) return 0;
-    const remaining = Math.ceil(Math.max(0, prepEndsAt - now) / 60000);
-    return remaining;
-  };
-
-  const remainingMinutes = isActive ? getRemainingTime(order.prepEndsAt) : 0;
-
-  const getTimerColor = () => {
-    if (remainingMinutes <= 0) return "text-red-600 font-bold";
-    if (remainingMinutes <= 2) return "text-orange-600 font-bold";
-    return "text-green-600";
-  };
-
-  const getPaymentBadge = (order) => {
-    const method = order.paymentMethod || "online";
-    const status = order.paymentStatus || "pending";
-
-    if (method === "cash") {
-      if (status === "pending_cash") {
-        return <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-bold">💵 Cash Pending</span>;
-      }
-      return <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold">💵 Cash Received</span>;
-    }
-
-    if (status === "pending_online") {
-      return <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs font-bold">💳 Online Pending</span>;
-    }
-    if (status === "paid_online") {
-      return <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-bold">💳 Online Paid</span>;
-    }
-    return <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs font-bold">💳 Payment</span>;
-  };
-
-  // Get order type icon
-  const getOrderTypeIcon = (type) => {
-    switch(type) {
-      case 'dine-in': return '🍽️';
-      case 'takeaway': return '📦';
-      case 'delivery': return '🛵';
-      default: return '🍽️';
-    }
-  };
+  if (!restaurantId) return <div style={{ padding: 24, color: "#dc2626", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>Please login as admin</div>;
 
   return (
-    <div
-      className={`border rounded-xl p-4 shadow-sm ${
-        isActive 
-          ?order.status === "ready" || order.status === "completed" ? "border-green-500 bg-green-50" : "border-yellow-300 bg-yellow-50"
-          : "border-blue-300 bg-blue-50"
-      } ${isWhatsAppOrder ? 'border-l-4 border-l-green-500' : ''}`}
-    >
-      <div className="flex justify-between items-start mb-3">
-        <div>
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <p className="font-bold text-sm">
-              Order #{order.id?.slice(-6) || 'N/A'}
-              {isWhatsAppOrder && (
-                <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs animate-pulse">
-                  📱 WhatsApp
-                </span>
-              )}
-            </p>
-            {getPaymentBadge(order)}
-            {!isActive && <span className="px-2 py-1 bg-blue-200 text-blue-800 rounded text-xs">✅ Completed</span>}
-            {isActive && remainingMinutes <= 0 && (
-              <span className="px-2 py-1 bg-red-200 text-red-800 rounded text-xs font-bold animate-pulse">
-                ⏰ TIME UP!
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-gray-500">
-            📅 {order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"}
-          </p>
-
-          {/* Overall Order Timer */}
-          {isActive && order.status === "preparing" && (
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs text-gray-600">⏱️ Order Time Remaining:</span>
-              <span className={`text-sm ${getTimerColor()}`}>
-                {remainingMinutes > 0 ? `${remainingMinutes} min` : "TIME'S UP!"}
-              </span>
-              {autoCompleteEnabled && remainingMinutes <= 0 && (
-                <span className="text-xs text-purple-600">(Auto-completing...)</span>
-              )}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-col items-end gap-1">
-          <span className={`text-xs font-bold capitalize px-2 py-1 rounded ${
-            order.status === 'ready' ? 'bg-green-200 text-green-800' :
-            order.status === 'preparing' ? 'bg-yellow-200 text-yellow-800' :
-            order.status === 'completed' ? 'bg-blue-200 text-blue-800' :
-            'bg-gray-200 text-gray-800'
-          }`}>
-            {order.status || 'unknown'}
-          </span>
-
-          {/* Overall Progress Bar */}
-          {isActive && order.prepEndsAt && order.prepStartedAt && (
-            <div className="w-24 h-1 bg-gray-200 rounded-full mt-1 overflow-hidden">
-              <div 
-                className={`h-full transition-all duration-1000 ${
-                  remainingMinutes <= 0 ? 'bg-red-500' : 
-                  remainingMinutes <= 2 ? 'bg-orange-500' : 'bg-green-500'
-                }`}
-                style={{
-                  width: `${Math.min(
-                    100,
-                    ((now - (order.prepStartedAt || now)) /
-                    Math.max(1, (order.prepEndsAt || now) - (order.prepStartedAt || now))) * 100
-                  )}%`
-                }}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* CUSTOMER & ORDER DETAILS */}
-      <div className="bg-white rounded-lg p-3 mb-3 border">
-        <h4 className="text-xs font-bold text-gray-700 mb-2">👤 Customer Details</h4>
-        
-        {/* Order Type & Table Number */}
-        <div className="flex flex-wrap gap-2 mb-3">
-          <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-bold">
-            {getOrderTypeIcon(order.orderDetails?.type)} 
-            <span className="capitalize">{order.orderDetails?.type || 'Dine-in'}</span>
-          </span>
-          
-          {/* TABLE NUMBER */}
-          {order.orderDetails?.tableNumber && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-bold">
-              🪑 Table #{order.orderDetails.tableNumber}
-            </span>
-          )}
-          
-          {order.orderDetails?.numberOfGuests > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">
-              👥 {order.orderDetails.numberOfGuests} Guests
-            </span>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <p>
-            <span className="text-gray-500">Name:</span> 
-            <span className="font-medium ml-1">{order.customerInfo?.name || order.customerName || "N/A"}</span>
-          </p>
-          <p>
-            <span className="text-gray-500">Phone:</span> 
-            <span className="font-medium ml-1">{order.customerInfo?.phone || order.customerPhone || "N/A"}</span>
-          </p>
-        </div>
-        
-        {/* Order Level Special Instructions */}
-        {order.orderDetails?.specialInstructions && (
-          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-            <p className="text-[10px] font-bold text-yellow-800 mb-1">📝 Order Instructions:</p>
-            <p className="text-xs text-yellow-900">{order.orderDetails.specialInstructions}</p>
-          </div>
-        )}
-      </div>
-
-      {/* ITEMS WITH FIXED TASTE BADGES */}
-      <div className="border rounded-lg p-3 mb-3 bg-white">
-        <h4 className="text-xs font-bold text-gray-700 mb-2">
-          🍽️ Items ({getItemsArray(order.items).length})
-        </h4>
-        {getItemsArray(order.items).length > 0 ? (
-          <div className="space-y-3">
-            {getItemsArray(order.items).map((item, index) => {
-              const progress = getDishProgress(item);
-              const isDishReady = item.itemStatus === 'ready' || item.itemReadyAt;
-              
-              return (
-                <div key={`${order.id}-${item?.dishId || index}`} className="flex flex-col p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="flex items-start gap-3">
-                    <img 
-                      src={item?.image || "/no-image.png"} 
-                      className="w-12 h-12 rounded-lg object-cover flex-shrink-0" 
-                      alt={item?.name || 'Item'} 
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                        <p className="text-sm font-semibold truncate">{item?.name || 'Unknown'}</p>
-                        <span className="text-sm font-bold text-gray-600 ml-2">₹{(item?.price || 0) * (item?.qty || 0)}</span>
-                      </div>
-                      
-                      <p className="text-xs text-gray-500 mb-2">Qty: {item?.qty || 0} × ₹{item?.price || 0}</p>
-                      
-                      {/* 🏷️ TASTE PREFERENCE BADGES - FIXED */}
-                <div className="flex flex-wrap gap-1.5 mb-2">
-  {/* Sweet dish hai toh sirf sweetness dikhao */}
-  {item.dishTasteProfile === "sweet" ? (
     <>
-      <TasteBadge type="sweetness" level={item.sweetLevel} />
-      <TasteBadge type="salt" level={item.saltPreference} />
-    </>
-  ) : (
-    <>
-      {/* Non-sweet dish ke liye spice aur salt */}
-      <TasteBadge type="spiciness" level={item.spicePreference} />
-      <TasteBadge type="salt" level={item.saltPreference} />
-    </>
-  )}
-  <SaladBadge include={item.salad?.qty > 0} />
-</div>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        .ao-wrap { font-family: 'DM Sans', sans-serif; padding: 16px; max-width: 900px; margin: 0 auto; }
+        @media (min-width: 640px) { .ao-wrap { padding: 24px; } }
+        .ao-title { font-size: 22px; font-weight: 800; color: #111827; margin-bottom: 16px; }
+        .ao-ctrl-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; }
+        .ao-ctrl-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #374151; cursor: pointer; }
+        .ao-ctrl-hint { font-size: 11px; color: #9ca3af; }
+        .ao-btn-sm { padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; font-family: 'DM Sans', sans-serif; }
+        .ao-filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+        .ao-filter-btn { padding: 7px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1.5px solid #e5e7eb; background: #fff; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+        .ao-filter-btn:hover { background: #f9fafb; }
+        .ao-filter-btn.active { background: ${PRIMARY}; color: #fff; border-color: ${PRIMARY}; }
+        .ao-date-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; background: #f9fafb; border-radius: 10px; padding: 10px; }
+        .ao-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+        @media (max-width: 400px) { .ao-stats-grid { grid-template-columns: 1fr; } }
+        .ao-stat-card { border-radius: 12px; padding: 14px; text-align: center; }
+        .ao-stat-num { font-size: 26px; font-weight: 800; line-height: 1; }
+        .ao-stat-lbl { font-size: 11px; font-weight: 500; margin-top: 3px; }
+        .ao-section-title { font-size: 16px; font-weight: 800; color: #111827; display: flex; align-items: center; gap: 8px; margin: 20px 0 10px; }
+        .ao-badge { padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+        .ao-empty { background: #f9fafb; border: 2px dashed #e5e7eb; border-radius: 14px; padding: 40px 16px; text-align: center; color: #9ca3af; font-size: 14px; margin-bottom: 16px; }
+        .ao-waiter { background: #fff7ed; border: 2px solid #fb923c; border-radius: 14px; padding: 14px; margin-bottom: 16px; }
+        .ao-waiter-title { font-weight: 800; color: #9a3412; font-size: 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .ao-waiter-card { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #fed7aa; border-radius: 10px; padding: 10px 12px; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
+        .ao-debug { background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; font-size: 11px; color: #7f1d1d; }
+      `}</style>
 
-                      {/* Item Level Special Instructions */}
-                      {item.specialInstructions && (
-                        <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
-                          <p className="text-[10px] font-bold text-blue-800 mb-0.5">📝 Note:</p>
-                          <p className="text-xs text-blue-900">{item.specialInstructions}</p>
-                        </div>
-                      )}
-                      
-                      {/* Individual Dish Progress Bar */}
-                      {isActive && order.status !== 'pending' && progress && !isDishReady && (
-                        <div className="mt-3">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-[10px] text-gray-500 flex items-center gap-1">
-                              <span className="animate-pulse">👨‍🍳</span> Cooking...
-                            </span>
-                            <span className="text-[10px] font-bold" style={{ color: theme?.primary || "#8A244B" }}>
-                              {progress.percent}%
-                            </span>
-                          </div>
-                          
-                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
-                            <div 
-                              className="h-full transition-all duration-1000 ease-linear rounded-full"
-                              style={{ 
-                                width: `${progress.percent}%`,
-                                backgroundColor: theme?.primary || "#8A244B",
-                                boxShadow: '0 0 8px rgba(138, 36, 75, 0.3)'
-                              }}
-                            />
-                          </div>
-                          
-                          <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
-                            <span>⏱️ {progress.total} min total</span>
-                            <span className={progress.remaining <= 2 ? "text-red-500 font-bold" : ""}>
-                              {progress.remaining <= 0 ? "Almost ready!" : `~${progress.remaining} min left`}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Ready Status */}
-                      {isDishReady && (
-                        <div className="mt-2 flex items-center gap-1 text-green-600 font-bold text-xs">
-                          <span>✅ Ready</span>
-                          <span className="text-[10px] text-gray-400 ml-1">
-                            ({new Date(item.itemReadyAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-xs text-gray-500 italic">No items</p>
-        )}
-      </div>
+      <div className="ao-wrap">
+        <h2 className="ao-title">🍽️ Orders Dashboard</h2>
 
-      <div className="flex justify-between items-center mt-3 pt-3 border-t">
-        <div>
-          <span className="font-bold text-lg">Total: ₹{order.total || 0}</span>
-          {order.paymentMethod === "cash" && order.paymentStatus === "pending_cash" && (
-            <button
-              onClick={() => onUpdatePayment(order.id, "cash_received")}
-              className="ml-3 px-3 py-1 bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700"
-            >
-              ✅ Mark Cash Received
-            </button>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {/* Active Orders Buttons */}
-          {isActive && (
-            <>
-              {order.status === 'preparing' && (
-                <button 
-                  onClick={() => onUpdateStatus(order.id, "ready")}
-                  className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700"
-                >
-                  Mark Ready
-                </button>
-              )}
-            </>
-          )}
-
-          {/* Completed Orders - Generate Bill */}
-          {!isActive && order.status === 'completed' && !order.bill && (
-            <button 
-              onClick={() => onGenerateBill(order)}
-              className="px-3 py-1 bg-purple-600 text-white rounded-lg text-xs hover:bg-purple-700 animate-pulse"
-            >
-              🧾 Generate Bill
-            </button>
-          )}
-
-          {order.bill && (
-            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-xs font-bold">
-              ✅ Bill Ready
-            </span>
-          )}
-
-          <button onClick={() => onDelete(order.id)}
-            className="px-3 py-1 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700">
-            Delete
+        {/* Voice Toggle */}
+        <div className="ao-ctrl-row">
+          <label className="ao-ctrl-label">
+            <input type="checkbox" checked={voiceEnabled} onChange={e => setVoiceEnabled(e.target.checked)} style={{ width: 16, height: 16, accentColor: PRIMARY }} />
+            🗣️ Voice Notifications {voiceEnabled ? "ON" : "OFF"}
+          </label>
+          <div className="ao-ctrl-hint">{voiceEnabled ? "🔊 'New Order' & 'New WhatsApp Order'" : "🔇 Muted"}</div>
+          <button className="ao-btn-sm" style={{ background: "#4f46e5", color: "#fff" }} onClick={() => { speak("New Order"); setTimeout(() => speak("New WhatsApp Order", "high"), 2000); }}>
+            🎙️ Test
           </button>
         </div>
+
+        {/* Auto-complete Toggle */}
+        <div className="ao-ctrl-row">
+          <label className="ao-ctrl-label">
+            <input type="checkbox" checked={autoCompleteEnabled} onChange={e => setAutoCompleteEnabled(e.target.checked)} style={{ width: 16, height: 16, accentColor: PRIMARY }} />
+            ⏰ Auto-Complete Orders
+          </label>
+          <div className="ao-ctrl-hint">Auto marks ready when prep time finishes</div>
+        </div>
+
+        {/* Debug Panel (collapsible) */}
+        <div className="ao-debug">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }} onClick={() => setShowDebug(v => !v)}>
+            <span><strong>🐛 Debug</strong> — ID: {restaurantId?.slice(0, 12)}... | Matched: {debugInfo.matched}</span>
+            <span>{showDebug ? "▲" : "▼"}</span>
+          </div>
+          {showDebug && (
+            <div style={{ marginTop: 6 }}>
+              <p>Total in DB: {debugInfo.total} | Active: {activeOrders.length} | Completed: {completedOrders.length}</p>
+              <p>Statuses: {JSON.stringify(debugInfo.statuses)}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Date Filter */}
+        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 14, padding: 14, marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>📅 Date Filter</div>
+          <div className="ao-filter-row">
+            {[
+              { key: "today", label: "Today" },
+              { key: "yesterday", label: "Yesterday" },
+              { key: "week", label: "This Week" },
+              { key: "month", label: "This Month" },
+              { key: "total", label: "All Time" },
+              { key: "custom", label: "Custom" },
+            ].map(f => (
+              <button key={f.key} className={`ao-filter-btn ${selectedFilter === f.key ? "active" : ""}`}
+                onClick={() => { setSelectedFilter(f.key); setCustomFilter(f.key === "custom"); }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+          {customFilter && (
+            <div className="ao-date-row">
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>Start Date</div>
+                <input type="date" value={dateRange.start} onChange={e => setDateRange({ ...dateRange, start: e.target.value })} style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }} />
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>End Date</div>
+                <input type="date" value={dateRange.end} onChange={e => setDateRange({ ...dateRange, end: e.target.value })} style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }} />
+              </div>
+              <button className="ao-btn-sm" style={{ background: "#374151", color: "#fff", padding: "9px 16px" }} onClick={() => setCustomFilter(false)}>Apply</button>
+            </div>
+          )}
+        </div>
+
+        {/* Waiter Calls */}
+        {waiterCalls.length > 0 && (
+          <div className="ao-waiter">
+            <div className="ao-waiter-title">
+              🔔 Waiter Calls
+              <span style={{ background: "#ea580c", color: "#fff", padding: "1px 8px", borderRadius: 20, fontSize: 11 }}>{waiterCalls.length}</span>
+            </div>
+            {waiterCalls.map(call => (
+              <div key={call.id} className="ao-waiter-card">
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>🪑 Table: {call.tableNumber || "Unknown"}</div>
+                  <div style={{ fontSize: 11, color: "#9ca3af" }}>👤 {call.customerName} · {new Date(call.calledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+                </div>
+                <button className="ao-btn-sm" style={{ background: "#16a34a", color: "#fff" }} onClick={() => dismissWaiterCall(call.id)}>✅ Attended</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Stats */}
+        <div className="ao-stats-grid">
+          <div className="ao-stat-card" style={{ background: "#fef9c3", border: "1px solid #fde047" }}>
+            <div className="ao-stat-num" style={{ color: "#854d0e" }}>{activeOrders.length}</div>
+            <div className="ao-stat-lbl" style={{ color: "#92400e" }}>Active</div>
+          </div>
+          <div className="ao-stat-card" style={{ background: "#dcfce7", border: "1px solid #4ade80" }}>
+            <div className="ao-stat-num" style={{ color: "#166534" }}>{completedOrders.length}</div>
+            <div className="ao-stat-lbl" style={{ color: "#166534" }}>Completed</div>
+          </div>
+          <div className="ao-stat-card" style={{ background: "#dbeafe", border: "1px solid #93c5fd" }}>
+            <div className="ao-stat-num" style={{ color: "#1e40af" }}>₹{filteredOrders.reduce((s, o) => s + (o.total || 0), 0)}</div>
+            <div className="ao-stat-lbl" style={{ color: "#1e40af" }}>Revenue</div>
+          </div>
+        </div>
+
+        {/* Active Orders */}
+        <div className="ao-section-title">
+          🟡 Active Orders
+          <span className="ao-badge" style={{ background: "#fbbf24", color: "#fff" }}>{activeOrders.length}</span>
+        </div>
+        {activeOrders.length === 0
+          ? <div className="ao-empty">No active orders right now</div>
+          : activeOrders.map(o => (
+            <OrderCard key={o.id} order={o} now={now} isActive={true}
+              onDelete={deleteOrder} onUpdateStatus={updateStatus}
+              onUpdatePayment={updatePaymentStatus} onGenerateBill={generateBill}
+              autoCompleteEnabled={autoCompleteEnabled} theme={restaurantSettings?.theme} />
+          ))
+        }
+
+        {/* Completed Orders */}
+        <div className="ao-section-title">
+          ✅ Completed Orders
+          <span className="ao-badge" style={{ background: "#22c55e", color: "#fff" }}>{completedOrders.length}</span>
+        </div>
+        {completedOrders.length === 0
+          ? <div className="ao-empty">No completed orders yet</div>
+          : completedOrders.map(o => (
+            <OrderCard key={o.id} order={o} now={now} isActive={false}
+              onDelete={deleteOrder} onUpdateStatus={updateStatus}
+              onUpdatePayment={updatePaymentStatus} onGenerateBill={generateBill} />
+          ))
+        }
       </div>
-    </div>
+    </>
   );
 }
