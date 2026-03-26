@@ -1,6 +1,6 @@
 import { signOut } from "firebase/auth";
 import { auth } from "../firebaseConfig";
-import { useNavigate, Link, useParams } from "react-router-dom";
+import { useNavigate, NavLink, useParams } from "react-router-dom";
 import { useState } from "react";
 
 const Navbar = ({ user }) => {
@@ -8,7 +8,6 @@ const Navbar = ({ user }) => {
   const navigate = useNavigate();
   const { restaurantId } = useParams();
 
-  // Firebase user se name/email nikalo
   const displayName = user?.displayName || user?.email?.split("@")[0] || "Admin";
   const initials = displayName
     .split(" ")
@@ -27,19 +26,18 @@ const Navbar = ({ user }) => {
     }
   };
 
-  // Sidebar navigation items
   const navItems = [
-    { name: "Table Booking", path: `/dashboard/${restaurantId}/bookingtable` },
-    { name: "Admin Order", path: `/dashboard/${restaurantId}/adminorder` },
-    { name: "Restaurant Settings", path: `/dashboard/${restaurantId}/restaurant-settings` },
-    { name: "Menu Items", path: `/dashboard/${restaurantId}/menu` },
-    { name: "Add Item", path: `/dashboard/${restaurantId}/add-item` },
-    { name: "Feedback", path: `/dashboard/${restaurantId}/feedback` },
-    { name: "Subscription", path: `/dashboard/${restaurantId}/subscription` },
-    { name: "Payment Status", path: `/dashboard/${restaurantId}/payment-status` },
-    { name: "Revenue Dashboard", path: `/dashboard/${restaurantId}/revenue` },
-    { name: "Kitchen Display", path: `/dashboard/${restaurantId}/kitchen-display` },
-    { name: "Admin Coupons", path: `/dashboard/${restaurantId}/admin-coupen` },
+    { name: "Table Booking", path: `/dashboard/${restaurantId}/bookingtable`, icon: "🪑" },
+    { name: "Admin Order", path: `/dashboard/${restaurantId}/adminorder`, icon: "📋" },
+    { name: "Restaurant Settings", path: `/dashboard/${restaurantId}/restaurant-settings`, icon: "⚙️" },
+    { name: "Menu Items", path: `/dashboard/${restaurantId}/menu`, icon: "🍽️" },
+    { name: "Add Item", path: `/dashboard/${restaurantId}/add-item`, icon: "➕" },
+    { name: "Feedback", path: `/dashboard/${restaurantId}/feedback`, icon: "💬" },
+    { name: "Subscription", path: `/dashboard/${restaurantId}/subscription`, icon: "💳" },
+    { name: "Payment Status", path: `/dashboard/${restaurantId}/payment-status`, icon: "💰" },
+    { name: "Revenue Dashboard", path: `/dashboard/${restaurantId}/revenue`, icon: "📊" },
+    { name: "Kitchen Display", path: `/dashboard/${restaurantId}/kitchen-display`, icon: "👨‍🍳" },
+    { name: "Admin Coupons", path: `/dashboard/${restaurantId}/admin-coupen`, icon: "🎟️" },
   ];
 
   return (
@@ -62,7 +60,7 @@ const Navbar = ({ user }) => {
           box-shadow: 0 4px 24px rgba(0,0,0,0.22);
           position: sticky;
           top: 0;
-          z-index: 1100;
+          z-index: 999;
           font-family: 'DM Sans', sans-serif;
           width: 100%;
         }
@@ -71,7 +69,7 @@ const Navbar = ({ user }) => {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 28px;
+          padding: 0 37px;
           height: 64px;
           gap: 16px;
         }
@@ -252,45 +250,85 @@ const Navbar = ({ user }) => {
         .kh-hamburger.open span:nth-child(2) { opacity: 0; }
         .kh-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
-        /* Mobile Menu Styles */
+        /* Mobile Navbar bar — show title instead of brand */
+        .kh-mobile-title {
+          display: none;
+        }
+
+        .kh-mobile-close {
+          margin-left: auto;
+          background: rgba(255,255,255,0.1);
+          border: 1px solid rgba(255,255,255,0.2);
+          color: rgba(255,255,255,0.8);
+          border-radius: 8px;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: background 0.2s;
+        }
+
+        .kh-mobile-close:hover {
+          background: rgba(255,255,255,0.18);
+          color: #fff;
+        }
+
+        @media (max-width: 768px) {
+          .kh-mobile-title { display: block; }
+        }
+
+        /* Mobile Menu */
         .kh-mobile-menu {
           display: none;
           flex-direction: column;
-          background: #6e1422;
+          background: linear-gradient(160deg, #6B1535 0%, #8A244B 50%, #A02D58 100%);
           border-top: 1px solid rgba(212,168,67,0.3);
           max-height: 0;
           overflow: hidden;
           transition: max-height 0.3s ease;
         }
 
-        .kh-mobile-menu.open { 
+        .kh-mobile-menu.open {
           display: flex;
           max-height: 85vh;
           overflow-y: auto;
         }
 
+        .kh-mobile-menu.open::-webkit-scrollbar { width: 4px; }
+        .kh-mobile-menu.open::-webkit-scrollbar-track { background: transparent; }
+        .kh-mobile-menu.open::-webkit-scrollbar-thumb {
+          background: rgba(212,168,67,0.3);
+          border-radius: 4px;
+        }
+
+        /* Mobile User Info */
         .kh-mobile-user {
           display: flex;
           align-items: center;
-          gap: 10px;
-          padding: 16px 20px 12px;
-          border-bottom: 1px solid rgba(255,255,255,0.12);
+          gap: 12px;
+          padding: 16px 20px 14px;
+          border-bottom: 1px solid rgba(212,168,67,0.2);
+          background: rgba(0,0,0,0.1);
         }
 
         .kh-mobile-avatar {
-          width: 38px;
-          height: 38px;
+          width: 42px;
+          height: 42px;
           border-radius: 50%;
           background: linear-gradient(135deg, var(--gold), var(--gold-light));
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 14px;
+          font-size: 15px;
           font-weight: 700;
           color: var(--maroon-dark);
           font-family: 'Playfair Display', serif;
           overflow: hidden;
           flex-shrink: 0;
+          border: 2px solid rgba(212,168,67,0.4);
         }
 
         .kh-mobile-avatar img {
@@ -305,85 +343,132 @@ const Navbar = ({ user }) => {
           font-size: 14px;
           color: var(--white);
           font-weight: 600;
+          font-family: 'DM Sans', sans-serif;
         }
 
         .kh-mobile-user-info span {
-          font-size: 11px;
+          font-size: 10px;
           color: var(--gold);
-          letter-spacing: 1px;
+          letter-spacing: 1.5px;
           text-transform: uppercase;
+          font-weight: 500;
         }
 
-        /* Navigation Links Section */
+        /* Nav Section */
         .kh-nav-section {
-          padding: 8px 20px;
+          padding: 12px 14px;
         }
 
         .kh-nav-section-title {
-          font-size: 11px;
-          color: var(--gold);
+          font-size: 10px;
+          color: rgba(212,168,67,0.7);
           text-transform: uppercase;
-          letter-spacing: 1.5px;
+          letter-spacing: 2px;
           font-weight: 600;
           margin-bottom: 8px;
-          padding: 8px 0 4px;
+          padding: 6px 6px 4px;
+          font-family: 'DM Sans', sans-serif;
         }
 
         .kh-nav-links {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 3px;
         }
 
+        /* NavLink — same style as sidebar */
         .kh-nav-link {
           display: flex;
           align-items: center;
           gap: 12px;
-          padding: 12px 16px;
-          color: rgba(255,255,255,0.9);
+          padding: 11px 14px;
+          color: rgba(255,255,255,0.65);
           text-decoration: none;
-          font-size: 14px;
+          font-size: 13.5px;
           font-weight: 500;
-          border-radius: 8px;
+          border-radius: 10px;
           transition: all 0.2s ease;
+          position: relative;
+          font-family: 'DM Sans', sans-serif;
         }
 
         .kh-nav-link:hover {
           background: rgba(255,255,255,0.1);
-          color: var(--gold);
+          color: #fff;
+          transform: translateX(3px);
         }
 
+        /* Active state — exactly like sidebar */
         .kh-nav-link.active {
-          background: rgba(212,168,67,0.2);
-          color: var(--gold);
+          background: rgba(255,255,255,0.18);
+          color: #fff;
+          font-weight: 600;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.15);
         }
 
+        .kh-nav-link.active::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 3px;
+          height: 60%;
+          background: #FFD166;
+          border-radius: 0 3px 3px 0;
+        }
+
+        .kh-nav-icon {
+          font-size: 16px;
+          width: 22px;
+          text-align: center;
+          flex-shrink: 0;
+        }
+
+        .kh-nav-label { flex: 1; }
+
+        .kh-nav-link.active .kh-active-dot {
+          width: 6px;
+          height: 6px;
+          background: #FFD166;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+
+        /* Mobile Logout */
         .kh-mobile-logout {
           display: flex;
           align-items: center;
           gap: 8px;
-          background: rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.08);
           border: 1.5px solid rgba(255,255,255,0.2);
           color: var(--white);
           font-family: 'DM Sans', sans-serif;
-          font-size: 14px;
+          font-size: 13.5px;
           font-weight: 600;
-          padding: 12px 16px;
-          border-radius: 8px;
+          padding: 12px 14px;
+          border-radius: 10px;
           cursor: pointer;
-          width: calc(100% - 40px);
-          margin: 8px 20px 20px;
-          transition: background 0.2s;
+          width: calc(100% - 28px);
+          margin: 4px 14px 18px;
+          transition: all 0.2s ease;
+          letter-spacing: 0.3px;
         }
 
-        .kh-mobile-logout:hover { background: rgba(255,255,255,0.18); }
+        .kh-mobile-logout:hover {
+          background: rgba(255,255,255,0.15);
+          border-color: rgba(255,255,255,0.35);
+        }
 
         @media (max-width: 768px) {
           .kh-navbar-inner { padding: 0 16px; }
           .kh-center-title { display: none; }
           .kh-right { display: none; }
           .kh-hamburger { display: flex; }
-          .kh-brand-name { font-size: 14px; }
+          /* Mobile pe navbar brand logo hide — menu mein dikhega */
+          .kh-brand { display: none; }
+          /* Hamburger left side pe */
+          .kh-navbar-inner { justify-content: space-between; }
         }
 
         @media (max-width: 480px) {
@@ -395,7 +480,7 @@ const Navbar = ({ user }) => {
         <div className="kh-navbar-inner">
 
           {/* Brand */}
-          <Link to={`/dashboard/${restaurantId}`} className="kh-brand">
+          <NavLink to={`/dashboard/${restaurantId}`} className="kh-brand">
             <div className="kh-logo-wrap">
               {photoURL ? <img src={photoURL} alt="logo" /> : initials}
             </div>
@@ -403,10 +488,12 @@ const Navbar = ({ user }) => {
               <span className="kh-brand-name">{displayName}</span>
               <span className="kh-brand-sub">Admin Panel</span>
             </div>
-          </Link>
+          </NavLink>
 
           {/* Center */}
           <span className="kh-center-title">Restaurant Admin</span>
+          {/* Mobile only title */}
+          <span className="kh-mobile-title" style={{fontFamily:"'Playfair Display',serif", fontSize:"16px", fontWeight:"700", color:"#fff",textAlign:"center"}}>Restaurant Admin</span>
 
           {/* Right - Desktop */}
           <div className="kh-right">
@@ -439,35 +526,39 @@ const Navbar = ({ user }) => {
 
         {/* Mobile Menu */}
         <div className={`kh-mobile-menu ${menuOpen ? "open" : ""}`}>
-          {/* User Info */}
+
+          {/* Mobile Header — Single Logo */}
           <div className="kh-mobile-user">
             <div className="kh-mobile-avatar">
-              {photoURL ? <img src={photoURL} alt="avatar" /> : initials}
+              {photoURL ? <img src={photoURL} alt="logo" /> : initials}
             </div>
             <div className="kh-mobile-user-info">
               <strong>{displayName}</strong>
               <span>Admin Panel</span>
             </div>
+          
           </div>
 
-          {/* Navigation Links from Sidebar */}
+          {/* Navigation Links — NavLink with active state */}
           <div className="kh-nav-section">
-            <div className="kh-nav-section-title">Menu</div>
+           
             <div className="kh-nav-links">
-              {navItems.map((item, index) => (
-                <Link
-                  key={index}
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.path}
                   to={item.path}
-                  className="kh-nav-link"
+                  className={({ isActive }) => `kh-nav-link${isActive ? " active" : ""}`}
                   onClick={() => setMenuOpen(false)}
                 >
-                  {item.name}
-                </Link>
+                  <span className="kh-nav-icon">{item.icon}</span>
+                  <span className="kh-nav-label">{item.name}</span>
+                  <span className="kh-active-dot" />
+                </NavLink>
               ))}
             </div>
           </div>
 
-          {/* Logout Button */}
+          {/* Logout */}
           <button className="kh-mobile-logout" onClick={handleLogout}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
