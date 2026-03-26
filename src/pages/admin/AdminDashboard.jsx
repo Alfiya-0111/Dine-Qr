@@ -40,7 +40,7 @@ const AdminDashboard = () => {
             <button
               onClick={() => setActiveTab("tables")}
               className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                activeTab === "tables" ? "bg-blue-600 text-white" : "bg-gray-200"
+                activeTab === "tables" ? "bg-[#8A244B] text-white" : "bg-gray-200"
               }`}
             >
               <FaTable /> Tables
@@ -48,7 +48,7 @@ const AdminDashboard = () => {
             <button
               onClick={() => setActiveTab("bookings")}
               className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                activeTab === "bookings" ? "bg-blue-600 text-white" : "bg-gray-200"
+                activeTab === "bookings" ? "bg-[#8A244B] text-white" : "bg-gray-200"
               }`}
             >
               <FaCalendarCheck /> Bookings

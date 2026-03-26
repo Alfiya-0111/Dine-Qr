@@ -1,12 +1,12 @@
-// Navbar.jsx
 import { signOut } from "firebase/auth";
 import { auth } from "../firebaseConfig";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link, useParams } from "react-router-dom";
 import { useState } from "react";
 
 const Navbar = ({ user }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const { restaurantId } = useParams();
 
   // Firebase user se name/email nikalo
   const displayName = user?.displayName || user?.email?.split("@")[0] || "Admin";
@@ -21,11 +21,26 @@ const Navbar = ({ user }) => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigate("/login"); // ✅ Login page pe redirect
+      navigate("/login");
     } catch (error) {
       console.error("Logout error:", error);
     }
   };
+
+  // Sidebar navigation items
+  const navItems = [
+    { name: "Table Booking", path: `/dashboard/${restaurantId}/bookingtable` },
+    { name: "Admin Order", path: `/dashboard/${restaurantId}/adminorder` },
+    { name: "Restaurant Settings", path: `/dashboard/${restaurantId}/restaurant-settings` },
+    { name: "Menu Items", path: `/dashboard/${restaurantId}/menu` },
+    { name: "Add Item", path: `/dashboard/${restaurantId}/add-item` },
+    { name: "Feedback", path: `/dashboard/${restaurantId}/feedback` },
+    { name: "Subscription", path: `/dashboard/${restaurantId}/subscription` },
+    { name: "Payment Status", path: `/dashboard/${restaurantId}/payment-status` },
+    { name: "Revenue Dashboard", path: `/dashboard/${restaurantId}/revenue` },
+    { name: "Kitchen Display", path: `/dashboard/${restaurantId}/kitchen-display` },
+    { name: "Admin Coupons", path: `/dashboard/${restaurantId}/admin-coupen` },
+  ];
 
   return (
     <>
@@ -237,29 +252,29 @@ const Navbar = ({ user }) => {
         .kh-hamburger.open span:nth-child(2) { opacity: 0; }
         .kh-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
+        /* Mobile Menu Styles */
         .kh-mobile-menu {
           display: none;
           flex-direction: column;
           background: #6e1422;
           border-top: 1px solid rgba(212,168,67,0.3);
-          padding: 12px 20px 16px;
-          animation: slideDown 0.25s ease;
+          max-height: 0;
+          overflow: hidden;
+          transition: max-height 0.3s ease;
         }
 
-        @keyframes slideDown {
-          from { opacity: 0; transform: translateY(-8px); }
-          to   { opacity: 1; transform: translateY(0); }
+        .kh-mobile-menu.open { 
+          display: flex;
+          max-height: 85vh;
+          overflow-y: auto;
         }
-
-        .kh-mobile-menu.open { display: flex; }
 
         .kh-mobile-user {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 10px 0;
+          padding: 16px 20px 12px;
           border-bottom: 1px solid rgba(255,255,255,0.12);
-          margin-bottom: 12px;
         }
 
         .kh-mobile-avatar {
@@ -299,6 +314,50 @@ const Navbar = ({ user }) => {
           text-transform: uppercase;
         }
 
+        /* Navigation Links Section */
+        .kh-nav-section {
+          padding: 8px 20px;
+        }
+
+        .kh-nav-section-title {
+          font-size: 11px;
+          color: var(--gold);
+          text-transform: uppercase;
+          letter-spacing: 1.5px;
+          font-weight: 600;
+          margin-bottom: 8px;
+          padding: 8px 0 4px;
+        }
+
+        .kh-nav-links {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .kh-nav-link {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 16px;
+          color: rgba(255,255,255,0.9);
+          text-decoration: none;
+          font-size: 14px;
+          font-weight: 500;
+          border-radius: 8px;
+          transition: all 0.2s ease;
+        }
+
+        .kh-nav-link:hover {
+          background: rgba(255,255,255,0.1);
+          color: var(--gold);
+        }
+
+        .kh-nav-link.active {
+          background: rgba(212,168,67,0.2);
+          color: var(--gold);
+        }
+
         .kh-mobile-logout {
           display: flex;
           align-items: center;
@@ -309,10 +368,11 @@ const Navbar = ({ user }) => {
           font-family: 'DM Sans', sans-serif;
           font-size: 14px;
           font-weight: 600;
-          padding: 10px 16px;
+          padding: 12px 16px;
           border-radius: 8px;
           cursor: pointer;
-          width: 100%;
+          width: calc(100% - 40px);
+          margin: 8px 20px 20px;
           transition: background 0.2s;
         }
 
@@ -335,7 +395,7 @@ const Navbar = ({ user }) => {
         <div className="kh-navbar-inner">
 
           {/* Brand */}
-          <a href="#" className="kh-brand">
+          <Link to={`/dashboard/${restaurantId}`} className="kh-brand">
             <div className="kh-logo-wrap">
               {photoURL ? <img src={photoURL} alt="logo" /> : initials}
             </div>
@@ -343,12 +403,12 @@ const Navbar = ({ user }) => {
               <span className="kh-brand-name">{displayName}</span>
               <span className="kh-brand-sub">Admin Panel</span>
             </div>
-          </a>
+          </Link>
 
           {/* Center */}
           <span className="kh-center-title">Restaurant Admin</span>
 
-          {/* Right */}
+          {/* Right - Desktop */}
           <div className="kh-right">
             <div className="kh-user-pill">
               <div className="kh-avatar">
@@ -379,6 +439,7 @@ const Navbar = ({ user }) => {
 
         {/* Mobile Menu */}
         <div className={`kh-mobile-menu ${menuOpen ? "open" : ""}`}>
+          {/* User Info */}
           <div className="kh-mobile-user">
             <div className="kh-mobile-avatar">
               {photoURL ? <img src={photoURL} alt="avatar" /> : initials}
@@ -388,6 +449,25 @@ const Navbar = ({ user }) => {
               <span>Admin Panel</span>
             </div>
           </div>
+
+          {/* Navigation Links from Sidebar */}
+          <div className="kh-nav-section">
+            <div className="kh-nav-section-title">Menu</div>
+            <div className="kh-nav-links">
+              {navItems.map((item, index) => (
+                <Link
+                  key={index}
+                  to={item.path}
+                  className="kh-nav-link"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {item.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Logout Button */}
           <button className="kh-mobile-logout" onClick={handleLogout}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>

@@ -112,25 +112,26 @@ const TableManagement = ({ restaurantId }) => {
         @media (min-width: 640px) { .tm-title { font-size: 22px; } }
 
         .tm-add-btn {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          padding: 9px 18px;
-          background: #2563eb;
-          color: #fff;
-          border: none;
-          border-radius: 10px;
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          font-family: 'DM Sans', sans-serif;
-          transition: background 0.2s, transform 0.15s;
-          white-space: nowrap;
+          display: flex !important;
+          align-items: center !important;
+          gap: 7px !important;
+          padding: 9px 18px !important;
+          background: #8A244B !important;
+          color: #fff !important;
+          border: none !important;
+          border-radius: 10px !important;
+          font-size: 14px !important;
+          font-weight: 600 !important;
+          cursor: pointer !important;
+          font-family: 'DM Sans', sans-serif !important;
+          transition: background 0.2s, transform 0.15s !important;
+          white-space: nowrap !important;
+          text-decoration: none !important;
         }
 
-        .tm-add-btn:hover { background: #1d4ed8; transform: translateY(-1px); }
-        .tm-add-btn.cancel { background: #6b7280; }
-        .tm-add-btn.cancel:hover { background: #4b5563; }
+        .tm-add-btn:hover { background: #6e1c3b !important; transform: translateY(-1px) !important; }
+        .tm-add-btn.cancel { background: #8A244B !important; }
+        .tm-add-btn.cancel:hover { background: #6e1c3b !important; }
 
         /* ── Form ── */
         .tm-form-card {
@@ -189,8 +190,8 @@ const TableManagement = ({ restaurantId }) => {
         }
 
         .tm-input:focus, .tm-select:focus {
-          border-color: #2563eb;
-          box-shadow: 0 0 0 3px #2563eb20;
+          border-color: #8A244B;
+          box-shadow: 0 0 0 3px rgba(138, 36, 75, 0.15);
         }
 
         .tm-form-actions {
@@ -202,7 +203,7 @@ const TableManagement = ({ restaurantId }) => {
 
         .tm-save-btn {
           padding: 9px 20px;
-          background: #16a34a;
+          background: #8A244B;
           color: #fff;
           border: none;
           border-radius: 9px;
@@ -213,11 +214,11 @@ const TableManagement = ({ restaurantId }) => {
           transition: background 0.2s;
         }
 
-        .tm-save-btn:hover { background: #15803d; }
+        .tm-save-btn:hover { background: #6e1c3b; }
 
         .tm-cancel-btn {
           padding: 9px 16px;
-          background: transparent;
+          background: #fff;
           color: #6b7280;
           border: 1.5px solid #d1d5db;
           border-radius: 9px;
@@ -286,8 +287,8 @@ const TableManagement = ({ restaurantId }) => {
           font-size: 14px;
         }
 
-        .tm-icon-btn.edit { background: #eff6ff; color: #2563eb; }
-        .tm-icon-btn.edit:hover { background: #dbeafe; }
+        .tm-icon-btn.edit { background: #f7eef2; color: #8A244B; }
+        .tm-icon-btn.edit:hover { background: #f0dce5; }
         .tm-icon-btn.delete { background: #fef2f2; color: #dc2626; }
         .tm-icon-btn.delete:hover { background: #fee2e2; }
 
@@ -347,6 +348,9 @@ const TableManagement = ({ restaurantId }) => {
           <button
             onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}
             className={`tm-add-btn ${showForm ? "cancel" : ""}`}
+            style={{ background: "#8A244B", color: "#fff", border: "none" }}
+            onMouseOver={(e) => (e.currentTarget.style.background = "#6e1c3b")}
+            onMouseOut={(e) => (e.currentTarget.style.background = "#8A244B")}
           >
             <FaPlus /> {showForm ? "Cancel" : "Add Table"}
           </button>

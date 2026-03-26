@@ -1,4 +1,3 @@
-// Dashboard.jsx
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebaseConfig";
 import { useEffect, useState } from "react";
@@ -10,7 +9,7 @@ import Navbar from "../components/Navbar";
 export default function Dashboard() {
   const [uid, setUid] = useState("");
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); // ✅ KEY FIX
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,17 +18,14 @@ export default function Dashboard() {
         setUid(firebaseUser.uid);
         setUser(firebaseUser);
       } else {
-        // Sirf tab redirect karo jab Firebase ne confirm kiya ke user nahi hai
         navigate("/login");
       }
-      setLoading(false); // Firebase check complete
+      setLoading(false);
     });
 
-    return () => unsubscribe(); // Cleanup
+    return () => unsubscribe();
   }, [navigate]);
 
-  // Jab tak Firebase auth check kar raha hai — spinner dikhao
-  // Yahi wajah thi logout ki: pehle null aata tha → redirect ho jaata tha
   if (loading) {
     return (
       <div style={{
@@ -59,24 +55,63 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <Navbar user={user} />
+    <>
+      <style>{`
+        .dashboard-container {
+          display: flex;
+          min-height: 100vh;
+        }
+        
+        .sidebar-wrapper {
+          flex-shrink: 0;
+        }
+        
+        .main-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-height: 100vh;
+          margin-left: 208px; /* w-52 = 208px */
+        }
+        
+        .page-content {
+          flex: 1;
+          padding: 20px;
+        }
+        
+        /* Mobile: Sidebar hide, margin remove */
+        @media (max-width: 768px) {
+          .main-content {
+            margin-left: 0 !important;
+            width: 100% !important;
+          }
+          
+          .page-content {
+            padding: 16px;
+          }
+        }
+      `}</style>
 
-      <div style={{ display: "flex", flex: 1 }}>
-        <Sidebar />
+      <div className="dashboard-container">
+        {/* Sidebar — fixed left, full height */}
+        <div className="sidebar-wrapper">
+          <Sidebar />
+        </div>
 
-        <div style={{
-          marginLeft: "220px",
-          width: "100%",
-          display: "flex",
-          flexDirection: "column",
-        }}>
-          <div style={{ flex: 1, padding: "20px" }}>
+        {/* Right side: Navbar + Content + Footer */}
+        <div className="main-content">
+          {/* Navbar — only inside content area */}
+          <Navbar user={user} />
+
+          {/* Page content */}
+          <div className="page-content">
             <Outlet context={{ restaurantId: uid }} />
           </div>
+
+          {/* Footer — same width as content */}
           <Footer />
         </div>
       </div>
-    </div>
+    </>
   );
 }

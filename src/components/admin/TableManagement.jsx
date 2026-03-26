@@ -37,13 +37,11 @@ const TableManagement = ({ restaurantId }) => {
     
     try {
       if (editingTable) {
-        // Update existing
         await update(rtdbRef(realtimeDB, `restaurants/${restaurantId}/tables/${editingTable.id}`), {
           ...formData,
           updatedAt: Date.now()
         });
       } else {
-        // Create new
         const newTableRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}/tables/${Date.now()}`);
         await set(newTableRef, {
           ...formData,
@@ -93,7 +91,10 @@ const TableManagement = ({ restaurantId }) => {
         </h2>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700"
+          className="px-4 py-2 text-white rounded-lg flex items-center gap-2"
+          style={{ background: "#8A244B" }}
+          onMouseOver={(e) => (e.currentTarget.style.background = "#6e1c3b")}
+          onMouseOut={(e) => (e.currentTarget.style.background = "#8A244B")}
         >
           <FaPlus /> {showForm ? "Cancel" : "Add Table"}
         </button>
@@ -159,11 +160,21 @@ const TableManagement = ({ restaurantId }) => {
           </div>
           
           <div className="mt-4 flex gap-2">
-            <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+            <button
+              type="submit"
+              className="px-4 py-2 text-white rounded"
+              style={{ background: "#8A244B" }}
+              onMouseOver={(e) => (e.currentTarget.style.background = "#6e1c3b")}
+              onMouseOut={(e) => (e.currentTarget.style.background = "#8A244B")}
+            >
               {editingTable ? "Update Table" : "Add Table"}
             </button>
             {editingTable && (
-              <button type="button" onClick={resetForm} className="px-4 py-2 bg-gray-500 text-white rounded">
+              <button
+                type="button"
+                onClick={resetForm}
+                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+              >
                 Cancel
               </button>
             )}
@@ -178,7 +189,12 @@ const TableManagement = ({ restaurantId }) => {
             <div className="flex justify-between items-start mb-2">
               <h3 className="font-bold text-lg">{table.name}</h3>
               <div className="flex gap-2">
-                <button onClick={() => handleEdit(table)} className="text-blue-600 hover:text-blue-800">
+                <button
+                  onClick={() => handleEdit(table)}
+                  style={{ color: "#8A244B" }}
+                  onMouseOver={(e) => (e.currentTarget.style.color = "#6e1c3b")}
+                  onMouseOut={(e) => (e.currentTarget.style.color = "#8A244B")}
+                >
                   <FaEdit />
                 </button>
                 <button onClick={() => handleDelete(table.id)} className="text-red-600 hover:text-red-800">
