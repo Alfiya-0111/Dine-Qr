@@ -1,14 +1,24 @@
-// src/pages/HomePage.jsx - IMPROVED VERSION v2
+// src/pages/HomePage.jsx - IMPROVED VERSION v3 with Dynamic Testimonials
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Pagination, Autoplay, Navigation } from 'swiper/modules';
+import { ref, onValue, push, set, serverTimestamp } from 'firebase/database';
+import { realtimeDB as db } from './firebaseConfig';
 import khaatogologo from "../src/assets/khaatogologo.png";
 import { 
   QrCode, MessageSquare, Calendar, TrendingUp, Utensils, Palette,
   Star, CheckCircle2, ArrowRight, ShoppingBag, Play, Users, Zap,
   Shield, Clock, Award, ChevronDown, X, Menu, Sparkles,
-  IndianRupee, ChefHat, Bell, Receipt, Plus, Minus
+  IndianRupee, ChefHat, Bell, Receipt, Plus, Minus, Send, Quote,
+  PenSquare, Building2, User, MapPin, Loader2
 } from 'lucide-react';
 
+// Import Swiper styles
+import 'swiper/css';
+import 'swiper/css/pagination';
+import 'swiper/css/navigation';
+import 'swiper/css/autoplay';
 // ─── Scroll-reveal hook ──────────────────────────────────────────────────────
 const useReveal = () => {
   const ref = useRef(null);
@@ -89,6 +99,602 @@ const FAQItem = ({ q, a }) => {
   );
 };
 
+// ─── Hotel Owner Feedback Modal Component ────────────────────────────────────
+const HotelOwnerFeedbackModal = ({ isOpen, onClose }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    restaurantName: '',
+    role: 'Owner',
+    location: '',
+    text: '',
+    rating: 5,
+    growthMetric: '',
+    growthValue: ''
+  });
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(null);
+  const [currentStep, setCurrentStep] = useState(1);
+
+  const growthOptions = [
+    { label: 'Select Growth Metric', value: '' },
+    { label: 'Order Increase', value: 'orders' },
+    { label: 'Revenue Growth', value: 'revenue' },
+    { label: 'Monthly Savings', value: 'savings' },
+    { label: 'Booking Increase', value: 'bookings' }
+  ];
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitStatus(null);
+
+    try {
+      if (!formData.name.trim() || !formData.restaurantName.trim() || !formData.text.trim()) {
+        throw new Error('Please fill all required fields');
+      }
+
+      let growthText = 'Using Khaatogo';
+      if (formData.growthMetric && formData.growthValue) {
+        const prefix = formData.growthMetric === 'savings' ? '₹' : '+';
+        const suffix = formData.growthMetric === 'savings' ? '/month' : '%';
+        growthText = `${prefix}${formData.growthValue}${suffix} ${formData.growthMetric}`;
+      }
+
+      const testimonialData = {
+        name: formData.name.trim(),
+        role: `${formData.role}, ${formData.restaurantName.trim()}`,
+        location: formData.location.trim() || 'India',
+        text: formData.text.trim(),
+        rating: parseInt(formData.rating),
+        avatar: formData.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+        growth: growthText,
+        timestamp: serverTimestamp(),
+        approved: false,
+        source: 'hotel_owner_feedback_form'
+      };
+
+      const feedbackRef = ref(db, 'testimonials');
+      const newFeedbackRef = push(feedbackRef);
+      await set(newFeedbackRef, testimonialData);
+
+      setSubmitStatus('success');
+      
+      setTimeout(() => {
+        setFormData({
+          name: '',
+          restaurantName: '',
+          role: 'Owner',
+          location: '',
+          text: '',
+          rating: 5,
+          growthMetric: '',
+          growthValue: ''
+        });
+        setCurrentStep(1);
+        onClose();
+      }, 2000);
+
+    } catch (error) {
+      console.error('Feedback submission error:', error);
+      setSubmitStatus('error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const renderStars = () => (
+    <div className="flex gap-2 justify-center">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          onClick={() => setFormData({...formData, rating: star})}
+          className="focus:outline-none transition-transform hover:scale-110"
+        >
+          <Star 
+            className={`w-10 h-10 ${star <= formData.rating ? 'fill-[#FCB53B] text-[#FCB53B]' : 'text-gray-300'}`} 
+          />
+        </button>
+      ))}
+    </div>
+  );
+
+  if (!isOpen) return null;
+
+  if (submitStatus === 'success') {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl p-8 text-center max-w-md mx-auto">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 className="w-10 h-10 text-green-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">Thank You! 🎉</h3>
+          <p className="text-gray-600 mb-4">
+            Your feedback has been submitted successfully. It will be reviewed and added to our testimonials soon.
+          </p>
+          <button 
+            onClick={onClose}
+            className="bg-[#8A244B] text-white px-6 py-2 rounded-full font-semibold hover:bg-[#B45253] transition"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-lg w-full mx-auto max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-[#8A244B] to-[#B45253] p-6 text-white relative">
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+              <MessageSquare className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold">Share Your Success Story</h3>
+              <p className="text-white/80 text-sm">Help other restaurant owners discover Khaatogo</p>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Progress Steps */}
+          <div className="flex items-center justify-center gap-2 mb-6">
+            {[1, 2].map((step) => (
+              <div key={step} className={`h-2 rounded-full transition-all ${currentStep >= step ? 'w-8 bg-[#8A244B]' : 'w-2 bg-gray-200'}`} />
+            ))}
+          </div>
+
+          {currentStep === 1 ? (
+            <>
+              {/* Step 1: Basic Info */}
+              <div className="space-y-4">
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                    <User className="w-4 h-4 text-[#8A244B]" />
+                    Your Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#8A244B] focus:ring-2 focus:ring-[#8A244B]/20 outline-none transition"
+                    placeholder="e.g., Rajesh Kumar"
+                  />
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                    <Building2 className="w-4 h-4 text-[#8A244B]" />
+                    Restaurant Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.restaurantName}
+                    onChange={(e) => setFormData({...formData, restaurantName: e.target.value})}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#8A244B] focus:ring-2 focus:ring-[#8A244B]/20 outline-none transition"
+                    placeholder="e.g., Delhi Darbar"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700 mb-2 block">Your Role</label>
+                    <select
+                      value={formData.role}
+                      onChange={(e) => setFormData({...formData, role: e.target.value})}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#8A244B] focus:ring-2 focus:ring-[#8A244B]/20 outline-none transition bg-white"
+                    >
+                      <option>Owner</option>
+                      <option>Manager</option>
+                      <option>Chef</option>
+                      <option>Director</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
+                      <MapPin className="w-4 h-4 text-[#8A244B]" />
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.location}
+                      onChange={(e) => setFormData({...formData, location: e.target.value})}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#8A244B] focus:ring-2 focus:ring-[#8A244B]/20 outline-none transition"
+                      placeholder="e.g., Mumbai"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCurrentStep(2)}
+                className="w-full bg-[#8A244B] text-white py-3 rounded-xl font-semibold hover:bg-[#B45253] transition"
+              >
+                Next Step →
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Step 2: Review & Rating */}
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 mb-3 block text-center">
+                    How would you rate Khaatogo?
+                  </label>
+                  {renderStars()}
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                    Your Experience *
+                  </label>
+                  <textarea
+                    required
+                    rows={4}
+                    value={formData.text}
+                    onChange={(e) => setFormData({...formData, text: e.target.value})}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-[#8A244B] focus:ring-2 focus:ring-[#8A244B]/20 outline-none transition resize-none"
+                    placeholder="Share how Khaatogo helped your restaurant. For example: 'WhatsApp orders ne hamara business badal diya. Zero commission, direct customer connection!'"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">{formData.text.length}/500 characters</p>
+                </div>
+
+                {/* Growth Metric (Optional) */}
+                <div className="bg-[#FDF2F4] rounded-xl p-4">
+                  <label className="text-sm font-semibold text-gray-700 mb-2 block">
+                    📈 Your Growth (Optional)
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={formData.growthMetric}
+                      onChange={(e) => setFormData({...formData, growthMetric: e.target.value})}
+                      className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:border-[#8A244B] outline-none"
+                    >
+                      {growthOptions.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    {formData.growthMetric && (
+                      <input
+                        type="text"
+                        value={formData.growthValue}
+                        onChange={(e) => setFormData({...formData, growthValue: e.target.value})}
+                        className="w-24 px-3 py-2 rounded-lg border border-gray-200 text-sm focus:border-[#8A244B] outline-none"
+                        placeholder={formData.growthMetric === 'savings' ? '50000' : '40'}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(1)}
+                  className="flex-1 border-2 border-gray-200 text-gray-700 py-3 rounded-xl font-semibold hover:border-[#8A244B] hover:text-[#8A244B] transition"
+                >
+                  ← Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 bg-gradient-to-r from-[#8A244B] to-[#B45253] text-white py-3 rounded-xl font-semibold hover:shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5" />
+                      Submit Review
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
+
+          {submitStatus === 'error' && (
+            <div className="bg-red-50 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+              <X className="w-5 h-5" />
+              Something went wrong. Please try again.
+            </div>
+          )}
+        </form>
+
+        {/* Footer Note */}
+        <div className="px-6 pb-4 text-center">
+          <p className="text-xs text-gray-400">
+            Your review will be publicly displayed after admin approval
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Feedback Form Component (Inline) ─────────────────────────────────────────
+const FeedbackComponent = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    role: '',
+    location: '',
+    text: '',
+    rating: 5
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      const feedbackRef = ref(db, 'testimonials');
+      const newFeedbackRef = push(feedbackRef);
+      
+      await set(newFeedbackRef, {
+        ...formData,
+        avatar: formData.name.split(' ').map(n => n[0]).join('').toUpperCase(),
+        growth: 'New Review',
+        timestamp: serverTimestamp(),
+        approved: false
+      });
+      
+      setSubmitStatus('success');
+      setFormData({ name: '', role: '', location: '', text: '', rating: 5 });
+      setTimeout(() => setSubmitStatus(null), 3000);
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      setSubmitStatus('error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl border border-gray-100">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-12 h-12 bg-gradient-to-br from-[#8A244B] to-[#B45253] rounded-xl flex items-center justify-center">
+          <MessageSquare className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-gray-900">Share Your Experience</h3>
+          <p className="text-sm text-gray-500">Add your restaurant's success story</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-[#8A244B] focus:ring-2 focus:ring-[#8A244B]/20 outline-none transition"
+              placeholder="Rajesh Kumar"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Role & Restaurant</label>
+            <input
+              type="text"
+              required
+              value={formData.role}
+              onChange={(e) => setFormData({...formData, role: e.target.value})}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-[#8A244B] focus:ring-2 focus:ring-[#8A244B]/20 outline-none transition"
+              placeholder="Owner, Delhi Darbar"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+          <input
+            type="text"
+            required
+            value={formData.location}
+            onChange={(e) => setFormData({...formData, location: e.target.value})}
+            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-[#8A244B] focus:ring-2 focus:ring-[#8A244B]/20 outline-none transition"
+            placeholder="Mumbai"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Your Story</label>
+          <textarea
+            required
+            rows={3}
+            value={formData.text}
+            onChange={(e) => setFormData({...formData, text: e.target.value})}
+            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-[#8A244B] focus:ring-2 focus:ring-[#8A244B]/20 outline-none transition resize-none"
+            placeholder="Share how Khaatogo helped your business..."
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => setFormData({...formData, rating: star})}
+                className="focus:outline-none transition-transform hover:scale-110"
+              >
+                <Star 
+                  className={`w-8 h-8 ${star <= formData.rating ? 'fill-[#FCB53B] text-[#FCB53B]' : 'text-gray-300'}`} 
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full bg-gradient-to-r from-[#8A244B] to-[#B45253] text-white py-3 rounded-xl font-semibold hover:shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {isSubmitting ? (
+            <>
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Submitting...
+            </>
+          ) : (
+            <>
+              <Send className="w-5 h-5" />
+              Submit Feedback
+            </>
+          )}
+        </button>
+
+        {submitStatus === 'success' && (
+          <div className="bg-green-50 text-green-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5" />
+            Thank you! Your feedback has been submitted for review.
+          </div>
+        )}
+        
+        {submitStatus === 'error' && (
+          <div className="bg-red-50 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+            Something went wrong. Please try again.
+          </div>
+        )}
+      </form>
+    </div>
+  );
+};
+
+// ─── Dynamic Testimonials Swiper ─────────────────────────────────────────────
+const TestimonialsSwiper = () => {
+  const [testimonials, setTestimonials] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const testimonialsRef = ref(db, 'testimonials');
+    
+    const unsubscribe = onValue(testimonialsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const testimonialsArray = Object.entries(data)
+          .map(([id, value]) => ({ id, ...value }))
+          .filter(t => t.approved !== false)
+          .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        
+        setTestimonials(testimonialsArray);
+      } else {
+        setTestimonials([
+          { id: '1', name: "Rajesh Kumar", role: "Owner, Delhi Darbar", location: "Mumbai", text: "WhatsApp orders ne hamara business badal diya. Zero commission, direct customer connection!", rating: 5, avatar: "RK", growth: "+40% orders" },
+          { id: '2', name: "Priya Sharma", role: "Manager, Spice Garden", location: "Delhi", text: "Table booking system se chaos khatam. Ab sab organized hai, customers bhi khush hain.", rating: 5, avatar: "PS", growth: "+60% bookings" },
+          { id: '3', name: "Amit Patel", role: "Owner, Gujarat Bhojanalay", location: "Ahmedabad", text: "Zomato ke 30% commission se chhutkara! Ab full profit apne paas. Best decision ever.", rating: 5, avatar: "AP", growth: "₹50K saved/month" }
+        ]);
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="w-8 h-8 border-4 border-[#8A244B]/20 border-t-[#8A244B] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <Swiper
+        modules={[Pagination, Autoplay, Navigation]}
+        spaceBetween={24}
+        slidesPerView={1}
+        pagination={{ 
+          clickable: true,
+          bulletClass: 'swiper-pagination-bullet !bg-[#8A244B]/30 !w-2.5 !h-2.5 !mx-1',
+          bulletActiveClass: 'swiper-pagination-bullet-active !bg-[#8A244B] !w-6 !rounded-full'
+        }}
+        autoplay={{
+          delay: 4000,
+          disableOnInteraction: false,
+          pauseOnMouseEnter: true
+        }}
+        navigation={{
+          prevEl: '.swiper-button-prev-custom',
+          nextEl: '.swiper-button-next-custom',
+        }}
+        breakpoints={{
+          640: { slidesPerView: 1 },
+          768: { slidesPerView: 2 },
+          1024: { slidesPerView: 3 },
+        }}
+        className="testimonials-swiper !pb-12"
+      >
+        {testimonials.map((t) => (
+          <SwiperSlide key={t.id}>
+            <div className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition-shadow border border-gray-100 flex flex-col h-full mx-1">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex gap-0.5">
+                  {[...Array(5)].map((_, j) => (
+                    <Star 
+                      key={j} 
+                      className={`w-4 h-4 ${j < t.rating ? 'fill-[#FCB53B] text-[#FCB53B]' : 'text-gray-300'}`} 
+                    />
+                  ))}
+                </div>
+                <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
+                  {t.growth}
+                </span>
+              </div>
+              
+              <div className="relative mb-4">
+                <Quote className="absolute -top-2 -left-2 w-8 h-8 text-[#8A244B]/10" />
+                <p className="text-gray-700 leading-relaxed pl-4">"{t.text}"</p>
+              </div>
+              
+              <div className="flex items-center gap-3 mt-auto pt-4 border-t border-gray-100">
+                <div className="w-11 h-11 bg-gradient-to-br from-[#8A244B] to-[#B45253] rounded-full flex items-center justify-center font-bold text-white text-sm">
+                  {t.avatar || t.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                </div>
+                <div>
+                  <div className="font-bold text-gray-900 text-sm">{t.name}</div>
+                  <div className="text-xs text-gray-500">{t.role}</div>
+                  <div className="text-xs text-gray-400">📍 {t.location}</div>
+                </div>
+              </div>
+            </div>
+          </SwiperSlide>
+        ))}
+      </Swiper>
+
+      {/* Custom Navigation Buttons */}
+      <button className="swiper-button-prev-custom absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-[#8A244B] hover:bg-[#8A244B] hover:text-white transition-all disabled:opacity-0">
+        <ChevronDown className="w-5 h-5 rotate-90" />
+      </button>
+      <button className="swiper-button-next-custom absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-[#8A244B] hover:bg-[#8A244B] hover:text-white transition-all disabled:opacity-0">
+        <ChevronDown className="w-5 h-5 -rotate-90" />
+      </button>
+    </div>
+  );
+};
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 const HomePage = () => {
   const navigate = useNavigate();
@@ -96,6 +702,7 @@ const HomePage = () => {
   const [scrolled, setScrolled] = useState(false);
   const [activeTab, setActiveTab] = useState('orders');
   const [showVideoModal, setShowVideoModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [restaurantCount, countRef] = useCounter(500);
 
   // Savings calculator state
@@ -114,10 +721,9 @@ const HomePage = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close mobile menu on scroll
   useEffect(() => {
     if (scrolled && isMenuOpen) setIsMenuOpen(false);
-  }, [scrolled]);
+  }, [scrolled, isMenuOpen]);
 
   const features = [
     { icon: <QrCode className="w-6 h-6" />, title: "Smart QR Menu", desc: "Contactless digital menu with photos, ratings & real-time updates", color: "bg-gradient-to-br from-[#8A244B] to-[#B45253]" },
@@ -141,12 +747,6 @@ const HomePage = () => {
     { num: "2", title: "Add Your Menu", desc: "Upload dishes with photos & prices easily", icon: <Utensils className="w-5 h-5" /> },
     { num: "3", title: "Download QR Code", desc: "Print & place on tables for customers", icon: <QrCode className="w-5 h-5" /> },
     { num: "4", title: "Start Receiving Orders", desc: "Via WhatsApp with instant notifications", icon: <Zap className="w-5 h-5" /> }
-  ];
-
-  const testimonials = [
-    { name: "Rajesh Kumar", role: "Owner, Delhi Darbar", location: "Mumbai", text: "WhatsApp orders ne hamara business badal diya. Zero commission, direct customer connection!", rating: 5, avatar: "RK", growth: "+40% orders" },
-    { name: "Priya Sharma", role: "Manager, Spice Garden", location: "Delhi", text: "Table booking system se chaos khatam. Ab sab organized hai, customers bhi khush hain.", rating: 5, avatar: "PS", growth: "+60% bookings" },
-    { name: "Amit Patel", role: "Owner, Gujarat Bhojanalay", location: "Ahmedabad", text: "Zomato ke 30% commission se chhutkara! Ab full profit apne paas. Best decision ever.", rating: 5, avatar: "AP", growth: "₹50K saved/month" }
   ];
 
   const pricing = [
@@ -189,7 +789,7 @@ const HomePage = () => {
             </div>
 
             <div className="hidden lg:flex items-center gap-8">
-              {[['#features','Features'],['#how-it-works','How it Works'],['#pricing','Pricing'],['#demo','Live Demo']].map(([href, label]) => (
+              {[['#features','Features'],['#how-it-works','How it Works'],['#pricing','Pricing'],['#demo','Live Demo'],['#testimonials','Reviews']].map(([href, label]) => (
                 <a key={href} href={href} className="text-gray-600 hover:text-[#8A244B] font-medium transition text-sm">{label}</a>
               ))}
             </div>
@@ -210,7 +810,7 @@ const HomePage = () => {
         {isMenuOpen && (
           <div className="lg:hidden bg-white border-t shadow-lg absolute w-full">
             <div className="px-4 py-4 space-y-3">
-              {['Features','How it Works','Pricing'].map(l => (
+              {['Features','How it Works','Pricing','Reviews'].map(l => (
                 <a key={l} href={`#${l.toLowerCase().replace(/ /g,'-')}`} onClick={() => setIsMenuOpen(false)} className="block text-gray-700 py-2 font-medium">{l}</a>
               ))}
               <button onClick={() => navigate('/login')} className="w-full text-left text-gray-700 py-2 font-medium">Login</button>
@@ -452,7 +1052,7 @@ const HomePage = () => {
                       </div>
                     ))}
                   </div>
-                  <button onClick={() => window.open('https://www.khaatogo.com/menu/NhIbH4whfIWIUu4raonrqlEiYUr1', '_blank')}
+                  <button onClick={() => window.open('https://www.khaatogo.com/menu/NhIbH4whfIWIUu4raonrqlEiYUr1 ', '_blank')}
                     className="bg-[#8A244B] text-white px-8 py-3 rounded-full font-semibold hover:bg-[#B45253] transition shadow-lg">
                     View Live Demo Menu →
                   </button>
@@ -602,37 +1202,45 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* ── Testimonials ─────────────────────────────────────────────────── */}
-      <section className="py-20 bg-[#FDF2F4]">
+      {/* ── Testimonials Section with Swiper ───────────────────────────── */}
+      <section id="testimonials" className="py-20 bg-[#FDF2F4]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Reveal>
             <div className="text-center max-w-3xl mx-auto mb-14">
               <span className="inline-block bg-[#8A244B]/10 text-[#8A244B] px-4 py-1.5 rounded-full text-sm font-semibold mb-4">Testimonials</span>
               <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Loved by Restaurant <span className="text-[#8A244B]">Owners</span></h2>
+              <p className="text-gray-600">Real stories from real restaurant owners who transformed their business with Khaatogo</p>
             </div>
           </Reveal>
 
-          <div className="grid md:grid-cols-3 gap-7">
-            {testimonials.map((t, i) => (
-              <Reveal key={i} delay={i * 100}>
-                <div className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition-shadow border border-gray-100 flex flex-col h-full">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex gap-0.5">{[...Array(t.rating)].map((_,j) => <Star key={j} className="w-4 h-4 fill-[#FCB53B] text-[#FCB53B]" />)}</div>
-                    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">{t.growth}</span>
+          {/* Dynamic Swiper Slider */}
+          <Reveal delay={100}>
+            <TestimonialsSwiper />
+          </Reveal>
+
+          {/* Feedback Form Section */}
+          <Reveal delay={200}>
+            <div className="mt-16 grid lg:grid-cols-2 gap-8 items-center">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Share Your Success Story</h3>
+                <p className="text-gray-600 mb-6 leading-relaxed">
+                  Are you a Khaatogo user? We'd love to hear how our platform has helped your restaurant grow. 
+                  Share your experience and get featured on our website!
+                </p>
+                <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    <span>Quick 2-minute form</span>
                   </div>
-                  <p className="text-gray-700 leading-relaxed flex-1 mb-5">"{t.text}"</p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 bg-gradient-to-br from-[#8A244B] to-[#B45253] rounded-full flex items-center justify-center font-bold text-white text-sm">{t.avatar}</div>
-                    <div>
-                      <div className="font-bold text-gray-900 text-sm">{t.name}</div>
-                      <div className="text-xs text-gray-500">{t.role}</div>
-                      <div className="text-xs text-gray-400">📍 {t.location}</div>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    <span>Get featured publicly</span>
                   </div>
                 </div>
-              </Reveal>
-            ))}
-          </div>
+              </div>
+              <FeedbackComponent />
+            </div>
+          </Reveal>
         </div>
       </section>
 
@@ -699,7 +1307,7 @@ const HomePage = () => {
               <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
                 Aksar Puchhe Jaane Wale <span className="text-[#8A244B]">Sawaal</span>
               </h2>
-              <p className="text-gray-600">Koi aur sawaal hai? <a href="https://wa.me/916352799072" target="_blank" rel="noreferrer" className="text-[#8A244B] font-semibold hover:underline">WhatsApp par poochho →</a></p>
+              <p className="text-gray-600">Koi aur sawaal hai? <a href="https://wa.me/916352799072 " target="_blank" rel="noreferrer" className="text-[#8A244B] font-semibold hover:underline">WhatsApp par poochho →</a></p>
             </div>
           </Reveal>
 
@@ -718,7 +1326,7 @@ const HomePage = () => {
         <Reveal>
           <div className="max-w-5xl mx-auto">
             <div className="bg-gradient-to-r from-[#8A244B] to-[#B45253] rounded-3xl p-10 md:p-14 text-center text-white shadow-2xl relative overflow-hidden">
-              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23fff' fill-opacity='1'%3E%3Cpath d='M20 20.5V18H0v5h5v5H0v5h20v-2.5zm-2 4.5H6v-4h12v4z'/%3E%3C/g%3E%3C/svg%3E\")" }}></div>
+              <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg '%3E%3Cg fill='%23fff' fill-opacity='1'%3E%3Cpath d='M20 20.5V18H0v5h5v5H0v5h20v-2.5zm-2 4.5H6v-4h12v4z'/%3E%3C/g%3E%3C/svg%3E\")" }}></div>
               <h2 className="text-3xl md:text-5xl font-bold mb-4 relative z-10">Ready to Go Digital?</h2>
               <p className="text-xl text-white/80 mb-8 max-w-2xl mx-auto relative z-10">
                 Join 500+ restaurants already saving ₹50,000+ monthly with Khaatogo
@@ -727,7 +1335,7 @@ const HomePage = () => {
                 <button onClick={() => navigate('/signup')} className="bg-[#FCB53B] text-[#8A244B] px-8 py-4 rounded-full font-bold text-lg hover:bg-[#FCB53B]/90 transition shadow-xl">
                   Start Free 30-Day Trial
                 </button>
-                <button onClick={() => window.open('https://wa.me/916352799072', '_blank')} className="bg-transparent border-2 border-white text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-white/10 transition flex items-center justify-center gap-2">
+                <button onClick={() => window.open('https://wa.me/916352799072 ', '_blank')} className="bg-transparent border-2 border-white text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-white/10 transition flex items-center justify-center gap-2">
                   <MessageSquare className="w-5 h-5" /> Chat on WhatsApp
                 </button>
               </div>
@@ -742,7 +1350,13 @@ const HomePage = () => {
       </section>
 
       {/* ── Footer ───────────────────────────────────────────────────────── */}
-      <footer className="bg-[#1F2937] text-gray-300 py-12 px-4">
+     <footer 
+  className="text-white"
+  style={{
+    background: 'linear-gradient(160deg, #6B1535 0%, #8A244B 50%, #A02D58 100%)',
+    paddingTop: "20px"
+  }}
+>
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-4 gap-8 mb-8">
             <div>
@@ -787,9 +1401,19 @@ const HomePage = () => {
         </div>
       </footer>
 
-      {/* ── Floating WhatsApp Button ──────────────────────────────────────── */}
+      {/* ── Floating Buttons ──────────────────────────────────────── */}
+      {/* Write a Review Button */}
+      <button
+        onClick={() => setShowFeedbackModal(true)}
+        className="fixed bottom-24 right-6 z-40 bg-[#8A244B] hover:bg-[#B45253] text-white px-4 py-3 rounded-full shadow-lg flex items-center gap-2 transition hover:scale-105"
+      >
+        <PenSquare className="w-5 h-5" />
+        <span className="font-medium text-sm hidden sm:inline">Write a Review</span>
+      </button>
+
+      {/* WhatsApp Button */}
       <a
-        href="https://wa.me/916352799072"
+        href="https://wa.me/916352799072 "
         target="_blank"
         rel="noreferrer"
         className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-2xl flex items-center justify-center transition hover:scale-110"
@@ -811,13 +1435,19 @@ const HomePage = () => {
                 <Play className="w-7 h-7 text-white fill-white ml-1" />
               </div>
               <p className="text-gray-500 font-medium">Demo video coming soon!</p>
-              <p className="text-sm text-gray-400">Meanwhile, <a href="https://www.khaatogo.com/menu/NhIbH4whfIWIUu4raonrqlEiYUr1" target="_blank" rel="noreferrer" className="text-[#8A244B] font-semibold hover:underline">view live demo menu →</a></p>
+              <p className="text-sm text-gray-400">Meanwhile, <a href="https://www.khaatogo.com/menu/NhIbH4whfIWIUu4raonrqlEiYUr1 " target="_blank" rel="noreferrer" className="text-[#8A244B] font-semibold hover:underline">view live demo menu →</a></p>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── CSS Animations ───────────────────────────────────────────────── */}
+      {/* ── Feedback Modal ───────────────────────────────────────────────── */}
+      <HotelOwnerFeedbackModal 
+        isOpen={showFeedbackModal} 
+        onClose={() => setShowFeedbackModal(false)} 
+      />
+
+      {/* ── CSS Animations & Swiper Custom Styles ───────────────────────── */}
       <style>{`
         @keyframes fadeSlideIn {
           from { opacity: 0; transform: translateY(20px); }
@@ -825,6 +1455,26 @@ const HomePage = () => {
         }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Swiper Custom Styles */
+        .testimonials-swiper .swiper-pagination {
+          bottom: 0 !important;
+        }
+        .testimonials-swiper .swiper-pagination-bullet {
+          transition: all 0.3s ease;
+        }
+        .testimonials-swiper .swiper-pagination-bullet-active {
+          width: 24px !important;
+          border-radius: 12px !important;
+        }
+        
+        /* Navigation buttons hidden on mobile */
+        @media (max-width: 768px) {
+          .swiper-button-prev-custom,
+          .swiper-button-next-custom {
+            display: none;
+          }
+        }
       `}</style>
     </div>
   );

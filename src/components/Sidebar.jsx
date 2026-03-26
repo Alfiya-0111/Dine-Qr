@@ -1,21 +1,23 @@
 import { NavLink, useParams } from "react-router-dom";
 
-const navItems = [
-    { to: "bookingtable", label: "Table Booking", icon: "🪑" },
-    { to: "adminorder", label: "Admin Order", icon: "📋" },
-    { to: "restaurant-settings", label: "Restaurant Settings", icon: "⚙️" },
-    { to: "menu", label: "Menu Items", icon: "🍽️" },
-    { to: "add-item", label: "Add Item", icon: "➕" },
-    { to: "feedback", label: "Feedback", icon: "💬" },
-    { to: "subscription", label: "Subscription", icon: "💳" },
-    { to: "payment-status", label: "Payment Status", icon: "💰" },
-    { to: "revenue", label: "Revenue Dashboard", icon: "📊" },
-    { to: "kitchen-display", label: "Kitchen Display", icon: "👨‍🍳" },
-    { to: "admin-coupen", label: "Admin Coupons", icon: "🎟️" },
+const getNavItems = () => [
+  { to: "bookingtable", label: "Table Booking", icon: "🪑" },
+  { to: "adminorder", label: "Admin Order", icon: "📋" },
+  { to: "restaurant-settings", label: "Restaurant Settings", icon: "⚙️" },
+  { to: "menu", label: "Menu Items", icon: "🍽️" },
+  { to: "add-item", label: "Add Item", icon: "➕" },
+  { to: "feedback", label: "Customer Feedback", icon: "💬" },
+  { to: "feedback-admin", label: "Home Feedback", icon: "📝" },
+  { to: "subscription", label: "Subscription", icon: "💳" },
+  { to: "payment-status", label: "Payment Status", icon: "💰" },
+  { to: "revenue", label: "Revenue Dashboard", icon: "📊" },
+  { to: "kitchen-display", label: "Kitchen Display", icon: "👨‍🍳" },
+  { to: "admin-coupen", label: "Admin Coupons", icon: "🎟️" },
 ];
 
 export default function Sidebar() {
     const { restaurantId } = useParams();
+    const navItems = getNavItems();
 
     return (
         <>

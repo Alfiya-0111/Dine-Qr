@@ -26,19 +26,19 @@ const Navbar = ({ user }) => {
     }
   };
 
-  const navItems = [
-    { name: "Table Booking", path: `/dashboard/${restaurantId}/bookingtable`, icon: "🪑" },
-    { name: "Admin Order", path: `/dashboard/${restaurantId}/adminorder`, icon: "📋" },
-    { name: "Restaurant Settings", path: `/dashboard/${restaurantId}/restaurant-settings`, icon: "⚙️" },
-    { name: "Menu Items", path: `/dashboard/${restaurantId}/menu`, icon: "🍽️" },
-    { name: "Add Item", path: `/dashboard/${restaurantId}/add-item`, icon: "➕" },
-    { name: "Feedback", path: `/dashboard/${restaurantId}/feedback`, icon: "💬" },
-    { name: "Subscription", path: `/dashboard/${restaurantId}/subscription`, icon: "💳" },
-    { name: "Payment Status", path: `/dashboard/${restaurantId}/payment-status`, icon: "💰" },
-    { name: "Revenue Dashboard", path: `/dashboard/${restaurantId}/revenue`, icon: "📊" },
-    { name: "Kitchen Display", path: `/dashboard/${restaurantId}/kitchen-display`, icon: "👨‍🍳" },
-    { name: "Admin Coupons", path: `/dashboard/${restaurantId}/admin-coupen`, icon: "🎟️" },
-  ];
+const navItems = [
+  { name: "Table Booking", path: `/dashboard/${restaurantId}/bookingtable`, icon: "🪑" },
+  { name: "Admin Order", path: `/dashboard/${restaurantId}/adminorder`, icon: "📋" },
+  { name: "Restaurant Settings", path: `/dashboard/${restaurantId}/restaurant-settings`, icon: "⚙️" },
+  { name: "Menu Items", path: `/dashboard/${restaurantId}/menu`, icon: "🍽️" },
+  { name: "Add Item", path: `/dashboard/${restaurantId}/add-item`, icon: "➕" },
+  { name: "Home Feedback", path: `/dashboard/${restaurantId}/feedback-admin`, icon: "💬" },  // <-- Yeh alag component hai
+  { name: "Subscription", path: `/dashboard/${restaurantId}/subscription`, icon: "💳" },
+  { name: "Payment Status", path: `/dashboard/${restaurantId}/payment-status`, icon: "💰" },
+  { name: "Revenue Dashboard", path: `/dashboard/${restaurantId}/revenue`, icon: "📊" },
+  { name: "Kitchen Display", path: `/dashboard/${restaurantId}/kitchen-display`, icon: "👨‍🍳" },
+  { name: "Admin Coupons", path: `/dashboard/${restaurantId}/admin-coupen`, icon: "🎟️" },
+];
 
   return (
     <>
