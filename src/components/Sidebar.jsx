@@ -3,6 +3,7 @@ import { NavLink, useParams } from "react-router-dom";
 const getNavItems = () => [
   { to: "bookingtable", label: "Table Booking", icon: "🪑" },
   { to: "adminorder", label: "Admin Order", icon: "📋" },
+ 
   { to: "restaurant-settings", label: "Restaurant Settings", icon: "⚙️" },
   { to: "menu", label: "Menu Items", icon: "🍽️" },
   { to: "add-item", label: "Add Item", icon: "➕" },

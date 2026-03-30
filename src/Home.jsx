@@ -6,6 +6,7 @@ import { Pagination, Autoplay, Navigation } from 'swiper/modules';
 import { ref, onValue, push, set, serverTimestamp } from 'firebase/database';
 import { realtimeDB as db } from './firebaseConfig';
 import khaatogologo from "../src/assets/khaatogologo.png";
+import { reviewWithAI } from '../src/hooks/useAIReview';
 import { 
   QrCode, MessageSquare, Calendar, TrendingUp, Utensils, Palette,
   Star, CheckCircle2, ArrowRight, ShoppingBag, Play, Users, Zap,
@@ -115,7 +116,7 @@ const HotelOwnerFeedbackModal = ({ isOpen, onClose }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
-
+const [aiChecking, setAiChecking] = useState(false);
   const growthOptions = [
     { label: 'Select Growth Metric', value: '' },
     { label: 'Order Increase', value: 'orders' },
@@ -125,63 +126,64 @@ const HotelOwnerFeedbackModal = ({ isOpen, onClose }) => {
   ];
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setSubmitStatus(null);
+  e.preventDefault();
+  setIsSubmitting(true);
+  setSubmitStatus(null);
 
-    try {
-      if (!formData.name.trim() || !formData.restaurantName.trim() || !formData.text.trim()) {
-        throw new Error('Please fill all required fields');
-      }
-
-      let growthText = 'Using Khaatogo';
-      if (formData.growthMetric && formData.growthValue) {
-        const prefix = formData.growthMetric === 'savings' ? '₹' : '+';
-        const suffix = formData.growthMetric === 'savings' ? '/month' : '%';
-        growthText = `${prefix}${formData.growthValue}${suffix} ${formData.growthMetric}`;
-      }
-
-      const testimonialData = {
-        name: formData.name.trim(),
-        role: `${formData.role}, ${formData.restaurantName.trim()}`,
-        location: formData.location.trim() || 'India',
-        text: formData.text.trim(),
-        rating: parseInt(formData.rating),
-        avatar: formData.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
-        growth: growthText,
-        timestamp: serverTimestamp(),
-        approved: false,
-        source: 'hotel_owner_feedback_form'
-      };
-
-      const feedbackRef = ref(db, 'testimonials');
-      const newFeedbackRef = push(feedbackRef);
-      await set(newFeedbackRef, testimonialData);
-
-      setSubmitStatus('success');
-      
-      setTimeout(() => {
-        setFormData({
-          name: '',
-          restaurantName: '',
-          role: 'Owner',
-          location: '',
-          text: '',
-          rating: 5,
-          growthMetric: '',
-          growthValue: ''
-        });
-        setCurrentStep(1);
-        onClose();
-      }, 2000);
-
-    } catch (error) {
-      console.error('Feedback submission error:', error);
-      setSubmitStatus('error');
-    } finally {
-      setIsSubmitting(false);
+  try {
+    if (!formData.name.trim() || !formData.restaurantName.trim() || !formData.text.trim()) {
+      throw new Error('Please fill all required fields');
     }
-  };
+
+    // 🤖 AI Review check
+    setAiChecking(true); // optional loading state
+    const aiResult = await reviewWithAI(
+      formData.text, 
+      formData.name, 
+      formData.restaurantName
+    );
+    setAiChecking(false);
+
+    let growthText = 'Using Khaatogo';
+    if (formData.growthMetric && formData.growthValue) {
+      const prefix = formData.growthMetric === 'savings' ? '₹' : '+';
+      const suffix = formData.growthMetric === 'savings' ? '/month' : '%';
+      growthText = `${prefix}${formData.growthValue}${suffix} ${formData.growthMetric}`;
+    }
+
+    const testimonialData = {
+      name: formData.name.trim(),
+      role: `${formData.role}, ${formData.restaurantName.trim()}`,
+      location: formData.location.trim() || 'India',
+      text: formData.text.trim(),
+      rating: parseInt(formData.rating),
+      avatar: formData.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+      growth: growthText,
+      timestamp: serverTimestamp(),
+      approved: aiResult.approved,        // ✅ AI decision
+      aiScore: aiResult.score,            // store score for admin ref
+      aiReason: aiResult.reason,          // store reason
+      source: 'hotel_owner_feedback_form'
+    };
+
+    const feedbackRef = ref(db, 'testimonials');
+    const newFeedbackRef = push(feedbackRef);
+    await set(newFeedbackRef, testimonialData);
+
+    // Different message based on AI decision
+    if (aiResult.approved) {
+      setSubmitStatus('success');
+    } else {
+      setSubmitStatus('rejected'); // show friendly message
+    }
+
+  } catch (error) {
+    console.error('Feedback submission error:', error);
+    setSubmitStatus('error');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const renderStars = () => (
     <div className="flex gap-2 justify-center">
@@ -223,7 +225,26 @@ const HotelOwnerFeedbackModal = ({ isOpen, onClose }) => {
       </div>
     );
   }
-
+if (submitStatus === 'rejected') {
+  return (
+    <div className="bg-white rounded-3xl p-8 text-center max-w-md mx-auto">
+      <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <span className="text-4xl">🤔</span>
+      </div>
+      <h3 className="text-2xl font-bold text-gray-900 mb-2">Review Not Published</h3>
+      <p className="text-gray-600 mb-4">
+        Aapka review hamari quality guidelines se match nahi hua. 
+        Please ek genuine experience share karein.
+      </p>
+      <button 
+        onClick={() => { setSubmitStatus(null); setCurrentStep(1); }}
+        className="bg-[#8A244B] text-white px-6 py-2 rounded-full font-semibold hover:bg-[#B45253] transition"
+      >
+        Try Again
+      </button>
+    </div>
+  );
+}
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-lg w-full mx-auto max-h-[90vh] overflow-y-auto">
@@ -396,7 +417,7 @@ const HotelOwnerFeedbackModal = ({ isOpen, onClose }) => {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Submitting...
+                       {aiChecking ? ' AI Reviewing...' : 'Saving...'} 
                     </>
                   ) : (
                     <>

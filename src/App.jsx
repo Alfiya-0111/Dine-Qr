@@ -22,27 +22,32 @@ import RevenueDashboard from "./pages/admin/RevenueDashboard";
 import KitchenDisplay from "./pages/admin/KitchenDisplay";
 import AdminCoupons from "./pages/admin/AdminCoupons";
 import HotelOwnerFeedback from "./components/HotelOwnerFeedback";
+import OrderTracking from "./pages/OrderTracking"; // ✅ Already imported
+
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-
-        {/* 🔥 CUSTOMER LOGIN MODAL (GLOBAL) */}
         <LoginModal />
 
         <Routes>
-<Route path="/" element={<Home />} />
+          <Route path="/" element={<Home />} />
+          
           {/* 🔹 RESTAURANT OWNER ROUTES */}
-           <Route path="/signup" element={<RestaurantSignup />} /> 
+          <Route path="/signup" element={<RestaurantSignup />} /> 
           <Route path="/login" element={<RestaurantLogin />} />
 
-          {/* 🔹 PUBLIC CUSTOMER MENU */}
+          {/* 🔹 PUBLIC CUSTOMER ROUTES */}
           <Route path="/menu/:restaurantId" element={<PublicMenu />} />
           <Route path="/checkout/:restaurantId" element={<Checkout />} />
+          
+          {/* ✅ CORRECT: /track route BAHR nikalo! */}
+          <Route path="/track/:restaurantId/:orderId" element={<OrderTracking />} />
 
-          {/* 🔹 OWNER DASHBOARD */}
+          {/* 🔹 OWNER DASHBOARD (Nested Routes) */}
           <Route path="/dashboard/:restaurantId" element={<Dashboard />}>
             <Route path="adminorder" element={<AdminOrders />} />
+            {/* ❌ REMOVE from here: <Route path="track/:restaurantId/:orderId" ... /> */}
             <Route path="restaurant-settings" element={<RestaurantSettings />} />
             <Route path="bookingtable" element={<AdminDashboard />} />
             <Route path="menu" element={<MenuItems />} />
@@ -50,17 +55,14 @@ function App() {
             <Route path="analytics" element={<OwnerAnalytics />} />
             <Route path="feedback" element={<FeedbackTab />} />
             <Route path="subscription" element={<SubscriptionPage />} />
-         
             <Route path="payment-status" element={<PaymentStatusPage />} />
             <Route path="revenue" element={<RevenueDashboard />} />
             <Route path="kitchen-display" element={<KitchenDisplay />} />
             <Route path="admin-coupen" element={<AdminCoupons/>}/>
-             <Route path="feedback-admin" element={<HotelOwnerFeedback/>}/>
-
+            <Route path="feedback-admin" element={<HotelOwnerFeedback/>}/>
           </Route>
 
         </Routes>
-
       </BrowserRouter>
     </AuthProvider>
   );
