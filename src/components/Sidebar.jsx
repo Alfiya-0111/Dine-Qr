@@ -9,6 +9,7 @@ const getNavItems = () => [
   { to: "add-item", label: "Add Item", icon: "➕" },
   { to: "feedback", label: "Customer Feedback", icon: "💬" },
   { to: "feedback-admin", label: "Home Feedback", icon: "📝" },
+  { to: "delivery-management", label: "Delivery Boys", icon: "🛵" },
   { to: "subscription", label: "Subscription", icon: "💳" },
   { to: "payment-status", label: "Payment Status", icon: "💰" },
   { to: "revenue", label: "Revenue Dashboard", icon: "📊" },

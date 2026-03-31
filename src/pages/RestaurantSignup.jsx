@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import khaatogologo from "../assets/khaatogologo.png";
 import { Helmet } from "react-helmet-async";
-import { toast } from "react-toastify"; // ✅ Added missing import
+import { toast } from "react-toastify";
 
 export default function RestaurantSignup() {
   const [form, setForm] = useState({
@@ -18,7 +18,7 @@ export default function RestaurantSignup() {
   const [showPassword, setShowPassword] = useState(false);
   const [showFaceRegister, setShowFaceRegister] = useState(false);
   const [faceDescriptor, setFaceDescriptor] = useState(null);
-  
+
   const navigate = useNavigate();
 
   const handleSignup = async () => {
@@ -60,7 +60,7 @@ export default function RestaurantSignup() {
       }
 
       toast.success("Restaurant account created successfully!");
-      navigate("/dashboard/menu/bookingtable");
+      navigate(`/dashboard/${uid}`); // ✅ Fixed: uid-based route
     } catch (err) {
       toast.error(err.message);
     }
@@ -78,6 +78,8 @@ export default function RestaurantSignup() {
 
       <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#FAEFEA" }}>
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
+
+          {/* Logo */}
           <div className="flex justify-center">
             <img
               src={khaatogologo}
@@ -93,8 +95,6 @@ export default function RestaurantSignup() {
           <h2 className="text-lg font-semibold text-center mb-6" style={{ color: "#1F1F1F" }}>
             Create your restaurant account
           </h2>
-          
-         
 
           {/* Restaurant Name */}
           <input
@@ -125,7 +125,6 @@ export default function RestaurantSignup() {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
-
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
@@ -135,12 +134,12 @@ export default function RestaurantSignup() {
             </button>
           </div>
 
-          {/* ✅ Face Register Button - BEFORE Create Account */}
+          {/* Face Register Button */}
           <button
             onClick={() => setShowFaceRegister(true)}
             className={`w-full py-3 rounded-xl font-semibold border-2 border-dashed transition flex items-center justify-center gap-3 mb-4 ${
-              faceDescriptor 
-                ? "border-green-500 text-green-600 bg-green-50" 
+              faceDescriptor
+                ? "border-green-500 text-green-600 bg-green-50"
                 : "border-[#8A244B] text-[#8A244B] hover:bg-[#8A244B] hover:text-white"
             }`}
           >
@@ -173,18 +172,18 @@ export default function RestaurantSignup() {
         </div>
       </div>
 
-      {/* ✅ Face Register Modal - AT THE END */}
-     {showFaceRegister && (
-  <FaceLogin 
-    mode="register"  
-    onFaceDetected={(data) => {
-      setFaceDescriptor(data.descriptor);
-      setShowFaceRegister(false);
-      toast.success("Face registered successfully!");
-    }}
-    onClose={() => setShowFaceRegister(false)}
-  />
-)}
+      {/* Face Register Modal */}
+      {showFaceRegister && (
+        <FaceLogin
+          mode="register"
+          onFaceDetected={(data) => {
+            setFaceDescriptor(data.descriptor);
+            setShowFaceRegister(false);
+            toast.success("Face registered successfully!");
+          }}
+          onClose={() => setShowFaceRegister(false)}
+        />
+      )}
     </>
   );
 }

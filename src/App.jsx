@@ -11,7 +11,7 @@ import FeedbackTab from "./components/FeedbackTab";
 import OwnerAnalytics from "./pages/OwnerAnalytics";
 
 import { AuthProvider } from "./context/AuthContext";
-import LoginModal from "./components/LoginModal"; 
+import LoginModal from "./components/LoginModal";
 import RestaurantSettings from "./pages/RestaurantSettings";
 import Checkout from "./pages/Checkout";
 import AdminOrders from "./pages/AdminOrders";
@@ -22,7 +22,8 @@ import RevenueDashboard from "./pages/admin/RevenueDashboard";
 import KitchenDisplay from "./pages/admin/KitchenDisplay";
 import AdminCoupons from "./pages/admin/AdminCoupons";
 import HotelOwnerFeedback from "./components/HotelOwnerFeedback";
-import OrderTracking from "./pages/OrderTracking"; // ✅ Already imported
+import OrderTracking from "./pages/OrderTracking";
+import DeliveryBoyManagement from "./pages/admin/DeliveryBoyManagement";
 
 function App() {
   return (
@@ -31,23 +32,32 @@ function App() {
         <LoginModal />
 
         <Routes>
+          {/* ── Home ───────────────────────────────────── */}
           <Route path="/" element={<Home />} />
-          
-          {/* 🔹 RESTAURANT OWNER ROUTES */}
-          <Route path="/signup" element={<RestaurantSignup />} /> 
-          <Route path="/login" element={<RestaurantLogin />} />
 
-          {/* 🔹 PUBLIC CUSTOMER ROUTES */}
+          {/* ── Auth ───────────────────────────────────── */}
+          <Route path="/signup" element={<RestaurantSignup />} />
+
+          {/*
+           * /login          → Generic login (owner sirf, delivery boy
+           *                    ko restaurant-specific URL chahiye)
+           * /login/:restaurantId → Delivery boy iss URL se aata hai
+           *                        Owner bhi aa sakta hai (role select)
+           *
+           * Owner ko owner link karo:  /login
+           * Delivery boy ko do:        /login/<restaurantId>
+           */}
+          <Route path="/login" element={<RestaurantLogin />} />
+          <Route path="/login/:restaurantId" element={<RestaurantLogin />} />
+
+          {/* ── Public Customer Routes ─────────────────── */}
           <Route path="/menu/:restaurantId" element={<PublicMenu />} />
           <Route path="/checkout/:restaurantId" element={<Checkout />} />
-          
-          {/* ✅ CORRECT: /track route BAHR nikalo! */}
           <Route path="/track/:restaurantId/:orderId" element={<OrderTracking />} />
 
-          {/* 🔹 OWNER DASHBOARD (Nested Routes) */}
+          {/* ── Owner Dashboard (Nested Routes) ───────── */}
           <Route path="/dashboard/:restaurantId" element={<Dashboard />}>
             <Route path="adminorder" element={<AdminOrders />} />
-            {/* ❌ REMOVE from here: <Route path="track/:restaurantId/:orderId" ... /> */}
             <Route path="restaurant-settings" element={<RestaurantSettings />} />
             <Route path="bookingtable" element={<AdminDashboard />} />
             <Route path="menu" element={<MenuItems />} />
@@ -58,10 +68,18 @@ function App() {
             <Route path="payment-status" element={<PaymentStatusPage />} />
             <Route path="revenue" element={<RevenueDashboard />} />
             <Route path="kitchen-display" element={<KitchenDisplay />} />
-            <Route path="admin-coupen" element={<AdminCoupons/>}/>
-            <Route path="feedback-admin" element={<HotelOwnerFeedback/>}/>
-          </Route>
+            <Route path="admin-coupen" element={<AdminCoupons />} />
+            <Route path="feedback-admin" element={<HotelOwnerFeedback />} />
+            <Route path="delivery-management" element={<DeliveryBoyManagement />} />
 
+            {/*
+             * Delivery boy route — Dashboard.jsx handle kar lega
+             * Agar role = "delivery" hai to DeliveryBoyDashboard render hoga
+             * Yeh route technically owner ke nested mein hai
+             * but Dashboard.jsx delivery session check karta hai pehle
+             */}
+            <Route path="delivery" element={null} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </AuthProvider>
