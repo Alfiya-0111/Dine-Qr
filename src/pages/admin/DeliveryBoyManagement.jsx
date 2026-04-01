@@ -9,7 +9,7 @@ import {
 import { db } from "../../firebaseConfig";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "react-toastify";
-import AddDeliveryBoyModal from "./AddDeliveryBoyModal";
+import Adddeliveryboymodal from "./Adddeliveryboymodal";
 import EditDeliveryBoyModal from "./EditDeliveryBoyModal";
 
 export default function DeliveryBoyManagement() {
@@ -207,7 +207,7 @@ export default function DeliveryBoyManagement() {
       )}
 
       {showAddModal && (
-        <AddDeliveryBoyModal
+        <Adddeliveryboymodal
           restaurantId={restaurantId}
           onClose={() => setShowAddModal(false)}
           onAdded={() => {}}
