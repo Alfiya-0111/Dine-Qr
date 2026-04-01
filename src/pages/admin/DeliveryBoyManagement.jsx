@@ -10,7 +10,7 @@ import { db } from "../../firebaseConfig";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "react-toastify";
 import Adddeliveryboymodal from "./Adddeliveryboymodal";
-import EditDeliveryBoyModal from "./EditDeliveryBoyModal";
+import Editdeliveryboymodal from "./Editdeliveryboymodal";
 
 export default function DeliveryBoyManagement() {
   const { restaurantId } = useOutletContext();
@@ -215,7 +215,7 @@ export default function DeliveryBoyManagement() {
       )}
 
       {editingBoy && (
-        <EditDeliveryBoyModal
+        <Editdeliveryboymodal
           restaurantId={restaurantId}
           boy={editingBoy}
           onClose={() => setEditingBoy(null)}
