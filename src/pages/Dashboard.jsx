@@ -5,7 +5,7 @@ import { Outlet, useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Footer from "../components/Footer";
 import Navbar from "../components/Navbar";
-import DeliveryBoyDashboard from "./DeliveryBoyDashboard";
+import Deliveryboydashboard from "./Deliveryboydashboard";
 
 export default function Dashboard() {
   const { restaurantId } = useParams();
@@ -99,7 +99,7 @@ export default function Dashboard() {
   // ── Delivery Boy View ─────────────────────────────────────────
   if (role === "delivery" && deliverySession) {
     return (
-      <DeliveryBoyDashboard
+      <Deliveryboydashboard
         restaurantId={restaurantId}
         session={deliverySession}
         onLogout={handleDeliveryLogout}
