@@ -107,7 +107,17 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
       setCouponSuccess('');
     }
   }, [open, allCoupons, total]);
-
+// ===== EXPIRE HO GAYI COUPON AUTO-REMOVE =====
+useEffect(() => {
+  if (!appliedCoupon) return;
+  const now = Date.now();
+  if (appliedCoupon.expiryDate && new Date(appliedCoupon.expiryDate).getTime() < now) {
+    setAppliedCoupon(null);
+    setAutoApplied(false);
+    setCouponSuccess('');
+    setCouponError('Coupon expired, removed automatically');
+  }
+}, [open, appliedCoupon]);
   // ===== HANDLERS =====
   const handleApplyCoupon = () => {
     setCouponError('');
@@ -243,9 +253,71 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
       <div className="flex justify-between font-bold border-t pt-1 mt-1">
         <span className="text-sm">Total</span>
         <div className="text-right">
-          {appliedCoupon && discount > 0 && (
-            <p className="text-[10px] text-gray-400 line-through">₹{(total + gst).toFixed(0)}</p>
-          )}
+         {/* Coupon Section — sirf tab show karo jab valid coupons hain ya coupon applied hai */}
+{(appliedCoupon || availableCoupons.length > 0) && (
+  <div className="bg-white rounded-xl border border-gray-200 p-3 shrink-0">
+    {appliedCoupon ? (
+      <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🏷️</span>
+          <div>
+            <p className="text-green-700 font-bold text-sm">{appliedCoupon.code}</p>
+            <p className="text-green-600 text-xs">
+              {appliedCoupon.discountType === 'percent' ? `${appliedCoupon.discountValue}% off` : `₹${appliedCoupon.discountValue} off`}
+              {autoApplied && ' • Auto'}
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-green-700 font-bold text-sm">−₹{discount.toFixed(0)}</p>
+          <button
+            onClick={removeCoupon}
+            className="text-red-500 text-xs font-medium hover:text-red-700 active:scale-95 transition"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    ) : (
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <input
+            value={couponInput}
+            onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); setCouponError(''); }}
+            onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+            placeholder="Enter coupon code"
+            className="flex-1 px-3 py-2.5 border-2 rounded-xl text-sm outline-none uppercase font-mono bg-gray-50 focus:bg-white transition"
+            style={{ borderColor: couponError ? '#ef4444' : theme.primary }}
+          />
+          <button
+            onClick={handleApplyCoupon}
+            className="px-4 py-2.5 rounded-xl text-white text-sm font-bold active:scale-95 transition shadow-md"
+            style={{ backgroundColor: theme.primary }}
+          >
+            Apply
+          </button>
+        </div>
+        {availableCoupons.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            <span className="text-xs text-gray-500">Available:</span>
+            {availableCoupons.map(c => (
+              <button
+                key={c.code}
+                onClick={() => { setCouponInput(c.code); setCouponError(''); }}
+                className="text-[10px] px-2 py-1 rounded-full border border-dashed active:scale-95 transition font-mono font-bold bg-white"
+                style={{ borderColor: theme.primary, color: theme.primary }}
+              >
+                {c.code}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
+    {couponError && <p className="text-red-500 text-xs mt-2 font-medium">{couponError}</p>}
+    {couponSuccess && <p className="text-green-600 text-xs mt-2 font-medium">{couponSuccess}</p>}
+  </div>
+)}
           <span className="text-lg" style={{ color: theme.primary }}>₹{grandTotal.toFixed(0)}</span>
         </div>
       </div>
