@@ -4,6 +4,7 @@ import { realtimeDB } from "../firebaseConfig";
 import { getAuth } from "firebase/auth";
 import { QRCodeSVG } from "qrcode.react";
 import { FaQrcode, FaCopy, FaCheckCircle } from "react-icons/fa";
+import PhoneInput from "../components/Phoneinput"; 
 
 export default function RestaurantSettings() {
   const auth = getAuth();
@@ -444,21 +445,24 @@ export default function RestaurantSettings() {
 
       {/* Contact */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <input type="text" placeholder="Contact Number" value={phone} onChange={(e) => setPhone(e.target.value)} className="border rounded-lg px-4 py-2" />
-        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="border rounded-lg px-4 py-2" />
+<PhoneInput
+  value={phone}
+  onChange={setPhone}
+  placeholder="Contact number"
+/>
+<input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="border rounded-lg px-4 py-2" />
       </div>
       <input type="text" placeholder="Address" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full border rounded-lg px-4 py-2 mb-6" />
 
       {/* WhatsApp */}
       <div className="mb-6">
         <label className="block text-sm font-medium mb-1">WhatsApp Number (for Orders)</label>
-        <input 
-          type="text" 
-          placeholder="e.g. +91 9876543210" 
-          value={whatsappNumber} 
-          onChange={(e) => setWhatsappNumber(e.target.value)} 
-          className="w-full border rounded-lg px-4 py-2"
-        />
+       <PhoneInput
+  value={whatsappNumber}
+  onChange={setWhatsappNumber}
+  placeholder="WhatsApp number"
+  helperText="Customers will send orders to this WhatsApp number"
+/>
         <p className="text-xs text-gray-500 mt-1">Customers will send orders to this WhatsApp number</p>
       </div>
 
@@ -523,13 +527,12 @@ export default function RestaurantSettings() {
             <label className="block text-sm font-medium mb-2">
               Payment Contact Number (Optional)
             </label>
-            <input
-              type="text"
-              placeholder="+91 9876543210"
-              value={paymentNumber}
-              onChange={(e) => setPaymentNumber(e.target.value)}
-              className="w-full border-2 border-gray-200 rounded-lg px-4 py-3 outline-none focus:border-[#8A244B] transition-all"
-            />
+            <PhoneInput
+  value={paymentNumber}
+  onChange={setPaymentNumber}
+  placeholder="Payment contact number"
+  helperText="Customer payment issues pe contact karne ke liye"
+/>
             <p className="text-xs text-gray-500 mt-1">
               Customer payment issues pe contact karne ke liye
             </p>

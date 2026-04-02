@@ -5,7 +5,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { collection, addDoc, doc, updateDoc } from "firebase/firestore";
 import { ref, set as setRTDB, update as updateRTDB } from "firebase/database";
 import { useLocation, useNavigate } from "react-router-dom";
-import Typo from "typo-js";
+import { FaMagic, FaSpinner } from "react-icons/fa";
 
 const CLOUDINARY_CONFIG = {
   cloudName: "dgvjgl2ls",
@@ -42,7 +42,6 @@ const SimpleSpellCheck = ({
     const matrix = [];
     for (let i = 0; i <= b.length; i++) matrix[i] = [i];
     for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-    
     for (let i = 1; i <= b.length; i++) {
       for (let j = 1; j <= a.length; j++) {
         matrix[i][j] = b.charAt(i - 1) === a.charAt(j - 1) 
@@ -58,9 +57,7 @@ const SimpleSpellCheck = ({
     const suggestions = [];
     commonWords.forEach(dictWord => {
       const distance = getEditDistance(word.toLowerCase(), dictWord);
-      if (distance <= 2 && distance > 0) {
-        suggestions.push({ word: dictWord, distance });
-      }
+      if (distance <= 2 && distance > 0) suggestions.push({ word: dictWord, distance });
     });
     return suggestions.sort((a, b) => a.distance - b.distance).slice(0, 5).map(s => s.word);
   };
@@ -69,11 +66,9 @@ const SimpleSpellCheck = ({
     const newValue = e.target.value;
     const cursorPos = e.target.selectionStart;
     onChange(e);
-
     const textBeforeCursor = newValue.substring(0, cursorPos);
     const words = textBeforeCursor.split(/\s+/);
     const current = words[words.length - 1].replace(/[^a-zA-Z]/g, "");
-    
     if (current.length > 3 && !commonWords.has(current.toLowerCase())) {
       const sugg = getSuggestions(current);
       if (sugg.length > 0) {
@@ -92,14 +87,11 @@ const SimpleSpellCheck = ({
     const cursorPos = inputRef.current.selectionStart;
     const textBeforeCursor = value.substring(0, cursorPos);
     const textAfterCursor = value.substring(cursorPos);
-    
     const words = textBeforeCursor.split(/\s+/);
     words[words.length - 1] = sugg;
-    
     const newValue = words.join(" ") + textAfterCursor;
     onChange({ target: { value: newValue } });
     setShowDropdown(false);
-    
     setTimeout(() => {
       inputRef.current.focus();
       const newPos = textBeforeCursor.length - currentWord.length + sugg.length;
@@ -126,7 +118,6 @@ const SimpleSpellCheck = ({
         }}
         {...(isTextarea && { rows: 4 })}
       />
-      
       {showDropdown && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-orange-200 rounded-lg shadow-xl">
           <div className="px-3 py-2 text-xs font-medium text-orange-600 bg-orange-50 border-b border-orange-100">
@@ -146,13 +137,22 @@ const SimpleSpellCheck = ({
             onClick={() => setShowDropdown(false)}
             className="w-full px-4 py-2 text-xs text-gray-400 hover:text-gray-600 border-t border-gray-100 hover:bg-gray-50"
           >
-            Ignore / Add to dictionary
+            Ignore
           </button>
         </div>
       )}
     </div>
   );
 };
+
+// ─── GST RATES (India standard) ───────────────────────────────────────────────
+const GST_PRESETS = [
+  { label: "0%", value: 0 },
+  { label: "5%", value: 5 },
+  { label: "12%", value: 12 },
+  { label: "18%", value: 18 },
+  { label: "28%", value: 28 },
+];
 
 export default function AddItem() {
   const navigate = useNavigate();
@@ -165,6 +165,10 @@ export default function AddItem() {
   const [preview, setPreview] = useState("");
   const [uploading, setUploading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // ✅ AI Description state
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -185,6 +189,8 @@ export default function AddItem() {
     inStock: true,
     isNew: false,
     categoryIds: [],
+    // ✅ GST field
+    gstPercent: 5,
     saladConfig: {
       enabled: false,
       tasteControl: true,
@@ -204,6 +210,52 @@ export default function AddItem() {
     "Chocolate", "Vanilla", "Strawberry", "Butterscotch", "Caramel", "Pistachio"
   ];
 
+  // ✅ AI Description Generator — Vercel API call (CORS Fixed!)
+  const generateAIDescription = async () => {
+    if (!form.name.trim()) {
+      setAiError("Pehle dish ka naam likhein!");
+      setTimeout(() => setAiError(""), 3000);
+      return;
+    }
+
+    setAiLoading(true);
+    setAiError("");
+
+    try {
+      // ✅ Vercel function call - same domain, no CORS!
+      const response = await fetch('/api/generateDescription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dishName: form.name,
+          category: form.category,
+          spiceLevel: form.spiceLevel,
+          vegType: form.vegType,
+          dishTasteProfile: form.dishTasteProfile
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.description) {
+        setForm((prev) => ({ ...prev, description: result.description }));
+      } else {
+        throw new Error(result.error || 'Empty response');
+      }
+    } catch (err) {
+      console.error("AI Error:", err);
+      setAiError("AI description generate nahi ho saka. Dobara try karein.");
+      setTimeout(() => setAiError(""), 4000);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // ✅ Price with GST calculation (display only)
+  const priceWithGST = form.price && form.gstPercent >= 0
+    ? (Number(form.price) * (1 + form.gstPercent / 100)).toFixed(2)
+    : null;
+
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
@@ -218,56 +270,45 @@ export default function AddItem() {
       navigate("/login");
       return false;
     }
-
     const subRef = rtdbRef(realtimeDB, `subscriptions/${user.uid}`);
     const snapshot = await get(subRef);
-
     if (!snapshot.exists()) {
       alert("Please start your free trial or subscribe first!");
       navigate("/subscription");
       return false;
     }
-
     const sub = snapshot.val();
     const now = Date.now();
-
     if (sub.planId === "trial" && sub.expiresAt < now) {
       alert("Your free trial has expired! Please upgrade to continue adding dishes.");
       navigate("/subscription");
       return false;
     }
-
     if (sub.expiresAt && sub.expiresAt < now && sub.planId !== "trial") {
       alert("Your subscription has expired! Please renew to continue.");
       navigate("/subscription");
       return false;
     }
-
     if (sub.maxDishes !== "unlimited" && sub.planId !== "trial") {
       const menuRef = rtdbRef(realtimeDB, `restaurants/${user.uid}/menu`);
       const menuSnap = await get(menuRef);
       const currentDishes = menuSnap.exists() ? Object.keys(menuSnap.val()).length : 0;
-
       const editingId = editData?.id;
       const countToCheck =
         editingId && menuSnap.exists() && menuSnap.val()[editingId]
           ? currentDishes - 1
           : currentDishes;
-
       if (countToCheck >= sub.maxDishes) {
         alert(`Dish limit reached! Maximum ${sub.maxDishes} dishes allowed.\n\nUpgrade your plan to add more.`);
         navigate("/subscription");
         return false;
       }
     }
-
     return true;
   }, [navigate, editData]);
 
   const isDrinkSelected = categories.some(
-    (cat) =>
-      cat.name.toLowerCase() === "drinks" &&
-      form.categoryIds.includes(cat.id)
+    (cat) => cat.name.toLowerCase() === "drinks" && form.categoryIds.includes(cat.id)
   );
 
   useEffect(() => {
@@ -290,27 +331,23 @@ export default function AddItem() {
 
   useEffect(() => {
     if (categories.length === 0) return;
-    setForm((prev) => ({
-      ...prev,
-      category: prev.category || categories[0].name,
-    }));
+    setForm((prev) => ({ ...prev, category: prev.category || categories[0].name }));
   }, [categories]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user) setUserId(user.uid);
     });
-
     if (editData) {
       setForm((prev) => ({
         ...prev,
         ...editData,
         dineIn: editData.availableModes?.dineIn ?? true,
         delivery: editData.availableModes?.delivery ?? true,
+        gstPercent: editData.gstPercent ?? 5,
       }));
       setPreview(editData.imageUrl || "");
     }
-
     return () => unsub();
   }, [editData]);
 
@@ -319,9 +356,7 @@ export default function AddItem() {
     const ref = rtdbRef(realtimeDB, `restaurants/${userId}/categories`);
     onValue(ref, (snap) => {
       if (snap.exists()) {
-        setCategories(
-          Object.entries(snap.val()).map(([id, data]) => ({ id, ...data }))
-        );
+        setCategories(Object.entries(snap.val()).map(([id, data]) => ({ id, ...data })));
       }
     });
   }, [userId]);
@@ -339,15 +374,12 @@ export default function AddItem() {
     formData.append("folder", `${CLOUDINARY_CONFIG.folder}/${userId}`);
     formData.append("quality", "auto");
     formData.append("fetch_format", "auto");
-
     const res = await fetch(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`,
       { method: "POST", body: formData }
     );
-
     const data = await res.json();
     if (!data.secure_url) throw new Error("Upload failed");
-
     return data.secure_url.replace("/upload/", "/upload/q_auto,f_auto,w_800/");
   };
 
@@ -379,14 +411,11 @@ export default function AddItem() {
   const handleSave = async () => {
     const hasValidSubscription = await checkSubscription();
     if (!hasValidSubscription) return;
-
     if (!form.name || !form.price || !form.description) {
       alert("Please fill all required fields");
       return;
     }
-
     let imageUrl = preview;
-
     if (image) {
       setUploading(true);
       try {
@@ -421,6 +450,8 @@ export default function AddItem() {
       availableToday: true,
       inStock: form.inStock,
       imageUrl,
+      // ✅ GST saved in payload
+      gstPercent: form.gstPercent ?? 0,
       stats: { likes: 0, orders: 0 },
       updatedAt: Date.now(),
       saladConfig: form.saladConfig,
@@ -474,7 +505,7 @@ export default function AddItem() {
             <p className="text-sm text-gray-700">
               <span className="font-bold text-green-600">30 Days Free Trial:</span> Unlimited dishes, all features!
             </p>
-            <button 
+            <button
               onClick={() => navigate("/dashboard/subscription")}
               className="text-blue-600 text-xs hover:underline mt-1 font-medium"
             >
@@ -482,7 +513,7 @@ export default function AddItem() {
             </button>
           </div>
 
-          {/* Dish Name */}
+          {/* ─── Dish Name ─────────────────────────────────────────── */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">Dish Name *</label>
             <SimpleSpellCheck
@@ -504,10 +535,10 @@ export default function AddItem() {
             <p className="text-xs text-gray-500">Type 3+ letters for spelling suggestions</p>
           </div>
 
-          {/* Price and Prep Time - Grid */}
+          {/* Price and Prep Time */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Price (Rs.) *</label>
+              <label className="block text-sm font-medium text-gray-700">Price (₹) *</label>
               <input
                 type="number"
                 className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B45253] text-base"
@@ -528,17 +559,119 @@ export default function AddItem() {
             </div>
           </div>
 
-          {/* Description */}
+          {/* ─── GST SECTION ───────────────────────────────────────── */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-semibold text-amber-800">
+                GST Rate
+              </label>
+              {priceWithGST && (
+                <span className="text-xs bg-amber-100 text-amber-700 font-medium px-2 py-1 rounded-full">
+                  Base ₹{form.price} → With GST: <strong>₹{priceWithGST}</strong>
+                </span>
+              )}
+            </div>
+
+            {/* Quick preset buttons */}
+            <div className="flex flex-wrap gap-2">
+              {GST_PRESETS.map((preset) => (
+                <button
+                  key={preset.value}
+                  type="button"
+                  onClick={() => setForm({ ...form, gstPercent: preset.value })}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                    form.gstPercent === preset.value
+                      ? "bg-[#8A244B] text-white border-[#8A244B] shadow-sm"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-[#8A244B] hover:text-[#8A244B]"
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+
+              {/* Custom % input */}
+              <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg px-2 py-1">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  placeholder="Custom"
+                  value={
+                    GST_PRESETS.some((p) => p.value === form.gstPercent)
+                      ? ""
+                      : form.gstPercent
+                  }
+                  onChange={(e) => {
+                    const val = Math.min(100, Math.max(0, Number(e.target.value)));
+                    setForm({ ...form, gstPercent: val });
+                  }}
+                  className="w-16 text-sm outline-none text-center"
+                />
+                <span className="text-gray-500 text-sm">%</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-amber-700">
+              India mein restaurant food pe typically <strong>5%</strong> GST lagta hai.
+              AC/luxury restaurants ke liye <strong>18%</strong>.
+            </p>
+          </div>
+
+          {/* ─── DESCRIPTION + AI BUTTON ──────────────────────────── */}
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Description *</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Description *
+              </label>
+              {/* AI Generate Button */}
+              <button
+                type="button"
+                onClick={generateAIDescription}
+                disabled={aiLoading || !form.name.trim()}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  aiLoading
+                    ? "bg-purple-100 text-purple-400 cursor-not-allowed"
+                    : !form.name.trim()
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-gradient-to-r from-purple-600 to-[#8A244B] text-white hover:shadow-md active:scale-95"
+                }`}
+              >
+                {aiLoading ? (
+                  <>
+                    <FaSpinner className="animate-spin text-xs" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FaMagic className="text-xs" />
+                    AI se Generate
+                  </>
+                )}
+              </button>
+            </div>
+
             <SimpleSpellCheck
               isTextarea={true}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Describe your dish..."
+              placeholder="Describe your dish... ya upar AI button dabao ✨"
               className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B45253] resize-none text-base min-h-[100px]"
               customWords={foodDictionary}
             />
+
+            {/* AI Error message */}
+            {aiError && (
+              <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                <span>⚠️</span> {aiError}
+              </p>
+            )}
+
+            {/* AI success hint */}
+            {!aiError && (
+              <p className="text-xs text-gray-500">
+                💡 Dish name likhne ke baad <strong>"AI se Generate"</strong> dabao — description khud likh dega
+              </p>
+            )}
           </div>
 
           {/* Categories Grid */}
@@ -619,14 +752,12 @@ export default function AddItem() {
                   <span className="text-sm">Sugar Level Control</span>
                 </label>
               )}
-
               {form.dishTasteProfile === "spicy" && (
                 <label className="flex items-center gap-2">
                   <input type="checkbox" checked readOnly className="w-5 h-5 accent-[#B45253]" />
                   <span className="text-sm">Salt Level Control (Auto)</span>
                 </label>
               )}
-
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -698,16 +829,9 @@ export default function AddItem() {
             <label className="block text-sm font-medium text-gray-700">Dish Image</label>
             {preview && (
               <div className="relative">
-                <img 
-                  src={preview} 
-                  alt="preview" 
-                  className="w-full h-48 md:h-64 object-cover rounded-xl" 
-                />
+                <img src={preview} alt="preview" className="w-full h-48 md:h-64 object-cover rounded-xl" />
                 <button
-                  onClick={() => {
-                    setPreview("");
-                    setImage(null);
-                  }}
+                  onClick={() => { setPreview(""); setImage(null); }}
                   className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -748,7 +872,6 @@ export default function AddItem() {
             >
               {uploading ? (editData ? "Updating..." : "Adding...") : editData ? "Update Dish" : "Add Dish"}
             </button>
-
             <button
               onClick={() => navigate("/dashboard/menu/menu")}
               className="w-full py-3 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition border border-gray-300"
