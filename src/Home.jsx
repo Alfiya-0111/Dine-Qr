@@ -1,5 +1,6 @@
 // src/pages/HomePage.jsx - IMPROVED VERSION v3 with Dynamic Testimonials
 import React, { useState, useEffect, useRef } from 'react';
+import { Helmet } from 'react-helmet-async'; 
 import { useNavigate } from 'react-router-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Pagination, Autoplay, Navigation } from 'swiper/modules';
@@ -245,7 +246,7 @@ if (submitStatus === 'rejected') {
     </div>
   );
 }
-  return (
+  return ( 
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-lg w-full mx-auto max-h-[90vh] overflow-y-auto">
         {/* Header */}
@@ -789,6 +790,42 @@ const HomePage = () => {
   const formatINR = (n) => new Intl.NumberFormat('en-IN').format(n);
 
   return (
+    <>
+   
+     {/* ── SEO Meta Tags + Structured Data ──────────────────────────── */}
+<Helmet>
+  {/* Primary Meta - Should match index.html for consistency */}
+  <title>Khaatogo – QR Code Menu & Restaurant Management Software India | Zero Commission</title>
+  
+  <meta name="description" content="India's #1 restaurant QR menu software. Create digital QR code menus, receive WhatsApp orders, manage table bookings & kitchen display. Zero commission. ₹199/month. Gujarat, Surat, Navsari restaurants ke liye perfect. 30-day free trial." />
+  
+  {/* Canonical - IMPORTANT for preventing duplicate content */}
+  <link rel="canonical" href="https://www.khaatogo.com/" />
+  
+  {/* Open Graph */}
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://www.khaatogo.com/" />
+  <meta property="og:title" content="Khaatogo – QR Code Menu & Restaurant Management Software India" />
+  <meta property="og:description" content="India's #1 restaurant QR menu platform. WhatsApp orders, table booking, kitchen display – zero commission. Free 30-day trial." />
+  <meta property="og:image" content="https://www.khaatogo.com/og-image.jpg" />
+  <meta property="og:locale" content="en_IN" />
+  <meta property="og:site_name" content="Khaatogo" />
+
+  {/* Twitter */}
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Khaatogo – QR Code Menu & Restaurant Management Software India" />
+  <meta name="twitter:description" content="India's #1 restaurant QR menu. Zero commission WhatsApp orders. Free 30-day trial." />
+  <meta name="twitter:image" content="https://www.khaatogo.com/og-image.jpg" />
+
+  {/* Geo Tags */}
+  <meta name="geo.region" content="IN-GJ" />
+  <meta name="geo.placename" content="Navsari, Gujarat, India" />
+  <meta name="geo.position" content="20.9467;72.9520" />
+  <meta name="ICBM" content="20.9467, 72.9520" />
+  
+  {/* Robots */}
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+</Helmet>
     <div className="min-h-screen bg-white font-sans overflow-x-hidden">
 
       {/* ── Announcement Bar ─────────────────────────────────────────────── */}
@@ -1498,6 +1535,7 @@ const HomePage = () => {
         }
       `}</style>
     </div>
+     </>
   );
 };
 

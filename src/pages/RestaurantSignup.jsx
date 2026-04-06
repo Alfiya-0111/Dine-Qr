@@ -68,13 +68,11 @@ export default function RestaurantSignup() {
 
   return (
     <>
-      <Helmet>
-        <title>Khattogo | Khaatogo – Digital QR Menu Platform</title>
-        <meta
-          name="description"
-          content="Khaatogo helps restaurants create smart digital QR menus, manage orders, and improve customer experience."
-        />
-      </Helmet>
+     
+<Helmet>
+  <title>Restaurant Signup – Create Free QR Menu | Khaatogo India</title>
+  <meta name="description" content="Free restaurant signup for Khaatogo. Create your digital QR menu in 2 minutes. WhatsApp orders, table booking, kitchen display. No commission. Gujarat, Surat restaurants welcome." />
+</Helmet>
 
       <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#FAEFEA" }}>
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">

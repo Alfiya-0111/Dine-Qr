@@ -224,13 +224,10 @@ const handleDeliveryLogin = async () => {
 
   return (
     <>
-      <Helmet>
-        <title>Restaurant Login – Khaatogo</title>
-        <meta
-          name="description"
-          content="Login to your Khaatogo restaurant dashboard to manage menu, orders, and analytics."
-        />
-      </Helmet>
+    <Helmet>
+  <title>Restaurant Login – Khaatogo Dashboard | QR Menu Management</title>
+  <meta name="description" content="Login to your Khaatogo restaurant dashboard. Manage QR menu, WhatsApp orders, table bookings & kitchen display. Best restaurant software in India." />
+</Helmet>
 
       <ToastContainer position="top-center" />
 

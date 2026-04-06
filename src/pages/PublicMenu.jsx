@@ -2192,9 +2192,11 @@ useEffect(() => {
   return (
     <>
       <Helmet>
-        <title>{restaurantSettings?.name || restaurantName || "Digital Menu"}</title>
-        <meta name="description" content="Browse our delicious menu" />
-      </Helmet>
+  <title>{restaurantSettings?.name || restaurantName || "Digital Menu"} – QR Menu | Khaatogo</title>
+  <meta name="description" content={`Order from ${restaurantSettings?.name || 'our restaurant'} via QR code menu. WhatsApp ordering, live order tracking, table booking. Contactless dining experience.`} />
+  {/* Add noindex if it's a test/dev menu */}
+  {process.env.NODE_ENV === 'development' && <meta name="robots" content="noindex" />}
+</Helmet>
 <PromoPopup
   restaurantId={restaurantId} 
   restaurantSettings={restaurantSettings} 
