@@ -4,12 +4,10 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Preflight request handle karein
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  // Sirf POST allow karein
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -17,7 +15,8 @@ export default async function handler(req, res) {
   try {
     const { dishName, category, spiceLevel, vegType, dishTasteProfile } = req.body;
 
-    // Anthropic API call
+    console.log('Received:', { dishName, category, spiceLevel, vegType, dishTasteProfile });
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -26,7 +25,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-3-5-sonnet-20240620',  // ✅ SAHI MODEL
         max_tokens: 1000,
         messages: [{
           role: 'user',
@@ -48,20 +47,32 @@ Rules:
       })
     });
 
-    const result = await response.json();
-    const description = result?.content?.[0]?.text?.trim();
-
-    if (!description) {
-      throw new Error('Empty response from AI');
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Anthropic API error:', response.status, errorText);
+      throw new Error(`API failed: ${response.status}`);
     }
 
+    const result = await response.json();
+    console.log('Anthropic response:', JSON.stringify(result, null, 2));
+
+    // ✅ SAHI FORMAT - YAHAN FIX HAI
+    const textBlock = result?.content?.find(block => block.type === 'text');
+    const description = textBlock?.text?.trim();
+
+    if (!description) {
+      console.error('No description found:', result);
+      throw new Error('Empty description from AI');
+    }
+
+    console.log('Generated description:', description);
     return res.status(200).json({ description });
 
   } catch (error) {
-    console.error('AI Error:', error);
+    console.error('Full error:', error);
     return res.status(500).json({ 
       error: 'Description generate nahi ho saka',
-      details: error.message 
+      details: error.message
     });
   }
 }
