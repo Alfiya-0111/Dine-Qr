@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  // CORS headers
+  // ✅ CORS (safe)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -15,8 +15,16 @@ export default async function handler(req, res) {
   try {
     const { dishName, category, spiceLevel, vegType, dishTasteProfile } = req.body;
 
+    // ✅ Debug logs
     console.log('Received:', { dishName, category, spiceLevel, vegType, dishTasteProfile });
-console.log("API KEY:", process.env.ANTHROPIC_API_KEY);
+    console.log("API KEY:", process.env.ANTHROPIC_API_KEY ? "Loaded ✅" : "Missing ❌");
+
+    // ❌ Agar API key missing hai to direct error
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error("API key missing in environment variables");
+    }
+
+    // ✅ API Call
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -25,11 +33,11 @@ console.log("API KEY:", process.env.ANTHROPIC_API_KEY);
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20240620',  // ✅ SAHI MODEL
-        max_tokens: 1000,
+        model: 'claude-3-haiku-20240307', // ✅ stable model
+        max_tokens: 300,
         messages: [{
           role: 'user',
-          content: `Professional menu copywriter banke dish "${dishName}" ke liye chhota sa tasty description likho.
+          content: `Professional restaurant menu copywriter banke dish "${dishName}" ke liye short tasty description likho.
 
 Details:
 - Category: ${category || 'General'}
@@ -38,27 +46,36 @@ Details:
 - Taste: ${dishTasteProfile || 'spicy'}
 
 Rules:
-- Sirf 2 sentences (35-50 words)
-- 2-3 ingredients ya cooking method mention karo
+- 2 sentences only (30-50 words)
+- 2-3 ingredients ya cooking style mention karo
 - Indian restaurant style English
-- "Indulge" ya "Savor" se shuru mat karna
-- Sirf description text return karo, kuch aur nahi`
+- Sirf description return karo`
         }]
       })
     });
 
+    // ✅ Status log
+    console.log("STATUS:", response.status);
+
+    // ✅ SINGLE READ (IMPORTANT FIX)
+    const rawText = await response.text();
+    console.log("RAW RESPONSE:", rawText);
+
+    // ❌ Agar API fail hua
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Anthropic API error:', response.status, errorText);
-      throw new Error(`API failed: ${response.status}`);
+      throw new Error(`Anthropic API Error: ${response.status} - ${rawText}`);
     }
 
-    const result = await response.json();
-    console.log('Anthropic response:', JSON.stringify(result, null, 2));
+    // ✅ Parse response
+    let result;
+    try {
+      result = JSON.parse(rawText);
+    } catch (parseErr) {
+      throw new Error("Invalid JSON response from API");
+    }
 
-    // ✅ SAHI FORMAT - YAHAN FIX HAI
-    const textBlock = result?.content?.find(block => block.type === 'text');
-    const description = textBlock?.text?.trim();
+    // ✅ Extract description safely
+    const description = result?.content?.[0]?.text?.trim();
 
     if (!description) {
       console.error('No description found:', result);
@@ -66,10 +83,12 @@ Rules:
     }
 
     console.log('Generated description:', description);
+
     return res.status(200).json({ description });
 
   } catch (error) {
     console.error('Full error:', error);
+
     return res.status(500).json({ 
       error: 'Description generate nahi ho saka',
       details: error.message
