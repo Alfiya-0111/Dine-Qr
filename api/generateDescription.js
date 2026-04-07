@@ -21,6 +21,8 @@ export default async function handler(req, res) {
 
     // ❌ Agar API key missing hai to direct error
     if (!process.env.ANTHROPIC_API_KEY) {
+return res.status(500).json({ error: "API KEY MISSING" });
+
       throw new Error("API key missing in environment variables");
     }
 
@@ -58,13 +60,23 @@ Rules:
     console.log("STATUS:", response.status);
 
     // ✅ SINGLE READ (IMPORTANT FIX)
-    const rawText = await response.text();
-    console.log("RAW RESPONSE:", rawText);
+  const rawText = await response.text();
 
-    // ❌ Agar API fail hua
-    if (!response.ok) {
-      throw new Error(`Anthropic API Error: ${response.status} - ${rawText}`);
-    }
+// ✅ FIX START
+if (!response.ok) {
+  console.log("API ERROR RAW:", rawText);
+
+  // 💥 CREDIT खत्म fallback
+  if (rawText.includes("credit balance is too low")) {
+    return res.status(200).json({
+      description: `${dishName} is a delicious dish prepared with fresh ingredients and rich flavors, offering a perfect balance of taste and aroma for a satisfying meal experience.`
+    });
+  }
+
+  // ❌ बाकी errors
+  throw new Error(`Anthropic API Error: ${response.status} - ${rawText}`);
+}
+// ✅ FIX END
 
     // ✅ Parse response
     let result;
