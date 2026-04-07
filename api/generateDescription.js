@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     const { dishName, category, spiceLevel, vegType, dishTasteProfile } = req.body;
 
     console.log('Received:', { dishName, category, spiceLevel, vegType, dishTasteProfile });
-
+console.log("API KEY:", process.env.ANTHROPIC_API_KEY);
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
