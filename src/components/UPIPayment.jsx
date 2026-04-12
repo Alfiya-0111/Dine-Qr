@@ -4,6 +4,7 @@ import { FaQrcode, FaCopy, FaCheckCircle, FaRegClock } from 'react-icons/fa';
 import { IoClose } from 'react-icons/io5';
 import { toast } from 'sonner';
 
+
 const UPIPayment = ({ 
   isOpen, 
   onClose, 

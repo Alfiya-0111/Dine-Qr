@@ -195,3 +195,12 @@
     overflow: hidden;
 }
 }
+/* public/ar-styles.css */
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(138, 36, 75, 0.4); }
+  50% { box-shadow: 0 0 0 15px rgba(138, 36, 75, 0); }
+}
+
+.animate-pulse {
+  animation: pulse-border 2s infinite;
+}

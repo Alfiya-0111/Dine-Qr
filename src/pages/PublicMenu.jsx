@@ -16,6 +16,7 @@ import TableBookingModal from "../components/TableBookingModal";
 import MyBookings from "../components/MyBookings";
 import PromoPopup from './PromoPopup';
 import CouponBanner from "../components/CouponBanner";
+import RealisticARViewer from "../components/RealisticARViewer";
 import {
   collection,
   getDocs,
@@ -177,19 +178,20 @@ const ARViewer = ({ glbUrl, dishName, onClose, theme }) => {
 
         {/* Model Viewer */}
         <div className="relative w-full bg-gray-100" style={{ height: "60vh" }}>
-         <model-viewer
-  src={glbUrl}
-  alt={dishName}
-  ar
-  ar-modes="webxr scene-viewer quick-look"
-  camera-controls
-  auto-rotate
-  crossorigin="anonymous"  // ✅ ADD THIS
-  style={{ width: "100%", height: "100%", backgroundColor: "#f9f9f9" }}
-  shadow-intensity="1"
-  environment-image="neutral"
-  exposure="1"
->
+          <model-viewer
+            src={glbUrl}
+            alt={dishName}
+            ar
+            ar-modes="webxr scene-viewer quick-look"
+            camera-controls
+            auto-rotate
+            auto-rotate-delay="0"
+            rotation-per-second="30deg"
+            style={{ width: "100%", height: "100%", backgroundColor: "#f9f9f9" }}
+            shadow-intensity="1"
+            environment-image="neutral"
+            exposure="1"
+          >
             {/* AR Button inside model-viewer */}
             <button
               slot="ar-button"
@@ -263,56 +265,6 @@ const ARViewer = ({ glbUrl, dishName, onClose, theme }) => {
         <span className={timeLeft <= 2 ? "text-red-500 font-bold" : ""}>
           {timeLeft <= 0 ? "Almost ready!" : `~${timeLeft} min left`}
         </span>
-      </div>
-    </div>
-  );
-};
-// ================= AR VIEWER COMPONENT =================
-const ARViewer = ({ glbUrl, dishName, onClose, theme }) => {
-  return (
-    <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl">
-        <div className="flex items-center justify-between px-4 py-3" style={{ backgroundColor: theme?.primary || "#8A244B" }}>
-          <div>
-            <p className="text-white font-bold text-sm">🥽 AR View</p>
-            <p className="text-white/80 text-xs">{dishName}</p>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition">✕</button>
-        </div>
-        <div className="relative w-full bg-gray-100" style={{ height: "60vh" }}>
-          <model-viewer
-            src={glbUrl}
-            alt={dishName}
-            ar
-            ar-modes="webxr scene-viewer quick-look"
-            camera-controls
-            auto-rotate
-            auto-rotate-delay="0"
-            rotation-per-second="30deg"
-            style={{ width: "100%", height: "100%", backgroundColor: "#f9f9f9" }}
-            shadow-intensity="1"
-            environment-image="neutral"
-            exposure="1"
-          >
-            <button
-              slot="ar-button"
-              style={{
-                backgroundColor: theme?.primary || "#8A244B",
-                color: "white", border: "none", borderRadius: "12px",
-                padding: "12px 24px", fontWeight: "bold", fontSize: "14px",
-                position: "absolute", bottom: "16px", left: "50%",
-                transform: "translateX(-50%)", cursor: "pointer",
-                boxShadow: "0 4px 15px rgba(0,0,0,0.2)"
-              }}
-            >
-              📱 Table pe Place Karo (AR)
-            </button>
-          </model-viewer>
-        </div>
-        <div className="px-4 py-3 bg-gray-50 border-t">
-          <p className="text-xs text-gray-500 text-center">💡 <strong>"Table pe Place Karo"</strong> dabao — dish aapki actual table pe dikhegi!</p>
-          <p className="text-xs text-gray-400 text-center mt-1">iPhone: Quick Look • Android: Scene Viewer</p>
-        </div>
       </div>
     </div>
   );
@@ -2773,7 +2725,14 @@ useEffect(() => {
                             </span>
                           )}
                         </div>
-                        
+                        <button
+                          onClick={() => setArItem(item)}
+                          className="absolute bottom-2 left-2 bg-white/90 px-3 py-1.5 rounded-full text-xs font-bold shadow-lg hover:scale-105 transition flex items-center gap-1 z-20"
+                          style={{ color: theme.primary }}
+                        >
+                          <span>📱</span>
+                          <span>AR</span>
+                        </button>
                         <div className="p-4">
                           <h3 className="font-bold text-lg truncate flex items-center gap-2">
                             {item.name}
@@ -2792,17 +2751,7 @@ useEffect(() => {
   )}
 </div>
                           {/* AR Button — dish card mein */}
-{item.glbUrl && (
-  <button
-    onClick={() => setArItem(item)}
-    className="w-full mt-2 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-all duration-300"
-    style={{ border: "2px solid #7c3aed", color: "#7c3aed", backgroundColor: "#ffffff" }}
-    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#7c3aed"; e.currentTarget.style.color = "#ffffff"; }}
-    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#ffffff"; e.currentTarget.style.color = "#7c3aed"; }}
-  >
-    🥽 View in AR
-  </button>
-)}
+
                           <div className="grid grid-cols-2 gap-2 mt-4">
                             <button
                               onClick={() => handleOrderClick(item, "order")}
@@ -3296,13 +3245,11 @@ saltPreference: tasteItem.dishTasteProfile === "sweet"
               </div>
             </div>
           )}
-{/* AR Viewer Modal */}
 {arItem && (
-  <ARViewer
-    glbUrl={arItem.glbUrl}
-    dishName={arItem.name}
-    onClose={() => setArItem(null)}
-    theme={theme}
+  <RealisticARViewer 
+    item={arItem} 
+    onClose={() => setArItem(null)} 
+    theme={theme} 
   />
 )}
           {selectedItem && <OrderModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
