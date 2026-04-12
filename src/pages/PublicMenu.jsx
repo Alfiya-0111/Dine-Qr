@@ -177,20 +177,19 @@ const ARViewer = ({ glbUrl, dishName, onClose, theme }) => {
 
         {/* Model Viewer */}
         <div className="relative w-full bg-gray-100" style={{ height: "60vh" }}>
-          <model-viewer
-            src={glbUrl}
-            alt={dishName}
-            ar
-            ar-modes="webxr scene-viewer quick-look"
-            camera-controls
-            auto-rotate
-            auto-rotate-delay="0"
-            rotation-per-second="30deg"
-            style={{ width: "100%", height: "100%", backgroundColor: "#f9f9f9" }}
-            shadow-intensity="1"
-            environment-image="neutral"
-            exposure="1"
-          >
+         <model-viewer
+  src={glbUrl}
+  alt={dishName}
+  ar
+  ar-modes="webxr scene-viewer quick-look"
+  camera-controls
+  auto-rotate
+  crossorigin="anonymous"  // ✅ ADD THIS
+  style={{ width: "100%", height: "100%", backgroundColor: "#f9f9f9" }}
+  shadow-intensity="1"
+  environment-image="neutral"
+  exposure="1"
+>
             {/* AR Button inside model-viewer */}
             <button
               slot="ar-button"
