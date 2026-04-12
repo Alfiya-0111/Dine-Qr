@@ -26,7 +26,6 @@ const SimpleSpellCheck = ({
   const [showDropdown, setShowDropdown] = useState(false);
   const [currentWord, setCurrentWord] = useState("");
   const inputRef = useRef(null);
-
   const commonWords = new Set([
     "the", "be", "to", "of", "and", "a", "in", "that", "have", "i", "it", "for", "not", "on", "with", "he", "as", "you", "do", "at",
     "pizza", "burger", "pasta", "salad", "sandwich", "chicken", "beef", "fish", "rice", "noodles", "soup", "curry", "bread", "cake",
@@ -164,6 +163,9 @@ export default function AddItem() {
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [glbFile, setGlbFile] = useState(null);
+const [glbUrl, setGlbUrl] = useState(editData?.glbUrl || "");
+const [glbUploading, setGlbUploading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
   // ✅ AI Description state
@@ -382,7 +384,21 @@ export default function AddItem() {
     if (!data.secure_url) throw new Error("Upload failed");
     return data.secure_url.replace("/upload/", "/upload/q_auto,f_auto,w_800/");
   };
-
+const uploadGlbToCloudinary = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", CLOUDINARY_CONFIG.uploadPreset);
+  formData.append("folder", `${CLOUDINARY_CONFIG.folder}/${userId}/glb`);
+  formData.append("resource_type", "raw");
+  
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/raw/upload`,
+    { method: "POST", body: formData }
+  );
+  const data = await res.json();
+  if (!data.secure_url) throw new Error("GLB Upload failed");
+  return data.secure_url;
+};
   const compressImage = (file) => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -429,6 +445,18 @@ export default function AddItem() {
       }
       setUploading(false);
     }
+// GLB upload
+let glbFileUrl = glbUrl;
+if (glbFile) {
+  setGlbUploading(true);
+  try {
+    glbFileUrl = await uploadGlbToCloudinary(glbFile);
+  } catch (error) {
+    console.error("GLB Upload error:", error);
+    alert("3D Model upload failed. Dish bina AR ke save ho raha hai.");
+  }
+  setGlbUploading(false);
+}
 
     const payload = {
       restaurantId: userId,
@@ -455,6 +483,7 @@ export default function AddItem() {
       stats: { likes: 0, orders: 0 },
       updatedAt: Date.now(),
       saladConfig: form.saladConfig,
+      glbUrl: glbFileUrl || null,
     };
 
     if (!isDrinkSelected) {
@@ -858,7 +887,52 @@ export default function AddItem() {
             />
             <p className="text-xs text-gray-500">Max size: 5MB • Powered by Cloudinary</p>
           </div>
+{/* ─── AR 3D Model Upload ─────────────────────────────── */}
+<div className="space-y-2 border-2 border-dashed border-purple-200 rounded-xl p-4 bg-purple-50">
+  <div className="flex items-center gap-2 mb-1">
+    <span className="text-purple-600 text-lg">🥽</span>
+    <label className="block text-sm font-semibold text-purple-700">
+      3D AR Model (.glb) — Optional
+    </label>
+    <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-medium">
+      Premium Feature
+    </span>
+  </div>
 
+  {glbUrl && (
+    <div className="flex items-center justify-between bg-white border border-purple-200 rounded-lg px-3 py-2">
+      <span className="text-xs text-gray-600 truncate">✅ 3D Model uploaded</span>
+      <button
+        onClick={() => { setGlbUrl(""); setGlbFile(null); }}
+        className="text-red-400 hover:text-red-600 text-xs ml-2"
+      >
+        Remove
+      </button>
+    </div>
+  )}
+
+  <input
+    type="file"
+    accept=".glb,.gltf"
+    className="w-full p-2 border border-purple-200 rounded-xl file:mr-3 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 text-sm bg-white"
+    onChange={(e) => {
+      const f = e.target.files[0];
+      if (f) {
+        if (f.size > 20 * 1024 * 1024) {
+          alert("GLB file 20MB se chhoti honi chahiye");
+          return;
+        }
+        setGlbFile(f);
+      }
+    }}
+  />
+  {glbUploading && (
+    <p className="text-xs text-purple-600 animate-pulse">⬆️ 3D model upload ho raha hai...</p>
+  )}
+  <p className="text-xs text-purple-500">
+    Free .glb models: <a href="https://poly.pizza" target="_blank" rel="noreferrer" className="underline">poly.pizza</a> ya <a href="https://sketchfab.com" target="_blank" rel="noreferrer" className="underline">sketchfab.com</a> se download karo
+  </p>
+</div>
           {/* Action Buttons */}
           <div className="space-y-3 pt-4">
             <button

@@ -157,6 +157,80 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
       </div>
     );
   }
+const ARViewer = ({ glbUrl, dishName, onClose, theme }) => {
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3" style={{ backgroundColor: theme?.primary || "#8A244B" }}>
+          <div>
+            <p className="text-white font-bold text-sm">🥽 AR View</p>
+            <p className="text-white/80 text-xs">{dishName}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Model Viewer */}
+        <div className="relative w-full bg-gray-100" style={{ height: "60vh" }}>
+          <model-viewer
+            src={glbUrl}
+            alt={dishName}
+            ar
+            ar-modes="webxr scene-viewer quick-look"
+            camera-controls
+            auto-rotate
+            auto-rotate-delay="0"
+            rotation-per-second="30deg"
+            style={{ width: "100%", height: "100%", backgroundColor: "#f9f9f9" }}
+            shadow-intensity="1"
+            environment-image="neutral"
+            exposure="1"
+          >
+            {/* AR Button inside model-viewer */}
+            <button
+              slot="ar-button"
+              style={{
+                backgroundColor: theme?.primary || "#8A244B",
+                color: "white",
+                border: "none",
+                borderRadius: "12px",
+                padding: "12px 24px",
+                fontWeight: "bold",
+                fontSize: "14px",
+                position: "absolute",
+                bottom: "16px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                boxShadow: "0 4px 15px rgba(0,0,0,0.2)"
+              }}
+            >
+              📱 Table pe Place Karo (AR)
+            </button>
+          </model-viewer>
+        </div>
+
+        {/* Info */}
+        <div className="px-4 py-3 bg-gray-50 border-t">
+          <p className="text-xs text-gray-500 text-center">
+            💡 <strong>"Table pe Place Karo"</strong> dabao — dish aapki actual table pe dikhegi!
+          </p>
+          <p className="text-xs text-gray-400 text-center mt-1">
+            iPhone: Quick Look • Android: Scene Viewer
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
   const timeLeft = Math.ceil(((100 - progress) / 100) * (item.prepTime || 15));
   
@@ -194,7 +268,56 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
     </div>
   );
 };
-
+// ================= AR VIEWER COMPONENT =================
+const ARViewer = ({ glbUrl, dishName, onClose, theme }) => {
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl">
+        <div className="flex items-center justify-between px-4 py-3" style={{ backgroundColor: theme?.primary || "#8A244B" }}>
+          <div>
+            <p className="text-white font-bold text-sm">🥽 AR View</p>
+            <p className="text-white/80 text-xs">{dishName}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition">✕</button>
+        </div>
+        <div className="relative w-full bg-gray-100" style={{ height: "60vh" }}>
+          <model-viewer
+            src={glbUrl}
+            alt={dishName}
+            ar
+            ar-modes="webxr scene-viewer quick-look"
+            camera-controls
+            auto-rotate
+            auto-rotate-delay="0"
+            rotation-per-second="30deg"
+            style={{ width: "100%", height: "100%", backgroundColor: "#f9f9f9" }}
+            shadow-intensity="1"
+            environment-image="neutral"
+            exposure="1"
+          >
+            <button
+              slot="ar-button"
+              style={{
+                backgroundColor: theme?.primary || "#8A244B",
+                color: "white", border: "none", borderRadius: "12px",
+                padding: "12px 24px", fontWeight: "bold", fontSize: "14px",
+                position: "absolute", bottom: "16px", left: "50%",
+                transform: "translateX(-50%)", cursor: "pointer",
+                boxShadow: "0 4px 15px rgba(0,0,0,0.2)"
+              }}
+            >
+              📱 Table pe Place Karo (AR)
+            </button>
+          </model-viewer>
+        </div>
+        <div className="px-4 py-3 bg-gray-50 border-t">
+          <p className="text-xs text-gray-500 text-center">💡 <strong>"Table pe Place Karo"</strong> dabao — dish aapki actual table pe dikhegi!</p>
+          <p className="text-xs text-gray-400 text-center mt-1">iPhone: Quick Look • Android: Scene Viewer</p>
+        </div>
+      </div>
+    </div>
+  );
+};
 // ================= ACTIVE ORDER CARD COMPONENT =================
 const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWhatsApp, isProcessed, onDishReady, onReorder }) => {
   const statusConfig = {
@@ -282,6 +405,7 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
             </div>
             
             {!isCompleted && order.status !== 'pending' && (
+              
               <div className="mt-2 pt-2 border-t border-gray-200">
                 <DishProgressBar 
                   key={`${order.id}-${item.dishId || item.id}`}
@@ -381,6 +505,7 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
               className="py-2.5 px-4 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300"
             >
               <FaWhatsapp className="w-4 h-4" />
+             
               Share Bill
             </button>
           </div>
@@ -478,6 +603,7 @@ const [dishNotes, setDishNotes] = useState({});
 const [allCoupons, setAllCoupons] = useState({});
 const [appliedCoupon, setAppliedCoupon] = useState(null);
 const [liveKitchenItems, setLiveKitchenItems] = useState([]);
+const [arItem, setArItem] = useState(null);
 const [showLiveKitchenBanner, setShowLiveKitchenBanner] = useState(false);
 const [dismissedKitchenNotif, setDismissedKitchenNotif] = useState(false);
   const theme = restaurantSettings?.theme || {
@@ -2202,6 +2328,7 @@ useEffect(() => {
   restaurantSettings={restaurantSettings} 
 />
 
+
 {/* ✅ Live Kitchen Banner — YE ADD KARO */}
 {showLiveKitchenBanner && !dismissedKitchenNotif && liveKitchenItems.length > 0 && (
   <div className="fixed bottom-24 left-0 right-0 z-50 px-4 flex flex-col gap-2 pointer-events-none">
@@ -2541,8 +2668,9 @@ useEffect(() => {
     )}
   </button>
 )}
-                  
+             
                 {activeOrder.map((order) => (
+                  
   <ActiveOrderCard 
     key={order.id}
     order={order}
@@ -2657,7 +2785,6 @@ useEffect(() => {
                           <p className="text-gray-500 font-medium">₹{item.price}</p>
                           <p className="text-xs text-gray-400 mt-1">⏱ Ready in {Number(item.prepTime ?? 15)} min</p>
                           <p className="text-sm text-gray-600 mt-2 line-clamp-2">{item.description}</p>
-                          
                           <div className="mt-3">
   <Likes restaurantId={item.restaurantId} dishId={item.id} />
   {/* ✅ Sirf tab dikhao jab rating ho */}
@@ -2665,7 +2792,18 @@ useEffect(() => {
     <Rating restaurantId={item.restaurantId} dishId={item.id} />
   )}
 </div>
-
+                          {/* AR Button — dish card mein */}
+{item.glbUrl && (
+  <button
+    onClick={() => setArItem(item)}
+    className="w-full mt-2 py-2 rounded-lg font-medium text-sm flex items-center justify-center gap-2 transition-all duration-300"
+    style={{ border: "2px solid #7c3aed", color: "#7c3aed", backgroundColor: "#ffffff" }}
+    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#7c3aed"; e.currentTarget.style.color = "#ffffff"; }}
+    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#ffffff"; e.currentTarget.style.color = "#7c3aed"; }}
+  >
+    🥽 View in AR
+  </button>
+)}
                           <div className="grid grid-cols-2 gap-2 mt-4">
                             <button
                               onClick={() => handleOrderClick(item, "order")}
@@ -3056,6 +3194,7 @@ saltPreference: tasteItem.dishTasteProfile === "sweet"
       restaurantSettings={restaurantSettings}  
       onWhatsAppOrder={handleWhatsAppOrderFromCart}  
     />
+    
   </>
 )}
 
@@ -3158,7 +3297,15 @@ saltPreference: tasteItem.dishTasteProfile === "sweet"
               </div>
             </div>
           )}
-
+{/* AR Viewer Modal */}
+{arItem && (
+  <ARViewer
+    glbUrl={arItem.glbUrl}
+    dishName={arItem.name}
+    onClose={() => setArItem(null)}
+    theme={theme}
+  />
+)}
           {selectedItem && <OrderModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
           <LoginModal />
         </div>
