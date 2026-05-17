@@ -4,7 +4,7 @@ import { realtimeDB } from "../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { initWhatsAppAutoProcessor } from "../utils/whatsappAutoProcessor";
 import { useNavigate, useParams } from "react-router-dom";
-import { OrderCard } from "./OrderCard";
+import { Ordercard } from "./Ordercard";
 import { FaLock, FaBell, FaMotorcycle, FaWhatsapp, FaMicrophone, FaClock, FaChartLine } from "react-icons/fa";
 
 const PRIMARY  = "#8A244B";
@@ -640,7 +640,7 @@ export default function AdminOrders() {
             Abhi koi active order nahi hai
           </div>
         ) : activeOrders.map(o => (
-          <OrderCard key={o.id} order={o} now={now} isActive={true}
+          <Ordercard key={o.id} order={o} now={now} isActive={true}
             onDelete={deleteOrder} onUpdateStatus={updateStatus}
             onUpdatePayment={updatePaymentStatus} onGenerateBill={generateBill}
             autoCompleteEnabled={autoCompleteEnabled && planFeatures.autoComplete}

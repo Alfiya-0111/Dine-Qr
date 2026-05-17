@@ -138,7 +138,7 @@ const SectionLabel = ({ icon, children }) => (
 );
 
 // ─── ORDER CARD ───────────────────────────────────────────────────────────────
-export function OrderCard({
+export function Ordercard({
   order,
   now,
   isActive,
@@ -542,4 +542,4 @@ export function OrderCard({
   );
 }
 
-export default OrderCard;
+export default Ordercard;
