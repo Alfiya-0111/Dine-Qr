@@ -683,7 +683,17 @@ export default function PublicMenu() {
     background: "#ffffff"
   };
 
-  const { restaurantId } = useParams();
+ const { slug } = useParams();
+const [restaurantId, setRestaurantId] = useState(null);
+useEffect(() => {
+  if (!slug) return;
+  const fetchId = async () => {
+    const q = query(collection(db, "restaurants"), where("slug", "==", slug));
+    const snap = await getDocs(q);
+    if (!snap.empty) setRestaurantId(snap.docs[0].id);
+  };
+  fetchId();
+}, [slug]);
   const navigate = useNavigate();
 
   const requireLogin = useRequireLogin();

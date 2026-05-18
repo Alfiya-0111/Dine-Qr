@@ -45,7 +45,7 @@ function App() {
           <Route path="/login/:restaurantId" element={<RestaurantLogin />} />
 
           {/* ── Public Customer Routes ─────────────────── */}
-          <Route path="/menu/:restaurantId" element={<PublicMenu />} />
+         <Route path="/menu/:slug" element={<PublicMenu />} />
           <Route path="/checkout/:restaurantId" element={<Checkout />} />
           <Route path="/track/:restaurantId/:orderId" element={<OrderTracking />} />
 <Route path="/menu/:restaurantId/my-orders" element={<MyOrders />} />

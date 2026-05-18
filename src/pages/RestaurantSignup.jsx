@@ -27,7 +27,13 @@ const DEV_EMAILS = [
   "sandwichubb@gmail.com",
   "Pashto123@gmail.com",
 ];
-
+const generateSlug = (name) => {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-");
+};
 export default function RestaurantSignup() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
@@ -129,6 +135,7 @@ export default function RestaurantSignup() {
         restaurantName: form.name,
         email: form.email,
         phone: "+91" + form.phone.replace(/\s+/g, ""),
+         slug: generateSlug(form.name), 
         emailVerified: isDevEmail ? true : false,
         plan: "free",
         allowedItems: 5,
