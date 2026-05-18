@@ -9,7 +9,7 @@ import RestaurantLogin from "./pages/RestaurantLogin";
 import MenuItems from "./pages/MenuItems";
 import FeedbackTab from "./components/FeedbackTab";
 import OwnerAnalytics from "./pages/OwnerAnalytics";
-
+import MyOrders from "./pages/MyOrders";
 import { AuthProvider } from "./context/AuthContext";
 import LoginModal from "./components/LoginModal";
 import RestaurantSettings from "./pages/RestaurantSettings";
@@ -48,7 +48,7 @@ function App() {
           <Route path="/menu/:restaurantId" element={<PublicMenu />} />
           <Route path="/checkout/:restaurantId" element={<Checkout />} />
           <Route path="/track/:restaurantId/:orderId" element={<OrderTracking />} />
-
+<Route path="/menu/:restaurantId/my-orders" element={<MyOrders />} />
           {/* ── Owner Dashboard (Nested Routes) ───────── */}
           <Route path="/dashboard/:restaurantId" element={<Dashboard />}>
             <Route path="adminorder" element={<AdminOrders />} />

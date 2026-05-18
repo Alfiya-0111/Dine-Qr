@@ -178,7 +178,7 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 
 import Likes from "../components/Likes";
 import Rating from "../components/Rating";
@@ -257,7 +257,8 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
       localPrepStartedRef.current = true;
       autoStartAttemptedRef.current = true;
 
-      const itemRef = rtdbRef(realtimeDB, `orders/${orderId}/items/${item.dishId || item.id}`);
+      const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g,'_')}`;
+const itemRef = rtdbRef(realtimeDB, `orders/${orderId}/items/${itemKey}`);
       update(itemRef, {
         prepStartedAt: now,
         prepTime: item.prepTime || 15,
@@ -307,7 +308,8 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
           onDishReady(item.name, orderId);
         }
 
-        const itemRef = rtdbRef(realtimeDB, `orders/${orderId}/items/${item.dishId || item.id}`);
+const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g,'_')}`;
+        const itemRef = rtdbRef(realtimeDB, `orders/${orderId}/items/${itemKey}`);
         update(itemRef, {
           itemStatus: "ready",
           itemReadyAt: Date.now()
@@ -403,12 +405,16 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
 };
 // ================= ACTIVE ORDER CARD COMPONENT =================
 const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWhatsApp, isProcessed, onDishReady, onReorder }) => {
+  const [localBillOpened, setLocalBillOpened] = useState(
+    order.billOpened || isProcessed || false
+  );
+
   const statusConfig = {
-    pending: { color: 'bg-yellow-100 text-yellow-800', icon: <IoTimeOutline className="w-4 h-4" />, label: 'Pending' },
-    confirmed: { color: 'bg-green-100 text-green-800', icon: <IoCheckmarkCircle className="w-4 h-4" />, label: 'Confirmed' },
-    preparing: { color: 'bg-blue-100 text-blue-800', icon: <IoRestaurantOutline className="w-4 h-4" />, label: 'Preparing' },
-    ready: { color: 'bg-purple-100 text-purple-800', icon: <IoFastFoodOutline className="w-4 h-4" />, label: 'Ready' },
-    completed: { color: 'bg-gray-100 text-gray-800', icon: <IoStar className="w-4 h-4" />, label: 'Completed' }
+    pending:   { color: 'bg-yellow-100 text-yellow-800', icon: <IoTimeOutline className="w-4 h-4" />,      label: 'Pending' },
+    confirmed: { color: 'bg-green-100 text-green-800',   icon: <IoCheckmarkCircle className="w-4 h-4" />,  label: 'Confirmed' },
+    preparing: { color: 'bg-blue-100 text-blue-800',     icon: <IoRestaurantOutline className="w-4 h-4" />,label: 'Preparing' },
+    ready:     { color: 'bg-purple-100 text-purple-800', icon: <IoFastFoodOutline className="w-4 h-4" />,  label: 'Ready' },
+    completed: { color: 'bg-gray-100 text-gray-800',     icon: <IoStar className="w-4 h-4" />,             label: 'Completed' }
   };
 
   const status = statusConfig[order.status] || statusConfig.pending;
@@ -422,34 +428,32 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
   };
 
   const orderItems = getItemsArray(order.items);
-  const allItemsReady = orderItems.length > 0 && orderItems.every(item => 
-    item.itemStatus === "ready" || item.itemReadyAt
-  );
-  const hasReadyItems = orderItems.some(item => 
+  const allItemsReady = orderItems.length > 0 && orderItems.every(item =>
     item.itemStatus === "ready" || item.itemReadyAt
   );
 
-  const shouldShowBillButtons = 
-    !isCompleted && 
-    (allItemsReady || order.status === 'ready') && 
-    !isProcessed;
+  // Show bill buttons when: items ready OR order ready/completed AND bill not yet opened
+  const shouldShowBillButtons =
+    !localBillOpened &&
+    (allItemsReady || order.status === 'ready' || isCompleted);
+
+  // After bill opened — show compact bill actions + close button
+  const showPostBillActions = localBillOpened;
 
   return (
     <div id={`order-${order.id}`} className={`${glassStyles.card} rounded-2xl p-4 mb-4`}>
+      {/* Header */}
       <div className="flex justify-between items-center mb-3">
         <div>
           <p className="text-sm font-bold">Order #{order.id.slice(-6)}</p>
-          <p className="text-xs text-gray-500">
-            {new Date(order.createdAt).toLocaleString()}
-          </p>
+          <p className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleString()}</p>
         </div>
-
         <span className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${status.color}`}>
-          {status.icon}
-          {status.label}
+          {status.icon}{status.label}
         </span>
       </div>
 
+      {/* Items */}
       <div className="space-y-3 mb-3">
         {orderItems.map((item, idx) => (
           <div key={idx} className={`${glassStyles.badge} rounded-xl p-3`}>
@@ -462,21 +466,14 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
                   <span className="text-sm font-medium block">{item.name || 'Unknown Item'}</span>
                   <span className="text-xs text-gray-500 flex items-center gap-1 flex-wrap">
                     <span className="flex items-center gap-0.5"><IoCubeOutline className="w-3 h-3" /> {item.qty || 1}</span>
-
                     {item.dishTasteProfile !== "sweet" && item.spicePreference && (
                       <span className="flex items-center gap-0.5"><IoFlame className="w-3 h-3" /> {item.spicePreference}</span>
                     )}
-
                     {item.saltPreference && (
                       <span className="flex items-center gap-0.5"><IoSnow className="w-3 h-3" /> {item.saltPreference}</span>
                     )}
-
                     {item.dishTasteProfile === "sweet" && item.sweetLevel && (
                       <span className="flex items-center gap-0.5"><IoStar className="w-3 h-3" /> {item.sweetLevel}</span>
-                    )}
-
-                    {item.salad?.qty > 0 && (
-                      <span className="flex items-center gap-0.5"><IoLeaf className="w-3 h-3" /> {item.salad.qty}</span>
                     )}
                   </span>
                 </div>
@@ -484,52 +481,39 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
               <span className="text-sm font-bold ml-2">₹{(item.price || 0) * (item.qty || 1)}</span>
             </div>
 
-            {!isCompleted && order.status !== 'pending' && (
+            {!isCompleted && !localBillOpened && order.status !== 'pending' && (
               <div className="mt-2 pt-2 border-t border-gray-200/50">
-                <DishProgressBar 
+                <DishProgressBar
                   key={`${order.id}-${item.dishId || item.id}`}
-                  item={item} 
-                  theme={theme} 
+                  item={item}
+                  theme={theme}
                   orderId={order.id}
                   orderStatus={order.status}
                   onDishReady={onDishReady}
                 />
               </div>
             )}
-
-            {(item.itemStatus === 'ready' || item.itemReadyAt) && (
-              <div className="mt-2 pt-2 border-t border-gray-200/50">
-                <div className="flex items-center gap-1 text-green-600 font-bold text-xs">
-                  <IoCheckmarkCircle className="w-4 h-4" />
-                  <span>Ready</span>
-                  <span className="text-[10px] text-gray-400">
-                    ({new Date(item.itemReadyAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         ))}
       </div>
 
+      {/* Total */}
       <div className="flex justify-between items-start p-3 bg-gray-100/50 backdrop-blur-sm rounded-xl mb-3 border border-white/30">
         <span className="font-bold">Total</span>
         <div className="text-right">
           <p className="text-xs text-gray-500">Subtotal: ₹{order.subtotal || 0}</p>
           <p className="text-xs text-gray-500">GST: ₹{order.gst || 0}</p>
           {order.discount > 0 && (
-            <p className="text-xs text-green-600 font-medium flex items-center justify-end gap-1">
-              <BsTag className="w-3 h-3" /> Discount ({order.couponCode}): −₹{order.discount}
-            </p>
+            <>
+              <p className="text-xs text-green-600 font-medium flex items-center justify-end gap-1">
+                <BsTag className="w-3 h-3" /> Discount ({order.couponCode}): −₹{order.discount}
+              </p>
+              <p className="text-xs text-gray-400 line-through">
+                ₹{order.originalTotal || (Number(order.subtotal || 0) + Number(order.gst || 0))}
+              </p>
+            </>
           )}
-          {order.discount > 0 && (
-            <p className="text-xs text-gray-400 line-through">
-              ₹{order.originalTotal || (Number(order.subtotal || 0) + Number(order.gst || 0))}
-            </p>
-          )}
-          <p className="font-bold text-lg" style={{ color: theme.primary }}>
-            ₹{order.total || 0}
-          </p>
+          <p className="font-bold text-lg" style={{ color: theme.primary }}>₹{order.total || 0}</p>
           {order.discount > 0 && (
             <p className="text-xs font-bold text-green-600 flex items-center justify-end gap-1">
               <IoStar className="w-3 h-3" /> Saved ₹{order.discount}!
@@ -538,6 +522,7 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
         </div>
       </div>
 
+      {/* ── CASE 1: Bill not yet opened → Show "Your order is ready" + bill buttons ── */}
       {shouldShowBillButtons && (
         <div className="space-y-2 mt-3 pt-3 border-t border-gray-200/50">
           <div className="bg-green-50/80 backdrop-blur-sm border border-green-200/50 rounded-xl p-3 text-center mb-3">
@@ -549,68 +534,78 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
 
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={() => onGenerateBill(order)}
-              style={{ 
-                border: `2px solid ${theme.primary}`,
-                color: theme.primary,
-                backgroundColor: 'transparent'
+              onClick={() => {
+                onGenerateBill(order);
+                setLocalBillOpened(true);
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = theme.primary;
-                e.currentTarget.style.color = '#ffffff';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = theme.primary;
-              }}
+              style={{ border: `2px solid ${theme.primary}`, color: theme.primary, backgroundColor: 'transparent' }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = theme.primary; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = theme.primary; }}
               className="py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300"
             >
-              <IoReceiptOutline className="w-4 h-4" />
-              Download Bill
+              <IoReceiptOutline className="w-4 h-4" /> Download Bill
             </button>
 
             <button
-              onClick={() => onShareWhatsApp(order)}
-              style={{ 
-                border: `2px solid ${theme.whatsapp || '#22c55e'}`,
-                color: theme.whatsapp || '#22c55e',
-                backgroundColor: 'transparent'
+              onClick={() => {
+                onShareWhatsApp(order);
+                setLocalBillOpened(true);
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = theme.whatsapp || '#22c55e';
-                e.currentTarget.style.color = '#ffffff';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = theme.whatsapp || '#22c55e';
-              }}
+              style={{ border: `2px solid #22c55e`, color: '#22c55e', backgroundColor: 'transparent' }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#22c55e'; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#22c55e'; }}
               className="py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300"
             >
-              <FaWhatsapp className="w-4 h-4" />
-              Share Bill
+              <FaWhatsapp className="w-4 h-4" /> Share Bill
             </button>
           </div>
         </div>
       )}
 
-      {!isCompleted && isProcessed && (
-        <div className="mt-3 pt-3 border-t border-gray-200/50">
-          <div className="bg-gray-50/80 backdrop-blur-sm border border-gray-200/50 rounded-xl p-3 text-center">
-            <p className="text-gray-600 font-bold text-sm flex items-center justify-center gap-1">
-              <IoCheckmarkCircle className="w-4 h-4" /> Bill Processed
+      {/* ── CASE 2: Bill already opened → Show compact action bar + Close button ── */}
+      {showPostBillActions && (
+        <div className="mt-3 pt-3 border-t border-gray-200/50 space-y-2">
+          <div className="bg-green-50/80 backdrop-blur-sm border border-green-200/50 rounded-xl p-3 text-center">
+            <p className="text-green-700 font-bold text-sm flex items-center justify-center gap-1">
+              <IoCheckmarkCircle className="w-4 h-4" /> Bill Generated ✓
             </p>
-            <p className="text-gray-500 text-xs mt-1">Thank you for dining with us!</p>
           </div>
+
+          {/* Still allow re-download / re-share */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => onGenerateBill(order)}
+              style={{ border: `2px solid ${theme.primary}`, color: theme.primary, backgroundColor: 'transparent' }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = theme.primary; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = theme.primary; }}
+              className="py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all duration-300"
+            >
+              <IoReceiptOutline className="w-3.5 h-3.5" /> Download Again
+            </button>
+            <button
+              onClick={() => onShareWhatsApp(order)}
+              style={{ border: `2px solid #22c55e`, color: '#22c55e', backgroundColor: 'transparent' }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#22c55e'; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#22c55e'; }}
+              className="py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all duration-300"
+            >
+              <FaWhatsapp className="w-3.5 h-3.5" /> Share Again
+            </button>
+          </div>
+
+          {/* ★ CLOSE BILL button — hides order from active list */}
           <button
             onClick={() => onMarkViewed(order.id)}
-            className="w-full mt-2 py-2 text-gray-500 text-xs hover:text-gray-700 transition flex items-center justify-center gap-1"
+            className="w-full py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all duration-300 hover:opacity-90 active:scale-[0.98]"
+            style={{ backgroundColor: theme.primary }}
           >
-            <IoClose className="w-3 h-3" /> Mark as viewed & hide
+            <IoClose className="w-4 h-4" /> Close Bill & Done
           </button>
         </div>
       )}
 
-      {isCompleted && (
+      {/* ── CASE 3: Completed + not yet shown bill buttons ── */}
+      {isCompleted && !showPostBillActions && !shouldShowBillButtons && (
         <div className="mt-3 pt-3 border-t border-gray-200/50">
           <div className="bg-green-50/80 backdrop-blur-sm border border-green-200/50 rounded-xl p-3 text-center">
             <p className="text-green-700 font-bold text-sm flex items-center justify-center gap-1">
@@ -623,19 +618,9 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
             <button
               onClick={() => onReorder(order)}
               className="w-full mt-2 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 active:scale-95"
-              style={{
-                border: `2px solid ${theme.primary}`,
-                color: theme.primary,
-                backgroundColor: 'transparent'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = theme.primary;
-                e.currentTarget.style.color = '#ffffff';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = theme.primary;
-              }}
+              style={{ border: `2px solid ${theme.primary}`, color: theme.primary, backgroundColor: 'transparent' }}
+              onMouseEnter={e => { e.currentTarget.style.backgroundColor = theme.primary; e.currentTarget.style.color = '#fff'; }}
+              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = theme.primary; }}
             >
               <IoReload className="w-4 h-4" /> Reorder Same Items
             </button>
@@ -650,7 +635,7 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
         </div>
       )}
 
-      {order.status === 'ready' && !isCompleted && (
+      {order.status === 'ready' && !isCompleted && !localBillOpened && (
         <button
           onClick={() => onMarkViewed(order.id)}
           className="w-full mt-3 py-2 bg-green-500 text-white rounded-xl font-bold animate-pulse flex items-center justify-center gap-2"
@@ -698,6 +683,8 @@ export default function PublicMenu() {
   };
 
   const { restaurantId } = useParams();
+  const navigate = useNavigate();
+
   const requireLogin = useRequireLogin();
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState("all");
@@ -980,7 +967,7 @@ export default function PublicMenu() {
         if (order.userId !== userId) return false;
         if (order.restaurantId !== restaurantId) return false;
         if (viewedOrdersRef.current.has(id)) return false;
-        if (order.billOpened && order.status !== 'completed') return false;
+       if (order.billOpened) return false;
 
         if (order.status === 'completed') {
           const completedAt = order.completedAt || order.updatedAt || order.createdAt;
@@ -1537,7 +1524,7 @@ ${'━'.repeat(30)}
     if (!order || !order.id) return console.error("Order is undefined or missing ID");
 
     markOrderAsProcessed(order.id);
-    markOrderAsViewed(order.id);
+    // markOrderAsViewed(order.id);
 
     try {
       if (!order.bill) {
@@ -1813,27 +1800,49 @@ Sent via DineQR
   const visibleCategories = categories.filter(cat => categoryCounts[cat.id] > 0);
 
   // Call Waiter Function with Voice
+   // Call Waiter Function with Voice
   const callWaiter = async () => {
     if (waiterCooldown || !userId) return;
 
     setWaiterCalled(true);
     setWaiterCooldown(true);
 
+    // Get table number from the most recent active order, or prompt user
+    let tableNumber = activeOrder?.[0]?.tableNumber || "";
+    
+    // If no table number in order, try to get from localStorage or prompt
+    if (!tableNumber) {
+      const savedTable = localStorage.getItem(`tableNumber_${restaurantId}`);
+      if (savedTable) {
+        tableNumber = savedTable;
+      }
+    }
+
+    // If still no table number, show a simple prompt
+    if (!tableNumber) {
+      tableNumber = window.prompt("🪑 Apka table number kya hai? (Waiter ko bhejne ke liye zaroori)") || "Unknown";
+      if (tableNumber && tableNumber !== "Unknown") {
+        localStorage.setItem(`tableNumber_${restaurantId}`, tableNumber);
+      }
+    }
+
     try {
       const waiterRef = push(rtdbRef(realtimeDB, `waiterCalls/${restaurantId}`));
       await set(waiterRef, {
         userId,
         customerName: auth.currentUser?.displayName || "Guest",
-        tableNumber: activeOrder?.[0]?.tableNumber || "Unknown",
+        customerEmail: auth.currentUser?.email || "",
+        tableNumber: tableNumber || "Unknown",
         calledAt: Date.now(),
         status: "pending",
-        orderId: activeOrder?.[0]?.id || null
+        orderId: activeOrder?.[0]?.id || null,
+        restaurantId: String(restaurantId)
       });
 
       // Voice notification for waiter
-      speakText("Waiter aa raha hai. Please wait.");
+      speakText(`Waiter aa raha hai table ${tableNumber || 'Unknown'} ki taraf. Please wait.`);
 
-      toast.success("Waiter ko call kar diya!", {
+      toast.success(`Waiter ko table ${tableNumber || 'Unknown'} pe call kar diya!`, {
         description: "Waiter abhi aa raha hai",
         duration: 4000
       });
@@ -1848,7 +1857,6 @@ Sent via DineQR
       setWaiterCalled(false);
     }, 60000);
   };
-
   // Table-Side Reorder
   const reorderItems = (order) => {
     const orderItems = order.items
@@ -2504,7 +2512,21 @@ Sent via DineQR
           {restaurantSettings.isOpen ? '● Open' : '● Closed'}
         </span>
       )}
-
+<button
+  onClick={() => navigate(`/menu/${restaurantId}/my-orders`)}
+  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 hover:scale-105"
+  style={{
+    border: `2px solid ${theme.primary}`,
+    color: theme.primary,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)'
+  }}
+  onMouseEnter={e => { e.currentTarget.style.backgroundColor = theme.primary; e.currentTarget.style.color = '#ffffff'; }}
+  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = theme.primary; }}
+>
+  <IoReceiptOutline className="w-4 h-4" /> My Orders
+</button>
       {/* User Email */}
       {auth.currentUser && (
         <span className="text-xs text-gray-500 px-2">
