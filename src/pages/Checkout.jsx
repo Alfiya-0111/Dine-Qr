@@ -53,9 +53,12 @@ const searchLocation = async (query) => {
     );
     const data = await response.json();
     return data.map(item => ({
-      id: item.place_id, name: item.display_name.split(',')[0],
-      fullAddress: item.display_name, lat: parseFloat(item.lat),
-      lng: parseFloat(item.lon), type: item.type
+      id: item.place_id,
+      name: item.display_name.split(',')[0],
+      fullAddress: item.display_name,
+      lat: parseFloat(item.lat),
+      lng: parseFloat(item.lon),
+      type: item.type
     }));
   } catch (error) { return []; }
 };
@@ -89,13 +92,13 @@ const detectZoneFromCoordinates = (lat, lng, zones) => {
 // ─── LOCATION PICKER MODAL ────────────────────────────────────────────────────
 function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation }) {
   const mapContainerRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const markerRef = useRef(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const mapInstanceRef  = useRef(null);
+  const markerRef       = useRef(null);
+  const [searchQuery, setSearchQuery]       = useState("");
+  const [searchResults, setSearchResults]   = useState([]);
+  const [isSearching, setIsSearching]       = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(initialLocation || null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading]           = useState(true);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -115,7 +118,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
           draggable: true,
           icon: window.L.divIcon({
             className: 'custom-marker',
-            html: `<div style="background-color: ${theme.primary}; width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`,
+            html: `<div style="background-color:${theme.primary};width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>`,
             iconSize: [30, 30], iconAnchor: [15, 30]
           })
         }).addTo(map);
@@ -148,9 +151,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
   }, [isOpen, initialLocation, theme.primary]);
 
   useEffect(() => {
-    if (!searchQuery || searchQuery.length < 3) {
-      setSearchResults([]); return;
-    }
+    if (!searchQuery || searchQuery.length < 3) { setSearchResults([]); return; }
     const timer = setTimeout(async () => {
       setIsSearching(true);
       const results = await searchLocation(searchQuery);
@@ -171,10 +172,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
   };
 
   const handleGetCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Geolocation supported nahi hai");
-      return;
-    }
+    if (!navigator.geolocation) { toast.error("Geolocation supported nahi hai"); return; }
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
@@ -186,7 +184,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
           toast.success("Current location mil gayi!");
         }
       },
-      (error) => { toast.error("Location access denied ya error"); },
+      () => { toast.error("Location access denied ya error"); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
@@ -202,7 +200,8 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
   return (
     <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-2 sm:p-4">
       <div className="bg-white w-full max-w-3xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="px-4 sm:px-6 py-4 flex justify-between items-center shrink-0" style={{ backgroundColor: theme.primary }}>
+        <div className="px-4 sm:px-6 py-4 flex justify-between items-center shrink-0"
+          style={{ backgroundColor: theme.primary }}>
           <h3 className="text-white font-bold text-lg flex items-center gap-2">
             <FaMapMarkedAlt /> 📍 Location Pick Karo
           </h3>
@@ -214,8 +213,10 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
           <div className="flex gap-2">
             <div className="flex-1 relative">
               <input
-                type="text" placeholder="Apna address search karo (min 3 letters)..."
-                value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                type="text"
+                placeholder="Apna address search karo (min 3 letters)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full border-2 rounded-xl px-4 py-3 pr-10 text-sm sm:text-base"
                 style={{ borderColor: theme.primary + "40" }}
               />
@@ -225,7 +226,8 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
                 </div>
               )}
               {searchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 bg-white border-2 rounded-xl mt-1 shadow-xl max-h-48 overflow-y-auto z-50" style={{ borderColor: theme.primary + "20" }}>
+                <div className="absolute top-full left-0 right-0 bg-white border-2 rounded-xl mt-1 shadow-xl max-h-48 overflow-y-auto z-50"
+                  style={{ borderColor: theme.primary + "20" }}>
                   {searchResults.map((result) => (
                     <button key={result.id} onClick={() => handleSelectResult(result)}
                       className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-0 last:rounded-b-xl text-sm transition-colors">
@@ -244,7 +246,10 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
             </button>
           </div>
           <div className="relative">
-            <div ref={mapContainerRef} className="w-full h-64 sm:h-80 rounded-xl border-2 z-0" style={{ borderColor: theme.primary + "30" }} />
+            <div ref={mapContainerRef}
+              className="w-full h-64 sm:h-80 rounded-xl border-2 z-0"
+              style={{ borderColor: theme.primary + "30" }}
+            />
             {isLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-xl">
                 <div className="text-center">
@@ -287,7 +292,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
   );
 }
 
-// ─── ZONE BADGE ──────────────────────────────────────────────────────────────
+// ─── ZONE BADGE ───────────────────────────────────────────────────────────────
 function ZoneBadge({ zone, selected, onClick, theme }) {
   const isSelected = selected?.id === zone.id;
   return (
@@ -295,8 +300,9 @@ function ZoneBadge({ zone, selected, onClick, theme }) {
       style={{
         border: `2px solid ${isSelected ? theme.primary : "#e5e7eb"}`,
         backgroundColor: isSelected ? theme.primary : "white",
-        color: isSelected ? "white" : "#374151", borderRadius: "12px",
-        padding: "12px", cursor: "pointer", textAlign: "left", width: "100%",
+        color: isSelected ? "white" : "#374151",
+        borderRadius: "12px", padding: "12px",
+        cursor: "pointer", textAlign: "left", width: "100%",
       }}>
       <div style={{ fontWeight: 700, fontSize: "14px" }}>{zone.name}</div>
       {zone.areas?.length > 0 && (
@@ -320,13 +326,15 @@ function ZoneBadge({ zone, selected, onClick, theme }) {
   );
 }
 
-// ─── DELIVERY ADDRESS SECTION ────────────────────────────────────────────────
+// ─── DELIVERY ADDRESS SECTION ─────────────────────────────────────────────────
 function DeliveryAddressSection({
   theme, deliveryZones, selectedZone, setSelectedZone,
-  deliveryAddress, setDeliveryAddress, deliveryLandmark, setDeliveryLandmark,
-  googleMapsLink, setGoogleMapsLink, setDeliveryCharge, coordinates, setCoordinates,
+  deliveryAddress, setDeliveryAddress,
+  deliveryLandmark, setDeliveryLandmark,
+  googleMapsLink, setGoogleMapsLink,
+  setDeliveryCharge, coordinates, setCoordinates,
 }) {
-  const [zonesOpen, setZonesOpen] = useState(true);
+  const [zonesOpen, setZonesOpen]               = useState(true);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   const handleZoneSelect = (zone) => {
@@ -346,21 +354,26 @@ function DeliveryAddressSection({
       toast.success(`✅ Auto-detected: ${detectedZone.name} (${detectedZone.distance}km)`, { duration: 3000 });
     } else {
       toast.info("⚠️ Koi zone auto-detect nahi hui. Manual select karo.", { duration: 4000 });
-      setSelectedZone(null); setDeliveryCharge(0);
+      setSelectedZone(null);
+      setDeliveryCharge(0);
     }
   };
 
   const clearLocation = () => {
-    setCoordinates(null); setDeliveryAddress(""); setGoogleMapsLink("");
-    setSelectedZone(null); setDeliveryCharge(0);
+    setCoordinates(null);
+    setDeliveryAddress("");
+    setGoogleMapsLink("");
+    setSelectedZone(null);
+    setDeliveryCharge(0);
     toast.info("Location clear ho gayi");
   };
 
   return (
     <>
       <div style={{
-        border: "2px solid #e5e7eb", borderRadius: "16px", overflow: "hidden",
-        marginBottom: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+        border: "2px solid #e5e7eb", borderRadius: "16px",
+        overflow: "hidden", marginBottom: "20px",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
       }}>
         <div style={{
           backgroundColor: theme.primary, padding: "14px 18px",
@@ -372,21 +385,26 @@ function DeliveryAddressSection({
           </span>
         </div>
         <div style={{ padding: "18px", display: "flex", flexDirection: "column", gap: "16px" }}>
+
+          {/* Map Picker */}
           <div className="space-y-3">
             {!coordinates ? (
               <button onClick={() => setShowLocationPicker(true)}
                 className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
                 style={{
-                  backgroundColor: theme.primary + "15", color: theme.primary,
-                  border: `2px dashed ${theme.primary}`
+                  backgroundColor: theme.primary + "15",
+                  color: theme.primary,
+                  border: `2px dashed ${theme.primary}`,
                 }}>
                 <FaMapMarkedAlt size={24} />
                 <span className="text-base">🗺️ Map Se Location Pick Karo (FREE)</span>
               </button>
             ) : (
-              <div className="rounded-xl p-4 border-2 relative" style={{ borderColor: theme.primary + "30", backgroundColor: theme.primary + "05" }}>
+              <div className="rounded-xl p-4 border-2 relative"
+                style={{ borderColor: theme.primary + "30", backgroundColor: theme.primary + "05" }}>
                 <button onClick={clearLocation}
-                  className="absolute top-2 right-2 p-2 rounded-full hover:bg-red-100 text-red-500 transition-colors" title="Clear location">
+                  className="absolute top-2 right-2 p-2 rounded-full hover:bg-red-100 text-red-500 transition-colors"
+                  title="Clear location">
                   <FaTimes />
                 </button>
                 <div className="flex items-start gap-3">
@@ -410,6 +428,7 @@ function DeliveryAddressSection({
             )}
           </div>
 
+          {/* Zone Selector */}
           {deliveryZones.length > 0 && (
             <div>
               <button onClick={() => setZonesOpen(!zonesOpen)}
@@ -435,11 +454,15 @@ function DeliveryAddressSection({
               </button>
               {zonesOpen && (
                 <div style={{
-                  display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-                  gap: "10px", marginTop: "10px"
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                  gap: "10px", marginTop: "10px",
                 }}>
                   {deliveryZones.map((zone) => (
-                    <ZoneBadge key={zone.id} zone={zone} selected={selectedZone} onClick={handleZoneSelect} theme={theme} />
+                    <ZoneBadge
+                      key={zone.id} zone={zone}
+                      selected={selectedZone} onClick={handleZoneSelect} theme={theme}
+                    />
                   ))}
                 </div>
               )}
@@ -451,29 +474,41 @@ function DeliveryAddressSection({
             </div>
           )}
 
+          {/* Address textarea */}
           <div>
-            <label style={{ fontSize: "13px", fontWeight: 700, color: "#374151", display: "block", marginBottom: "6px" }}>
+            <label style={{
+              fontSize: "13px", fontWeight: 700, color: "#374151",
+              display: "block", marginBottom: "6px",
+            }}>
               🏠 Full Delivery Address *
             </label>
             <textarea
               placeholder="House/Flat no., Building, Street, Area, Landmark..."
-              value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)}
+              value={deliveryAddress}
+              onChange={(e) => setDeliveryAddress(e.target.value)}
               rows={3}
               style={{
-                width: "100%", border: `2px solid ${deliveryAddress ? theme.primary : "#e5e7eb"}`,
+                width: "100%",
+                border: `2px solid ${deliveryAddress ? theme.primary : "#e5e7eb"}`,
                 borderRadius: "10px", padding: "12px", fontSize: "14px",
-                resize: "none", outline: "none", fontFamily: "inherit", transition: "all 0.2s",
+                resize: "none", outline: "none",
+                fontFamily: "inherit", transition: "all 0.2s",
               }}
             />
           </div>
 
+          {/* Landmark */}
           <div>
-            <label style={{ fontSize: "13px", fontWeight: 700, color: "#374151", display: "block", marginBottom: "6px" }}>
+            <label style={{
+              fontSize: "13px", fontWeight: 700, color: "#374151",
+              display: "block", marginBottom: "6px",
+            }}>
               🎯 Nearby Landmark (Optional)
             </label>
             <input
               placeholder="School, Mandir, Petrol Pump, Park..."
-              value={deliveryLandmark} onChange={(e) => setDeliveryLandmark(e.target.value)}
+              value={deliveryLandmark}
+              onChange={(e) => setDeliveryLandmark(e.target.value)}
               style={{
                 width: "100%", border: "2px solid #e5e7eb",
                 borderRadius: "10px", padding: "12px", fontSize: "14px",
@@ -482,22 +517,29 @@ function DeliveryAddressSection({
             />
           </div>
 
+          {/* Maps link */}
           <div>
-            <label style={{ fontSize: "13px", fontWeight: 700, color: "#374151", display: "block", marginBottom: "6px" }}>
+            <label style={{
+              fontSize: "13px", fontWeight: 700, color: "#374151",
+              display: "block", marginBottom: "6px",
+            }}>
               🔗 Google Maps Link (Auto-generated)
             </label>
             <input type="url" value={googleMapsLink} readOnly
               style={{
-                width: "100%", border: `2px solid ${theme.primary}`,
+                width: "100%",
+                border: `2px solid ${theme.primary}`,
                 borderRadius: "10px", padding: "12px", fontSize: "13px",
                 backgroundColor: "#f9fafb", color: "#6b7280",
               }}
             />
           </div>
 
+          {/* Delivery charge summary */}
           {selectedZone && (
             <div style={{
-              backgroundColor: theme.primary + "10", border: `2px solid ${theme.primary}40`,
+              backgroundColor: theme.primary + "10",
+              border: `2px solid ${theme.primary}40`,
               borderRadius: "12px", padding: "14px",
               display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
@@ -511,7 +553,7 @@ function DeliveryAddressSection({
               </div>
               <span style={{
                 fontWeight: 900, fontSize: "20px",
-                color: selectedZone.charge === 0 ? "#16a34a" : theme.primary
+                color: selectedZone.charge === 0 ? "#16a34a" : theme.primary,
               }}>
                 {selectedZone.charge === 0 ? "FREE" : `₹${selectedZone.charge}`}
               </span>
@@ -521,84 +563,79 @@ function DeliveryAddressSection({
       </div>
 
       <LocationPickerModal
-        isOpen={showLocationPicker} onClose={() => setShowLocationPicker(false)}
-        onSelect={handleLocationSelect} theme={theme} initialLocation={coordinates}
+        isOpen={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        onSelect={handleLocationSelect}
+        theme={theme}
+        initialLocation={coordinates}
       />
     </>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 🔥 MAIN CHECKOUT COMPONENT — SUBSCRIPTION FEATURE GATED
+// 🔥 MAIN CHECKOUT COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
-
 export default function Checkout() {
   const { cart, total, clearCart, getValidCart } = useCart();
-  const { restaurantId } = useParams();
-  const navigate = useNavigate();
+  const { restaurantId }  = useParams();
+  const navigate          = useNavigate();
 
   // Customer Info
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
-  const [tableNumber, setTableNumber] = useState("");
-  const [numberOfGuests, setNumberOfGuests] = useState("1");
-  const [orderType, setOrderType] = useState("dine-in");
+  const [customerName, setCustomerName]         = useState("");
+  const [customerPhone, setCustomerPhone]       = useState("");
+  const [customerEmail, setCustomerEmail]       = useState("");
+  const [tableNumber, setTableNumber]           = useState("");
+  const [numberOfGuests, setNumberOfGuests]     = useState("1");
+  const [orderType, setOrderType]               = useState("dine-in");
   const [specialInstructions, setSpecialInstructions] = useState("");
-  const [orderDate, setOrderDate] = useState("");
-  const [orderTime, setOrderTime] = useState("");
+  const [orderDate, setOrderDate]               = useState("");
+  const [orderTime, setOrderTime]               = useState("");
 
   // Delivery
-  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryAddress, setDeliveryAddress]   = useState("");
   const [deliveryLandmark, setDeliveryLandmark] = useState("");
-  const [googleMapsLink, setGoogleMapsLink] = useState("");
-  const [selectedZone, setSelectedZone] = useState(null);
-  const [deliveryCharge, setDeliveryCharge] = useState(0);
-  const [deliveryZones, setDeliveryZones] = useState([]);
-  const [coordinates, setCoordinates] = useState(null);
+  const [googleMapsLink, setGoogleMapsLink]     = useState("");
+  const [selectedZone, setSelectedZone]         = useState(null);
+  const [deliveryCharge, setDeliveryCharge]     = useState(0);
+  const [deliveryZones, setDeliveryZones]       = useState([]);
+  const [coordinates, setCoordinates]           = useState(null);
 
   // Restaurant & Payment
-  const [restaurantData, setRestaurantData] = useState(null);
+  const [restaurantData, setRestaurantData]       = useState(null);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [ownerUid, setOwnerUid] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [upiId, setUpiId] = useState("");
-  const [hotelName, setHotelName] = useState("");
-  const [orderPlaced, setOrderPlaced] = useState(false);
+  const [paymentMethod, setPaymentMethod]         = useState("cash");
+  const [ownerUid, setOwnerUid]                   = useState(null);
+  const [isLoading, setIsLoading]                 = useState(true);
+  const [upiId, setUpiId]                         = useState("");
+  const [hotelName, setHotelName]                 = useState("");
+  const [orderPlaced, setOrderPlaced]             = useState(false);
 
-  // Payment Flow States
-  const [paymentStep, setPaymentStep] = useState("form");
-  const [transactionRef, setTransactionRef] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState("pending");
+  // Payment Flow
+  const [paymentStep, setPaymentStep]             = useState("form");
+  const [transactionRef, setTransactionRef]       = useState("");
+  const [paymentStatus, setPaymentStatus]         = useState("pending");
   const [isPaymentVerified, setIsPaymentVerified] = useState(false);
   const [verificationAttempts, setVerificationAttempts] = useState(0);
-  const [pendingOrderId, setPendingOrderId] = useState(null);
-  const paymentCheckInterval = useRef(null);
+  const [pendingOrderId, setPendingOrderId]       = useState(null);
+  const paymentCheckInterval                      = useRef(null);
 
-  // ─── 🔥 SUBSCRIPTION & FEATURE GATING ─────────────────────────────────────
-  const [subscription, setSubscription] = useState(null);
-  const [isPlanActive, setIsPlanActive] = useState(false);
-  const [planFeatures, setPlanFeatures] = useState({
-    dishes: 'Unlimited',
-    qrMenu: true,
-    whatsappOrders: false,
-    kds: false,
-    tableBooking: true,      // Default: dine-in allowed
-    aiDescriptions: false,
-    deliveryManagement: false, // Default: delivery NOT allowed
-    arFoodView: false,
-    customBranding: false,
-    analytics: 'Basic',
-    support: 'Email',
+  // Subscription
+  const [subscription, setSubscription]     = useState(null);
+  const [isPlanActive, setIsPlanActive]     = useState(false);
+  const [planFeatures, setPlanFeatures]     = useState({
+    dishes: 'Unlimited', qrMenu: true, whatsappOrders: false,
+    kds: false, tableBooking: true, aiDescriptions: false,
+    deliveryManagement: false, arFoodView: false,
+    customBranding: false, analytics: 'Basic', support: 'Email',
   });
 
-  const today = new Date().toISOString().split("T")[0];
-  const isPhoneRequired = orderType === "delivery" || orderType === "takeaway";
-  const grandTotal = total + (orderType === "delivery" ? deliveryCharge : 0);
-  const theme = restaurantSettings?.theme || { primary: "#8A244B", border: "#8A244B" };
+  const today            = new Date().toISOString().split("T")[0];
+  const isPhoneRequired  = orderType === "delivery" || orderType === "takeaway";
+  const grandTotal       = total + (orderType === "delivery" ? deliveryCharge : 0);
+  const theme            = restaurantSettings?.theme || { primary: "#8A244B", border: "#8A244B" };
 
-  // ─── LOAD RESTAURANT DATA ───────────────────────────────────────────────────
+  // ─── LOAD RESTAURANT DATA ──────────────────────────────────────────────────
   useEffect(() => {
     if (!restaurantId) return;
     const settingsRef = ref(realtimeDB, `restaurants/${restaurantId}`);
@@ -609,32 +646,33 @@ export default function Checkout() {
       setRestaurantSettings(data.settings || data);
       setOwnerUid(data.ownerUid || data.adminId || data.userId || restaurantId);
       setHotelName(data.name || data.settings?.name || "Restaurant");
-      
-      // 🔥 FIX: Multiple possible paths for UPI ID
-      const extractedUpiId = 
-        data.payment?.upiId || 
-        data.upiId || 
+
+      const extractedUpiId =
+        data.payment?.upiId ||
+        data.upiId ||
         data.settings?.payment?.upiId ||
         data.settings?.upiId ||
         "";
       setUpiId(extractedUpiId);
-      console.log("🔥 UPI ID loaded:", extractedUpiId, "from path:", data.payment?.upiId ? "payment.upiId" : data.upiId ? "upiId" : "not found");
 
       if (data.deliveryZones) {
         const zones = Object.entries(data.deliveryZones).map(([id, z]) => ({
-          id, ...z, centerLat: z.centerLat || z.lat, centerLng: z.centerLng || z.lng,
+          id, ...z,
+          centerLat: z.centerLat || z.lat,
+          centerLng: z.centerLng || z.lng,
         }));
         setDeliveryZones(zones);
       }
       setIsLoading(false);
     });
+
     const now = new Date();
     setOrderTime(now.toTimeString().slice(0, 5));
     setOrderDate(today);
     return () => unsubscribe();
   }, [restaurantId, today]);
 
-  // ─── 🔥 LOAD SUBSCRIPTION & FEATURES ──────────────────────────────────────
+  // ─── LOAD SUBSCRIPTION ────────────────────────────────────────────────────
   useEffect(() => {
     if (!ownerUid) return;
     const subRef = ref(realtimeDB, `subscriptions/${ownerUid}`);
@@ -642,113 +680,111 @@ export default function Checkout() {
       if (snap.exists()) {
         const data = snap.val();
         setSubscription(data);
-        const now = Date.now();
+        const now    = Date.now();
         const active = data.status === 'active' && (data.expiresAt || 0) > now;
         setIsPlanActive(active);
-        
-        // 🔥 FEATURE GATING: Load features from subscription
         if (data.features) {
           setPlanFeatures(prev => ({ ...prev, ...data.features }));
         } else {
-          // Fallback: derive features from planId
-          const planId = data.planId || 'starter';
-          const defaultFeatures = getDefaultFeatures(planId);
-          setPlanFeatures(prev => ({ ...prev, ...defaultFeatures }));
+          setPlanFeatures(prev => ({ ...prev, ...getDefaultFeatures(data.planId || 'starter') }));
         }
-        
-        console.log("🔥 Subscription loaded:", data.planId, "Active:", active, "Features:", data.features);
       } else {
         setSubscription(null);
         setIsPlanActive(false);
-        // No subscription = starter plan features (most restrictive)
         setPlanFeatures(getDefaultFeatures('starter'));
       }
     });
     return () => unsubscribe();
   }, [ownerUid]);
 
-  // 🔥 Helper: Get default features by plan ID
-// 🔥 Helper: Get default features by plan ID
-const getDefaultFeatures = (planId) => {
-  const plans = {
-    trial: {
-      dishes: 'Unlimited', qrMenu: true, whatsappOrders: true, kds: true,
-      tableBooking: true, aiDescriptions: true, deliveryManagement: false,  // ❌ Trial mein delivery NAI
-      arFoodView: true, customBranding: true, analytics: 'Full', support: 'Email',
-    },
-    starter: {
-      dishes: 20, qrMenu: true, whatsappOrders: false, kds: false,
-      tableBooking: false, aiDescriptions: false, deliveryManagement: false,
-      arFoodView: false, customBranding: false, analytics: 'Basic', support: 'Email',
-    },
-    growth: {
-      dishes: 50, qrMenu: true, whatsappOrders: true, kds: true,
-      tableBooking: true, aiDescriptions: true, deliveryManagement: false,  // ❌ Growth mein bhi NAI
-      arFoodView: false, customBranding: false, analytics: 'Full', support: 'Email + Chat',
-    },
-    pro: {
-      dishes: 'Unlimited', qrMenu: true, whatsappOrders: true, kds: true,
-      tableBooking: true, aiDescriptions: true, deliveryManagement: true,   // ✅ SIRF Pro mein
-      arFoodView: true, customBranding: true, analytics: 'Full + Reports', support: 'Priority',
-    },
+  const getDefaultFeatures = (planId) => {
+    const plans = {
+      trial: {
+        dishes: 'Unlimited', qrMenu: true, whatsappOrders: true, kds: true,
+        tableBooking: true, aiDescriptions: true, deliveryManagement: false,
+        arFoodView: true, customBranding: true, analytics: 'Full', support: 'Email',
+      },
+      starter: {
+        dishes: 20, qrMenu: true, whatsappOrders: false, kds: false,
+        tableBooking: false, aiDescriptions: false, deliveryManagement: false,
+        arFoodView: false, customBranding: false, analytics: 'Basic', support: 'Email',
+      },
+      growth: {
+        dishes: 50, qrMenu: true, whatsappOrders: true, kds: true,
+        tableBooking: true, aiDescriptions: true, deliveryManagement: false,
+        arFoodView: false, customBranding: false, analytics: 'Full', support: 'Email + Chat',
+      },
+      pro: {
+        dishes: 'Unlimited', qrMenu: true, whatsappOrders: true, kds: true,
+        tableBooking: true, aiDescriptions: true, deliveryManagement: true,
+        arFoodView: true, customBranding: true, analytics: 'Full + Reports', support: 'Priority',
+      },
+    };
+    return plans[planId] || plans['starter'];
   };
-  return plans[planId] || plans['starter'];
-};
 
-  // 🔥 Helper: Check if order type is allowed
   const isOrderTypeAllowed = (type) => {
     switch (type) {
       case 'delivery': return planFeatures.deliveryManagement === true;
-      case 'dine-in': return planFeatures.tableBooking === true;
-      case 'takeaway': return true; // Takeaway always allowed
-      default: return false;
+      case 'dine-in':  return planFeatures.tableBooking === true;
+      case 'takeaway': return true;
+      default:         return false;
     }
   };
 
-  // 🔥 Helper: Get available order types
   const getAvailableOrderTypes = () => {
     const types = [];
-    if (planFeatures.tableBooking) types.push({ id: "dine-in", label: "Dine In", icon: "🪑" });
+    if (planFeatures.tableBooking)      types.push({ id: "dine-in",  label: "Dine In",  icon: "🪑" });
     types.push({ id: "takeaway", label: "Takeaway", icon: "🥡" });
     if (planFeatures.deliveryManagement) types.push({ id: "delivery", label: "Delivery", icon: "🛵" });
     return types;
   };
 
-  const effectiveRestaurantId = ownerUid || restaurantId;
+  // ✅ effectiveRestaurantId — used for all Firebase writes
+  // We always use restaurantId (the URL param = the restaurant's UID)
+  // ownerUid is same as restaurantId in most cases, but restaurantId is the canonical key
+  const effectiveRestaurantId = restaurantId;
 
-  // ─── HELPERS ────────────────────────────────────────────────────────────────
-  const isValidPhone = (p) => /^[0-9]{10}$/.test(p.replace(/\\s/g, ""));
+  const isValidPhone = (p) => /^[0-9]{10}$/.test(p.replace(/\s/g, ""));
 
   const validateForm = () => {
     if (!customerName.trim()) { toast.error("Apna naam daalo"); return false; }
-    if (isPhoneRequired && !customerPhone.trim()) { toast.error(`${orderType} ke liye phone number zaroori hai`); return false; }
-    if (customerPhone && !isValidPhone(customerPhone)) { toast.error("Valid 10-digit phone number daalo"); return false; }
-    if (orderType === "dine-in" && !tableNumber.trim()) { toast.error("Table number daalo"); return false; }
+    if (isPhoneRequired && !customerPhone.trim()) {
+      toast.error(`${orderType} ke liye phone number zaroori hai`); return false;
+    }
+    if (customerPhone && !isValidPhone(customerPhone)) {
+      toast.error("Valid 10-digit phone number daalo"); return false;
+    }
+    if (orderType === "dine-in" && !tableNumber.trim()) {
+      toast.error("Table number daalo"); return false;
+    }
     if (orderType === "delivery") {
       if (!deliveryAddress.trim()) { toast.error("❌ Delivery address daalo"); return false; }
-      if (deliveryZones.length > 0 && !selectedZone) { toast.error("❌ Delivery zone select karo"); return false; }
+      if (deliveryZones.length > 0 && !selectedZone) {
+        toast.error("❌ Delivery zone select karo"); return false;
+      }
     }
     return true;
   };
 
-  // ─── SAVE PENDING PAYMENT TO FIREBASE ──────────────────────────────────────
+  // ─── SAVE PENDING PAYMENT ──────────────────────────────────────────────────
   const savePendingPayment = async (orderId) => {
     await set(ref(realtimeDB, `pendingPayments/${orderId}`), {
-      userId: auth.currentUser.uid,
-      userEmail: auth.currentUser.email,
-      userName: auth.currentUser.displayName || 'User',
+      userId:      auth.currentUser.uid,
+      userEmail:   auth.currentUser.email,
+      userName:    auth.currentUser.displayName || 'User',
       restaurantId: effectiveRestaurantId,
-      amount: grandTotal,
-      status: 'pending',
-      orderId: orderId,
+      amount:      grandTotal,
+      status:      'pending',
+      orderId:     orderId,
       paymentMethod: 'upi_direct',
-      createdAt: Date.now(),
-      expiresAt: Date.now() + 30 * 60 * 1000,
-      cartItems: getValidCart().map(item => ({
-        id: item.id, name: item.name, qty: item.qty, price: item.price
+      createdAt:   Date.now(),
+      expiresAt:   Date.now() + 30 * 60 * 1000,
+      cartItems:   getValidCart().map(item => ({
+        id: item.id, name: item.name, qty: item.qty, price: item.price,
       })),
       customerInfo: {
-        name: customerName.trim(),
+        name:  customerName.trim(),
         phone: customerPhone.trim(),
         email: customerEmail.trim() || null,
       },
@@ -757,37 +793,29 @@ const getDefaultFeatures = (planId) => {
     });
 
     await push(ref(realtimeDB, 'adminNotifications/payments'), {
-      type: 'new_order_payment',
-      orderId: orderId,
-      userId: auth.currentUser.uid,
-      userEmail: auth.currentUser.email,
-      userName: auth.currentUser.displayName || 'User',
-      amount: grandTotal,
+      type:        'new_order_payment',
+      orderId,
+      userId:      auth.currentUser.uid,
+      userEmail:   auth.currentUser.email,
+      userName:    auth.currentUser.displayName || 'User',
+      amount:      grandTotal,
       restaurantId: effectiveRestaurantId,
-      hotelName: hotelName,
-      status: 'awaiting_user_payment',
-      message: `New order payment: ₹${grandTotal} at ${hotelName}. Order ID: ${orderId}`,
-      createdAt: Date.now(),
-      read: false,
+      hotelName,
+      status:      'awaiting_user_payment',
+      message:     `New order payment: ₹${grandTotal} at ${hotelName}. Order ID: ${orderId}`,
+      createdAt:   Date.now(),
+      read:        false,
       actionRequired: true,
     });
   };
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 🔥 CORE FIX: UPI APP OPEN — Sabse reliable tarika
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── OPEN UPI APP ─────────────────────────────────────────────────────────
   const openUpiApp = useCallback((orderId, currentUpiId) => {
-    console.log("🔥 openUpiApp called with:", { orderId, currentUpiId, grandTotal });
-    
     if (!currentUpiId || currentUpiId.trim() === "") {
       toast.error("UPI ID configure nahi hai! Admin se contact karo.");
       return false;
     }
-
-    // Clean UPI ID
     const cleanUpiId = currentUpiId.trim();
-    
-    // Build UPI URL
     const params = new URLSearchParams({
       pa: cleanUpiId,
       pn: hotelName || "Restaurant",
@@ -796,148 +824,75 @@ const getDefaultFeatures = (planId) => {
       tn: `Order #${orderId.slice(-6)}`,
       tr: orderId,
     });
-    
     const upiUrl = `upi://pay?${params.toString()}`;
-    console.log("🔥 UPI URL:", upiUrl);
 
-    // Detect platform
-    const ua = navigator.userAgent.toLowerCase();
-    const isAndroid = /android/.test(ua);
-    const isIOS = /iphone|ipad|ipod/.test(ua);
-    console.log("🔥 Platform:", { isAndroid, isIOS, ua: ua.slice(0, 50) });
+    try { window.location.href = upiUrl; } catch (e) { console.error(e); }
 
-    // 🔥 METHOD 1: Direct location (works on most mobile browsers)
-    try {
-      window.location.href = upiUrl;
-      console.log("🔥 Method 1: window.location.href set");
-    } catch (e) {
-      console.error("🔥 Method 1 failed:", e);
-    }
-
-    // 🔥 METHOD 2: iframe fallback (for stubborn browsers)
     setTimeout(() => {
       try {
         const iframe = document.createElement('iframe');
         iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;';
         iframe.src = upiUrl;
         document.body.appendChild(iframe);
-        console.log("🔥 Method 2: iframe injected");
-        
-        setTimeout(() => {
-          if (iframe.parentNode) {
-            iframe.parentNode.removeChild(iframe);
-          }
-        }, 3000);
-      } catch (e) {
-        console.error("🔥 Method 2 failed:", e);
-      }
+        setTimeout(() => { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); }, 3000);
+      } catch (e) { console.error(e); }
     }, 100);
 
-    // 🔥 METHOD 3: Intent URL for Android Chrome (backup)
-    if (isAndroid) {
+    const ua = navigator.userAgent.toLowerCase();
+    if (/android/.test(ua)) {
       setTimeout(() => {
         try {
-          const intentUrl = `intent://pay?${params.toString()}#Intent;scheme=upi;package=in.org.npci.upiapp;end`;
-          window.location.href = intentUrl;
-          console.log("🔥 Method 3: Android intent URL set");
-        } catch (e) {
-          console.error("🔥 Method 3 failed:", e);
-        }
+          window.location.href = `intent://pay?${params.toString()}#Intent;scheme=upi;package=in.org.npci.upiapp;end`;
+        } catch (e) { console.error(e); }
       }, 200);
     }
-
     return true;
   }, [grandTotal, hotelName]);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 🔥 PAYMENT HANDLER — Button click pe yeh chalega
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── HANDLE UPI PAYMENT ───────────────────────────────────────────────────
   const handleUpiPayment = async () => {
-    console.log("🔥 handleUpiPayment START");
-    
-    // Step 1: Validate
-    if (!validateForm()) {
-      console.log("🔥 Validation failed");
-      return;
-    }
-    
-    // Step 2: Auth check
-    if (!auth.currentUser) {
-      toast.error("Login required!");
-      console.log("🔥 No auth user");
-      return;
-    }
-    
-    // Step 3: UPI ID check
-    console.log("🔥 Current upiId state:", upiId);
+    if (!validateForm()) return;
+    if (!auth.currentUser) { toast.error("Login required!"); return; }
     if (!upiId || upiId.trim() === "") {
       toast.error("Online payment abhi available nahi hai. Cash chuno.");
       setPaymentMethod("cash");
-      console.log("🔥 upiId empty");
       return;
     }
 
-    // Step 4: Generate order ID
     const orderId = `ORD${Date.now()}_${auth.currentUser.uid.slice(0, 6)}`;
-    console.log("🔥 Generated orderId:", orderId);
-    
-    // Step 5: Save to state (for use in other places)
     setPendingOrderId(orderId);
     setTransactionRef(orderId);
 
-    // Step 6: Save to Firebase
     try {
       await savePendingPayment(orderId);
-      console.log("🔥 Firebase save success");
     } catch (e) {
-      console.error("🔥 Firebase save failed:", e);
+      console.error(e);
       toast.error("Kuch galat hua. Dobara try karo.");
       return;
     }
 
-    // Step 7: Show payment screen FIRST
-    console.log("🔥 Setting paymentStep to 'pay'");
     setPaymentStep("pay");
     setPaymentStatus("verifying");
 
-    // Step 8: Open UPI app (with current upiId value, not state)
-    console.log("🔥 About to open UPI app...");
     setTimeout(() => {
       const opened = openUpiApp(orderId, upiId);
-      console.log("🔥 openUpiApp returned:", opened);
-      
-      if (!opened) {
-        console.log("🔥 UPI app open failed, going back");
-        setPaymentStep("form");
-        return;
-      }
-
-      toast.info('⏳ UPI app open ho rahi hai... Payment complete hone ke baad wapas aao.', { duration: 8000 });
+      if (!opened) { setPaymentStep("form"); return; }
+      toast.info('⏳ UPI app open ho rahi hai...', { duration: 8000 });
     }, 500);
 
-    // Step 9: Start verification polling
     startPaymentVerification(orderId);
   };
 
   const startPaymentVerification = (orderId) => {
-    console.log("🔥 Starting verification for:", orderId);
     let attempts = 0;
-    
-    if (paymentCheckInterval.current) {
-      clearInterval(paymentCheckInterval.current);
-    }
-    
+    if (paymentCheckInterval.current) clearInterval(paymentCheckInterval.current);
+
     paymentCheckInterval.current = setInterval(async () => {
       attempts++;
       setVerificationAttempts(attempts);
-      console.log("🔥 Verification attempt:", attempts);
-
       try {
-        const statusRef = ref(realtimeDB, `pendingPayments/${orderId}/status`);
-        const snapshot = await get(statusRef);
-
-        if (snapshot.exists() && snapshot.val() === "completed") {
-          console.log("🔥 Payment verified!");
+        const snap = await get(ref(realtimeDB, `pendingPayments/${orderId}/status`));
+        if (snap.exists() && snap.val() === "completed") {
           clearInterval(paymentCheckInterval.current);
           setPaymentStatus("completed");
           setIsPaymentVerified(true);
@@ -945,20 +900,15 @@ const getDefaultFeatures = (planId) => {
           toast.success("✅ Payment verified! Ab 'Place Order' dabao.");
           return;
         }
-
         if (attempts >= 40) {
-          console.log("🔥 Verification timeout");
           clearInterval(paymentCheckInterval.current);
           setPaymentStatus("timeout");
         }
-      } catch (e) {
-        console.error("🔥 Verification error:", e);
-      }
+      } catch (e) { console.error(e); }
     }, 3000);
   };
 
   const verifyPaymentManually = () => {
-    console.log("🔥 Manual verify clicked");
     setPaymentStatus("verifying");
     setTimeout(() => {
       setPaymentStatus("completed");
@@ -969,124 +919,143 @@ const getDefaultFeatures = (planId) => {
   };
 
   useEffect(() => {
-    return () => {
-      if (paymentCheckInterval.current) clearInterval(paymentCheckInterval.current);
-    };
+    return () => { if (paymentCheckInterval.current) clearInterval(paymentCheckInterval.current); };
   }, []);
 
-  // ─── PLACE ORDER ────────────────────────────────────────────────────────────
+  // ─── PLACE ORDER ──────────────────────────────────────────────────────────
   const handlePlaceOrder = async () => {
     const validCart = getValidCart();
     if (validCart.length === 0) { alert("Cart mein valid items nahi hain!"); return; }
     if (!auth.currentUser) { alert("Login required!"); return; }
-
     if (paymentMethod === "online" && !isPaymentVerified) {
       toast.error("❌ Pehle payment complete karo!");
       return;
     }
 
-    const now = Date.now();
+    const now         = Date.now();
     const maxPrepTime = Math.max(...validCart.map((i) => Number(i.prepTime ?? 15)));
 
     const orderPayload = {
       restaurantId: effectiveRestaurantId,
-      userId: auth.currentUser.uid,
+      userId:       auth.currentUser.uid,
       customerInfo: {
-        name: customerName.trim(), phone: customerPhone.trim() || null,
+        name:  customerName.trim(),
+        phone: customerPhone.trim() || null,
         email: customerEmail.trim() || null,
       },
       orderDetails: {
-        type: orderType, tableNumber: orderType === "dine-in" ? tableNumber.trim() : null,
-        numberOfGuests: parseInt(numberOfGuests) || 1, orderDate, orderTime,
+        type:               orderType,
+        tableNumber:        orderType === "dine-in" ? tableNumber.trim() : null,
+        numberOfGuests:     parseInt(numberOfGuests) || 1,
+        orderDate,
+        orderTime,
         specialInstructions: specialInstructions.trim() || null,
       },
       ...(orderType === "delivery" && {
         deliveryInfo: {
-          address: deliveryAddress.trim(), landmark: deliveryLandmark.trim() || null,
-          googleMapsLink: googleMapsLink.trim() || null, coordinates: coordinates || null,
-          zone: selectedZone ? { id: selectedZone.id, name: selectedZone.name, charge: selectedZone.charge } : null,
-          deliveryCharge, deliveryBoyId: null, deliveryBoyName: null,
-          deliveryBoyPhone: null, status: "pending_assignment",
-          assignedAt: null, pickedUpAt: null, deliveredAt: null,
+          address:          deliveryAddress.trim(),
+          landmark:         deliveryLandmark.trim() || null,
+          googleMapsLink:   googleMapsLink.trim() || null,
+          coordinates:      coordinates || null,
+          zone: selectedZone
+            ? { id: selectedZone.id, name: selectedZone.name, charge: selectedZone.charge }
+            : null,
+          deliveryCharge,
+          deliveryBoyId:    null,
+          deliveryBoyName:  null,
+          deliveryBoyPhone: null,
+          status:           "pending_assignment",
+          assignedAt:       null,
+          pickedUpAt:       null,
+          deliveredAt:      null,
         },
       }),
       hotelName,
       paymentMethod,
-      paymentStatus: paymentMethod === "cash" ? "pending_cash" : "completed",
+      paymentStatus:  paymentMethod === "cash" ? "pending_cash" : "completed",
       transactionRef: paymentMethod === "online" ? transactionRef : null,
-      subtotal: total,
+      subtotal:       total,
       deliveryCharge: orderType === "delivery" ? deliveryCharge : 0,
-      total: grandTotal,
+      total:          grandTotal,
       items: validCart.reduce((acc, item) => {
         acc[item.id] = {
-          dishId: item.id, name: item.name, image: item.image || "",
-          qty: Number(item.qty) || 1, price: Number(item.price) || 0,
-          prepTime: Number(item.prepTime ?? 15),
-          sweetnessLevel: item.sweetLevel || "normal",
-          spicinessLevel: item.spicePreference || "normal",
-          saltLevel: item.saltPreference || "normal",
-          includeSalad: item.salad?.qty > 0 || false,
+          dishId:              item.id,
+          name:                item.name,
+          image:               item.image || "",
+          qty:                 Number(item.qty) || 1,
+          price:               Number(item.price) || 0,
+          prepTime:            Number(item.prepTime ?? 15),
+          sweetnessLevel:      item.sweetLevel || "normal",
+          spicinessLevel:      item.spicePreference || "normal",
+          saltLevel:           item.saltPreference || "normal",
+          includeSalad:        item.salad?.qty > 0 || false,
           specialInstructions: item.specialInstructions || "",
         };
         return acc;
       }, {}),
-      status: "confirmed",
-      confirmedAt: now,
+      status:        "confirmed",
+      confirmedAt:   now,
       prepStartedAt: now,
-      prepEndsAt: now + maxPrepTime * 60000,
-      createdAt: now,
-      // 🔥 Add subscription info to order
-      planId: subscription?.planId || 'starter',
-      planFeatures: planFeatures,
+      prepEndsAt:    now + maxPrepTime * 60000,
+      createdAt:     now,
+      planId:        subscription?.planId || 'starter',
     };
 
     try {
-      const newOrderRef = await push(ref(realtimeDB, "orders"), orderPayload);
+      // ✅ FIX: Save to orders/{restaurantId}/ — per-restaurant isolated path
+      // Isse 1000 restaurants ke orders mix nahi honge
+      const newOrderRef = await push(
+        ref(realtimeDB, `orders/${effectiveRestaurantId}`),
+        orderPayload
+      );
       const orderId = newOrderRef.key;
 
+      // Update pending payment with final order id
       if (paymentMethod === "online" && pendingOrderId) {
         await update(ref(realtimeDB, `pendingPayments/${pendingOrderId}`), {
           finalOrderId: orderId,
-          status: "completed",
+          status:       "completed",
         });
       }
 
-      // 🔥 WhatsApp Order Notification (if feature enabled)
+      // WhatsApp notification if feature enabled
       if (planFeatures.whatsappOrders && customerPhone) {
         await sendWhatsAppNotification(orderId, validCart);
       }
 
       clearCart();
       toast.success("🎉 Order place ho gaya!");
-      navigate(orderType === "delivery" ? `/track/${restaurantId}/${orderId}` : `/menu/${restaurantId}`);
+      navigate(
+        orderType === "delivery"
+          ? `/track/${restaurantId}/${orderId}`
+          : `/menu/${restaurantId}`
+      );
     } catch (err) {
       console.error("Order failed:", err);
       alert("Order failed. Please try again.");
     }
   };
 
-  // 🔥 WhatsApp Notification Helper
   const sendWhatsAppNotification = async (orderId, items) => {
     try {
       await push(ref(realtimeDB, 'whatsappNotifications'), {
-        phone: customerPhone,
-        message: `🎉 Order Confirmed!\n\nOrder #${orderId.slice(-6)}\nHotel: ${hotelName}\nTotal: ₹${grandTotal}\nItems: ${items.length}\n\nTrack your order here: ${window.location.origin}/track/${restaurantId}/${orderId}`,
-        status: 'pending',
+        phone:   customerPhone,
+        message: `🎉 Order Confirmed!\n\nOrder #${orderId.slice(-6)}\nHotel: ${hotelName}\nTotal: ₹${grandTotal}\nItems: ${items.length}\n\nTrack: ${window.location.origin}/track/${restaurantId}/${orderId}`,
+        status:    'pending',
         createdAt: Date.now(),
       });
-    } catch (e) {
-      console.error("WhatsApp notification failed:", e);
-    }
+    } catch (e) { console.error("WhatsApp notification failed:", e); }
   };
 
-  // ─── EMPTY CART ──────────────────────────────────────────────────────────────
+  // ─── EMPTY CART ───────────────────────────────────────────────────────────
   if (cart.length === 0 && !orderPlaced) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center">
           <div className="text-6xl mb-4">🛒</div>
           <p className="text-xl text-gray-600 mb-6 font-semibold">Cart khali hai</p>
-          <button onClick={() => navigate(`/menu/${restaurantId}`)}
+          <button
+            onClick={() => navigate(`/menu/${restaurantId}`)}
             className="px-8 py-3 rounded-xl font-bold border-2 transition-all hover:shadow-lg"
             style={{ borderColor: theme.primary, color: theme.primary }}>
             Menu pe wapas jao →
@@ -1096,23 +1065,22 @@ const getDefaultFeatures = (planId) => {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 🔥 PAYMENT WAITING SCREEN
-  // ═══════════════════════════════════════════════════════════════════════════
+  // ─── PAYMENT WAITING SCREEN ───────────────────────────────────────────────
   if (paymentStep === "pay") {
     return (
       <div className="min-h-screen bg-gray-50 p-3 sm:p-4 pb-24 flex items-center justify-center">
         <div className="max-w-md mx-auto w-full">
           <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
-            {/* Header */}
             <div className="flex items-center gap-3 mb-6">
-              <button onClick={() => setPaymentStep("form")} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+              <button onClick={() => setPaymentStep("form")}
+                className="p-2 hover:bg-gray-200 rounded-full transition-colors">
                 <FaArrowLeft className="text-gray-600" />
               </button>
-              <h2 className="text-xl font-bold" style={{ color: theme.primary }}>💳 Payment</h2>
+              <h2 className="text-xl font-bold" style={{ color: theme.primary }}>
+                💳 Payment
+              </h2>
             </div>
 
-            {/* Amount */}
             <div className="text-center mb-6 pb-6 border-b-2 border-gray-100">
               <p className="text-gray-500 text-sm mb-1">Amount to Pay</p>
               <h2 className="text-5xl font-black" style={{ color: theme.primary }}>₹{grandTotal}</h2>
@@ -1120,7 +1088,6 @@ const getDefaultFeatures = (planId) => {
               <p className="text-xs text-gray-400 mt-1 font-mono">Ref: {pendingOrderId?.slice(-12)}</p>
             </div>
 
-            {/* Status */}
             <div className="mb-6">
               {paymentStatus === "verifying" && (
                 <div className="space-y-4">
@@ -1161,9 +1128,7 @@ const getDefaultFeatures = (planId) => {
               )}
             </div>
 
-            {/* Action Buttons */}
             <div className="space-y-3">
-              {/* Retry UPI */}
               {paymentStatus === "verifying" && (
                 <button
                   onClick={() => {
@@ -1184,38 +1149,25 @@ const getDefaultFeatures = (planId) => {
                   <FaMobileAlt /> Retry UPI Payment
                 </button>
               )}
-
-              {/* Manual verify */}
               {(paymentStatus === "verifying" || paymentStatus === "timeout") && (
-                <button
-                  onClick={verifyPaymentManually}
-                  className="w-full py-3.5 rounded-xl font-bold text-orange-600 border-2 border-orange-600 hover:bg-orange-50 transition-all"
-                >
+                <button onClick={verifyPaymentManually}
+                  className="w-full py-3.5 rounded-xl font-bold text-orange-600 border-2 border-orange-600 hover:bg-orange-50 transition-all">
                   ⚠️ Maine Pay Kar Diya — Verify Karo
                 </button>
               )}
-
-              {/* Place Order (only when verified) */}
               {paymentStatus === "completed" && (
-                <button
-                  onClick={handlePlaceOrder}
+                <button onClick={handlePlaceOrder}
                   className="w-full py-4 rounded-xl font-bold text-lg text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98]"
-                  style={{ backgroundColor: theme.primary }}
-                >
+                  style={{ backgroundColor: theme.primary }}>
                   🎉 Place Order Now
                 </button>
               )}
-
-              {/* Back to form */}
-              <button
-                onClick={() => setPaymentStep("form")}
-                className="w-full py-3 rounded-xl font-bold text-gray-500 border-2 border-gray-200 hover:bg-gray-50 transition-all"
-              >
+              <button onClick={() => setPaymentStep("form")}
+                className="w-full py-3 rounded-xl font-bold text-gray-500 border-2 border-gray-200 hover:bg-gray-50 transition-all">
                 ← Wapas jao (Cash chuno)
               </button>
             </div>
 
-            {/* Instructions */}
             <div className="mt-4 text-xs text-gray-500 bg-gray-50 p-4 rounded-xl space-y-1 text-left">
               <p className="font-bold text-gray-700 mb-2">📖 Steps:</p>
               <p>1. UPI app automatically open ho gayi hogi</p>
@@ -1229,20 +1181,15 @@ const getDefaultFeatures = (planId) => {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 🔥 CHECKOUT FORM
-  // ═══════════════════════════════════════════════════════════════════════════
-  
+  // ─── CHECKOUT FORM ────────────────────────────────────────────────────────
   const availableOrderTypes = getAvailableOrderTypes();
-  
-  // Auto-switch order type if current selection not allowed
+
+  // Auto-switch if current type not allowed
   useEffect(() => {
-    if (!isOrderTypeAllowed(orderType)) {
-      if (availableOrderTypes.length > 0) {
-        setOrderType(availableOrderTypes[0].id);
-      }
+    if (!isOrderTypeAllowed(orderType) && availableOrderTypes.length > 0) {
+      setOrderType(availableOrderTypes[0].id);
     }
-  }, [planFeatures, orderType]);
+  }, [planFeatures]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-3 sm:p-4 pb-24">
@@ -1250,18 +1197,18 @@ const getDefaultFeatures = (planId) => {
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+          <button onClick={() => navigate(-1)}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <FaArrowLeft className="text-gray-600" />
           </button>
           <h2 className="text-2xl font-bold" style={{ color: theme.primary }}>Checkout</h2>
-          
-          {/* 🔥 Plan Badge */}
+
           {subscription && (
             <div className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold"
-              style={{ 
+              style={{
                 backgroundColor: isPlanActive ? theme.primary + '15' : '#fee2e2',
-                color: isPlanActive ? theme.primary : '#dc2626',
-                border: `1px solid ${isPlanActive ? theme.primary + '30' : '#fecaca'}`
+                color:           isPlanActive ? theme.primary : '#dc2626',
+                border: `1px solid ${isPlanActive ? theme.primary + '30' : '#fecaca'}`,
               }}>
               <FaCrown size={12} />
               {subscription.planName || subscription.planId || 'Free'}
@@ -1270,7 +1217,7 @@ const getDefaultFeatures = (planId) => {
           )}
         </div>
 
-        {/* 🔥 Feature Restriction Banner */}
+        {/* Plan expired warning */}
         {!isPlanActive && (
           <div className="mb-4 p-4 bg-amber-50 border-2 border-amber-200 rounded-xl flex items-start gap-3">
             <FaLock className="text-amber-600 mt-0.5 shrink-0" />
@@ -1285,7 +1232,7 @@ const getDefaultFeatures = (planId) => {
 
         {/* Cart Summary */}
         <div className="border-2 rounded-xl p-4 mb-5 bg-gray-50">
-          <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">📝 Order Summary</h3>
+          <h3 className="font-bold text-gray-700 mb-3">📝 Order Summary</h3>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {getValidCart().map((item) => (
               <div key={item.id} className="flex justify-between py-2 border-b border-gray-200 last:border-0">
@@ -1293,7 +1240,9 @@ const getDefaultFeatures = (planId) => {
                   <p className="font-semibold text-sm text-gray-800">{item.name}</p>
                   <p className="text-xs text-gray-500">× {item.qty}</p>
                 </div>
-                <p className="font-bold text-sm" style={{ color: theme.primary }}>₹{item.price * item.qty}</p>
+                <p className="font-bold text-sm" style={{ color: theme.primary }}>
+                  ₹{item.price * item.qty}
+                </p>
               </div>
             ))}
           </div>
@@ -1302,18 +1251,21 @@ const getDefaultFeatures = (planId) => {
         {/* Total */}
         <div className="mb-6 p-4 bg-gray-100 rounded-xl space-y-2">
           <div className="flex justify-between text-sm text-gray-600">
-            <span>Subtotal</span><span className="font-semibold">₹{total}</span>
+            <span>Subtotal</span>
+            <span className="font-semibold">₹{total}</span>
           </div>
           {orderType === "delivery" && (
             <div className="flex justify-between text-sm text-gray-600">
               <span>Delivery Charge</span>
-              <span className="font-semibold" style={{ color: deliveryCharge === 0 && selectedZone ? "#16a34a" : "#374151" }}>
+              <span className="font-semibold"
+                style={{ color: deliveryCharge === 0 && selectedZone ? "#16a34a" : "#374151" }}>
                 {selectedZone ? deliveryCharge === 0 ? "FREE" : `₹${deliveryCharge}` : "—"}
               </span>
             </div>
           )}
           <div className="flex justify-between font-bold text-lg pt-2 border-t-2 border-gray-300">
-            <span>Total Payable</span><span style={{ color: theme.primary }}>₹{grandTotal}</span>
+            <span>Total Payable</span>
+            <span style={{ color: theme.primary }}>₹{grandTotal}</span>
           </div>
         </div>
 
@@ -1324,7 +1276,8 @@ const getDefaultFeatures = (planId) => {
             className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
             style={{ borderColor: customerName ? theme.primary : "#e5e7eb" }} />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input type="tel" placeholder={isPhoneRequired ? "📱 Phone Number *" : "📱 Phone Number"}
+            <input type="tel"
+              placeholder={isPhoneRequired ? "📱 Phone Number *" : "📱 Phone Number"}
               value={customerPhone} maxLength={10}
               onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
               className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
@@ -1342,46 +1295,42 @@ const getDefaultFeatures = (planId) => {
           )}
         </div>
 
-        {/* 🔥 Order Type — FEATURE GATED */}
+        {/* Order Type */}
         <div className="border-2 rounded-xl p-4 mb-5">
           <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
             <FaUtensils /> 🍽️ Order Type
           </h3>
-          
-          {/* Show restriction message if features disabled */}
           {!planFeatures.tableBooking && !planFeatures.deliveryManagement && (
             <p className="text-xs text-amber-600 mb-3 bg-amber-50 p-2 rounded-lg">
               ⚠️ Sirf Takeaway available hai. Dine-in aur Delivery ke liye plan upgrade karo.
             </p>
           )}
-          
           <div className={`grid gap-2 ${
-            availableOrderTypes.length === 1 ? 'grid-cols-1' : 
+            availableOrderTypes.length === 1 ? 'grid-cols-1' :
             availableOrderTypes.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
           }`}>
             {availableOrderTypes.map((type) => (
-              <button key={type.id} onClick={() => {
-                setOrderType(type.id);
-                if (type.id !== "delivery") {
-                  setSelectedZone(null); setDeliveryCharge(0);
-                  setDeliveryAddress(""); setGoogleMapsLink("");
-                  setDeliveryLandmark(""); setCoordinates(null);
-                }
-              }}
+              <button key={type.id}
+                onClick={() => {
+                  setOrderType(type.id);
+                  if (type.id !== "delivery") {
+                    setSelectedZone(null); setDeliveryCharge(0);
+                    setDeliveryAddress(""); setGoogleMapsLink("");
+                    setDeliveryLandmark(""); setCoordinates(null);
+                  }
+                }}
                 className="p-3 rounded-xl border-2 font-semibold text-sm transition-all"
                 style={{
-                  borderColor: orderType === type.id ? theme.primary : "#e5e7eb",
-                  backgroundColor: orderType === type.id ? theme.primary : "white",
-                  color: orderType === type.id ? "white" : theme.primary,
-                  transform: orderType === type.id ? "scale(1.02)" : "scale(1)"
+                  borderColor:       orderType === type.id ? theme.primary : "#e5e7eb",
+                  backgroundColor:   orderType === type.id ? theme.primary : "white",
+                  color:             orderType === type.id ? "white" : theme.primary,
+                  transform:         orderType === type.id ? "scale(1.02)" : "scale(1)",
                 }}>
                 <div className="text-lg mb-1">{type.icon}</div>
                 <div className="text-xs sm:text-sm">{type.label}</div>
               </button>
             ))}
           </div>
-          
-          {/* Show locked features info */}
           <div className="mt-3 flex flex-wrap gap-2">
             {!planFeatures.tableBooking && (
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-lg text-xs text-gray-500">
@@ -1403,7 +1352,8 @@ const getDefaultFeatures = (planId) => {
 
         {/* Delivery Section */}
         {orderType === "delivery" && (
-          <DeliveryAddressSection theme={theme} deliveryZones={deliveryZones}
+          <DeliveryAddressSection
+            theme={theme} deliveryZones={deliveryZones}
             selectedZone={selectedZone} setSelectedZone={setSelectedZone}
             deliveryAddress={deliveryAddress} setDeliveryAddress={setDeliveryAddress}
             deliveryLandmark={deliveryLandmark} setDeliveryLandmark={setDeliveryLandmark}
@@ -1415,40 +1365,40 @@ const getDefaultFeatures = (planId) => {
 
         {/* Special Instructions */}
         <div className="mb-6">
-          <textarea placeholder="📝 Special instructions (optional)..." value={specialInstructions}
-            onChange={(e) => setSpecialInstructions(e.target.value)} rows={2}
-            className="w-full border-2 border-gray-200 rounded-xl p-3.5 text-sm resize-none outline-none focus:border-gray-400 transition-all" />
+          <textarea
+            placeholder="📝 Special instructions (optional)..."
+            value={specialInstructions}
+            onChange={(e) => setSpecialInstructions(e.target.value)}
+            rows={2}
+            className="w-full border-2 border-gray-200 rounded-xl p-3.5 text-sm resize-none outline-none focus:border-gray-400 transition-all"
+          />
         </div>
 
         {/* Payment Method */}
         <div className="border-2 rounded-xl p-4 mb-6">
           <h3 className="font-bold text-gray-700 mb-3">💳 Payment Method</h3>
 
-          {/* Online Payment */}
           <label
             className="flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer mb-3 transition-all"
             style={{
-              borderColor: paymentMethod === "online" ? theme.primary : "#e5e7eb",
+              borderColor:     paymentMethod === "online" ? theme.primary : "#e5e7eb",
               backgroundColor: paymentMethod === "online" ? theme.primary + "08" : "white",
-            }}
-          >
+            }}>
             <input type="radio" checked={paymentMethod === "online"}
               onChange={() => setPaymentMethod("online")}
-              className="w-5 h-5 accent-current" style={{ accentColor: theme.primary }} />
+              className="w-5 h-5" style={{ accentColor: theme.primary }} />
             <div className="flex-1">
               <span className="font-bold block">Online Payment (UPI)</span>
               <span className="text-xs text-gray-500">Phone ki UPI app se direct pay</span>
             </div>
           </label>
 
-          {/* Cash */}
           <label
             className="flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all"
             style={{
-              borderColor: paymentMethod === "cash" ? theme.primary : "#e5e7eb",
+              borderColor:     paymentMethod === "cash" ? theme.primary : "#e5e7eb",
               backgroundColor: paymentMethod === "cash" ? theme.primary + "08" : "white",
-            }}
-          >
+            }}>
             <input type="radio" checked={paymentMethod === "cash"}
               onChange={() => setPaymentMethod("cash")} className="w-5 h-5" />
             <div className="flex-1">
@@ -1456,24 +1406,22 @@ const getDefaultFeatures = (planId) => {
                 {orderType === "delivery" ? "💵 Cash on Delivery" : "💵 Pay at Counter"}
               </span>
               <span className="text-xs text-gray-500">
-                {orderType === "delivery" ? "Delivery boy ko cash dena hoga" : "Counter pe payment karo"}
+                {orderType === "delivery"
+                  ? "Delivery boy ko cash dena hoga"
+                  : "Counter pe payment karo"}
               </span>
             </div>
           </label>
         </div>
 
-        {/* 🔥 CTA Button */}
+        {/* CTA */}
         {paymentMethod === "cash" ? (
           <button onClick={handlePlaceOrder} disabled={isLoading}
             className="w-full py-4 rounded-xl font-bold text-lg text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ backgroundColor: theme.primary }}>
-            {isLoading ? (
-              <span className="flex items-center justify-center gap-2">
-                <FaSpinner className="animate-spin" /> Loading...
-              </span>
-            ) : (
-              `Place Order • ₹${grandTotal}`
-            )}
+            {isLoading
+              ? <span className="flex items-center justify-center gap-2"><FaSpinner className="animate-spin" /> Loading...</span>
+              : `Place Order • ₹${grandTotal}`}
           </button>
         ) : (
           <button onClick={handleUpiPayment}

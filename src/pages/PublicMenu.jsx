@@ -229,7 +229,7 @@ const speakText = (text, lang = 'en-IN', rate = 0.9) => {
 };
 
 // ================= DISH PROGRESS BAR COMPONENT =================
-const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => {
+const DishProgressBar = ({ item, theme, orderId, restaurantId, onDishReady, orderStatus }) => {
   const [progress, setProgress] = useState(0);
   const [isReady, setIsReady] = useState(false);
   const [showEnjoyMessage, setShowEnjoyMessage] = useState(false);
@@ -258,7 +258,7 @@ const DishProgressBar = ({ item, theme, orderId, onDishReady, orderStatus }) => 
       autoStartAttemptedRef.current = true;
 
       const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g,'_')}`;
-const itemRef = rtdbRef(realtimeDB, `orders/${orderId}/items/${itemKey}`);
+const itemRef = rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}/items/${itemKey}`);
       update(itemRef, {
         prepStartedAt: now,
         prepTime: item.prepTime || 15,
@@ -309,7 +309,7 @@ const itemRef = rtdbRef(realtimeDB, `orders/${orderId}/items/${itemKey}`);
         }
 
 const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g,'_')}`;
-        const itemRef = rtdbRef(realtimeDB, `orders/${orderId}/items/${itemKey}`);
+const itemRef = rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}/items/${itemKey}`);
         update(itemRef, {
           itemStatus: "ready",
           itemReadyAt: Date.now()
@@ -483,14 +483,15 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
 
             {!isCompleted && !localBillOpened && order.status !== 'pending' && (
               <div className="mt-2 pt-2 border-t border-gray-200/50">
-                <DishProgressBar
-                  key={`${order.id}-${item.dishId || item.id}`}
-                  item={item}
-                  theme={theme}
-                  orderId={order.id}
-                  orderStatus={order.status}
-                  onDishReady={onDishReady}
-                />
+               <DishProgressBar
+  key={`${order.id}-${item.dishId || item.id}`}
+  item={item}
+  theme={theme}
+  orderId={order.id}
+  restaurantId={order.restaurantId}
+  orderStatus={order.status}
+  onDishReady={onDishReady}
+/>
               </div>
             )}
           </div>
@@ -962,10 +963,9 @@ export default function PublicMenu() {
     const TWO_MINUTES = 2 * 60 * 1000;
     const now = Date.now();
 
-    const myOrders = Object.entries(data)
-      .filter(([id, order]) => {
-        if (order.userId !== userId) return false;
-        if (order.restaurantId !== restaurantId) return false;
+   const myOrders = Object.entries(data)
+  .filter(([id, order]) => {
+    if (order.userId !== userId) return false;
         if (viewedOrdersRef.current.has(id)) return false;
        if (order.billOpened) return false;
 
@@ -1289,7 +1289,7 @@ ${'━'.repeat(30)}
     }
 
     try {
-      const orderRef = push(rtdbRef(realtimeDB, 'orders'));
+      const orderRef = push(rtdbRef(realtimeDB, `orders/${restaurantId}`));
       const orderId = orderRef.key;
 
       const items = orderData.items || [];
@@ -1562,7 +1562,7 @@ ${'━'.repeat(30)}
           couponCode: order.couponCode || null, 
         };
 
-        await update(rtdbRef(realtimeDB, `orders/${order.id}`), { bill });
+       await update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), { bill });
         order.bill = bill;
       }
 
@@ -1705,11 +1705,12 @@ ${'━'.repeat(30)}
       console.error("Error generating bill:", err);
       alert("Bill generate karne mein error aaya: " + err.message);
     }
-    await update(rtdbRef(realtimeDB, `orders/${order.id}`), {
-      status: "completed",
-      completedAt: Date.now(),
-      billOpened: true
-    });
+   await update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
+  status: "completed",
+  completedAt: Date.now(),
+  billOpened: true
+});
+
   };
 
   const shareBillOnWhatsApp = (order) => {
@@ -1766,11 +1767,11 @@ Sent via DineQR
     // Voice notification for bill share
     speakText(`Thank you for coming in ${restaurantName || 'our restaurant'}. We hope to see you again!`);
 
-    update(rtdbRef(realtimeDB, `orders/${order.id}`), {
-      status: "completed",
-      completedAt: Date.now(),
-      billOpened: true
-    });
+   update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
+  status: "completed",
+  completedAt: Date.now(),
+  billOpened: true
+});
   };
 
   const generateBillText = (order) => {
@@ -1916,7 +1917,7 @@ Sent via DineQR
       return;
     }
 
-    const ordersRef = rtdbRef(realtimeDB, 'orders');
+const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
     const unsubscribe = onValue(ordersRef, (snap) => {
       const data = snap.val();
       if (!data) return;
@@ -2088,7 +2089,7 @@ Sent via DineQR
   useEffect(() => {
     if (!userId || !restaurantId) return;
 
-    const ordersRef = rtdbRef(realtimeDB, 'orders');
+   const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
 
     const unsubscribe = onValue(ordersRef, (snapshot) => {
       const data = snapshot.val();

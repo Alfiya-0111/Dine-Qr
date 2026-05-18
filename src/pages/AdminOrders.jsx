@@ -1,15 +1,14 @@
 import { useEffect, useState, useRef } from "react";
-import { ref, onValue, update, remove, get, query, limitToLast } from "firebase/database";
+import { ref, onValue, update, remove, get, query, orderByChild } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { initWhatsAppAutoProcessor } from "../utils/whatsappAutoProcessor";
 import { useNavigate, useParams } from "react-router-dom";
 import { Ordercard } from "./Ordercard";
-import { FaLock, FaBell, FaMotorcycle, FaWhatsapp, FaMicrophone, FaClock, FaChartLine } from "react-icons/fa";
+import { FaLock } from "react-icons/fa";
 
 const PRIMARY  = "#8A244B";
 const GOLD     = "#FFD166";
-const PRIMARY2 = "#B45253";
 
 // ─── PLAN CONFIG ─────────────────────────────────────────────────────────────
 const PLAN_CONFIG = {
@@ -38,7 +37,7 @@ const PLAN_FEATURES = {
   pro:     { whatsappOrders: true,  voiceNotifications: true,  autoComplete: true,  waiterCalls: true,  kds: true,  revenueDashboard: true,  coupons: true  },
 };
 
-// ─── SINGLE UPGRADE BANNER (sirf ek baar, list nahi) ─────────────────────────
+// ─── UPGRADE BANNER ───────────────────────────────────────────────────────────
 const UpgradeBanner = ({ onUpgrade }) => (
   <div style={{
     display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -76,6 +75,7 @@ const getItemsArray = (items) => {
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 export default function AdminOrders() {
   const completingOrdersRef = useRef(new Set());
+
   const [orders, setOrders]                           = useState([]);
   const [now, setNow]                                 = useState(Date.now());
   const [selectedFilter, setSelectedFilter]           = useState("today");
@@ -136,7 +136,9 @@ export default function AdminOrders() {
         icon: "/logo192.png", tag: order.id, requireInteraction: true,
       });
     } else if (Notification.permission !== "denied") {
-      Notification.requestPermission().then(p => { if (p === "granted") showBrowserNotification(order, isWhatsApp); });
+      Notification.requestPermission().then(p => {
+        if (p === "granted") showBrowserNotification(order, isWhatsApp);
+      });
     }
   };
 
@@ -164,7 +166,11 @@ export default function AdminOrders() {
           setPlanFeatures(PLAN_FEATURES[id] || PLAN_FEATURES.trial);
           if (data.planId === "trial" && data.expiresAt) {
             const daysLeft = Math.ceil((data.expiresAt - Date.now()) / 86400000);
-            setTrialStatus({ active: daysLeft > 0, daysLeft: Math.max(0, daysLeft), expired: daysLeft <= 0 });
+            setTrialStatus({
+              active: daysLeft > 0,
+              daysLeft: Math.max(0, daysLeft),
+              expired: daysLeft <= 0,
+            });
           }
         } else {
           setPlanId("starter");
@@ -202,7 +208,11 @@ export default function AdminOrders() {
     if (!restaurantId || !planFeatures.waiterCalls) return;
     const unsub = onValue(ref(realtimeDB, `waiterCalls/${restaurantId}`), (snap) => {
       const data = snap.val();
-      if (!data) { prevWaiterCallsCount.current = 0; setWaiterCalls([]); return; }
+      if (!data) {
+        prevWaiterCallsCount.current = 0;
+        setWaiterCalls([]);
+        return;
+      }
       const calls = Object.entries(data)
         .filter(([, c]) => c.status === "pending")
         .map(([id, c]) => ({ id, ...c }))
@@ -215,20 +225,37 @@ export default function AdminOrders() {
   }, [restaurantId, planFeatures.waiterCalls]);
 
   const dismissWaiterCall = async (callId) => {
-    await update(ref(realtimeDB, `waiterCalls/${restaurantId}/${callId}`), { status: "attended", attendedAt: Date.now() });
+    await update(ref(realtimeDB, `waiterCalls/${restaurantId}/${callId}`), {
+      status: "attended",
+      attendedAt: Date.now(),
+    });
   };
 
   // ── ORDERS LISTENER ──
+  // ✅ FIX: /orders/{restaurantId}/ path — sirf is restaurant ke orders
+  // Isse 1000 restaurants ke orders ek saath load nahi honge
   useEffect(() => {
     if (!restaurantId) return;
-    const ordersQuery = query(ref(realtimeDB, "orders"), limitToLast(500));
-    const unsub = onValue(ordersQuery, (snap) => {
-      const data = snap.val();
-      if (!data) { setOrders([]); return; }
 
+    // ✅ CORRECT PATH: orders/{restaurantId} — isolated per restaurant
+    const ordersRef = ref(realtimeDB, `orders/${restaurantId}`);
+
+    const unsub = onValue(ordersRef, (snap) => {
+      const data = snap.val();
+      if (!data) {
+        setOrders([]);
+        ordersRefState.current = [];
+        return;
+      }
+
+      // Data already is this restaurant's orders only — no filtering needed
       const myOrders = Object.entries(data)
-        .filter(([, o]) => o && String(o.restaurantId || "").trim() === String(restaurantId).trim())
-        .map(([id, o]) => ({ id, ...o, source: o.type || o.source || "regular" }))
+        .map(([id, o]) => ({
+          id,
+          ...o,
+          restaurantId, // ensure it's set
+          source: o.type || o.source || "regular",
+        }))
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
       if (isInitialLoadRef.current) {
@@ -251,25 +278,34 @@ export default function AdminOrders() {
       ordersRefState.current     = myOrders;
       setOrders(myOrders);
     });
+
     return () => unsub();
   }, [restaurantId, voiceEnabled, planFeatures]);
 
   // ── AUTO-COMPLETE TIMER ──
   const AUTO_COMPLETE_GRACE = 2 * 60 * 1000;
+
   const completeOrderAndGenerateBill = async (orderId) => {
     if (completingOrdersRef.current.has(orderId)) return;
     completingOrdersRef.current.add(orderId);
     try {
-      const snap = await get(ref(realtimeDB, `orders/${orderId}`));
+      // ✅ FIX: correct path
+      const snap = await get(ref(realtimeDB, `orders/${restaurantId}/${orderId}`));
       if (!snap.exists()) return;
       const d = snap.val();
       if (d.status === "completed" || d.completedAt) return;
       if (Date.now() < Number(d.prepEndsAt || 0) + AUTO_COMPLETE_GRACE) return;
-      await update(ref(realtimeDB, `orders/${orderId}`), {
-        status: "completed", completedAt: Date.now(), updatedAt: Date.now(), autoCompleted: true,
+      await update(ref(realtimeDB, `orders/${restaurantId}/${orderId}`), {
+        status: "completed",
+        completedAt: Date.now(),
+        updatedAt: Date.now(),
+        autoCompleted: true,
       });
-    } catch (e) { console.error(e); }
-    finally { completingOrdersRef.current.delete(orderId); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      completingOrdersRef.current.delete(orderId);
+    }
   };
 
   useEffect(() => {
@@ -290,6 +326,7 @@ export default function AdminOrders() {
   }, [autoCompleteEnabled, planFeatures.autoComplete]);
 
   // ── STATUS UPDATE ──
+  // ✅ FIX: correct path
   const updateStatus = async (id, status) => {
     const order = ordersRefState.current.find(o => o.id === id);
     const t = Date.now();
@@ -299,36 +336,64 @@ export default function AdminOrders() {
       updates.prepStartedAt = t;
       updates.prepEndsAt    = t + prepTime * 60 * 1000;
     }
-    await update(ref(realtimeDB, `orders/${id}`), updates);
+    await update(ref(realtimeDB, `orders/${restaurantId}/${id}`), updates);
   };
 
+  // ✅ FIX: correct path
   const deleteOrder = async (id) => {
     if (!window.confirm("Delete this order permanently?")) return;
-    await remove(ref(realtimeDB, `orders/${id}`));
+    await remove(ref(realtimeDB, `orders/${restaurantId}/${id}`));
     await remove(ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`)).catch(() => {});
   };
 
+  // ✅ FIX: correct path
   const generateBill = async (order) => {
     if (order.bill) { alert("Bill already generated!"); return; }
     const billData = {
-      orderId: order.id, customerName: order.customerInfo?.name,
-      total: order.total, items: order.items,
-      generatedAt: Date.now(), generatedBy: "admin", status: "ready_for_customer",
+      orderId: order.id,
+      customerName: order.customerInfo?.name,
+      total: order.total,
+      items: order.items,
+      generatedAt: Date.now(),
+      generatedBy: "admin",
+      status: "ready_for_customer",
     };
-    await update(ref(realtimeDB, `orders/${order.id}`), { bill: billData, billGeneratedAt: Date.now() });
+    await update(ref(realtimeDB, `orders/${restaurantId}/${order.id}`), {
+      bill: billData,
+      billGeneratedAt: Date.now(),
+    });
     alert("✅ Bill Generated!");
   };
 
   const updatePaymentStatus = async (orderId, status) => {
-    await update(ref(realtimeDB, `orders/${orderId}`), { paymentStatus: status });
+    await update(ref(realtimeDB, `orders/${restaurantId}/${orderId}`), { paymentStatus: status });
   };
 
   // ── DATE FILTERS ──
   const isToday     = (ts) => ts && new Date(ts).toDateString() === new Date().toDateString();
-  const isYesterday = (ts) => { if (!ts) return false; const y = new Date(); y.setDate(y.getDate() - 1); return new Date(ts).toDateString() === y.toDateString(); };
-  const isThisWeek  = (ts) => { if (!ts) return false; const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay()); ws.setHours(0,0,0,0); return new Date(ts) >= ws; };
-  const isThisMonth = (ts) => { if (!ts) return false; const n = new Date(); return new Date(ts).getMonth() === n.getMonth() && new Date(ts).getFullYear() === n.getFullYear(); };
-  const isInRange   = (ts, s, e) => { if (!ts) return false; const d = new Date(ts), sd = s ? new Date(s) : new Date(0), ed = e ? new Date(e) : new Date(8640000000000000); ed.setHours(23,59,59,999); return d >= sd && d <= ed; };
+  const isYesterday = (ts) => {
+    if (!ts) return false;
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    return new Date(ts).toDateString() === y.toDateString();
+  };
+  const isThisWeek = (ts) => {
+    if (!ts) return false;
+    const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay()); ws.setHours(0, 0, 0, 0);
+    return new Date(ts) >= ws;
+  };
+  const isThisMonth = (ts) => {
+    if (!ts) return false;
+    const n = new Date();
+    return new Date(ts).getMonth() === n.getMonth() && new Date(ts).getFullYear() === n.getFullYear();
+  };
+  const isInRange = (ts, s, e) => {
+    if (!ts) return false;
+    const d = new Date(ts);
+    const sd = s ? new Date(s) : new Date(0);
+    const ed = e ? new Date(e) : new Date(8640000000000000);
+    ed.setHours(23, 59, 59, 999);
+    return d >= sd && d <= ed;
+  };
 
   const getFilteredOrders = () => {
     if (customFilter && dateRange.start && dateRange.end)
@@ -351,8 +416,18 @@ export default function AdminOrders() {
   // ── LOADING ──
   if (loading || planLoading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", flexDirection: "column", gap: 12, fontFamily: "'Sora', sans-serif" }}>
-        <div style={{ width: 40, height: 40, border: "4px solid #e5e7eb", borderTop: `4px solid ${PRIMARY}`, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "center",
+        minHeight: "60vh", flexDirection: "column", gap: 12,
+        fontFamily: "'Sora', sans-serif",
+      }}>
+        <div style={{
+          width: 40, height: 40,
+          border: "4px solid #e5e7eb",
+          borderTop: `4px solid ${PRIMARY}`,
+          borderRadius: "50%",
+          animation: "spin 0.8s linear infinite",
+        }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         <span style={{ color: PRIMARY, fontWeight: 600 }}>Loading orders...</span>
       </div>
@@ -360,18 +435,27 @@ export default function AdminOrders() {
   }
 
   if (!restaurantId) {
-    return <div style={{ padding: 24, color: "#dc2626", fontFamily: "'Sora', sans-serif", fontWeight: 600 }}>Please login as admin</div>;
+    return (
+      <div style={{ padding: 24, color: "#dc2626", fontFamily: "'Sora', sans-serif", fontWeight: 600 }}>
+        Please login as admin
+      </div>
+    );
   }
 
-  const planConfig = getPlanConfig();
+  const planConfig    = getPlanConfig();
   const isStarterPlan = planId === "starter";
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8f7f5", fontFamily: "'DM Sans', sans-serif" }}>
 
       {/* ── Mobile Header ── */}
-      <div className="md:hidden" style={{ background: PRIMARY, color: "#fff", padding: "14px 16px", position: "sticky", top: 0, zIndex: 10 }}>
-        <h1 style={{ margin: 0, fontSize: 17, fontWeight: 800, fontFamily: "'Sora', sans-serif" }}>Khaatogo Dashboard</h1>
+      <div className="md:hidden" style={{
+        background: PRIMARY, color: "#fff",
+        padding: "14px 16px", position: "sticky", top: 0, zIndex: 10,
+      }}>
+        <h1 style={{ margin: 0, fontSize: 17, fontWeight: 800, fontFamily: "'Sora', sans-serif" }}>
+          Khaatogo Dashboard
+        </h1>
       </div>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 16px 80px" }}>
@@ -383,10 +467,22 @@ export default function AdminOrders() {
             borderRadius: 18, border: `2px solid ${planConfig.borderColor}`,
             background: planConfig.bgColor, padding: "16px 20px",
           }}>
-            <div style={{ position: "absolute", top: -24, right: -24, width: 96, height: 96, borderRadius: "50%", background: planConfig.color, opacity: 0.2 }} />
-            <div style={{ position: "absolute", bottom: -16, left: -16, width: 64, height: 64, borderRadius: "50%", background: planConfig.color, opacity: 0.1 }} />
+            <div style={{
+              position: "absolute", top: -24, right: -24,
+              width: 96, height: 96, borderRadius: "50%",
+              background: planConfig.color, opacity: 0.2,
+            }} />
+            <div style={{
+              position: "absolute", bottom: -16, left: -16,
+              width: 64, height: 64, borderRadius: "50%",
+              background: planConfig.color, opacity: 0.1,
+            }} />
 
-            <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div style={{
+              position: "relative", display: "flex",
+              alignItems: "center", justifyContent: "space-between",
+              flexWrap: "wrap", gap: 12,
+            }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{
                   width: 52, height: 52, borderRadius: 14,
@@ -398,26 +494,41 @@ export default function AdminOrders() {
                 </div>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: planConfig.textColor, fontFamily: "'Sora', sans-serif" }}>
+                    <span style={{
+                      fontSize: 15, fontWeight: 800,
+                      color: planConfig.textColor, fontFamily: "'Sora', sans-serif",
+                    }}>
                       {planConfig.label}
                     </span>
                     {trialStatus?.active && (
-                      <span style={{ padding: "2px 10px", background: "#dcfce7", color: "#166534", fontSize: 11, fontWeight: 800, borderRadius: 20, border: "1px solid #bbf7d0" }}>
+                      <span style={{
+                        padding: "2px 10px", background: "#dcfce7", color: "#166534",
+                        fontSize: 11, fontWeight: 800, borderRadius: 20, border: "1px solid #bbf7d0",
+                      }}>
                         {trialStatus.daysLeft}d left
                       </span>
                     )}
                     {(trialStatus?.expired || (isPlanExpired() && !trialStatus)) && (
-                      <span style={{ padding: "2px 10px", background: "#fee2e2", color: "#991b1b", fontSize: 11, fontWeight: 800, borderRadius: 20, border: "1px solid #fca5a5" }}>
+                      <span style={{
+                        padding: "2px 10px", background: "#fee2e2", color: "#991b1b",
+                        fontSize: 11, fontWeight: 800, borderRadius: 20, border: "1px solid #fca5a5",
+                      }}>
                         EXPIRED
                       </span>
                     )}
                     {!isPlanExpired() && userPlan?.status === "active" && !trialStatus && (
-                      <span style={{ padding: "2px 10px", background: "#dcfce7", color: "#166534", fontSize: 11, fontWeight: 800, borderRadius: 20, border: "1px solid #bbf7d0" }}>
+                      <span style={{
+                        padding: "2px 10px", background: "#dcfce7", color: "#166534",
+                        fontSize: 11, fontWeight: 800, borderRadius: 20, border: "1px solid #bbf7d0",
+                      }}>
                         ACTIVE
                       </span>
                     )}
                   </div>
-                  <p style={{ fontSize: 12, marginTop: 4, color: planConfig.textColor, opacity: 0.8, margin: "4px 0 0" }}>
+                  <p style={{
+                    fontSize: 12, marginTop: 4,
+                    color: planConfig.textColor, opacity: 0.8, margin: "4px 0 0",
+                  }}>
                     {planConfig.desc} • Orders Dashboard
                   </p>
                 </div>
@@ -440,7 +551,10 @@ export default function AdminOrders() {
                   }}>⬆️ Upgrade</button>
                 )}
                 {planId === "pro" && !isPlanExpired() && (
-                  <span style={{ padding: "9px 18px", background: PRIMARY, color: "#fff", borderRadius: 12, fontWeight: 800, fontSize: 13 }}>
+                  <span style={{
+                    padding: "9px 18px", background: PRIMARY,
+                    color: "#fff", borderRadius: 12, fontWeight: 800, fontSize: 13,
+                  }}>
                     👑 Best Plan
                   </span>
                 )}
@@ -461,24 +575,42 @@ export default function AdminOrders() {
           </div>
         )}
 
-        {/* ── SINGLE UPGRADE BANNER (sirf starter ke liye, list nahi) ── */}
+        {/* ── UPGRADE BANNER (sirf starter ke liye) ── */}
         {isStarterPlan && !isPlanExpired() && (
           <UpgradeBanner onUpgrade={goToSubscription} />
         )}
 
         {/* ── Page Title ── */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#111827", fontFamily: "'Sora', sans-serif" }}>
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          flexWrap: "wrap", gap: 8, marginBottom: 16,
+        }}>
+          <h2 style={{
+            margin: 0, fontSize: 22, fontWeight: 800,
+            color: "#111827", fontFamily: "'Sora', sans-serif",
+          }}>
             🍽️ Orders Dashboard
           </h2>
         </div>
 
-        {/* ── WAITER CALLS — TOP (urgent hai, pehle dikhao) ── */}
+        {/* ── WAITER CALLS ── */}
         {planFeatures.waiterCalls && waiterCalls.length > 0 && (
-          <div style={{ background: "#fff7ed", border: "2px solid #fb923c", borderRadius: 14, padding: 16, marginBottom: 16 }}>
-            <div style={{ fontWeight: 800, color: "#9a3412", fontSize: 14, display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontFamily: "'Sora', sans-serif" }}>
+          <div style={{
+            background: "#fff7ed", border: "2px solid #fb923c",
+            borderRadius: 14, padding: 16, marginBottom: 16,
+          }}>
+            <div style={{
+              fontWeight: 800, color: "#9a3412", fontSize: 14,
+              display: "flex", alignItems: "center", gap: 8,
+              marginBottom: 12, fontFamily: "'Sora', sans-serif",
+            }}>
               🔔 Waiter Calls
-              <span style={{ background: "#ea580c", color: "#fff", padding: "1px 8px", borderRadius: 20, fontSize: 11 }}>{waiterCalls.length}</span>
+              <span style={{
+                background: "#ea580c", color: "#fff",
+                padding: "1px 8px", borderRadius: 20, fontSize: 11,
+              }}>
+                {waiterCalls.length}
+              </span>
             </div>
             {waiterCalls.map(call => (
               <div key={call.id} style={{
@@ -494,7 +626,8 @@ export default function AdminOrders() {
                 </div>
                 <button onClick={() => dismissWaiterCall(call.id)} style={{
                   padding: "6px 14px", borderRadius: 8, background: "#16a34a", color: "#fff",
-                  border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif",
+                  border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12,
+                  fontFamily: "'DM Sans', sans-serif",
                 }}>
                   ✅ Attended
                 </button>
@@ -505,15 +638,36 @@ export default function AdminOrders() {
 
         {/* ── STATS CARDS ── */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-          <div style={{ background: "#fffbeb", border: "1.5px solid #fbbf24", borderRadius: 14, padding: 16, textAlign: "center" }}>
-            <div style={{ fontSize: 32, fontWeight: 900, color: "#92400e", fontFamily: "'Sora', sans-serif", lineHeight: 1 }}>{activeOrders.length}</div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#b45309", marginTop: 6 }}>🟡 Active Orders</div>
+          <div style={{
+            background: "#fffbeb", border: "1.5px solid #fbbf24",
+            borderRadius: 14, padding: 16, textAlign: "center",
+          }}>
+            <div style={{
+              fontSize: 32, fontWeight: 900, color: "#92400e",
+              fontFamily: "'Sora', sans-serif", lineHeight: 1,
+            }}>
+              {activeOrders.length}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#b45309", marginTop: 6 }}>
+              🟡 Active Orders
+            </div>
           </div>
-          <div style={{ background: "#f0fdf4", border: "1.5px solid #4ade80", borderRadius: 14, padding: 16, textAlign: "center" }}>
-            <div style={{ fontSize: 32, fontWeight: 900, color: "#166534", fontFamily: "'Sora', sans-serif", lineHeight: 1 }}>{completedOrders.length}</div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#166534", marginTop: 6 }}>✅ Completed</div>
+          <div style={{
+            background: "#f0fdf4", border: "1.5px solid #4ade80",
+            borderRadius: 14, padding: 16, textAlign: "center",
+          }}>
+            <div style={{
+              fontSize: 32, fontWeight: 900, color: "#166534",
+              fontFamily: "'Sora', sans-serif", lineHeight: 1,
+            }}>
+              {completedOrders.length}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#166534", marginTop: 6 }}>
+              ✅ Completed
+            </div>
           </div>
-          {/* Revenue — full width neeche */}
+
+          {/* Revenue */}
           <div style={{
             gridColumn: "1 / -1",
             background: planFeatures.revenueDashboard ? "#eff6ff" : "#f9fafb",
@@ -525,20 +679,31 @@ export default function AdminOrders() {
             {planFeatures.revenueDashboard ? (
               <>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>💰 Total Revenue</div>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: "#1e40af", fontFamily: "'Sora', sans-serif" }}>₹{totalRevenue.toLocaleString("en-IN")}</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>
+                    💰 Total Revenue
+                  </div>
+                  <div style={{
+                    fontSize: 28, fontWeight: 900,
+                    color: "#1e40af", fontFamily: "'Sora', sans-serif",
+                  }}>
+                    ₹{totalRevenue.toLocaleString("en-IN")}
+                  </div>
                 </div>
                 <div style={{ fontSize: 32, opacity: 0.15 }}>📊</div>
               </>
             ) : (
               <>
                 <div style={{ filter: "blur(5px)", pointerEvents: "none", userSelect: "none" }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>Revenue</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>
+                    Revenue
+                  </div>
                   <div style={{ fontSize: 28, fontWeight: 900, color: "#1e40af" }}>₹XXXXX</div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <FaLock style={{ color: PRIMARY, fontSize: 13 }} />
-                  <span style={{ fontSize: 12, fontWeight: 800, color: PRIMARY }}>Growth+ mein unlock</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: PRIMARY }}>
+                    Growth+ mein unlock
+                  </span>
                 </div>
               </>
             )}
@@ -546,8 +711,16 @@ export default function AdminOrders() {
         </div>
 
         {/* ── CONTROLS CARD ── */}
-        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb", padding: 16, marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: "#374151", fontFamily: "'Sora', sans-serif", marginBottom: 12 }}>⚙️ Settings</div>
+        <div style={{
+          background: "#fff", borderRadius: 16, border: "1px solid #e5e7eb",
+          padding: 16, marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+        }}>
+          <div style={{
+            fontWeight: 700, fontSize: 13, color: "#374151",
+            fontFamily: "'Sora', sans-serif", marginBottom: 12,
+          }}>
+            ⚙️ Settings
+          </div>
 
           {/* Voice toggle */}
           {planFeatures.voiceNotifications && (
@@ -556,14 +729,27 @@ export default function AdminOrders() {
               background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10,
               padding: "10px 14px", marginBottom: 8, gap: 10, flexWrap: "wrap",
             }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "#374151", cursor: "pointer" }}>
-                <input type="checkbox" checked={voiceEnabled} onChange={e => setVoiceEnabled(e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: PRIMARY }} />
+              <label style={{
+                display: "flex", alignItems: "center", gap: 8,
+                fontSize: 13, fontWeight: 600, color: "#374151", cursor: "pointer",
+              }}>
+                <input
+                  type="checkbox" checked={voiceEnabled}
+                  onChange={e => setVoiceEnabled(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: PRIMARY }}
+                />
                 🗣️ Voice Notifications {voiceEnabled ? "ON" : "OFF"}
               </label>
               <button
-                onClick={() => { speak("New Order"); setTimeout(() => speak("New WhatsApp Order", "high"), 2000); }}
-                style={{ padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: "'DM Sans', sans-serif", background: "#4f46e5", color: "#fff" }}>
+                onClick={() => {
+                  speak("New Order");
+                  setTimeout(() => speak("New WhatsApp Order", "high"), 2000);
+                }}
+                style={{
+                  padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  cursor: "pointer", border: "none", fontFamily: "'DM Sans', sans-serif",
+                  background: "#4f46e5", color: "#fff",
+                }}>
                 🎙️ Test Voice
               </button>
             </div>
@@ -576,19 +762,36 @@ export default function AdminOrders() {
               background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10,
               padding: "10px 14px", gap: 10, flexWrap: "wrap",
             }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "#374151", cursor: "pointer" }}>
-                <input type="checkbox" checked={autoCompleteEnabled} onChange={e => setAutoCompleteEnabled(e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: PRIMARY }} />
+              <label style={{
+                display: "flex", alignItems: "center", gap: 8,
+                fontSize: 13, fontWeight: 600, color: "#374151", cursor: "pointer",
+              }}>
+                <input
+                  type="checkbox" checked={autoCompleteEnabled}
+                  onChange={e => setAutoCompleteEnabled(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: PRIMARY }}
+                />
                 ⏰ Auto-Complete Orders
               </label>
-              <div style={{ fontSize: 11, color: "#9ca3af" }}>Prep time khatam hone pe auto ready mark karta hai</div>
+              <div style={{ fontSize: 11, color: "#9ca3af" }}>
+                Prep time khatam hone pe auto ready mark karta hai
+              </div>
             </div>
           )}
         </div>
 
         {/* ── DATE FILTER ── */}
-        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 16, marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: "#374151", fontFamily: "'Sora', sans-serif" }}>📅 Date Filter</div>
+        <div style={{
+          background: "#fff", border: "1px solid #e5e7eb",
+          borderRadius: 16, padding: 16, marginBottom: 16,
+          boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+        }}>
+          <div style={{
+            fontWeight: 700, fontSize: 13, marginBottom: 12,
+            color: "#374151", fontFamily: "'Sora', sans-serif",
+          }}>
+            📅 Date Filter
+          </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
               { key: "today",     label: "Today"      },
@@ -599,7 +802,10 @@ export default function AdminOrders() {
               { key: "custom",    label: "Custom"     },
             ].map(f => (
               <button key={f.key}
-                onClick={() => { setSelectedFilter(f.key); setCustomFilter(f.key === "custom"); }}
+                onClick={() => {
+                  setSelectedFilter(f.key);
+                  setCustomFilter(f.key === "custom");
+                }}
                 style={{
                   padding: "7px 14px", borderRadius: 10, fontSize: 13, fontWeight: 600,
                   cursor: "pointer", fontFamily: "'DM Sans', sans-serif", transition: "all 0.15s",
@@ -612,18 +818,38 @@ export default function AdminOrders() {
             ))}
           </div>
           {customFilter && (
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", background: "#f9fafb", borderRadius: 10, padding: 12, marginTop: 10 }}>
+            <div style={{
+              display: "flex", gap: 12, alignItems: "flex-end",
+              flexWrap: "wrap", background: "#f9fafb",
+              borderRadius: 10, padding: 12, marginTop: 10,
+            }}>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>Start Date</div>
-                <input type="date" value={dateRange.start} onChange={e => setDateRange({ ...dateRange, start: e.target.value })}
-                  style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }} />
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>
+                  Start Date
+                </div>
+                <input type="date" value={dateRange.start}
+                  onChange={e => setDateRange({ ...dateRange, start: e.target.value })}
+                  style={{
+                    border: "1.5px solid #e5e7eb", borderRadius: 8,
+                    padding: "7px 10px", fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+                  }} />
               </div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>End Date</div>
-                <input type="date" value={dateRange.end} onChange={e => setDateRange({ ...dateRange, end: e.target.value })}
-                  style={{ border: "1.5px solid #e5e7eb", borderRadius: 8, padding: "7px 10px", fontSize: 13, fontFamily: "'DM Sans', sans-serif" }} />
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>
+                  End Date
+                </div>
+                <input type="date" value={dateRange.end}
+                  onChange={e => setDateRange({ ...dateRange, end: e.target.value })}
+                  style={{
+                    border: "1.5px solid #e5e7eb", borderRadius: 8,
+                    padding: "7px 10px", fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+                  }} />
               </div>
-              <button onClick={() => setCustomFilter(false)} style={{ padding: "9px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", fontFamily: "'DM Sans', sans-serif", background: "#374151", color: "#fff" }}>
+              <button onClick={() => setCustomFilter(false)} style={{
+                padding: "9px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                cursor: "pointer", border: "none", fontFamily: "'DM Sans', sans-serif",
+                background: "#374151", color: "#fff",
+              }}>
                 Apply
               </button>
             </div>
@@ -631,18 +857,39 @@ export default function AdminOrders() {
         </div>
 
         {/* ── ACTIVE ORDERS ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "20px 0 12px", fontFamily: "'Sora', sans-serif" }}>
-          <span style={{ fontSize: 16, fontWeight: 800, color: "#111827" }}>🟡 Active Orders</span>
-          <span style={{ padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "#fbbf24", color: "#fff" }}>{activeOrders.length}</span>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          margin: "20px 0 12px", fontFamily: "'Sora', sans-serif",
+        }}>
+          <span style={{ fontSize: 16, fontWeight: 800, color: "#111827" }}>
+            🟡 Active Orders
+          </span>
+          <span style={{
+            padding: "2px 10px", borderRadius: 20, fontSize: 12,
+            fontWeight: 700, background: "#fbbf24", color: "#fff",
+          }}>
+            {activeOrders.length}
+          </span>
         </div>
+
         {activeOrders.length === 0 ? (
-          <div style={{ background: "#f9fafb", border: "2px dashed #e5e7eb", borderRadius: 14, padding: 40, textAlign: "center", color: "#9ca3af", fontSize: 14, marginBottom: 16 }}>
+          <div style={{
+            background: "#f9fafb", border: "2px dashed #e5e7eb",
+            borderRadius: 14, padding: 40, textAlign: "center",
+            color: "#9ca3af", fontSize: 14, marginBottom: 16,
+          }}>
             Abhi koi active order nahi hai
           </div>
         ) : activeOrders.map(o => (
-          <Ordercard key={o.id} order={o} now={now} isActive={true}
-            onDelete={deleteOrder} onUpdateStatus={updateStatus}
-            onUpdatePayment={updatePaymentStatus} onGenerateBill={generateBill}
+          <Ordercard
+            key={o.id}
+            order={o}
+            now={now}
+            isActive={true}
+            onDelete={deleteOrder}
+            onUpdateStatus={updateStatus}
+            onUpdatePayment={updatePaymentStatus}
+            onGenerateBill={generateBill}
             autoCompleteEnabled={autoCompleteEnabled && planFeatures.autoComplete}
             theme={restaurantSettings?.theme}
             canSeeWhatsApp={planFeatures.whatsappOrders}
@@ -650,18 +897,39 @@ export default function AdminOrders() {
         ))}
 
         {/* ── COMPLETED ORDERS ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "20px 0 12px", fontFamily: "'Sora', sans-serif" }}>
-          <span style={{ fontSize: 16, fontWeight: 800, color: "#111827" }}>✅ Completed Orders</span>
-          <span style={{ padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700, background: "#22c55e", color: "#fff" }}>{completedOrders.length}</span>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          margin: "20px 0 12px", fontFamily: "'Sora', sans-serif",
+        }}>
+          <span style={{ fontSize: 16, fontWeight: 800, color: "#111827" }}>
+            ✅ Completed Orders
+          </span>
+          <span style={{
+            padding: "2px 10px", borderRadius: 20, fontSize: 12,
+            fontWeight: 700, background: "#22c55e", color: "#fff",
+          }}>
+            {completedOrders.length}
+          </span>
         </div>
+
         {completedOrders.length === 0 ? (
-          <div style={{ background: "#f9fafb", border: "2px dashed #e5e7eb", borderRadius: 14, padding: 40, textAlign: "center", color: "#9ca3af", fontSize: 14 }}>
+          <div style={{
+            background: "#f9fafb", border: "2px dashed #e5e7eb",
+            borderRadius: 14, padding: 40, textAlign: "center",
+            color: "#9ca3af", fontSize: 14,
+          }}>
             Koi completed order nahi
           </div>
         ) : completedOrders.map(o => (
-          <Ordercard key={o.id} order={o} now={now} isActive={false}
-            onDelete={deleteOrder} onUpdateStatus={updateStatus}
-            onUpdatePayment={updatePaymentStatus} onGenerateBill={generateBill}
+          <Ordercard
+            key={o.id}
+            order={o}
+            now={now}
+            isActive={false}
+            onDelete={deleteOrder}
+            onUpdateStatus={updateStatus}
+            onUpdatePayment={updatePaymentStatus}
+            onGenerateBill={generateBill}
             canSeeWhatsApp={planFeatures.whatsappOrders}
           />
         ))}
