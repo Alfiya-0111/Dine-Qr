@@ -1,39 +1,35 @@
 import React, { useState } from "react";
 import FaceLogin from "../components/admin/FaceLogin";
 import { auth, db } from "../firebaseConfig";
-import { 
+import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
-  updateProfile
+  updateProfile,
 } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import khaatogologo from "../assets/khaatogologo.png";
 import { Helmet } from "react-helmet-async";
 import { toast } from "react-toastify";
 
-// ─── Disposable Email Domains List ───────────────────────────────────────────
+// ─── Disposable Email Domains ─────────────────────────────────────────────────
 const DISPOSABLE_DOMAINS = [
-  'tempmail.com', 'throwaway.com', 'mailinator.com', 'guerrillamail.com',
-  'yopmail.com', 'fakeinbox.com', 'tempinbox.com', 'sharklasers.com',
-  'getairmail.com', '10minutemail.com', 'burnermail.io', 'temp-mail.org',
-  'mailnesia.com', 'tempmailaddress.com', 'burneremail.com'
+  "tempmail.com","throwaway.com","mailinator.com","guerrillamail.com",
+  "yopmail.com","fakeinbox.com","tempinbox.com","sharklasers.com",
+  "getairmail.com","10minutemail.com","burnermail.io","temp-mail.org",
+  "mailnesia.com","tempmailaddress.com","burneremail.com",
 ];
 
-// ⭐ DEV EMAILS — Skip Email Verification
+// ─── Dev Emails (skip email verification) ────────────────────────────────────
 const DEV_EMAILS = [
   "delhidarbar45@gmail.com",
   "sandwichubb@gmail.com",
-  "Pashto123@gmail.com"
+  "Pashto123@gmail.com",
 ];
 
 export default function RestaurantSignup() {
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: ""
-  });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [showFaceRegister, setShowFaceRegister] = useState(false);
   const [faceDescriptor, setFaceDescriptor] = useState(null);
@@ -43,44 +39,47 @@ export default function RestaurantSignup() {
 
   const navigate = useNavigate();
 
-  // ─── Validation Helpers ────────────────────────────────────────────────────
+  // ─── Validators ───────────────────────────────────────────────────────────
   const isValidEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       return { valid: false, message: "Invalid email format" };
-    }
-
-    const domain = email.split('@')[1]?.toLowerCase();
-    if (domain && DISPOSABLE_DOMAINS.includes(domain)) {
+    const domain = email.split("@")[1]?.toLowerCase();
+    if (domain && DISPOSABLE_DOMAINS.includes(domain))
       return { valid: false, message: "Please use a permanent email address" };
-    }
-
     return { valid: true };
   };
 
-  const isValidPassword = (password) => {
-    if (password.length < 6) {
-      return { valid: false, message: "Password must be at least 6 characters" };
-    }
+  const isValidPhone = (phone) => {
+    const cleaned = phone.replace(/\s+/g, "");
+    if (!/^[6-9]\d{9}$/.test(cleaned))
+      return { valid: false, message: "Enter valid 10-digit Indian mobile number" };
     return { valid: true };
+  };
+
+  // ─── Duplicate Phone Check (Firestore query) ──────────────────────────────
+  const isPhoneAlreadyUsed = async (phone) => {
+    const normalizedPhone = "+91" + phone.replace(/\s+/g, "");
+    const q = query(
+      collection(db, "restaurants"),
+      where("phone", "==", normalizedPhone)
+    );
+    const snapshot = await getDocs(q);
+    return !snapshot.empty;
   };
 
   // ─── Resend Verification Email ────────────────────────────────────────────
   const handleResendVerification = async () => {
     if (!createdUser) return;
-
     try {
       setLoading(true);
       await sendEmailVerification(createdUser, {
         url: window.location.origin + "/login",
         handleCodeInApp: false,
       });
-
       toast.success("Verification email resent! 📧 Please check your inbox.");
     } catch (err) {
-      console.error("Resend error:", err);
-      if (err.code === 'auth/too-many-requests') {
-        toast.error("Please wait a few minutes before requesting again");
+      if (err.code === "auth/too-many-requests") {
+        toast.error("Please wait a few minutes before requesting again.");
       } else {
         toast.error("Failed to resend email. Try again later.");
       }
@@ -91,45 +90,67 @@ export default function RestaurantSignup() {
 
   // ─── Main Signup Handler ──────────────────────────────────────────────────
   const handleSignup = async () => {
-    // Validation
-    if (!form.name || !form.email || !form.password) {
+    if (!form.name || !form.email || !form.phone || !form.password) {
       toast.error("Please fill all fields");
       return;
     }
 
     const emailCheck = isValidEmail(form.email);
-    if (!emailCheck.valid) {
-      toast.error(emailCheck.message);
+    if (!emailCheck.valid) { toast.error(emailCheck.message); return; }
+
+    if (form.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
       return;
     }
 
-    const passwordCheck = isValidPassword(form.password);
-    if (!passwordCheck.valid) {
-      toast.error(passwordCheck.message);
-      return;
-    }
+    const phoneCheck = isValidPhone(form.phone);
+    if (!phoneCheck.valid) { toast.error(phoneCheck.message); return; }
 
     try {
       setLoading(true);
 
-      // 1. Create Firebase Auth User
-      const userCred = await createUserWithEmailAndPassword(
-        auth,
-        form.email,
-        form.password
-      );
+      // ── Duplicate phone check ─────────────────────────────────────────────
+      const phoneUsed = await isPhoneAlreadyUsed(form.phone);
+      if (phoneUsed) {
+        toast.error("This phone number is already registered with another account.");
+        setTimeout(() => navigate("/login"), 2000);
+        return;
+      }
 
+      // ── Create Firebase Auth user ─────────────────────────────────────────
+      const userCred = await createUserWithEmailAndPassword(auth, form.email, form.password);
       const user = userCred.user;
-      const uid = user.uid;
 
-      // 2. Update Profile (display name)
-      await updateProfile(user, {
-        displayName: form.name
+      await updateProfile(user, { displayName: form.name });
+
+      // ── Save to Firestore ─────────────────────────────────────────────────
+      const isDevEmail = DEV_EMAILS.includes(form.email);
+      await setDoc(doc(db, "restaurants", user.uid), {
+        restaurantName: form.name,
+        email: form.email,
+        phone: "+91" + form.phone.replace(/\s+/g, ""),
+        emailVerified: isDevEmail ? true : false,
+        plan: "free",
+        allowedItems: 5,
+        usedItems: 0,
+        createdAt: Date.now(),
+        subscriptionValidTill: null,
+        faceAuthEnabled: !!faceDescriptor,
+        uid: user.uid,
       });
 
-      // ⭐ 3. SEND VERIFICATION EMAIL (Skip for dev emails)
-      const isDevEmail = DEV_EMAILS.includes(form.email);
-      
+      // ── Save face data ────────────────────────────────────────────────────
+      if (faceDescriptor) {
+        await setDoc(doc(db, "faceAuth", user.uid), {
+          uid: user.uid,
+          email: form.email,
+          name: form.name,
+          faceDescriptor: Array.from(faceDescriptor),
+          createdAt: Date.now(),
+        });
+      }
+
+      // ── Email verification ────────────────────────────────────────────────
       if (!isDevEmail) {
         await sendEmailVerification(user, {
           url: window.location.origin + "/login",
@@ -139,49 +160,18 @@ export default function RestaurantSignup() {
         setCreatedUser(user);
         toast.success("Account created! 📧 Verification email sent.");
       } else {
-        console.log("🔓 DEV MODE: Skipping verification email for", form.email);
         toast.success("Account created! 🎉 (Dev email — no verification needed)");
-        
-        // For dev emails, auto-login and redirect
-        navigate(`/dashboard/${uid}/bookingtable`);
-        setLoading(false);
-        return;
-      }
-
-      // 4. Save Restaurant Data to Firestore
-      await setDoc(doc(db, "restaurants", uid), {
-        restaurantName: form.name,
-        email: form.email,
-        emailVerified: isDevEmail ? true : false, // Mark as verified for dev emails
-        plan: "free",
-        allowedItems: 5,
-        usedItems: 0,
-        createdAt: Date.now(),
-        subscriptionValidTill: null,
-        faceAuthEnabled: !!faceDescriptor,
-        uid: uid
-      });
-
-      // 5. Save Face Data if available
-      if (faceDescriptor) {
-        await setDoc(doc(db, "faceAuth", uid), {
-          uid: uid,
-          email: form.email,
-          name: form.name,
-          faceDescriptor: Array.from(faceDescriptor),
-          createdAt: Date.now()
-        });
+        navigate(`/dashboard/${user.uid}/bookingtable`);
       }
 
     } catch (err) {
       console.error("Signup error:", err);
-
-      if (err.code === 'auth/email-already-in-use') {
+      if (err.code === "auth/email-already-in-use") {
         toast.error("This email is already registered. Please login.");
         setTimeout(() => navigate("/login"), 2000);
-      } else if (err.code === 'auth/invalid-email') {
+      } else if (err.code === "auth/invalid-email") {
         toast.error("Invalid email address");
-      } else if (err.code === 'auth/weak-password') {
+      } else if (err.code === "auth/weak-password") {
         toast.error("Password is too weak. Use at least 6 characters.");
       } else {
         toast.error(err.message || "Signup failed");
@@ -189,11 +179,6 @@ export default function RestaurantSignup() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // ─── Navigate to Login ────────────────────────────────────────────────────
-  const goToLogin = () => {
-    navigate("/login");
   };
 
   return (
@@ -208,13 +193,8 @@ export default function RestaurantSignup() {
 
           {/* Logo */}
           <div className="flex justify-center">
-            <img
-              src={khaatogologo}
-              alt="khaatogologo"
-              className="application_logo"
-            />
+            <img src={khaatogologo} alt="khaatogologo" className="application_logo" />
           </div>
-
           <p className="text-sm text-center mb-6" style={{ color: "#555555" }}>
             Digital menu & QR ordering for restaurants
           </p>
@@ -223,12 +203,11 @@ export default function RestaurantSignup() {
             {verificationSent ? "Verify Your Email" : "Create your restaurant account"}
           </h2>
 
-          {/* ⭐ VERIFICATION SUCCESS SCREEN */}
+          {/* ── Email Verification Screen ─────────────────────────────────── */}
           {verificationSent ? (
             <div className="text-center">
-              {/* Success Icon */}
               <div className="mb-6">
-                <div 
+                <div
                   className="w-20 h-20 mx-auto rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "#fef3c7" }}
                 >
@@ -236,8 +215,7 @@ export default function RestaurantSignup() {
                 </div>
               </div>
 
-              {/* Message */}
-              <div 
+              <div
                 className="p-4 rounded-xl mb-6 text-left"
                 style={{ backgroundColor: "#fef3c7", border: "2px solid #f59e0b" }}
               >
@@ -248,29 +226,23 @@ export default function RestaurantSignup() {
                   Please check your inbox at <strong>{form.email}</strong> and click the verification link to activate your account.
                 </p>
                 <ul className="text-xs space-y-1" style={{ color: "#a16207" }}>
-                  <li>• Email may take 2-3 minutes to arrive</li>
+                  <li>• Email may take 2–3 minutes to arrive</li>
                   <li>• Check spam/junk folder if not found</li>
                   <li>• Link expires in 24 hours</li>
                 </ul>
               </div>
 
-              {/* Resend Button */}
               <button
                 onClick={handleResendVerification}
                 disabled={loading}
                 className="w-full py-3 rounded-xl font-semibold transition mb-4 disabled:opacity-50"
-                style={{ 
-                  backgroundColor: "#f59e0b", 
-                  color: "white",
-                  opacity: loading ? 0.6 : 1 
-                }}
+                style={{ backgroundColor: "#f59e0b", color: "white" }}
               >
                 {loading ? "Sending..." : "Resend Verification Email"}
               </button>
 
-              {/* Go to Login */}
               <button
-                onClick={goToLogin}
+                onClick={() => navigate("/login")}
                 className="w-full py-3 rounded-xl font-semibold border-2 transition hover:bg-gray-50"
                 style={{ borderColor: "#8A244B", color: "#8A244B" }}
               >
@@ -278,15 +250,23 @@ export default function RestaurantSignup() {
               </button>
 
               <p className="text-xs mt-4" style={{ color: "#888" }}>
-                Already verified? <span className="font-medium" style={{ color: "#8A244B", cursor: "pointer" }} onClick={goToLogin}>Login here</span>
+                Already verified?{" "}
+                <span
+                  className="font-medium cursor-pointer"
+                  style={{ color: "#8A244B" }}
+                  onClick={() => navigate("/login")}
+                >
+                  Login here
+                </span>
               </p>
             </div>
+
           ) : (
             <>
               {/* Restaurant Name */}
               <input
                 className="w-full mb-4 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2"
-                style={{ borderColor: "#D1D5DB", "--tw-ring-color": "#FCB53B" }}
+                style={{ borderColor: "#D1D5DB" }}
                 placeholder="Restaurant Name"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -296,7 +276,7 @@ export default function RestaurantSignup() {
               {/* Email */}
               <input
                 className="w-full mb-4 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2"
-                style={{ borderColor: "#D1D5DB", "--tw-ring-color": "#FCB53B" }}
+                style={{ borderColor: "#D1D5DB" }}
                 placeholder="Email address"
                 type="email"
                 value={form.email}
@@ -304,12 +284,32 @@ export default function RestaurantSignup() {
                 disabled={loading}
               />
 
+              {/* Phone with +91 prefix */}
+              <div className="flex mb-4 gap-2">
+                <div
+                  className="flex items-center px-3 py-3 border rounded-xl text-sm font-semibold"
+                  style={{ borderColor: "#D1D5DB", color: "#555", backgroundColor: "#F9FAFB", minWidth: 64 }}
+                >
+                  🇮🇳 +91
+                </div>
+                <input
+                  className="flex-1 px-4 py-3 border rounded-xl focus:outline-none focus:ring-2"
+                  style={{ borderColor: "#D1D5DB" }}
+                  placeholder="Mobile number (10 digits)"
+                  type="tel"
+                  maxLength={10}
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, "") })}
+                  disabled={loading}
+                />
+              </div>
+
               {/* Password */}
-              <div className="relative mb-6">
+              <div className="relative mb-4">
                 <input
                   type={showPassword ? "text" : "password"}
                   className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 pr-12"
-                  style={{ borderColor: "#D1D5DB", "--tw-ring-color": "#FCB53B" }}
+                  style={{ borderColor: "#D1D5DB" }}
                   placeholder="Password (min 6 characters)"
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -325,14 +325,13 @@ export default function RestaurantSignup() {
                 </button>
               </div>
 
-              {/* Password Hint */}
               {form.password && form.password.length < 6 && (
                 <p className="text-xs mb-4" style={{ color: "#ef4444" }}>
                   Password must be at least 6 characters
                 </p>
               )}
 
-              {/* Face Register Button */}
+              {/* Face Register */}
               <button
                 onClick={() => setShowFaceRegister(true)}
                 disabled={loading}
@@ -349,7 +348,7 @@ export default function RestaurantSignup() {
                 {faceDescriptor ? "✓ Face Registered" : "Register Face (Optional)"}
               </button>
 
-              {/* Create Account Button */}
+              {/* Submit */}
               <button
                 onClick={handleSignup}
                 disabled={loading}
@@ -359,7 +358,6 @@ export default function RestaurantSignup() {
                 {loading ? "Creating Account..." : "Create Restaurant Account"}
               </button>
 
-              {/* Login Link */}
               <p className="text-sm text-center" style={{ color: "#555555" }}>
                 Already have an account?{" "}
                 <span

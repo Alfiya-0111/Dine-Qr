@@ -659,7 +659,7 @@ export default function AdminOrders() {
             Koi completed order nahi
           </div>
         ) : completedOrders.map(o => (
-          <OrderCard key={o.id} order={o} now={now} isActive={false}
+          <Ordercard key={o.id} order={o} now={now} isActive={false}
             onDelete={deleteOrder} onUpdateStatus={updateStatus}
             onUpdatePayment={updatePaymentStatus} onGenerateBill={generateBill}
             canSeeWhatsApp={planFeatures.whatsappOrders}
