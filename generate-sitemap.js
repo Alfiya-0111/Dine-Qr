@@ -1,13 +1,16 @@
 // generate-sitemap.js
 import { writeFileSync } from "fs";
 
-const FIREBASE_URL = "https://YOUR-PROJECT.firebaseio.com/restaurants.json";
+const PROJECT_ID = "dineqr-ec134";
+const FIREBASE_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/restaurants`;
 
 async function generateSitemap() {
   const res = await fetch(FIREBASE_URL);
-  const restaurants = await res.json();
+  const data = await res.json();
 
-  const ids = restaurants ? Object.keys(restaurants) : [];
+  const slugs = (data.documents || [])
+    .map(doc => doc.fields?.slug?.stringValue)
+    .filter(Boolean);
 
   const staticUrls = `
   <url>
@@ -21,11 +24,17 @@ async function generateSitemap() {
     <lastmod>2026-05-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://khaatogo.com/signup</loc>
+    <lastmod>2026-05-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>`;
 
-  const restaurantUrls = ids.map(id => `
+  const restaurantUrls = slugs.map(slug => `
   <url>
-    <loc>https://khaatogo.com/menu/${id}</loc>
+    <loc>https://khaatogo.com/menu/${slug}</loc>
     <lastmod>2026-05-18</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
@@ -38,7 +47,7 @@ ${restaurantUrls}
 </urlset>`;
 
   writeFileSync("public/sitemap.xml", sitemap);
-  console.log(`✅ ${ids.length} restaurants ka sitemap ready!`);
+  console.log(`✅ ${slugs.length} restaurants ka sitemap ready!`);
 }
 
 generateSitemap();
