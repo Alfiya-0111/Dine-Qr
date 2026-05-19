@@ -12,22 +12,30 @@ async function generateSitemap() {
     .map(doc => doc.fields?.slug?.stringValue)
     .filter(Boolean);
 
+  const today = new Date().toISOString().split("T")[0];
+
   const staticUrls = `
   <url>
     <loc>https://khaatogo.com/</loc>
-    <lastmod>2026-05-18</lastmod>
+    <lastmod>${today}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://khaatogo.com/restaurants</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://khaatogo.com/login</loc>
-    <lastmod>2026-05-18</lastmod>
+    <lastmod>${today}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://khaatogo.com/signup</loc>
-    <lastmod>2026-05-18</lastmod>
+    <lastmod>${today}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>`;
@@ -35,7 +43,7 @@ async function generateSitemap() {
   const restaurantUrls = slugs.map(slug => `
   <url>
     <loc>https://khaatogo.com/menu/${slug}</loc>
-    <lastmod>2026-05-18</lastmod>
+    <lastmod>${today}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>`).join("");
@@ -47,7 +55,7 @@ ${restaurantUrls}
 </urlset>`;
 
   writeFileSync("public/sitemap.xml", sitemap);
-  console.log(`✅ ${slugs.length} restaurants ka sitemap ready!`);
+  console.log(`✅ Sitemap ready! Static: 4 | Restaurants: ${slugs.length}`);
 }
 
 generateSitemap();

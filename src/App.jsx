@@ -25,6 +25,7 @@ import HotelOwnerFeedback from "./components/HotelOwnerFeedback";
 import OrderTracking from "./pages/OrderTracking";
 import DeliveryBoyManagement from "./pages/admin/DeliveryBoyManagement";
 import StaticPage from "./pages/StaticPage"; // ✅ ADD THIS
+import RestaurantsList from "./pages/Restaurantslist";
 
 function App() {
   return (
@@ -36,14 +37,12 @@ function App() {
           {/* ── Home ───────────────────────────────────── */}
           <Route path="/" element={<Home />} />
 
-          {/* ── Static Pages (Footer links) ────────────── */}
-          <Route path="/:slug" element={<StaticPage />} />  // ✅ ADD THIS LINE
 
           {/* ── Auth ───────────────────────────────────── */}
           <Route path="/signup" element={<RestaurantSignup />} />
           <Route path="/login" element={<RestaurantLogin />} />
           <Route path="/login/:restaurantId" element={<RestaurantLogin />} />
-
+           <Route path="/restaurants" element={<RestaurantsList />} />
           {/* ── Public Customer Routes ─────────────────── */}
          <Route path="/menu/:slug" element={<PublicMenu />} />
           <Route path="/checkout/:restaurantId" element={<Checkout />} />
@@ -67,6 +66,9 @@ function App() {
             <Route path="delivery-management" element={<DeliveryBoyManagement />} />
             <Route path="delivery" element={null} />
           </Route>
+          
+          {/* ── Static Pages (Footer links) ────────────── */}
+          <Route path="/:slug" element={<StaticPage />} />  // ✅ ADD THIS LINE
         </Routes>
       </BrowserRouter>
     </AuthProvider>
