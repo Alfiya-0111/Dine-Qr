@@ -189,7 +189,6 @@ import LoginModal from "../components/LoginModal";
 import NewItemsSlider from "../components/Slider";
 import BottomCart from "../components/BottomCart";
 import CartSidebar from "../components/CartSidebar";
-
 // ================= GLASS MORPHISM STYLES =================
 const glassStyles = {
   header: "backdrop-blur-xl bg-white/70 border-b border-white/20 shadow-lg",
@@ -649,7 +648,7 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
 };
 // ================= MAIN PUBLIC MENU COMPONENT =================
 export default function PublicMenu() {
-
+const { cart, addToCart, clearCart, initCartForRestaurant } = useCart();
   const [aboutUs, setAboutUs] = useState(null);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
   const [spiceSelections, setSpiceSelections] = useState({});
@@ -690,7 +689,11 @@ useEffect(() => {
   const fetchId = async () => {
     const q = query(collection(db, "restaurants"), where("slug", "==", slug));
     const snap = await getDocs(q);
-    if (!snap.empty) setRestaurantId(snap.docs[0].id);
+    if (!snap.empty) {
+      const id = snap.docs[0].id;
+      setRestaurantId(id);
+      initCartForRestaurant(id); // ✅ fixed
+    }
   };
   fetchId();
 }, [slug]);
@@ -710,7 +713,6 @@ useEffect(() => {
   const [showSort, setShowSort] = useState(false);
   const [sort, setSort] = useState("rating");
   const [filter, setFilter] = useState("");
-  const { cart, addToCart, clearCart } = useCart();
   const [openCart, setOpenCart] = useState(false);
   const [, forceUpdate] = useState(0);
   const newItems = items.filter((i) => i.isNew).slice(0, 10);
