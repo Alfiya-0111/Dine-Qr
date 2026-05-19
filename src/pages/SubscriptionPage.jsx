@@ -447,9 +447,8 @@ export default function SubscriptionPage() {
     };
   };
 
-const isCurrentPlan = (plan) => false; // Testing: sabhi plans selectable
-const isTrialUsed = (plan) => false;   // Testing: trial baar baar use ho sakti
-
+const isCurrentPlan = (plan) => userPlan?.planId === plan.id;
+const isTrialUsed = (plan) => plan.id === 'trial' && userPlan?.trialUsed;
   const getBtnLabel = (plan) => {
     if (isCurrentPlan(plan)) return 'Current Plan ✓';
     if (isTrialUsed(plan)) return 'Trial Used';
