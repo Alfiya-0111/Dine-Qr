@@ -154,7 +154,7 @@ export default function SubscriptionPage() {
   const [qrLoading, setQrLoading] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const [paymentDetails, setPaymentDetails] = useState({
-    upiId: 'ka360338@okicici',
+    upiId: 'ka360338@okaxis',
     accountName: 'Khaatogo',
   });
   const [pendingOrderId, setPendingOrderId] = useState(null);
