@@ -13,6 +13,7 @@ const navItems = [
   { to: "delivery-management", label: "Delivery Boys", icon: "🛵" },
   { to: "subscription", label: "Subscription", icon: "💳" },
   { to: "payment-status", label: "Payment Status", icon: "💰" },
+  { to: "multi-branch", label: "Multi-Branch", icon: "🏢" },
   { to: "revenue", label: "Revenue Dashboard", icon: "📊" },
   { to: "kitchen-display", label: "Kitchen Display", icon: "👨‍🍳" },
   { to: "admin-coupen", label: "Admin Coupons", icon: "🎟️" },

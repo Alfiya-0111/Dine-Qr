@@ -4,7 +4,7 @@ import { getAnalytics } from "firebase/analytics";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
-
+import { getFunctions } from "firebase/functions";
 // Your Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBMXmog0yjTcmpEb9wbVY288ISBdWxxGUM",
@@ -27,5 +27,6 @@ export const db = getFirestore(app); // <-- Firestore database
 export const realtimeDB = getDatabase(app);
 export const firestore = getFirestore(app); // 🔥 Add this line for Firestore
 export const googleProvider = new GoogleAuthProvider();
+export const functions = getFunctions(app);
 
 export default app;

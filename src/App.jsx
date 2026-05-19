@@ -26,6 +26,7 @@ import OrderTracking from "./pages/OrderTracking";
 import DeliveryBoyManagement from "./pages/admin/DeliveryBoyManagement";
 import StaticPage from "./pages/StaticPage"; // ✅ ADD THIS
 import RestaurantsList from "./pages/Restaurantslist";
+import MultiBranchDashboard from "./pages/Multibranchdashboard";
 
 function App() {
   return (
@@ -61,6 +62,7 @@ function App() {
             <Route path="payment-status" element={<PaymentStatusPage />} />
             <Route path="revenue" element={<RevenueDashboard />} />
             <Route path="kitchen-display" element={<KitchenDisplay />} />
+              <Route path="multi-branch" element={<MultiBranchDashboard />} />
             <Route path="admin-coupen" element={<AdminCoupons />} />
             <Route path="feedback-admin" element={<HotelOwnerFeedback />} />
             <Route path="delivery-management" element={<DeliveryBoyManagement />} />

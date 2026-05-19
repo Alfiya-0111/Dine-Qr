@@ -11,7 +11,9 @@ import {
   FaQrcode,
   FaArrowRight,
   FaWhatsapp,
-  FaClock
+  FaClock,
+  FaBuilding,
+  FaTimes
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
@@ -41,6 +43,7 @@ const PLANS = [
       paymentStatus: true,
       revenueDashboard: true,
       adminCoupons: true,
+      multiBranch: true,        // ✅ TRIAL me bhi multi-branch
       analytics: 'Full',
       support: 'Email',
     },
@@ -68,6 +71,7 @@ const PLANS = [
       paymentStatus: true,
       revenueDashboard: false,
       adminCoupons: false,
+      multiBranch: false,       // ❌ Starter me nahi
       analytics: 'Basic',
       support: 'Email',
     },
@@ -96,6 +100,7 @@ const PLANS = [
       paymentStatus: true,
       revenueDashboard: true,
       adminCoupons: true,
+      multiBranch: false,       // ❌ Growth me nahi (sirf Pro/Trial)
       analytics: 'Full',
       support: 'Email + Chat',
     },
@@ -124,6 +129,7 @@ const PLANS = [
       paymentStatus: true,
       revenueDashboard: true,
       adminCoupons: true,
+      multiBranch: true,        // ✅ PRO me multi-branch
       analytics: 'Full + Reports',
       support: 'Priority + Call',
     },
@@ -202,7 +208,6 @@ export default function SubscriptionPage() {
     const unsub = onValue(rtdbRef(realtimeDB, `userPaymentRequests/${user.uid}`), (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        // Check if any payment is approved
         Object.values(data).forEach(payment => {
           if (payment.orderId === pendingOrderId && payment.status === 'approved') {
             toast.success('🎉 Payment approved! Plan activated!');
@@ -242,10 +247,8 @@ export default function SubscriptionPage() {
     const orderId = `order_${Date.now()}_${user.uid}`;
     setPendingOrderId(orderId);
 
-    // Generate unique UPI URL with transaction reference
     const upiUrl = `upi://pay?pa=${encodeURIComponent(paymentDetails.upiId)}&pn=${encodeURIComponent(paymentDetails.accountName)}&am=${plan.price}&cu=INR&tn=${encodeURIComponent(`KhattaGo ${plan.name}`)}&tr=${orderId}`;
 
-    // Save pending payment to Firebase
     const pendingRef = rtdbRef(realtimeDB, `pendingPayments/${orderId}`);
     set(pendingRef, {
       userId: user.uid,
@@ -259,10 +262,9 @@ export default function SubscriptionPage() {
       orderId: orderId,
       paymentMethod: 'upi_direct',
       createdAt: Date.now(),
-      expiresAt: Date.now() + 30 * 60 * 1000, // 30 min expiry
+      expiresAt: Date.now() + 30 * 60 * 1000,
     });
 
-    // 🔔 Send notification to ADMIN (real-time)
     push(rtdbRef(realtimeDB, 'adminNotifications/payments'), {
       type: 'new_upi_payment',
       orderId: orderId,
@@ -279,10 +281,8 @@ export default function SubscriptionPage() {
       actionRequired: true,
     });
 
-    // Open UPI app
     window.location.href = upiUrl;
 
-    // Show waiting message
     setTimeout(() => {
       toast.info('⏳ UPI app open ho gayi. Payment complete hone ke baad "Verify" button dabao.', { autoClose: 10000 });
     }, 1000);
@@ -291,7 +291,6 @@ export default function SubscriptionPage() {
   const handleSelectPlan = (plan) => {
     if (plan.id === 'trial') { activateTrial(); return; }
 
-    // Mobile pe direct UPI, Desktop pe QR modal
     if (isMobile) {
       handleDirectUpiPayment(plan);
     } else {
@@ -312,24 +311,28 @@ export default function SubscriptionPage() {
     if (snap.exists() && snap.val().trialUsed) { toast.error('Trial already used!'); return; }
     try {
       await set(rtdbRef(realtimeDB, `subscriptions/${user.uid}`), {
-        planId: 'trial', planName: 'Free Trial',
-        maxDishes: 'unlimited', status: 'active',
+        planId: 'trial', 
+        planName: 'Free Trial',
+        maxDishes: 'unlimited', 
+        status: 'active',
         activatedAt: Date.now(),
         expiresAt: Date.now() + 30 * 86400000,
-        isTrial: true, trialUsed: true,
+        isTrial: true, 
+        trialUsed: true,
         features: PLANS[0].features,
       });
       await push(rtdbRef(realtimeDB, `notifications/${user.uid}`), {
         title: '🎉 Free Trial Activated!',
-        message: '30 days unlimited access. Enjoy all features!',
-        createdAt: Date.now(), read: false,
+        message: '30 days unlimited access. Multi-branch bhi included!',
+        createdAt: Date.now(), 
+        read: false,
       });
-      toast.success('🎉 30 din ka free trial activate ho gaya!');
+      toast.success('🎉 30 din ka free trial activate ho gaya! Multi-branch bhi unlock ho gaya!');
       navigate('/dashboard/menu');
     } catch (e) { toast.error('Something went wrong!'); }
   };
 
-  // 🔥 MANUAL PAYMENT SUBMIT (with screenshot)
+  // 🔥 MANUAL PAYMENT SUBMIT
   const handleSubmitPayment = async () => {
     if (!transactionId.trim()) { toast.error('Transaction ID daalo!'); return; }
 
@@ -338,14 +341,11 @@ export default function SubscriptionPage() {
     const orderId = `order_${Date.now()}_${user.uid}`;
 
     try {
-      // Upload screenshot if exists (you'll need Firebase Storage for this)
       let screenshotUrl = null;
       if (screenshot) {
-        // TODO: Upload to Firebase Storage and get URL
-        // For now, we'll skip screenshot upload
+        // TODO: Upload to Firebase Storage
       }
 
-      // Save to paymentRequests
       const ref = push(rtdbRef(realtimeDB, 'paymentRequests'));
       await set(ref, {
         userId: user.uid,
@@ -365,7 +365,6 @@ export default function SubscriptionPage() {
         planFeatures: selectedPlan.features,
       });
 
-      // Save to userPaymentRequests for real-time tracking
       await set(rtdbRef(realtimeDB, `userPaymentRequests/${user.uid}/${ref.key}`), {
         status: 'pending',
         amount: selectedPlan.price,
@@ -375,7 +374,6 @@ export default function SubscriptionPage() {
         submittedAt: Date.now(),
       });
 
-      // 🔔 ADMIN NOTIFICATION
       await push(rtdbRef(realtimeDB, 'adminNotifications/payments'), {
         type: 'new_manual_payment',
         paymentId: ref.key,
@@ -393,11 +391,12 @@ export default function SubscriptionPage() {
         actionRequired: true,
       });
 
-      // User notification
       await push(rtdbRef(realtimeDB, `notifications/${user.uid}`), {
         title: 'Payment Submitted ✅',
         message: `${selectedPlan.name} plan (₹${selectedPlan.price}) review mein hai. 24 ghante mein activate ho jayega.`,
-        type: 'payment', createdAt: Date.now(), read: false,
+        type: 'payment', 
+        createdAt: Date.now(), 
+        read: false,
       });
 
       setMessage('✅ Payment submit ho gayi! Admin verify karega. 24 ghante mein activate ho jayega.');
@@ -441,6 +440,22 @@ export default function SubscriptionPage() {
     }
   };
 
+  // Feature list for plan cards
+  const featureList = [
+    { key: 'dishes', label: '🍽️ Dishes', format: (v) => v === 'Unlimited' ? '∞ Unlimited' : v },
+    { key: 'qrMenu', label: '📱 QR Menu' },
+    { key: 'whatsappOrders', label: '💬 WhatsApp Orders' },
+    { key: 'kds', label: '👨‍🍳 Kitchen Display' },
+    { key: 'tableBooking', label: '🪑 Table Booking' },
+    { key: 'adminOrder', label: '📋 Admin Order' },
+    { key: 'customerFeedback', label: '💬 Customer Feedback' },
+    { key: 'deliveryBoys', label: '🛵 Delivery Boys' },
+    { key: 'revenueDashboard', label: '📊 Revenue Dashboard' },
+    { key: 'adminCoupons', label: '🎫 Admin Coupons' },
+    { key: 'multiBranch', label: '🏢 Multi-Branch', highlight: true },  // ✅ Added multi-branch feature
+    { key: 'analytics', label: '📈 Analytics', format: (v) => v },
+  ];
+
   return (
     <div style={{ minHeight: '100vh', background: '#faf9f7', fontFamily: "'Sora', sans-serif", paddingBottom: 80 }}>
 
@@ -459,6 +474,24 @@ export default function SubscriptionPage() {
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 16, margin: '0 auto 24px', maxWidth: 480 }}>
             No credit card. No hidden charges. Sirf apna restaurant grow karo.
           </p>
+
+          {/* Multi-branch highlight banner */}
+          <div style={{ 
+            display: 'inline-flex', 
+            alignItems: 'center', 
+            gap: 10, 
+            background: 'rgba(255,209,102,0.15)', 
+            border: '1px solid rgba(255,209,102,0.3)', 
+            borderRadius: 16, 
+            padding: '12px 24px', 
+            marginBottom: 20 
+          }}>
+            <FaBuilding style={{ color: GOLD, fontSize: 20 }} />
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ color: GOLD, fontWeight: 800, fontSize: 14 }}>🏢 Multi-Branch Included</div>
+              <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>Free Trial & Pro plan me — multiple branches manage karo</div>
+            </div>
+          </div>
 
           {isMobile && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 100, padding: '8px 20px', marginBottom: 16 }}>
@@ -487,14 +520,17 @@ export default function SubscriptionPage() {
             const isCurrent = isCurrentPlan(plan);
             const isPopular = plan.id === 'growth';
             const isTrial = plan.id === 'trial';
+            const isPro = plan.id === 'pro';
+            const hasMultiBranch = plan.features.multiBranch;
+
             return (
               <div key={plan.id} style={{
                 background: '#fff',
                 borderRadius: 20,
                 overflow: 'hidden',
-                boxShadow: isPopular ? `0 8px 40px rgba(138,36,75,0.18)` : '0 2px 16px rgba(0,0,0,0.07)',
-                border: isPopular ? `2px solid ${MAROON}` : '2px solid transparent',
-                transform: isPopular ? 'translateY(-8px)' : 'none',
+                boxShadow: isPopular ? `0 8px 40px rgba(138,36,75,0.18)` : isPro ? `0 8px 40px rgba(255,209,102,0.25)` : '0 2px 16px rgba(0,0,0,0.07)',
+                border: isPopular ? `2px solid ${MAROON}` : isPro ? `2px solid ${GOLD}` : '2px solid transparent',
+                transform: isPopular || isPro ? 'translateY(-8px)' : 'none',
                 transition: 'transform 0.2s, box-shadow 0.2s',
                 position: 'relative',
               }}>
@@ -529,33 +565,65 @@ export default function SubscriptionPage() {
                     )}
                   </div>
 
-                  {/* Key highlights */}
-                  <div style={{ background: '#faf9f7', borderRadius: 12, padding: '14px 16px', marginBottom: 20 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <span style={{ fontSize: 13, color: '#666' }}>🍽️ Dishes</span>
-                      <span style={{ fontWeight: 700, color: plan.features.dishes === 'Unlimited' ? '#22c55e' : MAROON, fontSize: 14 }}>
-                        {plan.features.dishes === 'Unlimited' ? '∞ Unlimited' : plan.features.dishes}
+                  {/* Multi-branch highlight for Trial & Pro */}
+                  {hasMultiBranch && (
+                    <div style={{
+                      background: isTrial ? 'rgba(34,197,94,0.1)' : 'rgba(255,209,102,0.15)',
+                      border: `1px solid ${isTrial ? 'rgba(34,197,94,0.3)' : 'rgba(255,209,102,0.4)'}`,
+                      borderRadius: 10,
+                      padding: '10px 14px',
+                      marginBottom: 16,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}>
+                      <FaBuilding style={{ color: isTrial ? '#22c55e' : GOLD, fontSize: 16 }} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: isTrial ? '#16a34a' : '#8A244B' }}>
+                        🏢 Multi-Branch {isTrial ? 'Trial me FREE' : 'Unlimited'}
                       </span>
                     </div>
-                    {[
-                      { key: 'qrMenu', label: '📱 QR Menu' },
-                      { key: 'whatsappOrders', label: '💬 WhatsApp Orders' },
-                      { key: 'kds', label: '👨‍🍳 Kitchen Display' },
-                      { key: 'tableBooking', label: '🪑 Table Booking' },
-                      { key: 'adminOrder', label: '📋 Admin Order' },
-                      { key: 'customerFeedback', label: '💬 Customer Feedback' },
-                      { key: 'deliveryBoys', label: '🛵 Delivery Boys' },
-                      { key: 'revenueDashboard', label: '📊 Revenue Dashboard' },
-                      { key: 'adminCoupons', label: '🎫 Admin Coupons' },
-                    ].map(f => (
-                      <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <span style={{ fontSize: 12, color: '#666' }}>{f.label}</span>
-                        {plan.features[f.key]
-                          ? <span style={{ color: '#22c55e', fontWeight: 700, fontSize: 15 }}>✓</span>
-                          : <span style={{ color: '#d1d5db', fontSize: 15 }}>—</span>}
-                      </div>
-                    ))}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  )}
+
+                  {/* Key highlights */}
+                  <div style={{ background: '#faf9f7', borderRadius: 12, padding: '14px 16px', marginBottom: 20 }}>
+                    {featureList.map(f => {
+                      const value = plan.features[f.key];
+                      const isMultiBranch = f.key === 'multiBranch';
+                      const displayValue = f.format ? f.format(value) : value;
+
+                      return (
+                        <div key={f.key} style={{ 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center', 
+                          marginBottom: 6,
+                          padding: isMultiBranch && value ? '4px 0' : '0',
+                          background: isMultiBranch && value ? 'rgba(255,209,102,0.1)' : 'transparent',
+                          borderRadius: isMultiBranch && value ? 6 : 0,
+                          marginLeft: isMultiBranch && value ? -4 : 0,
+                          marginRight: isMultiBranch && value ? -4 : 0,
+                          paddingLeft: isMultiBranch && value ? 8 : 0,
+                          paddingRight: isMultiBranch && value ? 8 : 0,
+                        }}>
+                          <span style={{ 
+                            fontSize: 12, 
+                            color: '#666',
+                            fontWeight: isMultiBranch && value ? 700 : 400,
+                          }}>{f.label}</span>
+                          {typeof value === 'boolean'
+                            ? value
+                              ? <span style={{ color: '#22c55e', fontWeight: 700, fontSize: 15 }}>✓</span>
+                              : <span style={{ color: '#d1d5db', fontSize: 15 }}>—</span>
+                            : <span style={{ 
+                                fontWeight: 700, 
+                                color: isMultiBranch ? (value ? GOLD : '#d1d5db') : MAROON, 
+                                fontSize: 13 
+                              }}>{displayValue}</span>
+                          }
+                        </div>
+                      );
+                    })}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, paddingTop: 8, borderTop: '1px solid #eee' }}>
                       <span style={{ fontSize: 12, color: '#666' }}>🎧 Support</span>
                       <span style={{ fontSize: 11, fontWeight: 700, color: MAROON }}>{plan.features.support}</span>
                     </div>
@@ -566,14 +634,19 @@ export default function SubscriptionPage() {
                     onClick={() => handleSelectPlan(plan)}
                     disabled={isCurrent || isTrialUsed(plan)}
                     style={{
-                      width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', cursor: isCurrent || isTrialUsed(plan) ? 'not-allowed' : 'pointer',
-                      fontWeight: 800, fontSize: 14, fontFamily: "'Sora', sans-serif",
+                      width: '100%', 
+                      padding: '14px 0', 
+                      borderRadius: 12, 
+                      border: 'none', 
+                      cursor: isCurrent || isTrialUsed(plan) ? 'not-allowed' : 'pointer',
+                      fontWeight: 800, 
+                      fontSize: 14, 
+                      fontFamily: "'Sora', sans-serif",
                       background: isCurrent || isTrialUsed(plan) ? '#e5e7eb'
                         : isTrial ? '#22c55e'
-                        : plan.id === 'pro' ? `linear-gradient(135deg, ${MAROON}, #f18e49)`
+                        : isPro ? `linear-gradient(135deg, ${MAROON}, #f18e49)`
                         : isPopular ? MAROON : '#374151',
-                      color: isCurrent || isTrialUsed(plan) ? '#9ca3af'
-                        : '#fff',
+                      color: isCurrent || isTrialUsed(plan) ? '#9ca3af' : '#fff',
                       boxShadow: isCurrent || isTrialUsed(plan) ? 'none' : '0 4px 14px rgba(0,0,0,0.15)',
                       transition: 'opacity 0.2s, transform 0.15s',
                       display: 'flex',
@@ -600,6 +673,158 @@ export default function SubscriptionPage() {
         </div>
       </div>
 
+      {/* ── FEATURE COMPARISON TABLE ── */}
+      <div style={{ maxWidth: 1100, margin: '40px auto 0', padding: '0 16px' }}>
+        <div style={{ background: '#fff', borderRadius: 20, padding: '24px', border: '1px solid #f0e8ec', boxShadow: '0 2px 16px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111' }}>📊 Plan Comparison</h3>
+            <button 
+              onClick={() => setShowComparison(!showComparison)}
+              style={{ background: 'none', border: 'none', color: MAROON, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: "'Sora', sans-serif" }}
+            >
+              {showComparison ? 'Hide ↑' : 'Show All Features ↓'}
+            </button>
+          </div>
+
+          {/* Always show key differentiators */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: showComparison ? 20 : 0 }}>
+            {[
+              { label: '🍽️ Dishes', key: 'dishes' },
+              { label: '🏢 Multi-Branch', key: 'multiBranch', highlight: true },
+              { label: '📱 QR Menu', key: 'qrMenu' },
+              { label: '💬 WhatsApp Orders', key: 'whatsappOrders' },
+              { label: '👨‍🍳 Kitchen Display', key: 'kds' },
+              { label: '🪑 Table Booking', key: 'tableBooking' },
+            ].map(item => (
+              <div key={item.key} style={{ 
+                background: item.highlight ? 'rgba(255,209,102,0.1)' : '#faf9f7', 
+                borderRadius: 10, 
+                padding: '10px 14px',
+                border: item.highlight ? `1px solid ${GOLD}40` : '1px solid transparent',
+              }}>
+                <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>{item.label}</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {PLANS.map(plan => {
+                    const val = plan.features[item.key];
+                    const isBool = typeof val === 'boolean';
+                    return (
+                      <div key={plan.id} style={{ flex: 1, textAlign: 'center' }}>
+                        <div style={{ fontSize: 10, color: '#aaa', marginBottom: 2 }}>{plan.name}</div>
+                        <div style={{ 
+                          fontSize: 13, 
+                          fontWeight: 700, 
+                          color: isBool ? (val ? '#22c55e' : '#d1d5db') : (item.key === 'dishes' ? (val === 'Unlimited' ? '#22c55e' : MAROON) : '#111')
+                        }}>
+                          {isBool ? (val ? '✓' : '—') : val}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Full comparison table */}
+          {showComparison && (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #f0e8ec' }}>
+                    <th style={{ textAlign: 'left', padding: '10px 8px', color: '#888', fontWeight: 600 }}>Feature</th>
+                    {PLANS.map(plan => (
+                      <th key={plan.id} style={{ textAlign: 'center', padding: '10px 8px', color: plan.id === 'pro' ? GOLD : plan.id === 'trial' ? '#22c55e' : '#111', fontWeight: 800 }}>
+                        {plan.name}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {featureList.map((f, idx) => (
+                    <tr key={f.key} style={{ 
+                      borderBottom: '1px solid #f5f5f5',
+                      background: f.key === 'multiBranch' ? 'rgba(255,209,102,0.08)' : idx % 2 === 0 ? '#fafafa' : '#fff'
+                    }}>
+                      <td style={{ padding: '10px 8px', fontWeight: f.key === 'multiBranch' ? 700 : 400, color: f.key === 'multiBranch' ? '#8A244B' : '#555' }}>
+                        {f.label} {f.key === 'multiBranch' && '⭐'}
+                      </td>
+                      {PLANS.map(plan => {
+                        const val = plan.features[f.key];
+                        const isBool = typeof val === 'boolean';
+                        return (
+                          <td key={plan.id} style={{ textAlign: 'center', padding: '10px 8px' }}>
+                            {isBool ? (
+                              val ? (
+                                <span style={{ color: '#22c55e', fontWeight: 700 }}>✓</span>
+                              ) : (
+                                <span style={{ color: '#d1d5db' }}>—</span>
+                              )
+                            ) : (
+                              <span style={{ fontWeight: 700, color: f.key === 'multiBranch' && val ? GOLD : MAROON }}>
+                                {f.format ? f.format(val) : val}
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                  <tr style={{ borderTop: '2px solid #f0e8ec' }}>
+                    <td style={{ padding: '10px 8px', fontWeight: 600, color: '#555' }}>🎧 Support</td>
+                    {PLANS.map(plan => (
+                      <td key={plan.id} style={{ textAlign: 'center', padding: '10px 8px', fontWeight: 700, color: MAROON }}>
+                        {plan.features.support}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── MULTI-BRANCH INFO SECTION ── */}
+      <div style={{ maxWidth: 1100, margin: '30px auto 0', padding: '0 16px' }}>
+        <div style={{ 
+          background: `linear-gradient(135deg, ${MAROON}10, ${GOLD}15)`, 
+          borderRadius: 20, 
+          padding: '24px',
+          border: `1px solid ${MAROON}25`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 20,
+        }}>
+          <div style={{ 
+            width: 60, 
+            height: 60, 
+            background: `linear-gradient(135deg, ${MAROON}, #5c1030)`, 
+            borderRadius: 16,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 28,
+            flexShrink: 0,
+          }}>
+            🏢
+          </div>
+          <div style={{ flex: 1 }}>
+            <h4 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 800, color: '#111' }}>
+              Multi-Branch Management
+            </h4>
+            <p style={{ margin: 0, fontSize: 13, color: '#666', lineHeight: 1.6 }}>
+              <strong style={{ color: MAROON }}>Free Trial</strong> aur <strong style={{ color: MAROON }}>Pro Plan</strong> me aap 
+              <strong> multiple branches</strong> manage kar sakte ho. Har branch ka alag dashboard, orders, staff — sab ek jagah se control karo. 
+              Existing branch ko <strong>email + password</strong> se link karo ya nayi branch create karo.
+            </p>
+          </div>
+          <div style={{ textAlign: 'center', flexShrink: 0 }}>
+            <div style={{ fontSize: 24, fontWeight: 900, color: MAROON }}>∞</div>
+            <div style={{ fontSize: 11, color: '#888' }}>Branches</div>
+          </div>
+        </div>
+      </div>
+
       {/* ── PAYMENT MODAL (Desktop Only) ── */}
       {showPaymentModal && selectedPlan && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -610,7 +835,7 @@ export default function SubscriptionPage() {
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: '#111' }}>
                 {paymentStep === 1 ? `💳 Pay ₹${selectedPlan.price}` : '✅ Verify Payment'}
               </h3>
-              <button onClick={() => setShowPaymentModal(false)} style={{ background: '#f5f5f5', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              <button onClick={() => setShowPaymentModal(false)} style={{ background: '#f5f5f5', border: 'none', borderRadius: '50%', width: 32, height: 32, cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FaTimes /></button>
             </div>
 
             <div style={{ padding: 24 }}>
@@ -621,6 +846,12 @@ export default function SubscriptionPage() {
                     <div style={{ fontSize: 28, marginBottom: 4 }}>{selectedPlan.icon}</div>
                     <div style={{ fontSize: 20, fontWeight: 800 }}>{selectedPlan.name} Plan</div>
                     <div style={{ fontSize: 32, fontWeight: 900, color: GOLD }}>₹{selectedPlan.price}<span style={{ fontSize: 14, fontWeight: 400, color: 'rgba(255,255,255,0.7)' }}>/month</span></div>
+                    {selectedPlan.features.multiBranch && (
+                      <div style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.2)', borderRadius: 100, padding: '4px 12px' }}>
+                        <FaBuilding size={12} />
+                        <span style={{ fontSize: 12, fontWeight: 700 }}>Multi-Branch Included</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* UPI ID Copy */}
@@ -685,6 +916,12 @@ export default function SubscriptionPage() {
                     <div style={{ width: 64, height: 64, background: '#f0fdf4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: 32 }}>✅</div>
                     <h4 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 4px' }}>Payment Verify Karo</h4>
                     <p style={{ color: '#888', fontSize: 13, margin: 0 }}>{selectedPlan.name} — ₹{selectedPlan.price}/month</p>
+                    {selectedPlan.features.multiBranch && (
+                      <div style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,209,102,0.15)', borderRadius: 100, padding: '4px 12px' }}>
+                        <FaBuilding size={12} style={{ color: GOLD }} />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: MAROON }}>Multi-Branch Included</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Screenshot Upload */}

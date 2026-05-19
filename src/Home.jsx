@@ -824,14 +824,14 @@ const PLANS = [
     tagline: '30 din free, sab kuch unlock',
     badge: 'Start Here', badgeColor: '#22c55e', badgeText: '#052e16',
     accentColor: '#22c55e', accentGlow: 'rgba(34,197,94,0.3)',
-    features: { dishes: 'Unlimited', whatsapp: true, kds: true, tableBooking: true, deliveryBoys: true, revenueDashboard: true, adminCoupons: true, support: 'Email' },
+    features: { dishes: 'Unlimited', whatsapp: true, kds: true, tableBooking: true, deliveryBoys: true, revenueDashboard: true, adminCoupons: true, multiBranch: true, support: 'Email' },
   },
   {
     id: 'starter', name: 'Starter', price: 199, period: 'month', icon: '🚀',
     tagline: 'Chote dhabe ke liye perfect',
     badge: null,
-    accentColor: '#7c3aed', accentGlow: 'rgba(124,58,237,0.25)',
-    features: { dishes: 35, whatsapp: false, kds: false, tableBooking: false, deliveryBoys: false, revenueDashboard: false, adminCoupons: false, support: 'Email' },
+    accentColor: '#3b82f6', accentGlow: 'rgba(59,130,246,0.25)',
+    features: { dishes: 35, whatsapp: false, kds: false, tableBooking: false, deliveryBoys: false, revenueDashboard: false, adminCoupons: false, multiBranch: false, support: 'Email' },
   },
   {
     id: 'growth', name: 'Growth', price: 499, period: 'month', icon: '📈',
@@ -839,14 +839,14 @@ const PLANS = [
     badge: '🔥 Most Popular', badgeColor: 'var(--maroon)', badgeText: '#fff',
     accentColor: 'var(--maroon)', accentGlow: 'rgba(138,36,75,0.3)',
     popular: true,
-    features: { dishes: 50, whatsapp: true, kds: true, tableBooking: true, deliveryBoys: false, revenueDashboard: true, adminCoupons: true, support: 'Email + Chat' },
+    features: { dishes: 50, whatsapp: true, kds: true, tableBooking: true, deliveryBoys: false, revenueDashboard: true, adminCoupons: true, multiBranch: false, support: 'Email + Chat' },
   },
   {
     id: 'pro', name: 'Pro', price: 999, period: 'month', icon: '♾️',
     tagline: 'Full power, zero limits',
     badge: 'Best Value', badgeColor: 'var(--maroon)', badgeText: '#fff',
     accentColor: 'var(--maroon2)', accentGlow: 'rgba(180,82,83,0.3)',
-    features: { dishes: 'Unlimited', whatsapp: true, kds: true, tableBooking: true, deliveryBoys: true, revenueDashboard: true, adminCoupons: true, support: 'Priority + Call' },
+    features: { dishes: 'Unlimited', whatsapp: true, kds: true, tableBooking: true, deliveryBoys: true, revenueDashboard: true, adminCoupons: true, multiBranch: true, support: 'Priority + Call' },
   },
 ];
 
@@ -858,6 +858,7 @@ const FEAT_LABELS = [
   { key: 'deliveryBoys', label: '🛵 Delivery Boys' },
   { key: 'revenueDashboard', label: '📊 Revenue Dashboard' },
   { key: 'adminCoupons', label: '🎫 Coupons & Promos' },
+  { key: 'multiBranch', label: '🏢 Multi-Branch' },
   { key: 'support', label: '🎧 Support' },
 ];
 
