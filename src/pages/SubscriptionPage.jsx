@@ -304,33 +304,57 @@ export default function SubscriptionPage() {
     }
   };
 
-  const activateTrial = async () => {
-    const user = auth.currentUser;
-    if (!user) { toast.error('Please login first!'); navigate('/login'); return; }
-    const snap = await get(rtdbRef(realtimeDB, `subscriptions/${user.uid}`));
-    if (snap.exists() && snap.val().trialUsed) { toast.error('Trial already used!'); return; }
-    try {
-      await set(rtdbRef(realtimeDB, `subscriptions/${user.uid}`), {
-        planId: 'trial', 
-        planName: 'Free Trial',
-        maxDishes: 'unlimited', 
-        status: 'active',
-        activatedAt: Date.now(),
-        expiresAt: Date.now() + 30 * 86400000,
-        isTrial: true, 
-        trialUsed: true,
-        features: PLANS[0].features,
-      });
-      await push(rtdbRef(realtimeDB, `notifications/${user.uid}`), {
-        title: '🎉 Free Trial Activated!',
-        message: '30 days unlimited access. Multi-branch bhi included!',
-        createdAt: Date.now(), 
-        read: false,
-      });
-      toast.success('🎉 30 din ka free trial activate ho gaya! Multi-branch bhi unlock ho gaya!');
-      navigate('/dashboard/menu');
-    } catch (e) { toast.error('Something went wrong!'); }
-  };
+ const activateTrial = async () => {
+  const user = auth.currentUser;
+  if (!user) { toast.error('Please login first!'); navigate('/login'); return; }
+  
+  // ✅ Pehle check karo
+  console.log("Current user UID:", user.uid);
+  
+  const snap = await get(rtdbRef(realtimeDB, `subscriptions/${user.uid}`));
+  console.log("Subscription exists:", snap.exists());
+  console.log("Subscription data:", snap.val());
+  
+  if (snap.exists() && snap.val().trialUsed) { 
+    toast.error('Trial already used!'); 
+    return; 
+  }
+  
+  try {
+    await set(rtdbRef(realtimeDB, `subscriptions/${user.uid}`), {
+      planId: 'trial', 
+      planName: 'Free Trial',
+      maxDishes: 'unlimited', 
+      status: 'active',
+      activatedAt: Date.now(),
+      expiresAt: Date.now() + 30 * 86400000,
+      isTrial: true, 
+      trialUsed: true,
+      features: PLANS[0].features,
+    });
+    
+    // ✅ Firestore mein bhi plan update karo
+    const { doc, updateDoc } = await import('firebase/firestore');
+    const { db } = await import('../firebaseConfig');
+    await updateDoc(doc(db, 'restaurants', user.uid), {
+      plan: 'trial',
+      subscriptionValidTill: new Date(Date.now() + 30 * 86400000),
+    });
+    
+    await push(rtdbRef(realtimeDB, `notifications/${user.uid}`), {
+      title: '🎉 Free Trial Activated!',
+      message: '30 days unlimited access. Multi-branch bhi included!',
+      createdAt: Date.now(), 
+      read: false,
+    });
+    
+    toast.success('🎉 30 din ka free trial activate ho gaya!');
+    navigate('/dashboard/menu');
+  } catch (e) { 
+    console.error("Trial activation error:", e);
+    toast.error('Something went wrong: ' + e.message); 
+  }
+};
 
   // 🔥 MANUAL PAYMENT SUBMIT
   const handleSubmitPayment = async () => {
