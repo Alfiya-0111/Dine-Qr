@@ -307,7 +307,12 @@ export default function RestaurantSettings() {
     });
     return () => unsub();
   }, [restaurantId]);
-
+useEffect(() => {
+  console.log('=== DEBUG ===');
+  console.log('user.uid:', user?.uid);
+  console.log('paramId (URL se):', paramId);
+  console.log('Dono match karte hain?:', user?.uid === paramId);
+}, [user, paramId]);
   // ══════════════════════════════════════════
   // CLOUDINARY UPLOAD
   // ══════════════════════════════════════════
@@ -448,27 +453,33 @@ export default function RestaurantSettings() {
 
       setSaveMsg("Data save ho raha hai...");
 
-      await update(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
-        venueType,
-        name,
-        tagline,
-        logo: logoURL,
-        contact: { phone, email, address, city, pincode },
-        social:  { instagram, googleMap },
-        theme,
-        hours,
-        isOpen,
-        payment: { upiId, paymentNumber, paymentQR: qrURL, acceptCash, acceptCard },
-        about: {
-          heroVideo:    heroVideoURL,
-          description:  aboutData.description,
-          sectionText:  aboutData.sectionText,
-          sectionImage: sectionImageURL,
-          stats:        aboutData.stats,
-        },
-        settings: { menuPublic, feedbackEnabled, adminOrderEnabled },
-        ownerId: restaurantId,
-      });
+    await update(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
+  venueType,
+  name,
+  tagline,
+  logo: logoURL,
+  contact: { phone, email, address, city, pincode },
+  social:  { instagram, googleMap },
+  theme,
+  hours,
+  isOpen,
+  payment: { upiId, paymentNumber, paymentQR: qrURL, acceptCash, acceptCard },
+  about: {
+    heroVideo:    heroVideoURL,
+    description:  aboutData.description,
+    sectionText:  aboutData.sectionText,
+    sectionImage: sectionImageURL,
+    stats:        aboutData.stats,
+  },
+  settings: { menuPublic, feedbackEnabled, adminOrderEnabled },
+  // ownerId HATA DIYA upar se
+});
+
+// ownerId sirf tab set karo jab exist na kare
+const ownerSnap = await get(dbRef(realtimeDB, `restaurants/${restaurantId}/ownerId`));
+if (!ownerSnap.exists()) {
+  await set(dbRef(realtimeDB, `restaurants/${restaurantId}/ownerId`), restaurantId);
+}
 
       setSaveMsg("✅ Saved!");
       setTimeout(() => setSaveMsg(""), 3000);

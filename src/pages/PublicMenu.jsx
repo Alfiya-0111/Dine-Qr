@@ -687,12 +687,17 @@ const [restaurantId, setRestaurantId] = useState(null);
 useEffect(() => {
   if (!slug) return;
   const fetchId = async () => {
+    // Pehle slug se try karo
     const q = query(collection(db, "restaurants"), where("slug", "==", slug));
     const snap = await getDocs(q);
     if (!snap.empty) {
       const id = snap.docs[0].id;
       setRestaurantId(id);
-      initCartForRestaurant(id); // ✅ fixed
+      initCartForRestaurant(id);
+    } else {
+      // Fallback: slug hi restaurantId hai (direct ID URL)
+      setRestaurantId(slug);
+      initCartForRestaurant(slug);
     }
   };
   fetchId();
