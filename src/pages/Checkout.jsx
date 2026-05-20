@@ -812,7 +812,7 @@ export default function Checkout() {
   // ─── OPEN UPI APP ─────────────────────────────────────────────────────────
 const openUpiApp = useCallback((orderId, currentUpiId) => {
   if (!currentUpiId || currentUpiId.trim() === "") {
-    toast.error("UPI ID configure nahi hai! Admin se contact karo.");
+    toast.error("UPI ID configure nahi hai!");
     return false;
   }
 
@@ -822,22 +822,13 @@ const openUpiApp = useCallback((orderId, currentUpiId) => {
   const isMobile = isAndroid || isIOS;
 
   if (!isMobile) {
-    toast.info(`💻 Desktop pe UPI app nahi khulti. Phone se pay karo ya Cash select karo.`, { duration: 6000 });
+    toast.info(`💻 Desktop pe UPI app nahi khulti. Cash select karo.`, { duration: 6000 });
     return true;
   }
 
-  const params = new URLSearchParams({
-    pa: currentUpiId.trim(),
-    pn: hotelName || "Restaurant",
-    am: grandTotal.toFixed(2),
-    cu: "INR",
-    tn: `Order #${orderId.slice(-6)}`,
-    tr: orderId,
-  });
+  // ✅ tr parameter HATA DIYA — ye bank verification fail karwata tha
+  const upiUrl = `upi://pay?pa=${encodeURIComponent(currentUpiId.trim())}&pn=${encodeURIComponent(hotelName || "Restaurant")}&am=${grandTotal.toFixed(2)}&cu=INR`;
 
-  const upiUrl = `upi://pay?${params.toString()}`;
-
-  // Anchor click trick — window.location se zyada reliable hai Chrome Android pe
   const anchor = document.createElement('a');
   anchor.href = upiUrl;
   anchor.style.display = 'none';
