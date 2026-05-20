@@ -8,7 +8,7 @@ import {
   FaCheckCircle, FaArrowLeft, FaSpinner, FaMapMarkerAlt,
   FaMotorcycle, FaChevronDown, FaChevronUp, FaCrosshairs,
   FaMapMarkedAlt, FaTimes, FaMobileAlt, FaRupeeSign,
-  FaWhatsapp, FaLock, FaCrown, FaUtensils
+  FaWhatsapp, FaLock, FaCrown, FaUtensils, FaClock
 } from "react-icons/fa";
 import { toast } from "sonner";
 
@@ -816,6 +816,21 @@ const openUpiApp = useCallback((orderId, currentUpiId) => {
     return false;
   }
 
+  const ua = navigator.userAgent.toLowerCase();
+  const isAndroid = /android/.test(ua);
+  const isIOS = /iphone|ipad|ipod/.test(ua);
+  const isMobile = isAndroid || isIOS;
+
+  // Desktop pe UPI deep link kaam nahi karta — user ko manual instructions do
+  if (!isMobile) {
+    toast.info(
+      `💻 Desktop pe UPI app nahi khulti. Phone se pay karo ya Cash select karo.`,
+      { duration: 6000 }
+    );
+    // Payment waiting screen pe le jao — wahan QR ya manual option dikhega
+    return true; // true return karo taaki screen switch ho
+  }
+
   const params = new URLSearchParams({
     pa: currentUpiId.trim(),
     pn: hotelName || "Restaurant",
@@ -825,15 +840,11 @@ const openUpiApp = useCallback((orderId, currentUpiId) => {
     tr: orderId,
   });
 
-  const ua = navigator.userAgent.toLowerCase();
-  const isAndroid = /android/.test(ua);
-
   if (isAndroid) {
-    // Android pe sirf intent:// use karo — sabse reliable
-    window.location.href = 
-      `intent://pay?${params.toString()}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end`;
+    // Generic UPI intent — koi bhi installed UPI app open hogi (GPay, PhonePe, Paytm etc)
+    window.location.href = `intent://pay?${params.toString()}#Intent;scheme=upi;end`;
   } else {
-    // iOS / Desktop pe simple upi:// 
+    // iOS
     window.location.href = `upi://pay?${params.toString()}`;
   }
 
@@ -935,6 +946,12 @@ const verifyPaymentManually = async () => {
   useEffect(() => {
     return () => { if (paymentCheckInterval.current) clearInterval(paymentCheckInterval.current); };
   }, []);
+  useEffect(() => {
+  const available = getAvailableOrderTypes();
+  if (!isOrderTypeAllowed(orderType) && available.length > 0) {
+    setOrderType(available[0].id);
+  }
+}, [planFeatures]);
 
   // ─── PLACE ORDER ──────────────────────────────────────────────────────────
   const handlePlaceOrder = async () => {
@@ -1131,9 +1148,19 @@ const verifyPaymentManually = async () => {
                   </div>
                 </div>
               )}
-             {paymentStatus === "completed" && isPaymentVerified && (
-  <button onClick={handlePlaceOrder}>🎉 Place Order Now</button>
+              {paymentStatus === "verifying" && !(/android|iphone|ipad/i.test(navigator.userAgent)) && (
+  <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
+    <p className="text-sm font-bold text-blue-800 mb-2">💻 Desktop User?</p>
+    <p className="text-xs text-blue-700 mb-3">
+      UPI ID: <span className="font-mono font-bold">{upiId}</span>
+    </p>
+    <p className="text-xs text-blue-700">
+      Phone se GPay/PhonePe/Paytm open karo → UPI ID se ₹{grandTotal} pay karo → 
+      "Maine Pay Kar Diya" dabao
+    </p>
+  </div>
 )}
+          
               {paymentStatus === "timeout" && (
                 <div className="space-y-4">
                   <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mx-auto">
@@ -1151,24 +1178,16 @@ const verifyPaymentManually = async () => {
 
             <div className="space-y-3">
               {paymentStatus === "verifying" && (
-                <button
-                  onClick={() => {
-                    if (upiId && pendingOrderId) {
-                      const params = new URLSearchParams({
-                        pa: upiId.trim(),
-                        pn: hotelName || "Restaurant",
-                        am: grandTotal.toFixed(2),
-                        cu: "INR",
-                        tn: `Order #${pendingOrderId.slice(-6)}`,
-                        tr: pendingOrderId,
-                      });
-                      window.location.href = `upi://pay?${params.toString()}`;
-                    }
-                  }}
-                  className="w-full py-3.5 rounded-xl font-bold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
-                >
-                  <FaMobileAlt /> Retry UPI Payment
-                </button>
+              <button
+  onClick={() => {
+    if (upiId && pendingOrderId) {
+      openUpiApp(pendingOrderId, upiId);
+    }
+  }}
+  className="w-full py-3.5 rounded-xl font-bold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+>
+  <FaMobileAlt /> Retry UPI Payment
+</button>
               )}
               {(paymentStatus === "verifying" || paymentStatus === "timeout") && (
                 <button onClick={verifyPaymentManually}
@@ -1206,11 +1225,11 @@ const verifyPaymentManually = async () => {
   const availableOrderTypes = getAvailableOrderTypes();
 
   // Auto-switch if current type not allowed
-  useEffect(() => {
-    if (!isOrderTypeAllowed(orderType) && availableOrderTypes.length > 0) {
-      setOrderType(availableOrderTypes[0].id);
-    }
-  }, [planFeatures]);
+  // useEffect(() => {
+  //   if (!isOrderTypeAllowed(orderType) && availableOrderTypes.length > 0) {
+  //     setOrderType(availableOrderTypes[0].id);
+  //   }
+  // }, [planFeatures]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-3 sm:p-4 pb-24">
