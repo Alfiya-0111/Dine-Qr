@@ -704,8 +704,8 @@ export default function Checkout() {
         tableBooking: true, aiDescriptions: true, deliveryManagement: false,
         arFoodView: true, customBranding: true, analytics: 'Full', support: 'Email',
       },
-      starter: {
-        dishes: 20, qrMenu: true, whatsappOrders: false, kds: false,
+     starter: {
+  dishes: 35, qrMenu: true, whatsappOrders: false, kds: false,
         tableBooking: false, aiDescriptions: false, deliveryManagement: false,
         arFoodView: false, customBranding: false, analytics: 'Basic', support: 'Email',
       },
@@ -810,44 +810,35 @@ export default function Checkout() {
   };
 
   // ─── OPEN UPI APP ─────────────────────────────────────────────────────────
-  const openUpiApp = useCallback((orderId, currentUpiId) => {
-    if (!currentUpiId || currentUpiId.trim() === "") {
-      toast.error("UPI ID configure nahi hai! Admin se contact karo.");
-      return false;
-    }
-    const cleanUpiId = currentUpiId.trim();
-    const params = new URLSearchParams({
-      pa: cleanUpiId,
-      pn: hotelName || "Restaurant",
-      am: grandTotal.toFixed(2),
-      cu: "INR",
-      tn: `Order #${orderId.slice(-6)}`,
-      tr: orderId,
-    });
-    const upiUrl = `upi://pay?${params.toString()}`;
+const openUpiApp = useCallback((orderId, currentUpiId) => {
+  if (!currentUpiId || currentUpiId.trim() === "") {
+    toast.error("UPI ID configure nahi hai! Admin se contact karo.");
+    return false;
+  }
 
-    try { window.location.href = upiUrl; } catch (e) { console.error(e); }
+  const params = new URLSearchParams({
+    pa: currentUpiId.trim(),
+    pn: hotelName || "Restaurant",
+    am: grandTotal.toFixed(2),
+    cu: "INR",
+    tn: `Order #${orderId.slice(-6)}`,
+    tr: orderId,
+  });
 
-    setTimeout(() => {
-      try {
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;';
-        iframe.src = upiUrl;
-        document.body.appendChild(iframe);
-        setTimeout(() => { if (iframe.parentNode) iframe.parentNode.removeChild(iframe); }, 3000);
-      } catch (e) { console.error(e); }
-    }, 100);
+  const ua = navigator.userAgent.toLowerCase();
+  const isAndroid = /android/.test(ua);
 
-    const ua = navigator.userAgent.toLowerCase();
-    if (/android/.test(ua)) {
-      setTimeout(() => {
-        try {
-          window.location.href = `intent://pay?${params.toString()}#Intent;scheme=upi;package=in.org.npci.upiapp;end`;
-        } catch (e) { console.error(e); }
-      }, 200);
-    }
-    return true;
-  }, [grandTotal, hotelName]);
+  if (isAndroid) {
+    // Android pe sirf intent:// use karo — sabse reliable
+    window.location.href = 
+      `intent://pay?${params.toString()}#Intent;scheme=upi;package=com.google.android.apps.nbu.paisa.user;end`;
+  } else {
+    // iOS / Desktop pe simple upi:// 
+    window.location.href = `upi://pay?${params.toString()}`;
+  }
+
+  return true;
+}, [grandTotal, hotelName]);
 
   // ─── HANDLE UPI PAYMENT ───────────────────────────────────────────────────
   const handleUpiPayment = async () => {
@@ -908,15 +899,38 @@ export default function Checkout() {
     }, 3000);
   };
 
-  const verifyPaymentManually = () => {
-    setPaymentStatus("verifying");
-    setTimeout(() => {
-      setPaymentStatus("completed");
-      setIsPaymentVerified(true);
-      setPaymentStep("verified");
-      toast.success("✅ Payment marked as completed!");
-    }, 1000);
-  };
+ // NAYA — Firebase mein pending payment create hoti hai, admin approve karega
+const verifyPaymentManually = async () => {
+  if (!pendingOrderId) return;
+  setPaymentStatus("verifying");
+
+  // Firebase mein flag lagao ki user ne manually confirm kiya
+  try {
+    await update(ref(realtimeDB, `pendingPayments/${pendingOrderId}`), {
+      manualConfirmedAt: Date.now(),
+      manualConfirmedByUser: true,
+      status: 'manual_pending', // admin ko dikhega
+    });
+
+    await push(ref(realtimeDB, 'adminNotifications/payments'), {
+      type: 'manual_payment_confirm',
+      orderId: pendingOrderId,
+      userId: auth.currentUser?.uid,
+      amount: grandTotal,
+      restaurantId: effectiveRestaurantId,
+      message: `User ne manually confirm kiya: ₹${grandTotal} for ${hotelName}`,
+      createdAt: Date.now(),
+      read: false,
+      actionRequired: true,
+    });
+  } catch (e) {
+    console.error(e);
+  }
+
+  // UI mein "pending admin approval" dikhao
+  setPaymentStatus("manual_pending");
+  toast.info("⏳ Admin ko notify kar diya gaya. Approve hone ke baad order confirm hoga.", { duration: 8000 });
+};
 
   useEffect(() => {
     return () => { if (paymentCheckInterval.current) clearInterval(paymentCheckInterval.current); };
@@ -1089,6 +1103,20 @@ export default function Checkout() {
             </div>
 
             <div className="mb-6">
+              {paymentStatus === "manual_pending" && (
+  <div className="space-y-4">
+    <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto">
+      <FaClock className="text-4xl text-amber-500" />
+    </div>
+    <span className="px-4 py-2 rounded-full bg-amber-100 text-amber-700 text-sm font-bold inline-flex items-center gap-2">
+      ⏳ Admin Verification Pending
+    </span>
+    <p className="text-sm text-gray-600 text-center">
+      Admin payment verify karega aur order confirm karega.<br/>
+      <span className="text-xs text-gray-400">Usually 5-10 minutes lagti hai</span>
+    </p>
+  </div>
+)}
               {paymentStatus === "verifying" && (
                 <div className="space-y-4">
                   <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mx-auto">
@@ -1103,16 +1131,9 @@ export default function Checkout() {
                   </div>
                 </div>
               )}
-              {paymentStatus === "completed" && (
-                <div className="space-y-4">
-                  <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto">
-                    <FaCheckCircle className="text-4xl text-green-600" />
-                  </div>
-                  <span className="px-4 py-2 rounded-full bg-green-100 text-green-700 text-sm font-bold">
-                    ✅ Payment Verified!
-                  </span>
-                </div>
-              )}
+             {paymentStatus === "completed" && isPaymentVerified && (
+  <button onClick={handlePlaceOrder}>🎉 Place Order Now</button>
+)}
               {paymentStatus === "timeout" && (
                 <div className="space-y-4">
                   <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mx-auto">
