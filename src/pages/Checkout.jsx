@@ -826,8 +826,10 @@ const openUpiApp = useCallback((orderId, currentUpiId) => {
     return true;
   }
 
-  // ✅ tr parameter HATA DIYA — ye bank verification fail karwata tha
-  const upiUrl = `upi://pay?pa=${encodeURIComponent(currentUpiId.trim())}&pn=${encodeURIComponent(hotelName || "Restaurant")}&am=${grandTotal.toFixed(2)}&cu=INR`;
+  // ✅ FIX: tr parameter add kiya — isse UPI app correct UPI ID use karega
+  // tr = unique transaction reference (orderId use kiya hai)
+  // tn = transaction note (restaurant name)
+  const upiUrl = `upi://pay?pa=${encodeURIComponent(currentUpiId.trim())}&pn=${encodeURIComponent(hotelName || "Restaurant")}&am=${grandTotal.toFixed(2)}&cu=INR&tr=${encodeURIComponent(orderId)}&tn=${encodeURIComponent(`Order ${orderId.slice(-6)} - ${hotelName}`)}`;
 
   const anchor = document.createElement('a');
   anchor.href = upiUrl;
@@ -838,7 +840,6 @@ const openUpiApp = useCallback((orderId, currentUpiId) => {
 
   return true;
 }, [grandTotal, hotelName]);
-
   // ─── HANDLE UPI PAYMENT ───────────────────────────────────────────────────
   const handleUpiPayment = async () => {
     if (!validateForm()) return;
