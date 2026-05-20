@@ -8,7 +8,8 @@ import {
   FaCheckCircle, FaArrowLeft, FaSpinner, FaMapMarkerAlt,
   FaMotorcycle, FaChevronDown, FaChevronUp, FaCrosshairs,
   FaMapMarkedAlt, FaTimes, FaMobileAlt, FaRupeeSign,
-  FaWhatsapp, FaLock, FaCrown, FaUtensils, FaClock
+  FaWhatsapp, FaLock, FaCrown, FaUtensils, FaClock,
+  FaCopy, FaExternalLinkAlt
 } from "react-icons/fa";
 import { toast } from "sonner";
 
@@ -618,6 +619,7 @@ export default function Checkout() {
   const [isPaymentVerified, setIsPaymentVerified] = useState(false);
   const [verificationAttempts, setVerificationAttempts] = useState(0);
   const [pendingOrderId, setPendingOrderId]       = useState(null);
+  const [copiedUpi, setCopiedUpi]                 = useState(false);
   const paymentCheckInterval                      = useRef(null);
 
   // Subscription
@@ -740,9 +742,6 @@ export default function Checkout() {
     return types;
   };
 
-  // ✅ effectiveRestaurantId — used for all Firebase writes
-  // We always use restaurantId (the URL param = the restaurant's UID)
-  // ownerUid is same as restaurantId in most cases, but restaurantId is the canonical key
   const effectiveRestaurantId = restaurantId;
 
   const isValidPhone = (p) => /^[0-9]{10}$/.test(p.replace(/\s/g, ""));
@@ -809,37 +808,46 @@ export default function Checkout() {
     });
   };
 
-  // ─── OPEN UPI APP ─────────────────────────────────────────────────────────
-const openUpiApp = useCallback((orderId, currentUpiId) => {
-  if (!currentUpiId || currentUpiId.trim() === "") {
-    toast.error("UPI ID configure nahi hai!");
-    return false;
-  }
+  // ─── COPY UPI ID ─────────────────────────────────────────────────────────
+  const copyUpiId = useCallback(() => {
+    if (!upiId) return;
+    navigator.clipboard.writeText(upiId);
+    setCopiedUpi(true);
+    toast.success("✅ UPI ID copied! Ab GPay/PhonePe mein paste karo");
+    setTimeout(() => setCopiedUpi(false), 3000);
+  }, [upiId]);
 
-  const ua = navigator.userAgent.toLowerCase();
-  const isAndroid = /android/.test(ua);
-  const isIOS = /iphone|ipad|ipod/.test(ua);
-  const isMobile = isAndroid || isIOS;
+  // ─── OPEN UPI APP (Fallback - try deep link, but mainly use copy) ────────
+  const openUpiApp = useCallback((orderId, currentUpiId) => {
+    if (!currentUpiId || currentUpiId.trim() === "") {
+      toast.error("UPI ID configure nahi hai!");
+      return false;
+    }
 
-  if (!isMobile) {
-    toast.info(`💻 Desktop pe UPI app nahi khulti. Cash select karo.`, { duration: 6000 });
+    const ua = navigator.userAgent.toLowerCase();
+    const isAndroid = /android/.test(ua);
+    const isIOS = /iphone|ipad|ipod/.test(ua);
+    const isMobile = isAndroid || isIOS;
+
+    if (!isMobile) {
+      toast.info(`💻 Desktop pe UPI app nahi khulti. UPI ID copy karke phone se pay karo.`, { duration: 6000 });
+      return true;
+    }
+
+    // Try deep link with all parameters
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(currentUpiId.trim())}&pn=${encodeURIComponent(hotelName || "Restaurant")}&am=${grandTotal.toFixed(2)}&cu=INR&tr=${encodeURIComponent(orderId)}&tn=${encodeURIComponent(`Order ${orderId.slice(-6)} - ${hotelName}`)}&mc=5812`;
+
+    // Try to open
+    const anchor = document.createElement('a');
+    anchor.href = upiUrl;
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    setTimeout(() => document.body.removeChild(anchor), 500);
+
     return true;
-  }
+  }, [grandTotal, hotelName]);
 
-  // ✅ FIX: tr parameter add kiya — isse UPI app correct UPI ID use karega
-  // tr = unique transaction reference (orderId use kiya hai)
-  // tn = transaction note (restaurant name)
-  const upiUrl = `upi://pay?pa=${encodeURIComponent(currentUpiId.trim())}&pn=${encodeURIComponent(hotelName || "Restaurant")}&am=${grandTotal.toFixed(2)}&cu=INR&tr=${encodeURIComponent(orderId)}&tn=${encodeURIComponent(`Order ${orderId.slice(-6)} - ${hotelName}`)}`;
-
-  const anchor = document.createElement('a');
-  anchor.href = upiUrl;
-  anchor.style.display = 'none';
-  document.body.appendChild(anchor);
-  anchor.click();
-  setTimeout(() => document.body.removeChild(anchor), 500);
-
-  return true;
-}, [grandTotal, hotelName]);
   // ─── HANDLE UPI PAYMENT ───────────────────────────────────────────────────
   const handleUpiPayment = async () => {
     if (!validateForm()) return;
@@ -865,10 +873,10 @@ const openUpiApp = useCallback((orderId, currentUpiId) => {
     setPaymentStep("pay");
     setPaymentStatus("verifying");
 
+    // Try to open UPI app (may or may not work reliably)
     setTimeout(() => {
-      const opened = openUpiApp(orderId, upiId);
-      if (!opened) { setPaymentStep("form"); return; }
-      toast.info('⏳ UPI app open ho rahi hai...', { duration: 8000 });
+      openUpiApp(orderId, upiId);
+      toast.info('⏳ Agar UPI app nahi khuli, toh neeche "Copy UPI ID" se manually pay karo', { duration: 10000 });
     }, 500);
 
     startPaymentVerification(orderId);
@@ -899,48 +907,46 @@ const openUpiApp = useCallback((orderId, currentUpiId) => {
     }, 3000);
   };
 
- // NAYA — Firebase mein pending payment create hoti hai, admin approve karega
-const verifyPaymentManually = async () => {
-  if (!pendingOrderId) return;
-  setPaymentStatus("verifying");
+  const verifyPaymentManually = async () => {
+    if (!pendingOrderId) return;
+    setPaymentStatus("verifying");
 
-  // Firebase mein flag lagao ki user ne manually confirm kiya
-  try {
-    await update(ref(realtimeDB, `pendingPayments/${pendingOrderId}`), {
-      manualConfirmedAt: Date.now(),
-      manualConfirmedByUser: true,
-      status: 'manual_pending', // admin ko dikhega
-    });
+    try {
+      await update(ref(realtimeDB, `pendingPayments/${pendingOrderId}`), {
+        manualConfirmedAt: Date.now(),
+        manualConfirmedByUser: true,
+        status: 'manual_pending',
+      });
 
-    await push(ref(realtimeDB, 'adminNotifications/payments'), {
-      type: 'manual_payment_confirm',
-      orderId: pendingOrderId,
-      userId: auth.currentUser?.uid,
-      amount: grandTotal,
-      restaurantId: effectiveRestaurantId,
-      message: `User ne manually confirm kiya: ₹${grandTotal} for ${hotelName}`,
-      createdAt: Date.now(),
-      read: false,
-      actionRequired: true,
-    });
-  } catch (e) {
-    console.error(e);
-  }
+      await push(ref(realtimeDB, 'adminNotifications/payments'), {
+        type: 'manual_payment_confirm',
+        orderId: pendingOrderId,
+        userId: auth.currentUser?.uid,
+        amount: grandTotal,
+        restaurantId: effectiveRestaurantId,
+        message: `User ne manually confirm kiya: ₹${grandTotal} for ${hotelName}`,
+        createdAt: Date.now(),
+        read: false,
+        actionRequired: true,
+      });
+    } catch (e) {
+      console.error(e);
+    }
 
-  // UI mein "pending admin approval" dikhao
-  setPaymentStatus("manual_pending");
-  toast.info("⏳ Admin ko notify kar diya gaya. Approve hone ke baad order confirm hoga.", { duration: 8000 });
-};
+    setPaymentStatus("manual_pending");
+    toast.info("⏳ Admin ko notify kar diya gaya. Approve hone ke baad order confirm hoga.", { duration: 8000 });
+  };
 
   useEffect(() => {
     return () => { if (paymentCheckInterval.current) clearInterval(paymentCheckInterval.current); };
   }, []);
+  
   useEffect(() => {
-  const available = getAvailableOrderTypes();
-  if (!isOrderTypeAllowed(orderType) && available.length > 0) {
-    setOrderType(available[0].id);
-  }
-}, [planFeatures]);
+    const available = getAvailableOrderTypes();
+    if (!isOrderTypeAllowed(orderType) && available.length > 0) {
+      setOrderType(available[0].id);
+    }
+  }, [planFeatures]);
 
   // ─── PLACE ORDER ──────────────────────────────────────────────────────────
   const handlePlaceOrder = async () => {
@@ -1022,15 +1028,12 @@ const verifyPaymentManually = async () => {
     };
 
     try {
-      // ✅ FIX: Save to orders/{restaurantId}/ — per-restaurant isolated path
-      // Isse 1000 restaurants ke orders mix nahi honge
       const newOrderRef = await push(
         ref(realtimeDB, `orders/${effectiveRestaurantId}`),
         orderPayload
       );
       const orderId = newOrderRef.key;
 
-      // Update pending payment with final order id
       if (paymentMethod === "online" && pendingOrderId) {
         await update(ref(realtimeDB, `pendingPayments/${pendingOrderId}`), {
           finalOrderId: orderId,
@@ -1038,7 +1041,6 @@ const verifyPaymentManually = async () => {
         });
       }
 
-      // WhatsApp notification if feature enabled
       if (planFeatures.whatsappOrders && customerPhone) {
         await sendWhatsAppNotification(orderId, validCart);
       }
@@ -1108,21 +1110,74 @@ const verifyPaymentManually = async () => {
               <p className="text-xs text-gray-400 mt-1 font-mono">Ref: {pendingOrderId?.slice(-12)}</p>
             </div>
 
+            {/* ✅ NEW: UPI ID Copy Section - Most Reliable */}
+            <div className="mb-6 p-4 bg-green-50 rounded-xl border-2 border-green-200">
+              <p className="text-sm font-bold text-green-800 mb-3">📲 UPI ID se Pay karo (100% Reliable)</p>
+              
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex-1 bg-white rounded-lg border-2 border-green-300 px-4 py-3">
+                  <p className="text-xs text-green-600 mb-1">Merchant UPI ID</p>
+                  <p className="font-mono font-bold text-lg text-green-800">{upiId || "Not set"}</p>
+                </div>
+                <button
+                  onClick={copyUpiId}
+                  className="px-4 py-3 rounded-xl font-bold text-sm flex flex-col items-center gap-1 transition-all"
+                  style={{ 
+                    backgroundColor: copiedUpi ? "#16a34a" : theme.primary,
+                    color: "white",
+                    minWidth: "80px"
+                  }}
+                >
+                  {copiedUpi ? <FaCheckCircle /> : <FaCopy />}
+                  <span>{copiedUpi ? "Copied!" : "Copy"}</span>
+                </button>
+              </div>
+
+              <div className="text-left text-xs text-green-700 space-y-1 bg-white rounded-lg p-3">
+                <p className="font-bold mb-2">📝 Steps:</p>
+                <p>1. 👆 <b>"Copy"</b> button dabao — UPI ID copy ho jayegi</p>
+                <p>2. 📱 GPay / PhonePe / Paytm khol</p>
+                <p>3. 🔍 "Pay UPI ID" ya "Scan & Pay" mein <b>paste</b> karo</p>
+                <p>4. 💰 Amount <b>₹{grandTotal}</b> daalo</p>
+                <p>5. ✅ Pay karo aur wapas aake <b>"Maine Pay Kar Diya"</b> dabao</p>
+              </div>
+            </div>
+
+            {/* OR Divider */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="flex-1 h-px bg-gray-200"></div>
+              <span className="text-xs text-gray-400 font-medium">YA</span>
+              <div className="flex-1 h-px bg-gray-200"></div>
+            </div>
+
+            {/* Try UPI Deep Link (May not work on all phones) */}
+            <button
+              onClick={() => {
+                if (upiId && pendingOrderId) {
+                  openUpiApp(pendingOrderId, upiId);
+                }
+              }}
+              className="w-full py-3 rounded-xl font-bold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 mb-3"
+            >
+              <FaExternalLinkAlt /> UPI App Try Karo (Auto-open)
+            </button>
+            <p className="text-xs text-gray-400 mb-4">⚠️ Kuch phones pe auto-open nahi hota — UPI ID copy karna best hai</p>
+
             <div className="mb-6">
               {paymentStatus === "manual_pending" && (
-  <div className="space-y-4">
-    <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto">
-      <FaClock className="text-4xl text-amber-500" />
-    </div>
-    <span className="px-4 py-2 rounded-full bg-amber-100 text-amber-700 text-sm font-bold inline-flex items-center gap-2">
-      ⏳ Admin Verification Pending
-    </span>
-    <p className="text-sm text-gray-600 text-center">
-      Admin payment verify karega aur order confirm karega.<br/>
-      <span className="text-xs text-gray-400">Usually 5-10 minutes lagti hai</span>
-    </p>
-  </div>
-)}
+                <div className="space-y-4">
+                  <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto">
+                    <FaClock className="text-4xl text-amber-500" />
+                  </div>
+                  <span className="px-4 py-2 rounded-full bg-amber-100 text-amber-700 text-sm font-bold inline-flex items-center gap-2">
+                    ⏳ Admin Verification Pending
+                  </span>
+                  <p className="text-sm text-gray-600 text-center">
+                    Admin payment verify karega aur order confirm karega.<br/>
+                    <span className="text-xs text-gray-400">Usually 5-10 minutes lagti hai</span>
+                  </p>
+                </div>
+              )}
               {paymentStatus === "verifying" && (
                 <div className="space-y-4">
                   <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mx-auto">
@@ -1132,24 +1187,11 @@ const verifyPaymentManually = async () => {
                     <FaSpinner className="animate-spin" /> Verifying... ({verificationAttempts}/40)
                   </span>
                   <div className="text-sm text-gray-600 font-medium space-y-1">
-                    <p>UPI app open ho gayi hogi...</p>
-                    <p className="text-xs text-gray-400">Payment complete hone ke baad yahan wapas aao</p>
+                    <p>Payment ka wait kar rahe hain...</p>
+                    <p className="text-xs text-gray-400">Payment complete hone ke baad "Maine Pay Kar Diya" dabao</p>
                   </div>
                 </div>
               )}
-              {paymentStatus === "verifying" && !(/android|iphone|ipad/i.test(navigator.userAgent)) && (
-  <div className="mt-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-    <p className="text-sm font-bold text-blue-800 mb-2">💻 Desktop User?</p>
-    <p className="text-xs text-blue-700 mb-3">
-      UPI ID: <span className="font-mono font-bold">{upiId}</span>
-    </p>
-    <p className="text-xs text-blue-700">
-      Phone se GPay/PhonePe/Paytm open karo → UPI ID se ₹{grandTotal} pay karo → 
-      "Maine Pay Kar Diya" dabao
-    </p>
-  </div>
-)}
-          
               {paymentStatus === "timeout" && (
                 <div className="space-y-4">
                   <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mx-auto">
@@ -1166,18 +1208,6 @@ const verifyPaymentManually = async () => {
             </div>
 
             <div className="space-y-3">
-              {paymentStatus === "verifying" && (
-              <button
-  onClick={() => {
-    if (upiId && pendingOrderId) {
-      openUpiApp(pendingOrderId, upiId);
-    }
-  }}
-  className="w-full py-3.5 rounded-xl font-bold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
->
-  <FaMobileAlt /> Retry UPI Payment
-</button>
-              )}
               {(paymentStatus === "verifying" || paymentStatus === "timeout") && (
                 <button onClick={verifyPaymentManually}
                   className="w-full py-3.5 rounded-xl font-bold text-orange-600 border-2 border-orange-600 hover:bg-orange-50 transition-all">
@@ -1196,14 +1226,6 @@ const verifyPaymentManually = async () => {
                 ← Wapas jao (Cash chuno)
               </button>
             </div>
-
-            <div className="mt-4 text-xs text-gray-500 bg-gray-50 p-4 rounded-xl space-y-1 text-left">
-              <p className="font-bold text-gray-700 mb-2">📖 Steps:</p>
-              <p>1. UPI app automatically open ho gayi hogi</p>
-              <p>2. Amount <b>₹{grandTotal}</b> auto-fill hoga</p>
-              <p>3. UPI PIN daalo aur payment complete karo</p>
-              <p>4. Wapas browser mein aake "Maine Pay Kar Diya" dabao</p>
-            </div>
           </div>
         </div>
       </div>
@@ -1212,13 +1234,6 @@ const verifyPaymentManually = async () => {
 
   // ─── CHECKOUT FORM ────────────────────────────────────────────────────────
   const availableOrderTypes = getAvailableOrderTypes();
-
-  // Auto-switch if current type not allowed
-  // useEffect(() => {
-  //   if (!isOrderTypeAllowed(orderType) && availableOrderTypes.length > 0) {
-  //     setOrderType(availableOrderTypes[0].id);
-  //   }
-  // }, [planFeatures]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-3 sm:p-4 pb-24">
@@ -1418,7 +1433,7 @@ const verifyPaymentManually = async () => {
               className="w-5 h-5" style={{ accentColor: theme.primary }} />
             <div className="flex-1">
               <span className="font-bold block">Online Payment (UPI)</span>
-              <span className="text-xs text-gray-500">Phone ki UPI app se direct pay</span>
+              <span className="text-xs text-gray-500">UPI ID copy karke GPay/PhonePe se pay</span>
             </div>
           </label>
 
@@ -1457,7 +1472,7 @@ const verifyPaymentManually = async () => {
             className="w-full py-4 rounded-xl font-bold text-lg text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] flex items-center justify-center gap-3"
             style={{ backgroundColor: "#16a34a" }}>
             <FaMobileAlt size={20} />
-            Pay ₹{grandTotal} — UPI App Open Karo →
+            Pay ₹{grandTotal} — UPI ID Copy Karo →
           </button>
         )}
 
