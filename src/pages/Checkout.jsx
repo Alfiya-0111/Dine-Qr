@@ -849,6 +849,7 @@ export default function Checkout() {
   }, [grandTotal, hotelName]);
 
   // ─── HANDLE UPI PAYMENT ───────────────────────────────────────────────────
+  // ─── HANDLE UPI PAYMENT ───────────────────────────────────────────────────
   const handleUpiPayment = async () => {
     if (!validateForm()) return;
     if (!auth.currentUser) { toast.error("Login required!"); return; }
@@ -873,11 +874,11 @@ export default function Checkout() {
     setPaymentStep("pay");
     setPaymentStatus("verifying");
 
-    // Try to open UPI app (may or may not work reliably)
+    // ✅ FIX: Ab sirf UPI ID copy karo, deep link mat kholo
+    // Customer manually apne UPI app mein jaake pay karega
     setTimeout(() => {
-      openUpiApp(orderId, upiId);
-      toast.info('⏳ Agar UPI app nahi khuli, toh neeche "Copy UPI ID" se manually pay karo', { duration: 10000 });
-    }, 500);
+      toast.info('📋 UPI ID copy ho gayi! Ab GPay/PhonePe mein paste karo', { duration: 8000 });
+    }, 300);
 
     startPaymentVerification(orderId);
   };
@@ -1087,7 +1088,8 @@ export default function Checkout() {
     );
   }
 
-  // ─── PAYMENT WAITING SCREEN ───────────────────────────────────────────────
+
+   // ─── PAYMENT WAITING SCREEN ───────────────────────────────────────────────
   if (paymentStep === "pay") {
     return (
       <div className="min-h-screen bg-gray-50 p-3 sm:p-4 pb-24 flex items-center justify-center">
@@ -1110,9 +1112,9 @@ export default function Checkout() {
               <p className="text-xs text-gray-400 mt-1 font-mono">Ref: {pendingOrderId?.slice(-12)}</p>
             </div>
 
-            {/* ✅ NEW: UPI ID Copy Section - Most Reliable */}
+            {/* ✅ UPI ID Copy Section - ONLY reliable method */}
             <div className="mb-6 p-4 bg-green-50 rounded-xl border-2 border-green-200">
-              <p className="text-sm font-bold text-green-800 mb-3">📲 UPI ID se Pay karo (100% Reliable)</p>
+              <p className="text-sm font-bold text-green-800 mb-3">📲 UPI ID se Pay karo</p>
               
               <div className="flex items-center gap-2 mb-3">
                 <div className="flex-1 bg-white rounded-lg border-2 border-green-300 px-4 py-3">
@@ -1137,31 +1139,11 @@ export default function Checkout() {
                 <p className="font-bold mb-2">📝 Steps:</p>
                 <p>1. 👆 <b>"Copy"</b> button dabao — UPI ID copy ho jayegi</p>
                 <p>2. 📱 GPay / PhonePe / Paytm khol</p>
-                <p>3. 🔍 "Pay UPI ID" ya "Scan & Pay" mein <b>paste</b> karo</p>
+                <p>3. 🔍 "Pay UPI ID" mein <b>paste</b> karo</p>
                 <p>4. 💰 Amount <b>₹{grandTotal}</b> daalo</p>
                 <p>5. ✅ Pay karo aur wapas aake <b>"Maine Pay Kar Diya"</b> dabao</p>
               </div>
             </div>
-
-            {/* OR Divider */}
-            <div className="flex items-center gap-3 mb-6">
-              <div className="flex-1 h-px bg-gray-200"></div>
-              <span className="text-xs text-gray-400 font-medium">YA</span>
-              <div className="flex-1 h-px bg-gray-200"></div>
-            </div>
-
-            {/* Try UPI Deep Link (May not work on all phones) */}
-            <button
-              onClick={() => {
-                if (upiId && pendingOrderId) {
-                  openUpiApp(pendingOrderId, upiId);
-                }
-              }}
-              className="w-full py-3 rounded-xl font-bold text-blue-600 border-2 border-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 mb-3"
-            >
-              <FaExternalLinkAlt /> UPI App Try Karo (Auto-open)
-            </button>
-            <p className="text-xs text-gray-400 mb-4">⚠️ Kuch phones pe auto-open nahi hota — UPI ID copy karna best hai</p>
 
             <div className="mb-6">
               {paymentStatus === "manual_pending" && (
