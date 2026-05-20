@@ -821,14 +821,9 @@ const openUpiApp = useCallback((orderId, currentUpiId) => {
   const isIOS = /iphone|ipad|ipod/.test(ua);
   const isMobile = isAndroid || isIOS;
 
-  // Desktop pe UPI deep link kaam nahi karta — user ko manual instructions do
   if (!isMobile) {
-    toast.info(
-      `💻 Desktop pe UPI app nahi khulti. Phone se pay karo ya Cash select karo.`,
-      { duration: 6000 }
-    );
-    // Payment waiting screen pe le jao — wahan QR ya manual option dikhega
-    return true; // true return karo taaki screen switch ho
+    toast.info(`💻 Desktop pe UPI app nahi khulti. Phone se pay karo ya Cash select karo.`, { duration: 6000 });
+    return true;
   }
 
   const params = new URLSearchParams({
@@ -840,13 +835,15 @@ const openUpiApp = useCallback((orderId, currentUpiId) => {
     tr: orderId,
   });
 
-  if (isAndroid) {
-    // Generic UPI intent — koi bhi installed UPI app open hogi (GPay, PhonePe, Paytm etc)
-    window.location.href = `intent://pay?${params.toString()}#Intent;scheme=upi;end`;
-  } else {
-    // iOS
-    window.location.href = `upi://pay?${params.toString()}`;
-  }
+  const upiUrl = `upi://pay?${params.toString()}`;
+
+  // Anchor click trick — window.location se zyada reliable hai Chrome Android pe
+  const anchor = document.createElement('a');
+  anchor.href = upiUrl;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  setTimeout(() => document.body.removeChild(anchor), 500);
 
   return true;
 }, [grandTotal, hotelName]);
