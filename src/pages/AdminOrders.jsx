@@ -886,6 +886,7 @@ export default function AdminOrders() {
             order={o}
             now={now}
             isActive={true}
+            isGuest={o.isGuest === true} 
             onDelete={deleteOrder}
             onUpdateStatus={updateStatus}
             onUpdatePayment={updatePaymentStatus}
@@ -926,6 +927,7 @@ export default function AdminOrders() {
             order={o}
             now={now}
             isActive={false}
+             isGuest={o.isGuest === true} 
             onDelete={deleteOrder}
             onUpdateStatus={updateStatus}
             onUpdatePayment={updatePaymentStatus}

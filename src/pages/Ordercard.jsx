@@ -139,16 +139,9 @@ const SectionLabel = ({ icon, children }) => (
 
 // ─── ORDER CARD ───────────────────────────────────────────────────────────────
 export function Ordercard({
-  order,
-  now,
-  isActive,
-  onDelete,
-  onUpdateStatus,
-  onUpdatePayment,
-  onGenerateBill,
-  autoCompleteEnabled,
-  theme,
-  canSeeWhatsApp,
+  order, now, isActive, onDelete, onUpdateStatus,
+  onUpdatePayment, onGenerateBill, autoCompleteEnabled,
+  theme, canSeeWhatsApp, isGuest,    // ← add karo
 }) {
   const isWhatsApp        = order.source === "whatsapp" || order.type === "whatsapp" || !!order.whatsappStatus;
   const showWhatsAppBadge = isWhatsApp && canSeeWhatsApp;
@@ -313,10 +306,21 @@ export function Ordercard({
 
           {/* Name & Phone — responsive grid */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-            <div style={{ fontSize: 12, color: "#374151" }}>
-              <span style={{ color: "#9ca3af" }}>Name </span>
-              <strong>{order.customerInfo?.name || order.customerName || "N/A"}</strong>
-            </div>
+        <div style={{ fontSize: 12, color: "#374151" }}>
+  <span style={{ color: "#9ca3af" }}>Name </span>
+  <strong>{order.customerInfo?.name || order.customerName || "N/A"}</strong>
+  {isGuest && (
+    <span style={{
+      fontSize: 10, fontWeight: 700,
+      background: "#f3f4f6", color: "#6b7280",
+      border: "1px solid #e5e7eb",
+      borderRadius: 6, padding: "1px 6px",
+      marginLeft: 6,
+    }}>
+      👤 Guest
+    </span>
+  )}
+</div>
             <div style={{ fontSize: 12, color: "#374151" }}>
               <span style={{ color: "#9ca3af" }}>Phone </span>
               <strong>{order.customerInfo?.phone || order.customerPhone || "N/A"}</strong>

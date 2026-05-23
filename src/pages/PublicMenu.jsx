@@ -2055,23 +2055,18 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
     });
   }, [activeOrder, handleDishReady]);
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        console.log("Auth state: User authenticated", {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName
-        });
-        setUserId(user.uid);
-      } else {
-        console.log("Auth state: User not authenticated");
-        setUserId(null);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
+ useEffect(() => {
+  const unsubscribe = auth.onAuthStateChanged((user) => {
+    if (user) {
+      setUserId(user.uid);
+    } else {
+      // Guest ka localStorage ID use karo
+      const guestId = localStorage.getItem("khaatogo_guest_id");
+      setUserId(guestId || null);
+    }
+  });
+  return () => unsubscribe();
+}, []);
 
   useEffect(() => {
     const unlockAudio = () => {

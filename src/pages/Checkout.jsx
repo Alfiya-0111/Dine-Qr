@@ -1,15 +1,13 @@
 import { useParams } from "react-router-dom";
-import { ref, onValue, push, update, set, get, serverTimestamp } from "firebase/database";
+import { ref, onValue, push, update } from "firebase/database";
 import { realtimeDB, auth } from "../firebaseConfig";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useCart } from "../context/CartContext";
 import {
-  FaCheckCircle, FaArrowLeft, FaSpinner, FaMapMarkerAlt,
+  FaArrowLeft, FaSpinner, FaMapMarkerAlt,
   FaMotorcycle, FaChevronDown, FaChevronUp, FaCrosshairs,
-  FaMapMarkedAlt, FaTimes, FaMobileAlt, FaRupeeSign,
-  FaWhatsapp, FaLock, FaCrown, FaUtensils, FaClock,
-  FaCopy, FaExternalLinkAlt
+  FaMapMarkedAlt, FaTimes, FaWhatsapp, FaLock, FaCrown, FaUtensils,
 } from "react-icons/fa";
 import { toast } from "sonner";
 
@@ -95,11 +93,11 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
   const mapContainerRef = useRef(null);
   const mapInstanceRef  = useRef(null);
   const markerRef       = useRef(null);
-  const [searchQuery, setSearchQuery]       = useState("");
-  const [searchResults, setSearchResults]   = useState([]);
-  const [isSearching, setIsSearching]       = useState(false);
+  const [searchQuery, setSearchQuery]           = useState("");
+  const [searchResults, setSearchResults]       = useState([]);
+  const [isSearching, setIsSearching]           = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(initialLocation || null);
-  const [isLoading, setIsLoading]           = useState(true);
+  const [isLoading, setIsLoading]               = useState(true);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -335,7 +333,7 @@ function DeliveryAddressSection({
   googleMapsLink, setGoogleMapsLink,
   setDeliveryCharge, coordinates, setCoordinates,
 }) {
-  const [zonesOpen, setZonesOpen]               = useState(true);
+  const [zonesOpen, setZonesOpen]                   = useState(true);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   const handleZoneSelect = (zone) => {
@@ -398,7 +396,7 @@ function DeliveryAddressSection({
                   border: `2px dashed ${theme.primary}`,
                 }}>
                 <FaMapMarkedAlt size={24} />
-                <span className="text-base">🗺️ Map Se Location Pick Karo (FREE)</span>
+                <span className="text-base">🗺️ Map Se Location Pick Karo</span>
               </button>
             ) : (
               <div className="rounded-xl p-4 border-2 relative"
@@ -477,10 +475,7 @@ function DeliveryAddressSection({
 
           {/* Address textarea */}
           <div>
-            <label style={{
-              fontSize: "13px", fontWeight: 700, color: "#374151",
-              display: "block", marginBottom: "6px",
-            }}>
+            <label style={{ fontSize: "13px", fontWeight: 700, color: "#374151", display: "block", marginBottom: "6px" }}>
               🏠 Full Delivery Address *
             </label>
             <textarea
@@ -500,10 +495,7 @@ function DeliveryAddressSection({
 
           {/* Landmark */}
           <div>
-            <label style={{
-              fontSize: "13px", fontWeight: 700, color: "#374151",
-              display: "block", marginBottom: "6px",
-            }}>
+            <label style={{ fontSize: "13px", fontWeight: 700, color: "#374151", display: "block", marginBottom: "6px" }}>
               🎯 Nearby Landmark (Optional)
             </label>
             <input
@@ -520,10 +512,7 @@ function DeliveryAddressSection({
 
           {/* Maps link */}
           <div>
-            <label style={{
-              fontSize: "13px", fontWeight: 700, color: "#374151",
-              display: "block", marginBottom: "6px",
-            }}>
+            <label style={{ fontSize: "13px", fontWeight: 700, color: "#374151", display: "block", marginBottom: "6px" }}>
               🔗 Google Maps Link (Auto-generated)
             </label>
             <input type="url" value={googleMapsLink} readOnly
@@ -545,12 +534,8 @@ function DeliveryAddressSection({
               display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
               <div>
-                <p style={{ fontSize: "13px", color: "#6b7280", margin: 0, fontWeight: 600 }}>
-                  🚚 Delivery Charge
-                </p>
-                <p style={{ fontSize: "12px", color: "#9ca3af", margin: "4px 0 0 0" }}>
-                  {selectedZone.name}
-                </p>
+                <p style={{ fontSize: "13px", color: "#6b7280", margin: 0, fontWeight: 600 }}>🚚 Delivery Charge</p>
+                <p style={{ fontSize: "12px", color: "#9ca3af", margin: "4px 0 0 0" }}>{selectedZone.name}</p>
               </div>
               <span style={{
                 fontWeight: 900, fontSize: "20px",
@@ -579,19 +564,19 @@ function DeliveryAddressSection({
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function Checkout() {
   const { cart, total, clearCart, getValidCart } = useCart();
-  const { restaurantId }  = useParams();
-  const navigate          = useNavigate();
+  const { restaurantId } = useParams();
+  const navigate         = useNavigate();
 
   // Customer Info
-  const [customerName, setCustomerName]         = useState("");
-  const [customerPhone, setCustomerPhone]       = useState("");
-  const [customerEmail, setCustomerEmail]       = useState("");
-  const [tableNumber, setTableNumber]           = useState("");
-  const [numberOfGuests, setNumberOfGuests]     = useState("1");
-  const [orderType, setOrderType]               = useState("dine-in");
+  const [customerName, setCustomerName]               = useState("");
+  const [customerPhone, setCustomerPhone]             = useState("");
+  const [customerEmail, setCustomerEmail]             = useState("");
+  const [tableNumber, setTableNumber]                 = useState("");
+  const [numberOfGuests, setNumberOfGuests]           = useState("1");
+  const [orderType, setOrderType]                     = useState("dine-in");
   const [specialInstructions, setSpecialInstructions] = useState("");
-  const [orderDate, setOrderDate]               = useState("");
-  const [orderTime, setOrderTime]               = useState("");
+  const [orderDate, setOrderDate]                     = useState("");
+  const [orderTime, setOrderTime]                     = useState("");
 
   // Delivery
   const [deliveryAddress, setDeliveryAddress]   = useState("");
@@ -602,40 +587,31 @@ export default function Checkout() {
   const [deliveryZones, setDeliveryZones]       = useState([]);
   const [coordinates, setCoordinates]           = useState(null);
 
-  // Restaurant & Payment
-  const [restaurantData, setRestaurantData]       = useState(null);
+  // Restaurant
+  const [restaurantData, setRestaurantData]         = useState(null);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
-  const [paymentMethod, setPaymentMethod]         = useState("cash");
-  const [ownerUid, setOwnerUid]                   = useState(null);
-  const [isLoading, setIsLoading]                 = useState(true);
-  const [upiId, setUpiId]                         = useState("");
-  const [hotelName, setHotelName]                 = useState("");
-  const [orderPlaced, setOrderPlaced]             = useState(false);
-
-  // Payment Flow
-  const [paymentStep, setPaymentStep]             = useState("form");
-  const [transactionRef, setTransactionRef]       = useState("");
-  const [paymentStatus, setPaymentStatus]         = useState("pending");
-  const [isPaymentVerified, setIsPaymentVerified] = useState(false);
-  const [verificationAttempts, setVerificationAttempts] = useState(0);
-  const [pendingOrderId, setPendingOrderId]       = useState(null);
-  const [copiedUpi, setCopiedUpi]                 = useState(false);
-  const paymentCheckInterval                      = useRef(null);
+  const [ownerUid, setOwnerUid]                     = useState(null);
+  const [isLoading, setIsLoading]                   = useState(true);
+  const [hotelName, setHotelName]                   = useState("");
 
   // Subscription
-  const [subscription, setSubscription]     = useState(null);
-  const [isPlanActive, setIsPlanActive]     = useState(false);
-  const [planFeatures, setPlanFeatures]     = useState({
+  const [subscription, setSubscription] = useState(null);
+  const [isPlanActive, setIsPlanActive] = useState(false);
+  const [planFeatures, setPlanFeatures] = useState({
     dishes: 'Unlimited', qrMenu: true, whatsappOrders: false,
     kds: false, tableBooking: true, aiDescriptions: false,
     deliveryManagement: false, arFoodView: false,
     customBranding: false, analytics: 'Basic', support: 'Email',
   });
 
-  const today            = new Date().toISOString().split("T")[0];
-  const isPhoneRequired  = orderType === "delivery" || orderType === "takeaway";
-  const grandTotal       = total + (orderType === "delivery" ? deliveryCharge : 0);
-  const theme            = restaurantSettings?.theme || { primary: "#8A244B", border: "#8A244B" };
+  // Placing state
+  const [isPlacing, setIsPlacing] = useState(false);
+
+  const today           = new Date().toISOString().split("T")[0];
+  const isPhoneRequired = orderType === "delivery" || orderType === "takeaway";
+  const grandTotal      = total + (orderType === "delivery" ? deliveryCharge : 0);
+  const theme           = restaurantSettings?.theme || { primary: "#8A244B", border: "#8A244B" };
+  const effectiveRestaurantId = restaurantId;
 
   // ─── LOAD RESTAURANT DATA ──────────────────────────────────────────────────
   useEffect(() => {
@@ -648,15 +624,6 @@ export default function Checkout() {
       setRestaurantSettings(data.settings || data);
       setOwnerUid(data.ownerUid || data.adminId || data.userId || restaurantId);
       setHotelName(data.name || data.settings?.name || "Restaurant");
-
-      const extractedUpiId =
-        data.payment?.upiId ||
-        data.upiId ||
-        data.settings?.payment?.upiId ||
-        data.settings?.upiId ||
-        "";
-      setUpiId(extractedUpiId);
-
       if (data.deliveryZones) {
         const zones = Object.entries(data.deliveryZones).map(([id, z]) => ({
           id, ...z,
@@ -667,7 +634,6 @@ export default function Checkout() {
       }
       setIsLoading(false);
     });
-
     const now = new Date();
     setOrderTime(now.toTimeString().slice(0, 5));
     setOrderDate(today);
@@ -706,8 +672,8 @@ export default function Checkout() {
         tableBooking: true, aiDescriptions: true, deliveryManagement: false,
         arFoodView: true, customBranding: true, analytics: 'Full', support: 'Email',
       },
-     starter: {
-  dishes: 35, qrMenu: true, whatsappOrders: false, kds: false,
+      starter: {
+        dishes: 35, qrMenu: true, whatsappOrders: false, kds: false,
         tableBooking: false, aiDescriptions: false, deliveryManagement: false,
         arFoodView: false, customBranding: false, analytics: 'Basic', support: 'Email',
       },
@@ -725,6 +691,14 @@ export default function Checkout() {
     return plans[planId] || plans['starter'];
   };
 
+  const getAvailableOrderTypes = () => {
+    const types = [];
+    if (planFeatures.tableBooking)       types.push({ id: "dine-in",  label: "Dine In",  icon: "🪑" });
+    types.push({ id: "takeaway", label: "Takeaway", icon: "🥡" });
+    if (planFeatures.deliveryManagement) types.push({ id: "delivery", label: "Delivery", icon: "🛵" });
+    return types;
+  };
+
   const isOrderTypeAllowed = (type) => {
     switch (type) {
       case 'delivery': return planFeatures.deliveryManagement === true;
@@ -734,15 +708,13 @@ export default function Checkout() {
     }
   };
 
-  const getAvailableOrderTypes = () => {
-    const types = [];
-    if (planFeatures.tableBooking)      types.push({ id: "dine-in",  label: "Dine In",  icon: "🪑" });
-    types.push({ id: "takeaway", label: "Takeaway", icon: "🥡" });
-    if (planFeatures.deliveryManagement) types.push({ id: "delivery", label: "Delivery", icon: "🛵" });
-    return types;
-  };
-
-  const effectiveRestaurantId = restaurantId;
+  // Auto-switch order type if not allowed
+  useEffect(() => {
+    const available = getAvailableOrderTypes();
+    if (!isOrderTypeAllowed(orderType) && available.length > 0) {
+      setOrderType(available[0].id);
+    }
+  }, [planFeatures]);
 
   const isValidPhone = (p) => /^[0-9]{10}$/.test(p.replace(/\s/g, ""));
 
@@ -766,214 +738,48 @@ export default function Checkout() {
     return true;
   };
 
-  // ─── SAVE PENDING PAYMENT ──────────────────────────────────────────────────
-  const savePendingPayment = async (orderId) => {
-    await set(ref(realtimeDB, `pendingPayments/${orderId}`), {
-      userId:      auth.currentUser.uid,
-      userEmail:   auth.currentUser.email,
-      userName:    auth.currentUser.displayName || 'User',
-      restaurantId: effectiveRestaurantId,
-      amount:      grandTotal,
-      status:      'pending',
-      orderId:     orderId,
-      paymentMethod: 'upi_direct',
-      createdAt:   Date.now(),
-      expiresAt:   Date.now() + 30 * 60 * 1000,
-      cartItems:   getValidCart().map(item => ({
-        id: item.id, name: item.name, qty: item.qty, price: item.price,
-      })),
-      customerInfo: {
-        name:  customerName.trim(),
-        phone: customerPhone.trim(),
-        email: customerEmail.trim() || null,
-      },
-      orderType,
-      deliveryAddress: orderType === "delivery" ? deliveryAddress : null,
-    });
-
-    await push(ref(realtimeDB, 'adminNotifications/payments'), {
-      type:        'new_order_payment',
-      orderId,
-      userId:      auth.currentUser.uid,
-      userEmail:   auth.currentUser.email,
-      userName:    auth.currentUser.displayName || 'User',
-      amount:      grandTotal,
-      restaurantId: effectiveRestaurantId,
-      hotelName,
-      status:      'awaiting_user_payment',
-      message:     `New order payment: ₹${grandTotal} at ${hotelName}. Order ID: ${orderId}`,
-      createdAt:   Date.now(),
-      read:        false,
-      actionRequired: true,
-    });
+  // ─── HELPER: generate a guest ID ──────────────────────────────────────────
+  // Uses logged-in UID if available, otherwise creates/reuses a guest ID in localStorage
+  const getGuestId = () => {
+    if (auth.currentUser) return auth.currentUser.uid;
+    let gid = localStorage.getItem("khaatogo_guest_id");
+    if (!gid) {
+      gid = "guest_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+      localStorage.setItem("khaatogo_guest_id", gid);
+    }
+    return gid;
   };
-
-  // ─── COPY UPI ID ─────────────────────────────────────────────────────────
-  const copyUpiId = useCallback(() => {
-    if (!upiId) return;
-    navigator.clipboard.writeText(upiId);
-    setCopiedUpi(true);
-    toast.success("✅ UPI ID copied! Ab GPay/PhonePe mein paste karo");
-    setTimeout(() => setCopiedUpi(false), 3000);
-  }, [upiId]);
-
-  // ─── OPEN UPI APP (Fallback - try deep link, but mainly use copy) ────────
-  const openUpiApp = useCallback((orderId, currentUpiId) => {
-    if (!currentUpiId || currentUpiId.trim() === "") {
-      toast.error("UPI ID configure nahi hai!");
-      return false;
-    }
-
-    const ua = navigator.userAgent.toLowerCase();
-    const isAndroid = /android/.test(ua);
-    const isIOS = /iphone|ipad|ipod/.test(ua);
-    const isMobile = isAndroid || isIOS;
-
-    if (!isMobile) {
-      toast.info(`💻 Desktop pe UPI app nahi khulti. UPI ID copy karke phone se pay karo.`, { duration: 6000 });
-      return true;
-    }
-
-    // Try deep link with all parameters
-    const upiUrl = `upi://pay?pa=${encodeURIComponent(currentUpiId.trim())}&pn=${encodeURIComponent(hotelName || "Restaurant")}&am=${grandTotal.toFixed(2)}&cu=INR&tr=${encodeURIComponent(orderId)}&tn=${encodeURIComponent(`Order ${orderId.slice(-6)} - ${hotelName}`)}&mc=5812`;
-
-    // Try to open
-    const anchor = document.createElement('a');
-    anchor.href = upiUrl;
-    anchor.style.display = 'none';
-    document.body.appendChild(anchor);
-    anchor.click();
-    setTimeout(() => document.body.removeChild(anchor), 500);
-
-    return true;
-  }, [grandTotal, hotelName]);
-
-  // ─── HANDLE UPI PAYMENT ───────────────────────────────────────────────────
-  // ─── HANDLE UPI PAYMENT ───────────────────────────────────────────────────
-  const handleUpiPayment = async () => {
-    if (!validateForm()) return;
-    if (!auth.currentUser) { toast.error("Login required!"); return; }
-    if (!upiId || upiId.trim() === "") {
-      toast.error("Online payment abhi available nahi hai. Cash chuno.");
-      setPaymentMethod("cash");
-      return;
-    }
-
-    const orderId = `ORD${Date.now()}_${auth.currentUser.uid.slice(0, 6)}`;
-    setPendingOrderId(orderId);
-    setTransactionRef(orderId);
-
-    try {
-      await savePendingPayment(orderId);
-    } catch (e) {
-      console.error(e);
-      toast.error("Kuch galat hua. Dobara try karo.");
-      return;
-    }
-
-    setPaymentStep("pay");
-    setPaymentStatus("verifying");
-
-    // ✅ FIX: Ab sirf UPI ID copy karo, deep link mat kholo
-    // Customer manually apne UPI app mein jaake pay karega
-    setTimeout(() => {
-      toast.info('📋 UPI ID copy ho gayi! Ab GPay/PhonePe mein paste karo', { duration: 8000 });
-    }, 300);
-
-    startPaymentVerification(orderId);
-  };
-
-  const startPaymentVerification = (orderId) => {
-    let attempts = 0;
-    if (paymentCheckInterval.current) clearInterval(paymentCheckInterval.current);
-
-    paymentCheckInterval.current = setInterval(async () => {
-      attempts++;
-      setVerificationAttempts(attempts);
-      try {
-        const snap = await get(ref(realtimeDB, `pendingPayments/${orderId}/status`));
-        if (snap.exists() && snap.val() === "completed") {
-          clearInterval(paymentCheckInterval.current);
-          setPaymentStatus("completed");
-          setIsPaymentVerified(true);
-          setPaymentStep("verified");
-          toast.success("✅ Payment verified! Ab 'Place Order' dabao.");
-          return;
-        }
-        if (attempts >= 40) {
-          clearInterval(paymentCheckInterval.current);
-          setPaymentStatus("timeout");
-        }
-      } catch (e) { console.error(e); }
-    }, 3000);
-  };
-
-  const verifyPaymentManually = async () => {
-    if (!pendingOrderId) return;
-    setPaymentStatus("verifying");
-
-    try {
-      await update(ref(realtimeDB, `pendingPayments/${pendingOrderId}`), {
-        manualConfirmedAt: Date.now(),
-        manualConfirmedByUser: true,
-        status: 'manual_pending',
-      });
-
-      await push(ref(realtimeDB, 'adminNotifications/payments'), {
-        type: 'manual_payment_confirm',
-        orderId: pendingOrderId,
-        userId: auth.currentUser?.uid,
-        amount: grandTotal,
-        restaurantId: effectiveRestaurantId,
-        message: `User ne manually confirm kiya: ₹${grandTotal} for ${hotelName}`,
-        createdAt: Date.now(),
-        read: false,
-        actionRequired: true,
-      });
-    } catch (e) {
-      console.error(e);
-    }
-
-    setPaymentStatus("manual_pending");
-    toast.info("⏳ Admin ko notify kar diya gaya. Approve hone ke baad order confirm hoga.", { duration: 8000 });
-  };
-
-  useEffect(() => {
-    return () => { if (paymentCheckInterval.current) clearInterval(paymentCheckInterval.current); };
-  }, []);
-  
-  useEffect(() => {
-    const available = getAvailableOrderTypes();
-    if (!isOrderTypeAllowed(orderType) && available.length > 0) {
-      setOrderType(available[0].id);
-    }
-  }, [planFeatures]);
 
   // ─── PLACE ORDER ──────────────────────────────────────────────────────────
   const handlePlaceOrder = async () => {
+    if (!validateForm()) return;
     const validCart = getValidCart();
-    if (validCart.length === 0) { alert("Cart mein valid items nahi hain!"); return; }
-    if (!auth.currentUser) { alert("Login required!"); return; }
-    if (paymentMethod === "online" && !isPaymentVerified) {
-      toast.error("❌ Pehle payment complete karo!");
-      return;
-    }
+    if (validCart.length === 0) { toast.error("Cart mein valid items nahi hain!"); return; }
 
+    setIsPlacing(true);
     const now         = Date.now();
     const maxPrepTime = Math.max(...validCart.map((i) => Number(i.prepTime ?? 15)));
 
+    // Determine userId — logged-in user or guest
+    const userId    = getGuestId();
+    const isGuest   = !auth.currentUser;
+
+    const paymentStatus =
+      orderType === "delivery" ? "cod_pending" : "pay_at_counter";
+
     const orderPayload = {
       restaurantId: effectiveRestaurantId,
-      userId:       auth.currentUser.uid,
+      userId,
+      isGuest,                          // ← flag so admin can distinguish guest orders
       customerInfo: {
         name:  customerName.trim(),
         phone: customerPhone.trim() || null,
         email: customerEmail.trim() || null,
       },
       orderDetails: {
-        type:               orderType,
-        tableNumber:        orderType === "dine-in" ? tableNumber.trim() : null,
-        numberOfGuests:     parseInt(numberOfGuests) || 1,
+        type:                orderType,
+        tableNumber:         orderType === "dine-in" ? tableNumber.trim() : null,
+        numberOfGuests:      parseInt(numberOfGuests) || 1,
         orderDate,
         orderTime,
         specialInstructions: specialInstructions.trim() || null,
@@ -998,9 +804,9 @@ export default function Checkout() {
         },
       }),
       hotelName,
-      paymentMethod,
-      paymentStatus:  paymentMethod === "cash" ? "pending_cash" : "completed",
-      transactionRef: paymentMethod === "online" ? transactionRef : null,
+      paymentMethod:  "cash",
+      paymentStatus,
+      transactionRef: null,
       subtotal:       total,
       deliveryCharge: orderType === "delivery" ? deliveryCharge : 0,
       total:          grandTotal,
@@ -1035,13 +841,7 @@ export default function Checkout() {
       );
       const orderId = newOrderRef.key;
 
-      if (paymentMethod === "online" && pendingOrderId) {
-        await update(ref(realtimeDB, `pendingPayments/${pendingOrderId}`), {
-          finalOrderId: orderId,
-          status:       "completed",
-        });
-      }
-
+      // WhatsApp notification if feature enabled
       if (planFeatures.whatsappOrders && customerPhone) {
         await sendWhatsAppNotification(orderId, validCart);
       }
@@ -1055,7 +855,9 @@ export default function Checkout() {
       );
     } catch (err) {
       console.error("Order failed:", err);
-      alert("Order failed. Please try again.");
+      toast.error("Order failed. Please try again.");
+    } finally {
+      setIsPlacing(false);
     }
   };
 
@@ -1071,7 +873,7 @@ export default function Checkout() {
   };
 
   // ─── EMPTY CART ───────────────────────────────────────────────────────────
-  if (cart.length === 0 && !orderPlaced) {
+  if (cart.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center">
@@ -1083,132 +885,6 @@ export default function Checkout() {
             style={{ borderColor: theme.primary, color: theme.primary }}>
             Menu pe wapas jao →
           </button>
-        </div>
-      </div>
-    );
-  }
-
-
-   // ─── PAYMENT WAITING SCREEN ───────────────────────────────────────────────
-  if (paymentStep === "pay") {
-    return (
-      <div className="min-h-screen bg-gray-50 p-3 sm:p-4 pb-24 flex items-center justify-center">
-        <div className="max-w-md mx-auto w-full">
-          <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
-            <div className="flex items-center gap-3 mb-6">
-              <button onClick={() => setPaymentStep("form")}
-                className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-                <FaArrowLeft className="text-gray-600" />
-              </button>
-              <h2 className="text-xl font-bold" style={{ color: theme.primary }}>
-                💳 Payment
-              </h2>
-            </div>
-
-            <div className="text-center mb-6 pb-6 border-b-2 border-gray-100">
-              <p className="text-gray-500 text-sm mb-1">Amount to Pay</p>
-              <h2 className="text-5xl font-black" style={{ color: theme.primary }}>₹{grandTotal}</h2>
-              <p className="text-xs text-gray-400 mt-2">{hotelName}</p>
-              <p className="text-xs text-gray-400 mt-1 font-mono">Ref: {pendingOrderId?.slice(-12)}</p>
-            </div>
-
-            {/* ✅ UPI ID Copy Section - ONLY reliable method */}
-            <div className="mb-6 p-4 bg-green-50 rounded-xl border-2 border-green-200">
-              <p className="text-sm font-bold text-green-800 mb-3">📲 UPI ID se Pay karo</p>
-              
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex-1 bg-white rounded-lg border-2 border-green-300 px-4 py-3">
-                  <p className="text-xs text-green-600 mb-1">Merchant UPI ID</p>
-                  <p className="font-mono font-bold text-lg text-green-800">{upiId || "Not set"}</p>
-                </div>
-                <button
-                  onClick={copyUpiId}
-                  className="px-4 py-3 rounded-xl font-bold text-sm flex flex-col items-center gap-1 transition-all"
-                  style={{ 
-                    backgroundColor: copiedUpi ? "#16a34a" : theme.primary,
-                    color: "white",
-                    minWidth: "80px"
-                  }}
-                >
-                  {copiedUpi ? <FaCheckCircle /> : <FaCopy />}
-                  <span>{copiedUpi ? "Copied!" : "Copy"}</span>
-                </button>
-              </div>
-
-              <div className="text-left text-xs text-green-700 space-y-1 bg-white rounded-lg p-3">
-                <p className="font-bold mb-2">📝 Steps:</p>
-                <p>1. 👆 <b>"Copy"</b> button dabao — UPI ID copy ho jayegi</p>
-                <p>2. 📱 GPay / PhonePe / Paytm khol</p>
-                <p>3. 🔍 "Pay UPI ID" mein <b>paste</b> karo</p>
-                <p>4. 💰 Amount <b>₹{grandTotal}</b> daalo</p>
-                <p>5. ✅ Pay karo aur wapas aake <b>"Maine Pay Kar Diya"</b> dabao</p>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              {paymentStatus === "manual_pending" && (
-                <div className="space-y-4">
-                  <div className="w-20 h-20 rounded-full bg-amber-100 flex items-center justify-center mx-auto">
-                    <FaClock className="text-4xl text-amber-500" />
-                  </div>
-                  <span className="px-4 py-2 rounded-full bg-amber-100 text-amber-700 text-sm font-bold inline-flex items-center gap-2">
-                    ⏳ Admin Verification Pending
-                  </span>
-                  <p className="text-sm text-gray-600 text-center">
-                    Admin payment verify karega aur order confirm karega.<br/>
-                    <span className="text-xs text-gray-400">Usually 5-10 minutes lagti hai</span>
-                  </p>
-                </div>
-              )}
-              {paymentStatus === "verifying" && (
-                <div className="space-y-4">
-                  <div className="w-20 h-20 rounded-full bg-blue-50 flex items-center justify-center mx-auto">
-                    <FaSpinner className="animate-spin text-4xl text-blue-500" />
-                  </div>
-                  <span className="px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-bold inline-flex items-center gap-2">
-                    <FaSpinner className="animate-spin" /> Verifying... ({verificationAttempts}/40)
-                  </span>
-                  <div className="text-sm text-gray-600 font-medium space-y-1">
-                    <p>Payment ka wait kar rahe hain...</p>
-                    <p className="text-xs text-gray-400">Payment complete hone ke baad "Maine Pay Kar Diya" dabao</p>
-                  </div>
-                </div>
-              )}
-              {paymentStatus === "timeout" && (
-                <div className="space-y-4">
-                  <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mx-auto">
-                    <FaTimes className="text-4xl text-red-500" />
-                  </div>
-                  <span className="px-4 py-2 rounded-full bg-red-100 text-red-700 text-sm font-bold">
-                    ⏰ Verification Timeout
-                  </span>
-                  <p className="text-sm text-gray-600">
-                    Agar payment ho gayi hai, toh "Verify Manually" dabao
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              {(paymentStatus === "verifying" || paymentStatus === "timeout") && (
-                <button onClick={verifyPaymentManually}
-                  className="w-full py-3.5 rounded-xl font-bold text-orange-600 border-2 border-orange-600 hover:bg-orange-50 transition-all">
-                  ⚠️ Maine Pay Kar Diya — Verify Karo
-                </button>
-              )}
-              {paymentStatus === "completed" && (
-                <button onClick={handlePlaceOrder}
-                  className="w-full py-4 rounded-xl font-bold text-lg text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98]"
-                  style={{ backgroundColor: theme.primary }}>
-                  🎉 Place Order Now
-                </button>
-              )}
-              <button onClick={() => setPaymentStep("form")}
-                className="w-full py-3 rounded-xl font-bold text-gray-500 border-2 border-gray-200 hover:bg-gray-50 transition-all">
-                ← Wapas jao (Cash chuno)
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -1229,7 +905,14 @@ export default function Checkout() {
           </button>
           <h2 className="text-2xl font-bold" style={{ color: theme.primary }}>Checkout</h2>
 
-          {subscription && (
+          {/* Guest badge */}
+          {!auth.currentUser && (
+            <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500 border border-gray-200">
+              👤 Guest
+            </div>
+          )}
+
+          {subscription && auth.currentUser && (
             <div className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold"
               style={{
                 backgroundColor: isPlanActive ? theme.primary + '15' : '#fee2e2',
@@ -1243,8 +926,8 @@ export default function Checkout() {
           )}
         </div>
 
-        {/* Plan expired warning */}
-        {!isPlanActive && (
+        {/* Plan expired warning — only for logged-in users */}
+        {auth.currentUser && !isPlanActive && (
           <div className="mb-4 p-4 bg-amber-50 border-2 border-amber-200 rounded-xl flex items-start gap-3">
             <FaLock className="text-amber-600 mt-0.5 shrink-0" />
             <div>
@@ -1285,7 +968,7 @@ export default function Checkout() {
               <span>Delivery Charge</span>
               <span className="font-semibold"
                 style={{ color: deliveryCharge === 0 && selectedZone ? "#16a34a" : "#374151" }}>
-                {selectedZone ? deliveryCharge === 0 ? "FREE" : `₹${deliveryCharge}` : "—"}
+                {selectedZone ? (deliveryCharge === 0 ? "FREE" : `₹${deliveryCharge}`) : "—"}
               </span>
             </div>
           )}
@@ -1347,10 +1030,10 @@ export default function Checkout() {
                 }}
                 className="p-3 rounded-xl border-2 font-semibold text-sm transition-all"
                 style={{
-                  borderColor:       orderType === type.id ? theme.primary : "#e5e7eb",
-                  backgroundColor:   orderType === type.id ? theme.primary : "white",
-                  color:             orderType === type.id ? "white" : theme.primary,
-                  transform:         orderType === type.id ? "scale(1.02)" : "scale(1)",
+                  borderColor:     orderType === type.id ? theme.primary : "#e5e7eb",
+                  backgroundColor: orderType === type.id ? theme.primary : "white",
+                  color:           orderType === type.id ? "white" : theme.primary,
+                  transform:       orderType === type.id ? "scale(1.02)" : "scale(1)",
                 }}>
                 <div className="text-lg mb-1">{type.icon}</div>
                 <div className="text-xs sm:text-sm">{type.label}</div>
@@ -1400,63 +1083,47 @@ export default function Checkout() {
           />
         </div>
 
-        {/* Payment Method */}
-        <div className="border-2 rounded-xl p-4 mb-6">
-          <h3 className="font-bold text-gray-700 mb-3">💳 Payment Method</h3>
-
-          <label
-            className="flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer mb-3 transition-all"
-            style={{
-              borderColor:     paymentMethod === "online" ? theme.primary : "#e5e7eb",
-              backgroundColor: paymentMethod === "online" ? theme.primary + "08" : "white",
-            }}>
-            <input type="radio" checked={paymentMethod === "online"}
-              onChange={() => setPaymentMethod("online")}
-              className="w-5 h-5" style={{ accentColor: theme.primary }} />
-            <div className="flex-1">
-              <span className="font-bold block">Online Payment (UPI)</span>
-              <span className="text-xs text-gray-500">UPI ID copy karke GPay/PhonePe se pay</span>
+        {/* Payment Info Box */}
+        <div className="border-2 rounded-xl p-4 mb-6"
+          style={{ borderColor: theme.primary + "30", backgroundColor: theme.primary + "05" }}>
+          <h3 className="font-bold text-gray-700 mb-2">💳 Payment</h3>
+          {orderType === "delivery" ? (
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">💵</span>
+              <div>
+                <p className="font-bold text-gray-800">Cash on Delivery</p>
+                <p className="text-xs text-gray-500">Delivery boy aayega tab cash ya UPI se pay karna hoga</p>
+              </div>
             </div>
-          </label>
-
-          <label
-            className="flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all"
-            style={{
-              borderColor:     paymentMethod === "cash" ? theme.primary : "#e5e7eb",
-              backgroundColor: paymentMethod === "cash" ? theme.primary + "08" : "white",
-            }}>
-            <input type="radio" checked={paymentMethod === "cash"}
-              onChange={() => setPaymentMethod("cash")} className="w-5 h-5" />
-            <div className="flex-1">
-              <span className="font-bold block">
-                {orderType === "delivery" ? "💵 Cash on Delivery" : "💵 Pay at Counter"}
-              </span>
-              <span className="text-xs text-gray-500">
-                {orderType === "delivery"
-                  ? "Delivery boy ko cash dena hoga"
-                  : "Counter pe payment karo"}
-              </span>
+          ) : (
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🏪</span>
+              <div>
+                <p className="font-bold text-gray-800">Pay at Counter</p>
+                <p className="text-xs text-gray-500">Order place karo — counter pe aake cash ya UPI se pay karo</p>
+              </div>
             </div>
-          </label>
+          )}
         </div>
 
         {/* CTA */}
-        {paymentMethod === "cash" ? (
-          <button onClick={handlePlaceOrder} disabled={isLoading}
-            className="w-full py-4 rounded-xl font-bold text-lg text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ backgroundColor: theme.primary }}>
-            {isLoading
-              ? <span className="flex items-center justify-center gap-2"><FaSpinner className="animate-spin" /> Loading...</span>
-              : `Place Order • ₹${grandTotal}`}
-          </button>
-        ) : (
-          <button onClick={handleUpiPayment}
-            className="w-full py-4 rounded-xl font-bold text-lg text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] flex items-center justify-center gap-3"
-            style={{ backgroundColor: "#16a34a" }}>
-            <FaMobileAlt size={20} />
-            Pay ₹{grandTotal} — UPI ID Copy Karo →
-          </button>
-        )}
+        <button
+          onClick={handlePlaceOrder}
+          disabled={isLoading || isPlacing}
+          className="w-full py-4 rounded-xl font-bold text-lg text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ backgroundColor: theme.primary }}>
+          {isLoading
+            ? <span className="flex items-center justify-center gap-2"><FaSpinner className="animate-spin" /> Loading...</span>
+            : isPlacing
+            ? <span className="flex items-center justify-center gap-2"><FaSpinner className="animate-spin" /> Order place ho raha hai...</span>
+            : `✅ Place Order • ₹${grandTotal}`}
+        </button>
+
+        <p className="text-center text-xs text-gray-400 mt-3">
+          {orderType === "delivery"
+            ? "💵 Payment delivery ke waqt hogi"
+            : "🏪 Counter pe payment karo — Cash ya UPI dono accepted"}
+        </p>
 
       </div>
     </div>
