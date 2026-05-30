@@ -976,32 +976,35 @@ useEffect(() => {
     }
   }, []);
 
-  const updateActiveOrders = useCallback((data) => {
-    const TWO_MINUTES = 2 * 60 * 1000;
-    const now = Date.now();
+const updateActiveOrders = useCallback((data) => {
+  const TWO_MINUTES = 2 * 60 * 1000;
+  const now = Date.now();
 
-   const myOrders = Object.entries(data)
-  .filter(([id, order]) => {
-    if (order.userId !== userId) return false;
-        if (viewedOrdersRef.current.has(id)) return false;
-       if (order.billOpened) return false;
+  const myOrders = Object.entries(data)
+    .filter(([id, order]) => {
+      const currentUserId = userId || localStorage.getItem("khaatogo_guest_id");
+      if (order.userId !== currentUserId) return false;
+      // ★ HATA DIYA: viewedOrdersRef check - ab state se handle hota hai
+      if (order.billOpened) return false;
+      if (order.status === 'completed') {
+        const completedAt = order.completedAt || order.updatedAt || order.createdAt;
+        if (now - completedAt > TWO_MINUTES) return false;
+      }
+      return ['pending','confirmed','preparing','ready','completed'].includes(order.status);
+    })
+    .map(([id, order]) => ({
+      id,
+      ...order,
+      total: Number(order.total) || 0
+    }))
+    .sort((a, b) => b.createdAt - a.createdAt);
 
-        if (order.status === 'completed') {
-          const completedAt = order.completedAt || order.updatedAt || order.createdAt;
-          if (now - completedAt > TWO_MINUTES) return false;
-        }
-
-        return ['pending','confirmed','preparing','ready','completed'].includes(order.status);
-      })
-      .map(([id, order]) => ({
-        id,
-        ...order,
-        total: Number(order.total) || 0
-      }))
-      .sort((a, b) => b.createdAt - a.createdAt);
-
-    setActiveOrder(myOrders);
-  }, [userId, restaurantId]);
+  setActiveOrder(prev => {
+    // ★ ADD: Filter out any viewed orders from previous state
+    const viewed = new Set(viewedOrdersRef.current);
+    return myOrders.filter(order => !viewed.has(order.id));
+  });
+}, [userId, restaurantId]);
 
   const handleCategorySelect = (catId) => {
     if (catId === 'all') {
@@ -1436,16 +1439,29 @@ ${'━'.repeat(30)}
     setReadyNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  const markOrderAsViewed = (orderId) => {
-    viewedOrdersRef.current.add(orderId);
-    setViewedOrders(new Set(viewedOrdersRef.current));
+const markOrderAsViewed = (orderId) => {
+  // 1. Ref update
+  viewedOrdersRef.current.add(orderId);
+  setViewedOrders(new Set(viewedOrdersRef.current));
 
-    const saved = JSON.parse(localStorage.getItem('viewedOrders') || '[]');
-    if (!saved.includes(orderId)) {
-      saved.push(orderId);
-      localStorage.setItem('viewedOrders', JSON.stringify(saved));
-    }
-  };
+  // 2. localStorage save
+  const saved = JSON.parse(localStorage.getItem('viewedOrders') || '[]');
+  if (!saved.includes(orderId)) {
+    saved.push(orderId);
+    localStorage.setItem('viewedOrders', JSON.stringify(saved));
+  }
+
+  // 3. ★ CRITICAL: Remove from activeOrder state immediately so UI updates
+  setActiveOrder(prev => prev.filter(order => order.id !== orderId));
+
+  // 4. Optional: Mark in Firebase too
+  if (restaurantId) {
+    update(rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}`), {
+      viewedByCustomer: true,
+      viewedAt: Date.now()
+    }).catch(() => {});
+  }
+};
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -1722,11 +1738,13 @@ ${'━'.repeat(30)}
       console.error("Error generating bill:", err);
       alert("Bill generate karne mein error aaya: " + err.message);
     }
-   await update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
-  status: "completed",
-  completedAt: Date.now(),
-  billOpened: true
-});
+if (auth.currentUser) {
+    await update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
+      status: "completed",
+      completedAt: Date.now(),
+      billOpened: true
+    });
+  }
 
   };
 
@@ -1784,11 +1802,13 @@ Sent via DineQR
     // Voice notification for bill share
     speakText(`Thank you for coming in ${restaurantName || 'our restaurant'}. We hope to see you again!`);
 
-   update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
-  status: "completed",
-  completedAt: Date.now(),
-  billOpened: true
-});
+   if (auth.currentUser) {
+    update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
+      status: "completed",
+      completedAt: Date.now(),
+      billOpened: true
+    });
+  }
   };
 
   const generateBillText = (order) => {
@@ -2055,18 +2075,20 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
     });
   }, [activeOrder, handleDishReady]);
 
- useEffect(() => {
-  const unsubscribe = auth.onAuthStateChanged((user) => {
-    if (user) {
-      setUserId(user.uid);
-    } else {
-      // Guest ka localStorage ID use karo
-      const guestId = localStorage.getItem("khaatogo_guest_id");
-      setUserId(guestId || null);
-    }
-  });
-  return () => unsubscribe();
-}, []);
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setUserId(user.uid);
+        // Also save to localStorage for consistency
+        localStorage.setItem("khaatogo_guest_id", user.uid);
+      } else {
+        // Guest ka localStorage ID use karo
+        const guestId = localStorage.getItem("khaatogo_guest_id");
+        setUserId(guestId || null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const unlockAudio = () => {
@@ -2099,9 +2121,9 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
   }, []);
 
   useEffect(() => {
-    if (!userId || !restaurantId) return;
+    if (!restaurantId) return;
 
-   const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
+    const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
 
     const unsubscribe = onValue(ordersRef, (snapshot) => {
       const data = snapshot.val();
@@ -2110,8 +2132,11 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
         return;
       }
 
+      // Get current user ID (logged in or guest)
+      const currentUserId = userId || localStorage.getItem("khaatogo_guest_id");
+
       Object.entries(data).forEach(([orderId, order]) => {
-        if (order.userId !== userId) return;
+        if (order.userId !== currentUserId) return;
         if (order.restaurantId !== restaurantId) return;
 
         const prevStatus = prevOrdersRef.current[orderId]?.status;
@@ -2229,14 +2254,21 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
     recognition.start();
   };
 
-  const handleOrderClick = (item, action = "order") => {
-    if (!item || !item.id) {
-      console.error("Invalid item passed to handleOrderClick:", item);
-      return;
-    }
-    setTasteItem(item);
-    setTasteAction(action);
-  };
+const handleOrderClick = (item, action = "order") => {
+  if (!item || !item.id) {
+    console.error("Invalid item passed to handleOrderClick:", item);
+    return;
+  }
+  
+  // ★ ADD: Ensure restaurantId is available
+  if (!restaurantId && !slug) {
+    toast.error("Restaurant ID not found. Please refresh.");
+    return;
+  }
+  
+  setTasteItem(item);
+  setTasteAction(action);
+};
 
   let filteredItems = [...items];
   if (search.trim()) {
@@ -3317,72 +3349,92 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
         </p>
       </div>
 
-      <div className="flex gap-3 mt-4">
-        <button
-          onClick={() => {
-            const payload = {
-              id: tasteItem.id,
-              name: tasteItem.name || "Unnamed Item",
-              price: Number(tasteItem.price) || 0,
-              image: tasteItem.imageUrl || tasteItem.image || "",
-              prepTime: Number(tasteItem.prepTime ?? 15),
-              dishTasteProfile: tasteItem.dishTasteProfile,
-              vegType: tasteItem.vegType || "",
-              description: tasteItem.description || "",
-              specialInstructions: dishNotes[tasteItem.id] || "",
-              spicePreference: tasteItem.dishTasteProfile !== "sweet" 
-                ? (spiceSelections[tasteItem.id] || "normal") : null,
-              sweetLevel: tasteItem.dishTasteProfile === "sweet" 
-                ? (sweetSelections[tasteItem.id] || "normal") : null,
-              saltPreference: tasteItem.dishTasteProfile === "sweet" 
-                ? null : (saltSelections[tasteItem.id] || "normal"),
-              salad: tasteItem.saladConfig?.enabled 
-                ? { qty: saladSelections[tasteItem.id] ? 1 : 0, taste: saladTaste[tasteItem.id] || "normal" } 
-                : { qty: 0, taste: "normal" }
-            };
+   <div className="flex gap-3 mt-4">
+  <button
+    onClick={() => {
+      const payload = {
+        id: tasteItem.id,
+        name: tasteItem.name || "Unnamed Item",
+        price: Number(tasteItem.price) || 0,
+        image: tasteItem.imageUrl || tasteItem.image || "",
+        prepTime: Number(tasteItem.prepTime ?? 15),
+        dishTasteProfile: tasteItem.dishTasteProfile,
+        vegType: tasteItem.vegType || "",
+        description: tasteItem.description || "",
+        specialInstructions: dishNotes[tasteItem.id] || "",
+        spicePreference: tasteItem.dishTasteProfile !== "sweet" 
+          ? (spiceSelections[tasteItem.id] || "normal") : null,
+        sweetLevel: tasteItem.dishTasteProfile === "sweet" 
+          ? (sweetSelections[tasteItem.id] || "normal") : null,
+        saltPreference: tasteItem.dishTasteProfile === "sweet" 
+          ? null : (saltSelections[tasteItem.id] || "normal"),
+        salad: tasteItem.saladConfig?.enabled 
+          ? { qty: saladSelections[tasteItem.id] ? 1 : 0, taste: saladTaste[tasteItem.id] || "normal" } 
+          : { qty: 0, taste: "normal" }
+      };
 
-            if (tasteAction === "whatsapp") {
-              setWhatsAppPayload(payload);
-              setTasteItem(null);
-              setTasteAction(null);
-              setShowWhatsAppCustomerModal(true);
-            } else {
-              addToCart(payload);
-              if (tasteAction === "order") setSelectedItem(tasteItem);
-              setTasteItem(null);
-              setTasteAction(null);
-            }
-          }}
-          style={{
-            backgroundColor: '#ffffff',
-            border: `2px solid ${tasteAction === "whatsapp" ? "#25D366" : theme.primary}`,
-            color: tasteAction === "whatsapp" ? "#25D366" : theme.primary,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
-            e.currentTarget.style.color = '#ffffff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#ffffff';
-            e.currentTarget.style.color = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
-          }}
-          className="flex-1 py-3 rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
-        >
-          {tasteAction === "order" ? (
-            <span className="flex items-center justify-center gap-2">
-              <IoFlash className="w-4 h-4" /> Confirm Order
-            </span>
-          ) : tasteAction === "cart" ? (
-            <span className="flex items-center justify-center gap-2">
-              <IoCartOutline className="w-4 h-4" /> Add To Cart
-            </span>
-          ) : (
-            <span className="flex items-center justify-center gap-2">
-              <FaWhatsapp className="w-4 h-4" /> Order via WhatsApp
-            </span>
-          )}
-        </button>
-      </div>
+      if (tasteAction === "whatsapp") {
+        setWhatsAppPayload(payload);
+        setTasteItem(null);
+        setTasteAction(null);
+        setShowWhatsAppCustomerModal(true);
+      } else if (tasteAction === "order") {
+        // ★ ORDER NOW: Add to cart AND navigate to checkout with restaurantId
+        addToCart(payload);
+        
+        const rid = restaurantId || slug;
+        if (rid) {
+          navigate(`/checkout/${rid}`, { 
+            state: { 
+              cartItems: [payload],
+              restaurantId: rid,
+              restaurantName: restaurantName || restaurantSettings?.name,
+              fromDirectOrder: true
+            } 
+          });
+        } else {
+          toast.error("Restaurant ID missing. Cannot checkout.");
+        }
+        
+        setTasteItem(null);
+        setTasteAction(null);
+      } else {
+        // ★ ADD TO CART: Just add to cart, don't navigate
+        addToCart(payload);
+        setTasteItem(null);
+        setTasteAction(null);
+      }
+    }}
+    style={{
+      backgroundColor: '#ffffff',
+      border: `2px solid ${tasteAction === "whatsapp" ? "#25D366" : theme.primary}`,
+      color: tasteAction === "whatsapp" ? "#25D366" : theme.primary,
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.backgroundColor = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
+      e.currentTarget.style.color = '#ffffff';
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.backgroundColor = '#ffffff';
+      e.currentTarget.style.color = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
+    }}
+    className="flex-1 py-3 rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
+  >
+    {tasteAction === "order" ? (
+      <span className="flex items-center justify-center gap-2">
+        <IoFlash className="w-4 h-4" /> Confirm Order
+      </span>
+    ) : tasteAction === "cart" ? (
+      <span className="flex items-center justify-center gap-2">
+        <IoCartOutline className="w-4 h-4" /> Add To Cart
+      </span>
+    ) : (
+      <span className="flex items-center justify-center gap-2">
+        <FaWhatsapp className="w-4 h-4" /> Order via WhatsApp
+      </span>
+    )}
+  </button>
+</div>
     </div>
   </div>
 )}

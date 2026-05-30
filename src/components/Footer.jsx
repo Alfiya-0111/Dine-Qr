@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { realtimeDB as db } from "../firebaseConfig";
 import { ref, onValue } from "firebase/database";
-import khaatogologo from "../assets/khaatogologo.png";
+import khaatogologo from "../assets/khaatogo_logo.png";
 import { QrCode, MessageSquare, Shield, Zap, CheckCircle2 } from 'lucide-react';
 import { 
   FaWhatsapp, FaInstagram, FaFacebook, FaTwitter, FaYoutube, FaLinkedin
@@ -85,10 +85,11 @@ export default function Footer() {
             {/* Brand Column */}
             <div className="lg:col-span-2">
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-9 h-9 bg-gradient-to-br from-[#8A244B] to-[#B45253] rounded-xl flex items-center justify-center shadow-md">
-                  <QrCode className="w-5 h-5 text-white" />
-                </div>
-                <img src={khaatogologo} alt="Khaatogo" className="h-7 w-auto" />
+               
+                   <img src={khaatogologo} alt="Khaatogo" style={{
+                   height: "auto",
+                   width: "auto"
+                 }} />
               </div>
 
               <p className="text-gray-400 text-sm leading-relaxed mb-6 max-w-sm">
