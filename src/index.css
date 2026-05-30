@@ -1,3 +1,5 @@
+body { background: var(--dark); margin: 0; padding: 0; overflow-x: hidden; }
+
 .application_logo {
     width: 275px;
     height: 83px;
@@ -219,4 +221,12 @@
 
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-out;
+}
+@media (max-width: 480px) {
+  .fab-whatsapp { 
+    bottom: 20px !important; 
+    right: 16px !important; 
+    width: 48px !important; 
+    height: 48px !important; 
+  }
 }

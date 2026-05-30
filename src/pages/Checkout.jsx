@@ -739,18 +739,10 @@ export default function Checkout() {
   };
 
   // ─── HELPER: generate a guest ID ──────────────────────────────────────────
-  // Uses logged-in UID if available, otherwise creates/reuses a guest ID in localStorage
-  const getGuestId = () => {
-    if (auth.currentUser) return auth.currentUser.uid;
-    let gid = localStorage.getItem("khaatogo_guest_id");
-    if (!gid) {
-      gid = "guest_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
-      localStorage.setItem("khaatogo_guest_id", gid);
-    }
-    return gid;
-  };
+ 
 
   // ─── PLACE ORDER ──────────────────────────────────────────────────────────
+   // ─── PLACE ORDER ──────────────────────────────────────────────────────────
   const handlePlaceOrder = async () => {
     if (!validateForm()) return;
     const validCart = getValidCart();
@@ -760,17 +752,24 @@ export default function Checkout() {
     const now         = Date.now();
     const maxPrepTime = Math.max(...validCart.map((i) => Number(i.prepTime ?? 15)));
 
-    // Determine userId — logged-in user or guest
-    const userId    = getGuestId();
+    // Guest checkout: ALWAYS create/use guest ID, no auth dependency
     const isGuest   = !auth.currentUser;
+    const userId    = isGuest 
+      ? (localStorage.getItem("khaatogo_guest_id") || `guest_${now}_${Math.random().toString(36).slice(2, 8)}`)
+      : auth.currentUser.uid;
+    
+    // Save guest ID for future orders
+    if (isGuest) {
+      localStorage.setItem("khaatogo_guest_id", userId);
+    }
 
     const paymentStatus =
       orderType === "delivery" ? "cod_pending" : "pay_at_counter";
 
     const orderPayload = {
       restaurantId: effectiveRestaurantId,
-      userId,
-      isGuest,                          // ← flag so admin can distinguish guest orders
+      userId,                          // ← same ID for guest or logged-in
+      isGuest,                         // ← flag for admin to know
       customerInfo: {
         name:  customerName.trim(),
         phone: customerPhone.trim() || null,
@@ -841,6 +840,13 @@ export default function Checkout() {
       );
       const orderId = newOrderRef.key;
 
+      // Save order reference for guest to track
+      if (isGuest) {
+        const guestOrders = JSON.parse(localStorage.getItem("khaatogo_guest_orders") || "[]");
+        guestOrders.push({ orderId, restaurantId: effectiveRestaurantId, createdAt: now });
+        localStorage.setItem("khaatogo_guest_orders", JSON.stringify(guestOrders));
+      }
+
       // WhatsApp notification if feature enabled
       if (planFeatures.whatsappOrders && customerPhone) {
         await sendWhatsAppNotification(orderId, validCart);
@@ -860,7 +866,6 @@ export default function Checkout() {
       setIsPlacing(false);
     }
   };
-
   const sendWhatsAppNotification = async (orderId, items) => {
     try {
       await push(ref(realtimeDB, 'whatsappNotifications'), {

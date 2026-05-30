@@ -9,7 +9,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Pagination, Autoplay, Navigation } from 'swiper/modules';
 import { ref, onValue, push, set, serverTimestamp } from 'firebase/database';
 import { realtimeDB as db } from './firebaseConfig';
-import khaatogologo from '../src/assets/khaatogologo.png';
+import khaatogologo from '../src/assets/khaatogo_logo.png';
 import { reviewWithAI } from '../src/hooks/useAIReview';
 import {
   QrCode, MessageSquare, Calendar, TrendingUp, Utensils, Palette,
@@ -1471,7 +1471,7 @@ const HomePage = () => {
 
       <style>{GLOBAL_CSS}</style>
 
-      <div data-theme={theme} style={{ minHeight: '100vh', background: 'var(--dark)', fontFamily: 'var(--font-body)', overflowX: 'hidden' }}>
+     <div data-theme={theme} style={{ minHeight: '100vh', background: 'var(--dark)', fontFamily: 'var(--font-body)' }}>
 
         {/* ── Announcement ticker ──────────────────────────────────────── */}
         <div className="ticker-top" style={{ background: 'var(--ticker-bg)', padding: '9px 0', overflow: 'hidden', position: 'relative' }}>
@@ -1496,10 +1496,13 @@ const HomePage = () => {
           <div className='nav_it' style={{ maxWidth: 1140, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: isMobile ? 60 : 68 }}>
             {/* Logo */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => navigate('/')}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg, var(--maroon), var(--maroon2))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(138,36,75,0.35)', flexShrink: 0 }}>
+              {/* <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg, var(--maroon), var(--maroon2))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(138,36,75,0.35)', flexShrink: 0 }}>
                 <QrCode style={{ width: 17, height: 17, color: '#fff' }} />
-              </div>
-              <img src={khaatogologo} alt="Khaatogo" style={{ height: isMobile ? 22 : 26, width: 'auto', filter: isDark ? 'brightness(10)' : 'brightness(0.2) sepia(1) hue-rotate(320deg) saturate(2)' }} />
+              </div> */}
+              <img src={khaatogologo} alt="Khaatogo" style={{
+    height: "auto",
+    width: "auto"
+  }} />
             </div>
 
             {/* Desktop nav links */}
@@ -2093,10 +2096,11 @@ const HomePage = () => {
             {/* Brand Column */}
             <div className="lg:col-span-2">
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-9 h-9 bg-gradient-to-br from-[#8A244B] to-[#B45253] rounded-xl flex items-center justify-center shadow-md">
-                  <QrCode className="w-5 h-5 text-white" />
-                </div>
-                <img src={khaatogologo} alt="Khaatogo" className="h-7 w-auto" />
+                
+                  <img src={khaatogologo} alt="Khaatogo" style={{
+    height: "auto",
+    width: "auto"
+  }} />
               </div>
 
               <p className="text-gray-400 text-sm leading-relaxed mb-6 max-w-sm">
@@ -2223,6 +2227,7 @@ const HomePage = () => {
         href="https://wa.me/916352799072?text=Hi%20KhaatogoQR%20team,%20I%20need%20help%20with%20my%20restaurant"
         target="_blank"
         rel="noreferrer"
+         className="fab-whatsapp"  
         style={{
           position: 'fixed',
           bottom: isMobile ? 16 : 24,
@@ -2271,10 +2276,40 @@ const HomePage = () => {
         )}
 
         {/* ── FEEDBACK MODAL ────────────────────────────────────────────── */}
-        <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
+     <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
       </div>
+
+      {/* WhatsApp FAB — data-theme div ke BAHAR */}
+      
+     <a   href="https://wa.me/916352799072?text=Hi%20KhaatogoQR%20team,%20I%20need%20help%20with%20my%20restaurant"
+        target="_blank"
+        rel="noreferrer"
+        style={{
+          position: 'fixed',
+          bottom: isMobile ? 20 : 28,
+          right: isMobile ? 16 : 24,
+          zIndex: 9999,
+          width: isMobile ? 48 : 56,
+          height: isMobile ? 48 : 56,
+          background: '#22c55e',
+          color: '#fff',
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 8px 32px rgba(34,197,94,0.4)',
+          textDecoration: 'none',
+          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(34,197,94,0.5)'; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(34,197,94,0.4)'; }}
+        title="Chat on WhatsApp"
+      >
+        <FaWhatsapp style={{ fontSize: isMobile ? 22 : 26 }} />
+      </a>
     </>
   );
 };
+  
 
 export default HomePage;

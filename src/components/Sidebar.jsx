@@ -11,6 +11,7 @@ const navItems = [
   { to: "feedback", label: "Customer Feedback", icon: "💬" },
   { to: "feedback-admin", label: "Home Feedback", icon: "📝" },
   { to: "delivery-management", label: "Delivery Boys", icon: "🛵" },
+  { to: "inventory", label: "Inventory", icon: "📦", comingSoon: true },
   { to: "subscription", label: "Subscription", icon: "💳" },
   { to: "payment-status", label: "Payment Status", icon: "💰" },
   { to: "multi-branch", label: "Multi-Branch", icon: "🏢" },
@@ -294,18 +295,35 @@ export default function Sidebar({ isOpen, onClose }) {
 
         {/* Navigation */}
         <nav className="sb-nav">
-          {navItems.map(({ to, label, icon }) => (
-            <NavLink
-              key={to}
-              to={`/dashboard/${restaurantId}/${to}`}
-              className={({ isActive }) => `sb-link${isActive ? " active" : ""}`}
-              onClick={onClose}
-            >
-              <span className="sb-icon">{icon}</span>
-              <span className="sb-label">{label}</span>
-              <span className="sb-dot" />
-            </NavLink>
-          ))}
+         {navItems.map(({ to, label, icon, comingSoon }) => (
+  comingSoon ? (
+    <div key={to} className="sb-link" style={{ opacity: 0.5, cursor: "not-allowed" }}>
+      <span className="sb-icon">{icon}</span>
+      <span className="sb-label">{label}</span>
+      <span style={{
+        fontSize: "9px",
+        background: "#FFD166",
+        color: "#6B1535",
+        borderRadius: "4px",
+        padding: "1px 5px",
+        fontWeight: 700,
+        letterSpacing: "0.5px",
+        flexShrink: 0
+      }}>SOON</span>
+    </div>
+  ) : (
+    <NavLink
+      key={to}
+      to={`/dashboard/${restaurantId}/${to}`}
+      className={({ isActive }) => `sb-link${isActive ? " active" : ""}`}
+      onClick={onClose}
+    >
+      <span className="sb-icon">{icon}</span>
+      <span className="sb-label">{label}</span>
+      <span className="sb-dot" />
+    </NavLink>
+  )
+))}
         </nav>
 
         {/* Footer */}

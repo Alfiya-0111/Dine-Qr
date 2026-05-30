@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { ref, onValue, update, remove, get, query, orderByChild } from "firebase/database";
+import { ref, onValue, update, remove, get } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { initWhatsAppAutoProcessor } from "../utils/whatsappAutoProcessor";
@@ -142,15 +142,32 @@ export default function AdminOrders() {
     }
   };
 
-  // ── AUTH ──
+    useEffect(() => {
+    if (paramId && !restaurantId) {
+      setRestaurantId(paramId);
+      localStorage.setItem("khaatogo_admin_uid", paramId);
+    }
+  }, [paramId, restaurantId]);
+
+   // ── AUTH ──
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
-      if (user) setRestaurantId(user.uid);
-      else setRestaurantId(null);
+      if (user) {
+        setRestaurantId(user.uid);
+        localStorage.setItem("khaatogo_admin_uid", user.uid);
+      } else {
+        // ★ FIX: Don't logout on guest orders - check fallback first
+        const fallbackId = paramId || localStorage.getItem("khaatogo_admin_uid");
+        if (fallbackId) {
+          setRestaurantId(fallbackId);
+        } else {
+          setRestaurantId(null);
+        }
+      }
       setLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [paramId]);
 
   // ── LOAD SUBSCRIPTION ──
   useEffect(() => {
@@ -232,12 +249,9 @@ export default function AdminOrders() {
   };
 
   // ── ORDERS LISTENER ──
-  // ✅ FIX: /orders/{restaurantId}/ path — sirf is restaurant ke orders
-  // Isse 1000 restaurants ke orders ek saath load nahi honge
   useEffect(() => {
     if (!restaurantId) return;
 
-    // ✅ CORRECT PATH: orders/{restaurantId} — isolated per restaurant
     const ordersRef = ref(realtimeDB, `orders/${restaurantId}`);
 
     const unsub = onValue(ordersRef, (snap) => {
@@ -248,12 +262,11 @@ export default function AdminOrders() {
         return;
       }
 
-      // Data already is this restaurant's orders only — no filtering needed
       const myOrders = Object.entries(data)
         .map(([id, o]) => ({
           id,
           ...o,
-          restaurantId, // ensure it's set
+          restaurantId,
           source: o.type || o.source || "regular",
         }))
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -289,7 +302,6 @@ export default function AdminOrders() {
     if (completingOrdersRef.current.has(orderId)) return;
     completingOrdersRef.current.add(orderId);
     try {
-      // ✅ FIX: correct path
       const snap = await get(ref(realtimeDB, `orders/${restaurantId}/${orderId}`));
       if (!snap.exists()) return;
       const d = snap.val();
@@ -326,7 +338,6 @@ export default function AdminOrders() {
   }, [autoCompleteEnabled, planFeatures.autoComplete]);
 
   // ── STATUS UPDATE ──
-  // ✅ FIX: correct path
   const updateStatus = async (id, status) => {
     const order = ordersRefState.current.find(o => o.id === id);
     const t = Date.now();
@@ -339,14 +350,12 @@ export default function AdminOrders() {
     await update(ref(realtimeDB, `orders/${restaurantId}/${id}`), updates);
   };
 
-  // ✅ FIX: correct path
   const deleteOrder = async (id) => {
     if (!window.confirm("Delete this order permanently?")) return;
     await remove(ref(realtimeDB, `orders/${restaurantId}/${id}`));
     await remove(ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`)).catch(() => {});
   };
 
-  // ✅ FIX: correct path
   const generateBill = async (order) => {
     if (order.bill) { alert("Bill already generated!"); return; }
     const billData = {
@@ -434,7 +443,8 @@ export default function AdminOrders() {
     );
   }
 
-  if (!restaurantId) {
+  const effectiveRestaurantId = restaurantId || paramId || localStorage.getItem("khaatogo_admin_uid");
+  if (!effectiveRestaurantId) {
     return (
       <div style={{ padding: 24, color: "#dc2626", fontFamily: "'Sora', sans-serif", fontWeight: 600 }}>
         Please login as admin
