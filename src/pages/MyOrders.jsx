@@ -347,7 +347,8 @@ export default function MyOrders() {
     if (!userId || !restaurantId) return;
     setLoading(true);
 
-    const ordersRef = rtdbRef(realtimeDB, "orders");
+const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
+
     const unsub = onValue(ordersRef, snap => {
       const data = snap.val();
       if (!data) { setOrders([]); setLoading(false); return; }

@@ -1857,7 +1857,7 @@ const HomePage = () => {
                         </div>
                       ))}
                     </div>
-                    <button onClick={() => window.open('https://www.khaatogo.com/menu/NhIbH4whfIWIUu4raonrqlEiYUr1', '_blank')} style={{
+                    <button onClick={() => window.open('https://www.khaatogo.com/menu/teZtUXhLuqS4RD9vHLjKPRlEEpm1', '_blank')} style={{
                       background: 'linear-gradient(135deg, var(--maroon), var(--maroon2))', color: '#fff',
                       border: 'none', padding: '14px 28px', borderRadius: 100, cursor: 'pointer',
                       fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15,
@@ -2292,7 +2292,7 @@ const HomePage = () => {
                   <Play style={{ width: 26, height: 26, fill: '#fff', color: '#fff', marginLeft: 4 }} />
                 </div>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--text3)' }}>Demo video coming soon!</p>
-                <a href="https://www.khaatogo.com/menu/NhIbH4whfIWIUu4raonrqlEiYUr1" target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, color: 'var(--maroon)', textDecoration: 'none' }}>
+                <a href="https://www.khaatogo.com/dashboard/teZtUXhLuqS4RD9vHLjKPRlEEpm1/revenue" target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14, color: 'var(--maroon)', textDecoration: 'none' }}>
                   View live demo menu instead →
                 </a>
               </div>
