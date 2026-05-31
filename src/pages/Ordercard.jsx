@@ -410,18 +410,32 @@ export function Ordercard({
 
                     {/* Taste tags */}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
-                      {item.dishTasteProfile === "sweet" ? (
-                        <>
-                          <TasteBadge type="sweetness" level={item.sweetLevel} />
-                          <TasteBadge type="salt"      level={item.saltPreference} />
-                        </>
-                      ) : (
-                        <>
-                          <TasteBadge type="spiciness" level={item.spicePreference} />
-                          <TasteBadge type="salt"      level={item.saltPreference} />
-                        </>
-                      )}
-                      <SaladBadge include={item.salad?.qty > 0} />
+                {(() => {
+  const isSweetDish = item.dishTasteProfile === "sweet";
+  const spice = item.spicePreference || item.spicinessLevel;
+  const sweet = item.sweetLevel || item.sweetnessLevel;
+  const salt = item.saltPreference || item.saltLevel;
+  
+  return (
+    <>
+      {/* 🌶️ SPICE - Only for non-sweet dishes */}
+      {!isSweetDish && spice && spice !== "normal" && (
+        <TasteBadge type="spiciness" level={spice} />
+      )}
+      
+      {/* 🍰 SWEETNESS - Only for sweet dishes */}
+      {isSweetDish && sweet && sweet !== "normal" && (
+        <TasteBadge type="sweetness" level={sweet} />
+      )}
+      
+      {/* 🧂 SALT - Only for non-sweet dishes (same as cart) */}
+      {!isSweetDish && salt && salt !== "normal" && (
+        <TasteBadge type="salt" level={salt} />
+      )}
+    </>
+  );
+})()}
+<SaladBadge include={item.salad?.qty > 0 || item.includeSalad === true} />
                     </div>
 
                     {/* Item special instructions */}

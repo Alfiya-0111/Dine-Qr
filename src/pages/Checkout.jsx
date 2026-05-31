@@ -743,11 +743,11 @@ export default function Checkout() {
 
   // ─── PLACE ORDER ──────────────────────────────────────────────────────────
   const handlePlaceOrder = async () => {
-    if (!auth.currentUser) {
-      toast.error("Order karne ke liye login karo");
-      navigate(`/login?redirect=/menu/${restaurantId}`);
-      return;
-    }
+   if (!auth.currentUser) {
+  toast.error("Order karne ke liye login karo");
+  navigate(`/menu/${restaurantId}?openLogin=true`);
+  return;
+}
     if (!validateForm()) return;
     const validCart = getValidCart();
     if (validCart.length === 0) { toast.error("Cart mein valid items nahi hain!"); return; }
@@ -803,22 +803,29 @@ export default function Checkout() {
       subtotal:       total,
       deliveryCharge: orderType === "delivery" ? deliveryCharge : 0,
       total:          grandTotal,
-      items: validCart.reduce((acc, item) => {
-        acc[item.id] = {
-          dishId:              item.id,
-          name:                item.name,
-          image:               item.image || "",
-          qty:                 Number(item.qty) || 1,
-          price:               Number(item.price) || 0,
-          prepTime:            Number(item.prepTime ?? 15),
-          sweetnessLevel:      item.sweetLevel || "normal",
-          spicinessLevel:      item.spicePreference || "normal",
-          saltLevel:           item.saltPreference || "normal",
-          includeSalad:        item.salad?.qty > 0 || false,
-          specialInstructions: item.specialInstructions || "",
-        };
-        return acc;
-      }, {}),
+    items: validCart.reduce((acc, item) => {
+  acc[item.id] = {
+    dishId:              item.id,
+    name:                item.name,
+    image:               item.image || "",
+    qty:                 Number(item.qty) || 1,
+    price:               Number(item.price) || 0,
+    prepTime:            Number(item.prepTime ?? 15),
+    // Original preferences (for Ordercard display)
+    spicePreference:     item.spicePreference || "normal",
+    sweetLevel:          item.sweetLevel || null,
+    saltPreference:      item.saltPreference || "normal",
+    salad:               item.salad || { qty: 0, taste: "normal" },
+    dishTasteProfile:    item.dishTasteProfile || "normal",
+    // Also keep normalized fields
+    sweetnessLevel:      item.sweetLevel || "normal",
+    spicinessLevel:      item.spicePreference || "normal",
+    saltLevel:           item.saltPreference || "normal",
+    includeSalad:        item.salad?.qty > 0 || false,
+    specialInstructions: item.specialInstructions || "",
+  };
+  return acc;
+}, {}),
       status:        "confirmed",
       confirmedAt:   now,
       prepStartedAt: now,
@@ -929,17 +936,48 @@ export default function Checkout() {
         <div className="border-2 rounded-xl p-4 mb-5 bg-gray-50">
           <h3 className="font-bold text-gray-700 mb-3">📝 Order Summary</h3>
           <div className="space-y-2 max-h-48 overflow-y-auto">
-            {getValidCart().map((item) => (
-              <div key={item.id} className="flex justify-between py-2 border-b border-gray-200 last:border-0">
-                <div className="flex-1">
-                  <p className="font-semibold text-sm text-gray-800">{item.name}</p>
-                  <p className="text-xs text-gray-500">× {item.qty}</p>
-                </div>
-                <p className="font-bold text-sm" style={{ color: theme.primary }}>
-                  ₹{item.price * item.qty}
-                </p>
-              </div>
-            ))}
+       {getValidCart().map((item) => (
+  <div key={item.id} className="flex justify-between py-2 border-b border-gray-200 last:border-0">
+    <div className="flex-1">
+      <p className="font-semibold text-sm text-gray-800">{item.name}</p>
+      <p className="text-xs text-gray-500">× {item.qty}</p>
+      
+      {/* 🌶️ Spice / 🍯 Sweet / 🧂 Salt / 🥗 Salad */}
+      <div className="flex flex-wrap gap-1 mt-1">
+        {/* 🌶️ SPICE - Only for non-sweet dishes */}
+        {item.dishTasteProfile !== "sweet" && item.spicePreference && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium">
+            🌶️ {item.spicePreference}
+          </span>
+        )}
+        
+        {/* 🍰 SWEETNESS - Only for sweet dishes */}
+        {item.dishTasteProfile === "sweet" && item.sweetLevel && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-pink-100 text-pink-700 font-medium">
+            🍯 {item.sweetLevel}
+          </span>
+        )}
+        
+        {/* 🧂 SALT - Only for non-sweet dishes */}
+        {item.dishTasteProfile !== "sweet" && item.saltPreference && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
+            🧂 {item.saltPreference}
+          </span>
+        )}
+        
+        {/* 🥗 SALAD - Always if present */}
+        {item.salad?.qty > 0 && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
+            🥗 Salad
+          </span>
+        )}
+      </div>
+    </div>
+    <p className="font-bold text-sm flex-shrink-0 ml-3" style={{ color: theme.primary }}>
+      ₹{item.price * item.qty}
+    </p>
+  </div>
+))}
           </div>
         </div>
 

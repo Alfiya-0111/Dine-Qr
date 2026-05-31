@@ -1,8 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { ref, onValue, update, remove, get } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
-import { onAuthStateChanged } from "firebase/auth";
-
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { initWhatsAppAutoProcessor } from "../utils/whatsappAutoProcessor";
 import { useNavigate, useParams } from "react-router-dom";
 import { Ordercard } from "./Ordercard";

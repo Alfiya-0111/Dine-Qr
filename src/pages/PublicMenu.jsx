@@ -2084,16 +2084,23 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
 
 useEffect(() => {
   const unsub = auth.onAuthStateChanged((user) => {
-   const adminUid = localStorage.getItem("khaatogo_admin_uid");
-if (user && user.uid !== adminUid) {
-  setUserId(user.uid);
-} else {
-  setUserId(null);
-}
+    if (user) {
+      setUserId(user.uid);
+    } else {
+      setUserId(null);
+    }
   });
   return () => unsub();
 }, []);
-
+// Login modal auto-open from checkout redirect
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("openLogin") === "true") {
+    requireLogin();
+    // URL clean karo
+    window.history.replaceState({}, "", window.location.pathname);
+  }
+}, [restaurantId]);
   useEffect(() => {
     const unlockAudio = () => {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -3152,13 +3159,13 @@ const handleOrderClick = (item, action = "order") => {
                           </button>
 
                           {/* WhatsApp icon button */}
-                          <button
+                          {/* <button
                             onClick={() => handleOrderClick(item, "whatsapp")}
                             className="w-10 h-10 rounded-xl border-2 border-green-500 text-green-500 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] hover:bg-green-500 hover:text-white"
                             title="Order via WhatsApp"
                           >
-                            <FaWhatsapp className="w-5 h-5" />
-                          </button>
+                            <FaWhatsapp className="w-5 h-5" /> */}
+                          {/* </button> */}
 
                           {/* Reviews/Chat icon button */}
                           <button
