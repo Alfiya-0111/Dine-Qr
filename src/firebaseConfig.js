@@ -1,11 +1,10 @@
-// firebaseConfig.js
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getDatabase } from "firebase/database";
 import { getFunctions } from "firebase/functions";
-// Your Firebase configuration
+
 const firebaseConfig = {
   apiKey: "AIzaSyBMXmog0yjTcmpEb9wbVY288ISBdWxxGUM",
   authDomain: "dineqr-ec134.firebaseapp.com",
@@ -17,16 +16,20 @@ const firebaseConfig = {
   measurementId: "G-RX9DXCRY90",
 };
 
-// Initialize Firebase
+// ── Customer App (default) ─────────────────────────────────────────────────
 const app = initializeApp(firebaseConfig);
 getAnalytics(app);
 
-// ✅ Export main Firebase services
-export const auth = getAuth(app);
-export const db = getFirestore(app); // <-- Firestore database
-export const realtimeDB = getDatabase(app);
-export const firestore = getFirestore(app); // 🔥 Add this line for Firestore
+export const auth        = getAuth(app);
+export const db          = getFirestore(app);
+export const realtimeDB  = getDatabase(app);
+export const firestore   = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
-export const functions = getFunctions(app);
+export const functions   = getFunctions(app);
+
+// ── Admin App (alag instance) ──────────────────────────────────────────────
+const adminApp = initializeApp(firebaseConfig, "adminApp");
+
+export const adminAuth = getAuth(adminApp);
 
 export default app;

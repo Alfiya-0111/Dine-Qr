@@ -80,7 +80,7 @@ const generateBillPDF = async (order, restaurantName, restaurantSettings) => {
   safe(`Order ID: #${order.id.slice(-6).toUpperCase()}`, 10, y);
   safe(`Date: ${new Date(order.createdAt || Date.now()).toLocaleString()}`, pw - 10, y, { align: "right" });
   y += 6;
-  safe(`Customer: ${order.customerName || "Guest"}`, 10, y);
+  safe(`Customer: ${order.customerName || "Customer"}`, 10, y);
   if (order.tableNumber) { safe(`Table: ${order.tableNumber}`, pw - 10, y, { align: "right" }); }
   y += 10;
 
@@ -150,7 +150,7 @@ const OrderCard = ({ order, theme, restaurantName, restaurantSettings }) => {
     const msg = `🧾 *BILL - ${restaurantName || "Restaurant"}*\n\n` +
       `Order #${order.id.slice(-6).toUpperCase()}\n` +
       `Date: ${date.toLocaleString()}\n` +
-      `Customer: ${order.customerName || "Guest"}\n\n` +
+      `Customer: ${order.customerName || "Customer"}\n\n` +
       items.map((i, idx) =>
         `${idx + 1}. ${i.name} x${i.qty || 1} = ₹${((i.price || 0) * (i.qty || 1)).toFixed(0)}`
       ).join("\n") +

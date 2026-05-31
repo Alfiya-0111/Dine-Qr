@@ -1,14 +1,44 @@
 import { signOut } from "firebase/auth";
-import { auth } from "../firebaseConfig";
+import { auth, db } from "../firebaseConfig";
 import { useNavigate, NavLink, useParams } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { doc, getDoc } from "firebase/firestore";
 
 const Navbar = ({ user, onToggleSidebar, sidebarOpen }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [restaurantName, setRestaurantName] = useState("");
   const navigate = useNavigate();
   const { restaurantId } = useParams();
 
-  const displayName = user?.displayName || user?.email?.split("@")[0] || "Admin";
+  // 🔥 FETCH RESTAURANT NAME FROM FIRESTORE
+  useEffect(() => {
+    const fetchRestaurantName = async () => {
+      if (!user?.uid) return;
+      
+      try {
+        const docRef = doc(db, "restaurants", user.uid);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          // Priority: restaurantName > displayName > email prefix
+          const name = data.restaurantName || data.name || user.displayName || user.email?.split("@")[0] || "Admin";
+          setRestaurantName(name);
+        } else {
+          // Fallback if doc not found
+          setRestaurantName(user.displayName || user.email?.split("@")[0] || "Admin");
+        }
+      } catch (error) {
+        console.error("Error fetching restaurant name:", error);
+        setRestaurantName(user.displayName || user.email?.split("@")[0] || "Admin");
+      }
+    };
+
+    fetchRestaurantName();
+  }, [user]);
+
+  const displayName = restaurantName || "Admin";
+  
   const initials = displayName
     .split(" ")
     .map((w) => w[0])
@@ -403,7 +433,17 @@ const Navbar = ({ user, onToggleSidebar, sidebarOpen }) => {
             <span /><span /><span />
           </button>
 
-        
+          {/* Brand */}
+          <div className="kh-brand" onClick={() => navigate(`/dashboard/${restaurantId}/bookingtable`)} style={{ cursor: 'pointer' }}>
+            <div className="kh-logo-wrap">
+              {displayName.slice(0, 2)}
+            </div>
+            <div className="kh-brand-text">
+              <span className="kh-brand-name">{displayName}</span>
+              <span className="kh-brand-sub">Restaurant Admin</span>
+            </div>
+          </div>
+
           {/* Center title — desktop + tablet */}
           <span className="kh-center-title">Restaurant Admin</span>
 

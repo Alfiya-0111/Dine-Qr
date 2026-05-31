@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { ref, onValue, update, remove, get } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
+
 import { initWhatsAppAutoProcessor } from "../utils/whatsappAutoProcessor";
 import { useNavigate, useParams } from "react-router-dom";
 import { Ordercard } from "./Ordercard";
@@ -142,7 +143,7 @@ export default function AdminOrders() {
     }
   };
 
-    useEffect(() => {
+  useEffect(() => {
     if (paramId && !restaurantId) {
       setRestaurantId(paramId);
       localStorage.setItem("khaatogo_admin_uid", paramId);
@@ -156,13 +157,7 @@ export default function AdminOrders() {
         setRestaurantId(user.uid);
         localStorage.setItem("khaatogo_admin_uid", user.uid);
       } else {
-        // ★ FIX: Don't logout on guest orders - check fallback first
-        const fallbackId = paramId || localStorage.getItem("khaatogo_admin_uid");
-        if (fallbackId) {
-          setRestaurantId(fallbackId);
-        } else {
-          setRestaurantId(null);
-        }
+        setRestaurantId(null);
       }
       setLoading(false);
     });
@@ -896,7 +891,6 @@ export default function AdminOrders() {
             order={o}
             now={now}
             isActive={true}
-            isGuest={o.isGuest === true} 
             onDelete={deleteOrder}
             onUpdateStatus={updateStatus}
             onUpdatePayment={updatePaymentStatus}
@@ -937,7 +931,6 @@ export default function AdminOrders() {
             order={o}
             now={now}
             isActive={false}
-             isGuest={o.isGuest === true} 
             onDelete={deleteOrder}
             onUpdateStatus={updateStatus}
             onUpdatePayment={updatePaymentStatus}

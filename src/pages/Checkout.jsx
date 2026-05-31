@@ -613,6 +613,9 @@ export default function Checkout() {
   const theme           = restaurantSettings?.theme || { primary: "#8A244B", border: "#8A244B" };
   const effectiveRestaurantId = restaurantId;
 
+  // ─── AUTH GUARD ──────────────────────────────────────────────────────────
+
+
   // ─── LOAD RESTAURANT DATA ──────────────────────────────────────────────────
   useEffect(() => {
     if (!restaurantId) return;
@@ -738,12 +741,13 @@ export default function Checkout() {
     return true;
   };
 
-  // ─── HELPER: generate a guest ID ──────────────────────────────────────────
- 
-
   // ─── PLACE ORDER ──────────────────────────────────────────────────────────
-   // ─── PLACE ORDER ──────────────────────────────────────────────────────────
   const handlePlaceOrder = async () => {
+    if (!auth.currentUser) {
+      toast.error("Order karne ke liye login karo");
+      navigate(`/login?redirect=/menu/${restaurantId}`);
+      return;
+    }
     if (!validateForm()) return;
     const validCart = getValidCart();
     if (validCart.length === 0) { toast.error("Cart mein valid items nahi hain!"); return; }
@@ -752,24 +756,14 @@ export default function Checkout() {
     const now         = Date.now();
     const maxPrepTime = Math.max(...validCart.map((i) => Number(i.prepTime ?? 15)));
 
-    // Guest checkout: ALWAYS create/use guest ID, no auth dependency
-    const isGuest   = !auth.currentUser;
-    const userId    = isGuest 
-      ? (localStorage.getItem("khaatogo_guest_id") || `guest_${now}_${Math.random().toString(36).slice(2, 8)}`)
-      : auth.currentUser.uid;
-    
-    // Save guest ID for future orders
-    if (isGuest) {
-      localStorage.setItem("khaatogo_guest_id", userId);
-    }
+    const userId = auth.currentUser.uid;
 
     const paymentStatus =
       orderType === "delivery" ? "cod_pending" : "pay_at_counter";
 
     const orderPayload = {
       restaurantId: effectiveRestaurantId,
-      userId,                          // ← same ID for guest or logged-in
-      isGuest,                         // ← flag for admin to know
+      userId,
       customerInfo: {
         name:  customerName.trim(),
         phone: customerPhone.trim() || null,
@@ -840,13 +834,6 @@ export default function Checkout() {
       );
       const orderId = newOrderRef.key;
 
-      // Save order reference for guest to track
-      if (isGuest) {
-        const guestOrders = JSON.parse(localStorage.getItem("khaatogo_guest_orders") || "[]");
-        guestOrders.push({ orderId, restaurantId: effectiveRestaurantId, createdAt: now });
-        localStorage.setItem("khaatogo_guest_orders", JSON.stringify(guestOrders));
-      }
-
       // WhatsApp notification if feature enabled
       if (planFeatures.whatsappOrders && customerPhone) {
         await sendWhatsAppNotification(orderId, validCart);
@@ -866,6 +853,7 @@ export default function Checkout() {
       setIsPlacing(false);
     }
   };
+
   const sendWhatsAppNotification = async (orderId, items) => {
     try {
       await push(ref(realtimeDB, 'whatsappNotifications'), {
@@ -909,13 +897,6 @@ export default function Checkout() {
             <FaArrowLeft className="text-gray-600" />
           </button>
           <h2 className="text-2xl font-bold" style={{ color: theme.primary }}>Checkout</h2>
-
-          {/* Guest badge */}
-          {!auth.currentUser && (
-            <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500 border border-gray-200">
-              👤 Guest
-            </div>
-          )}
 
           {subscription && auth.currentUser && (
             <div className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold"
