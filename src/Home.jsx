@@ -1493,7 +1493,7 @@ const HomePage = () => {
             boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.4)' : '0 8px 32px rgba(138,36,75,0.08)',
           } : {})
         }}>
-          <div className='nav_it' style={{ maxWidth: 1140, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: isMobile ? 60 : 68 }}>
+       <div className='nav_it' style={{ maxWidth: 1140, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: isMobile ? 56 : 64, overflow: 'hidden', boxSizing: 'border-box' }}>
             {/* Logo */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => navigate('/')}>
               {/* <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg, var(--maroon), var(--maroon2))', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(138,36,75,0.35)', flexShrink: 0 }}>
@@ -1516,27 +1516,49 @@ const HomePage = () => {
             </div>
 
             {/* Right controls */}
-            <div className="nav-desktop-ctas">
-              <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
-              <button className="nav-login-btn" onClick={() => navigate('/login')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13, color: 'var(--text2)', padding: '8px 16px', borderRadius: 8 }}
-                onMouseEnter={e => e.target.style.color = 'var(--maroon)'}
-                onMouseLeave={e => e.target.style.color = 'var(--text2)'}
-              >
-                Login
-              </button>
-              <button onClick={() => navigate('/signup')} style={{
-                background: 'linear-gradient(135deg, var(--maroon), var(--maroon2))',
-                color: '#fff', border: 'none', padding: isTablet ? '9px 16px' : '10px 22px', borderRadius: 100,
-                fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isTablet ? 12 : 13, cursor: 'pointer',
-                boxShadow: '0 4px 16px rgba(138,36,75,0.35)', whiteSpace: 'nowrap',
-              }}>
-                {isTablet ? 'Free Trial' : 'Start Free Trial'}
-              </button>
-              {/* Mobile hamburger */}
-              <button className="nav-mobile-toggle" style={{ background: 'none', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '8px', cursor: 'pointer', color: 'var(--text1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setMenuOpen(!menuOpen)}>
-                {menuOpen ? <X style={{ width: 18, height: 18 }} /> : <Menu style={{ width: 18, height: 18 }} />}
-              </button>
-            </div>
+{/* Right controls */}
+<div className="nav-desktop-ctas" style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12 }}>
+  <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
+
+  {/* Login — sirf desktop/tablet */}
+  {!isMobile && (
+    <button
+      className="nav-login-btn"
+      onClick={() => navigate('/login')}
+      style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13, color: 'var(--text2)', padding: '8px 16px', borderRadius: 8 }}
+      onMouseEnter={e => e.target.style.color = 'var(--maroon)'}
+      onMouseLeave={e => e.target.style.color = 'var(--text2)'}
+    >
+      Login
+    </button>
+  )}
+
+  {/* Free Trial — sirf desktop/tablet */}
+  {!isMobile && (
+    <button
+      onClick={() => navigate('/signup')}
+      style={{
+        background: 'linear-gradient(135deg, var(--maroon), var(--maroon2))',
+        color: '#fff', border: 'none', padding: isTablet ? '9px 16px' : '10px 22px', borderRadius: 100,
+        fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isTablet ? 12 : 13, cursor: 'pointer',
+        boxShadow: '0 4px 16px rgba(138,36,75,0.35)', whiteSpace: 'nowrap',
+      }}
+    >
+      {isTablet ? 'Free Trial' : 'Start Free Trial'}
+    </button>
+  )}
+
+  {/* Hamburger — sirf mobile */}
+  {isMobile && (
+    <button
+      className="nav-mobile-toggle"
+      style={{ background: 'none', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '8px', cursor: 'pointer', color: 'var(--text1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={() => setMenuOpen(!menuOpen)}
+    >
+      {menuOpen ? <X style={{ width: 18, height: 18 }} /> : <Menu style={{ width: 18, height: 18 }} />}
+    </button>
+  )}
+</div>
           </div>
 
           {/* Mobile menu */}
@@ -2097,10 +2119,13 @@ const HomePage = () => {
             <div className="lg:col-span-2">
               <div className="flex items-center gap-2 mb-4">
                 
-                  <img src={khaatogologo} alt="Khaatogo" style={{
-    height: "auto",
-    width: "auto"
+                 <img src={khaatogologo} alt="Khaatogo" style={{
+    maxHeight: 40,
+    width: 'auto',
+    objectFit: 'contain',
+    display: 'block'
   }} />
+
               </div>
 
               <p className="text-gray-400 text-sm leading-relaxed mb-6 max-w-sm">
@@ -2223,7 +2248,7 @@ const HomePage = () => {
       </footer>
 
           {/* ── Floating WhatsApp Button ───────────────────────────────────── */}
-      <a
+      {/* <a
         href="https://wa.me/916352799072?text=Hi%20KhaatogoQR%20team,%20I%20need%20help%20with%20my%20restaurant"
         target="_blank"
         rel="noreferrer"
@@ -2250,7 +2275,7 @@ const HomePage = () => {
         title="Chat on WhatsApp"
       >
         <FaWhatsapp style={{ fontSize: isMobile ? 22 : 26 }} />
-      </a>
+      </a> */}
 
         {/* ── VIDEO MODAL ───────────────────────────────────────────────── */}
         {showVideo && (
@@ -2300,6 +2325,9 @@ const HomePage = () => {
           boxShadow: '0 8px 32px rgba(34,197,94,0.4)',
           textDecoration: 'none',
           transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+           marginRight: 0,
+    marginLeft: 0,
+    insetInlineEnd: 'unset',
         }}
         onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(34,197,94,0.5)'; }}
         onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(34,197,94,0.4)'; }}

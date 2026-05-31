@@ -684,6 +684,12 @@ const { cart, addToCart, clearCart, initCartForRestaurant } = useCart();
 
  const { slug } = useParams();
 const [restaurantId, setRestaurantId] = useState(null);
+const handlePublicLogout = async () => {
+  await auth.signOut();
+  clearCart();
+  setUserId(null);
+  setActiveTab("menu");
+};
 useEffect(() => {
   if (!slug) return;
   const fetchId = async () => {
@@ -982,7 +988,8 @@ const updateActiveOrders = useCallback((data) => {
 
   const myOrders = Object.entries(data)
     .filter(([id, order]) => {
-      const currentUserId = userId || localStorage.getItem("khaatogo_guest_id");
+    
+const currentUserId = userId;
       if (order.userId !== currentUserId) return false;
       // ★ HATA DIYA: viewedOrdersRef check - ab state se handle hota hai
       if (order.billOpened) return false;
@@ -1028,7 +1035,7 @@ const updateActiveOrders = useCallback((data) => {
     const message = `
 🍽️ *ORDER FROM ${restaurantName || 'Restaurant'}*
 
-👤 *Customer:* ${user?.displayName || 'Guest'}
+👤 *Customer:* ${user?.displayName || 'Customer'}
 📱 *Phone:* ${user?.phoneNumber || 'N/A'}
 
 *ITEM:*
@@ -1112,7 +1119,7 @@ Sent via DineQR
         id: orderId,
         userId: user.uid,
         restaurantId: String(restaurantId),
-        customerName: customerData?.name || user.displayName || "Guest",
+       customerName: customerData?.name || user.displayName || "Customer",
         customerPhone: customerData?.phone || user.phoneNumber || "",
         customerEmail: user.email || "",
         tableNumber: customerData?.tableNumber || "",
@@ -1343,7 +1350,7 @@ ${'━'.repeat(30)}
         id: orderId,
         userId: user.uid,
         restaurantId: restaurantId,
-        customerName: orderData.customerName || user.displayName || "Guest",
+     customerName: orderData.customerName || user.displayName || "Customer",
         customerPhone: orderData.customerPhone || user.phoneNumber || "",
         customerEmail: user.email || "",
         tableNumber: orderData.tableNumber || "",
@@ -1583,7 +1590,7 @@ const markOrderAsViewed = (orderId) => {
 
         const bill = {
           orderId: String(order.id),
-          customerName: String(order.customerName || order.customerInfo?.name || "Guest"),
+       customerName: String(order.customerName || order.customerInfo?.name || "Customer"),
           hotelName: String(restaurantName || "Restaurant"),
           orderDate: Date.now(),
           items: billItems,
@@ -1758,7 +1765,7 @@ if (auth.currentUser) {
     const message = `
 🧾 *ORDER BILL - ${restaurantName || 'Restaurant'}*
 
-👤 *Customer:* ${bill.customerName || order.customerName || 'Guest'}
+👤 *Customer:* ${bill.customerName || order.customerName || 'Customer'}
 🆔 *Order ID:* #${order.id.slice(-6).toUpperCase()}
 📅 *Date:* ${new Date(order.createdAt || Date.now()).toLocaleString()}
 
@@ -1821,7 +1828,7 @@ Sent via DineQR
     const total = subtotal + gst;
 
     return {
-      customerName: order.customerName || order.customerInfo?.name || 'Guest',
+     customerName: order.customerName || order.customerInfo?.name || 'Customer',
       orderId: order.id,
       items: items.map(i => ({
         name: i.name,
@@ -1868,7 +1875,7 @@ Sent via DineQR
       const waiterRef = push(rtdbRef(realtimeDB, `waiterCalls/${restaurantId}`));
       await set(waiterRef, {
         userId,
-        customerName: auth.currentUser?.displayName || "Guest",
+     customerName: auth.currentUser?.displayName || "Customer",
         customerEmail: auth.currentUser?.email || "",
         tableNumber: tableNumber || "Unknown",
         calledAt: Date.now(),
@@ -2075,20 +2082,17 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
     });
   }, [activeOrder, handleDishReady]);
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setUserId(user.uid);
-        // Also save to localStorage for consistency
-        localStorage.setItem("khaatogo_guest_id", user.uid);
-      } else {
-        // Guest ka localStorage ID use karo
-        const guestId = localStorage.getItem("khaatogo_guest_id");
-        setUserId(guestId || null);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+useEffect(() => {
+  const unsub = auth.onAuthStateChanged((user) => {
+   const adminUid = localStorage.getItem("khaatogo_admin_uid");
+if (user && user.uid !== adminUid) {
+  setUserId(user.uid);
+} else {
+  setUserId(null);
+}
+  });
+  return () => unsub();
+}, []);
 
   useEffect(() => {
     const unlockAudio = () => {
@@ -2133,7 +2137,7 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
       }
 
       // Get current user ID (logged in or guest)
-      const currentUserId = userId || localStorage.getItem("khaatogo_guest_id");
+       const currentUserId = userId;
 
       Object.entries(data).forEach(([orderId, order]) => {
         if (order.userId !== currentUserId) return;
@@ -2582,11 +2586,7 @@ const handleOrderClick = (item, action = "order") => {
       {/* Auth Buttons */}
       {auth.currentUser ? (
         <button
-          onClick={async () => {
-            await auth.signOut();
-            clearCart();
-            setActiveTab("menu");
-          }}
+         onClick={handlePublicLogout}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 hover:scale-105"
           style={{
             border: '2px solid #dc2626',
@@ -2720,11 +2720,7 @@ const handleOrderClick = (item, action = "order") => {
 
       {auth.currentUser ? (
         <button
-          onClick={async () => {
-            await auth.signOut();
-            clearCart();
-            setActiveTab("menu");
-          }}
+        onClick={handlePublicLogout}
           className="uppercase tracking-wide transition-all duration-300 flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs"
           style={{
             border: '2px solid #dc2626',
