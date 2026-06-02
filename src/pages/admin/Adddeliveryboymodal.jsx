@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../../firebaseConfig";
 import bcrypt from "bcryptjs";
@@ -7,82 +7,202 @@ import { toast } from "react-toastify";
 const MAROON = "#8A244B";
 const GOLD = "#FFD166";
 
-const ZONES = [
-  "🏙️ Bilimora – Main Bazar",
-  "🏙️ Bilimora – Station Road",
-  "🏙️ Bilimora – Gandevi Road",
-  "🌆 Navsari – City Centre",
-  "🌆 Navsari – Sayaji Road",
-  "🌆 Navsari – Lunsikui",
-  "🌇 Surat – Adajan",
-  "🌇 Surat – Vesu",
-  "🌇 Surat – Udhna",
-  "🌇 Surat – Katargam",
-  "🌇 Surat – Varachha",
-  "🌇 Surat – Piplod",
-  "🏘️ Gandevi Town",
-  "🏘️ Chikhli",
-  "🏘️ Vansda",
-  "📦 Custom Zone",
-];
-
 const FIELDS = [
   { key: "name",          label: "Full Name",       placeholder: "Ramesh Patel",      icon: "👤", type: "text" },
   { key: "phone",         label: "Phone Number",    placeholder: "98765 43210",       icon: "📱", type: "tel"  },
   { key: "vehicleNumber", label: "Vehicle Number",  placeholder: "GJ 05 AB 1234",     icon: "🏍️", type: "text" },
 ];
 
+// Leaflet CSS & JS CDN URLs
+const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+
+const loadLeaflet = () => {
+  return new Promise((resolve, reject) => {
+    if (window.L) { resolve(); return; }
+
+    // Load CSS
+    if (!document.getElementById("leaflet-css")) {
+      const link = document.createElement("link");
+      link.id = "leaflet-css";
+      link.rel = "stylesheet";
+      link.href = LEAFLET_CSS;
+      document.head.appendChild(link);
+    }
+
+    // Load JS
+    const existingScript = document.getElementById("leaflet-js");
+    if (existingScript) {
+      existingScript.onload = resolve;
+      existingScript.onerror = reject;
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "leaflet-js";
+    script.src = LEAFLET_JS;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+};
+
 export default function AddDeliveryBoyModal({ restaurantId, onClose, onAdded }) {
   const [form, setForm] = useState({ name: "", phone: "", password: "", vehicleNumber: "", zone: "" });
-  const [customZone, setCustomZone] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState(null);
+  const [showMap, setShowMap] = useState(false);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+  const mapInstanceRef = useState(null);
+  const markerRef = useState(null);
 
-  const handleSubmit = async () => {
-    const { name, phone, password, vehicleNumber, zone } = form;
-    const finalZone = zone === "📦 Custom Zone" ? customZone.trim() : zone;
-
-    if (!name || !phone || !password || !vehicleNumber || !zone) {
-      toast.error("Sab fields fill karo"); return;
-    }
-    if (zone === "📦 Custom Zone" && !customZone.trim()) {
-      toast.error("Custom zone ka naam likho"); return;
-    }
-    if (phone.replace(/\D/g, "").length < 10) {
-      toast.error("Valid phone number daalo"); return;
-    }
-    if (password.length < 6) {
-      toast.error("Password kam se kam 6 characters ka hona chahiye"); return;
-    }
-
-    setLoading(true);
+  const initMap = useCallback(async () => {
+    setMapLoading(true);
     try {
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash(password, salt);
+      await loadLeaflet();
 
-      const docRef = await addDoc(
-        collection(db, "restaurants", restaurantId, "deliveryBoys"),
-        {
-          name, phone: phone.replace(/\D/g, ""),
-          passwordHash, vehicleNumber: vehicleNumber.toUpperCase(),
-          zone: finalZone, isActive: true,
-          todayEarnings: 0, totalDeliveries: 0,
-          createdAt: new Date(),
+      const L = window.L;
+      const defaultCenter = [20.7691, 72.9980]; // Bilimora, Gujarat
+
+      const map = L.map("delivery-zone-map").setView(defaultCenter, 13);
+      mapInstanceRef.current = map;
+
+      // OpenStreetMap tiles (FREE — no API key!)
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(map);
+
+      // Click to place marker
+      map.on("click", async (e) => {
+        const { lat, lng } = e.latlng;
+
+        // Remove previous marker
+        if (markerRef.current) {
+          map.removeLayer(markerRef.current);
         }
-      );
 
-      toast.success(`${name} ko add kar diya! 🛵`);
-      onAdded?.({ id: docRef.id, name, phone, vehicleNumber, zone: finalZone, isActive: true });
-      onClose();
+        // Add new draggable marker
+        const newMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+        markerRef.current = newMarker;
+
+        // Reverse geocode using Nominatim (FREE — no API key!)
+        await reverseGeocode(lat, lng);
+
+        // Update on drag
+        newMarker.on("dragend", async () => {
+          const pos = newMarker.getLatLng();
+          await reverseGeocode(pos.lat, pos.lng);
+        });
+      });
+
+      // Try to get user location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const userPos = [position.coords.latitude, position.coords.longitude];
+            map.setView(userPos, 14);
+          },
+          () => {}
+        );
+      }
+
+      setMapReady(true);
     } catch (err) {
-      console.error(err);
-      toast.error("Kuch error aaya. Dobara try karo.");
+      console.error("Map load error:", err);
+      toast.error("Map load nahi hua. Internet check karo.");
     } finally {
-      setLoading(false);
+      setMapLoading(false);
+    }
+  }, []);
+
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+        { headers: { "User-Agent": "RestaurantApp/1.0" } }
+      );
+      const data = await res.json();
+      if (data && data.display_name) {
+        setForm(prev => ({ ...prev, zone: data.display_name }));
+        toast.success(`Zone set: ${data.display_name.substring(0, 50)}...`);
+      } else {
+        setForm(prev => ({ ...prev, zone: `${lat.toFixed(4)}, ${lng.toFixed(4)}` }));
+      }
+    } catch (err) {
+      console.error("Geocode error:", err);
+      setForm(prev => ({ ...prev, zone: `${lat.toFixed(4)}, ${lng.toFixed(4)}` }));
     }
   };
 
+  const openMap = () => {
+    setShowMap(true);
+    setTimeout(() => initMap(), 100);
+  };
+
+  const closeMap = () => {
+    setShowMap(false);
+    setMapReady(false);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+    markerRef.current = null;
+  };
+
+const handleSubmit = async () => {
+  const { name, phone, password, vehicleNumber, zone } = form;
+
+  if (!name || !phone || !password || !vehicleNumber || !zone) {
+    toast.error("Sab fields fill karo"); return;
+  }
+  if (phone.replace(/\D/g, "").length < 10) {
+    toast.error("Valid phone number daalo"); return;
+  }
+  if (password.length < 6) {
+    toast.error("Password kam se kam 6 characters ka hona chahiye"); return;
+  }
+
+  console.log("🚀 Submitting...", { name, phone, vehicleNumber, zone, restaurantId });
+
+  setLoading(true);
+  try {
+    // Simple hash instead of bcrypt (browser friendly)
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + "restaurant-salt-2024");
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const passwordHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    const docRef = await addDoc(
+      collection(db, "restaurants", restaurantId, "deliveryBoys"),
+      {
+        name, 
+        phone: phone.replace(/\D/g, ""),
+        passwordHash, 
+        vehicleNumber: vehicleNumber.toUpperCase(),
+        zone, 
+        isActive: true,
+        todayEarnings: 0, 
+        totalDeliveries: 0,
+        createdAt: new Date(),
+      }
+    );
+
+    console.log("✅ Success! Doc ID:", docRef.id);
+    toast.success(`${name} ko add kar diya! 🛵`);
+    onAdded?.({ id: docRef.id, name, phone, vehicleNumber, zone, isActive: true });
+    onClose();
+  } catch (err) {
+    console.error("❌ FULL ERROR:", err);
+    console.error("Error code:", err.code);
+    console.error("Error message:", err.message);
+    toast.error(`Error: ${err.message || "Kuch error aaya"}`);
+  } finally {
+    setLoading(false);
+  }
+};
   const inputStyle = (key) => ({
     width: "100%", padding: "13px 14px 13px 44px",
     borderRadius: "12px",
@@ -134,7 +254,6 @@ export default function AddDeliveryBoyModal({ restaurantId, onClose, onAdded }) 
           borderRadius: "28px 28px 0 0",
           position: "relative", overflow: "hidden",
         }}>
-          {/* Decorative circles */}
           <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,209,102,0.12)" }} />
           <div style={{ position: "absolute", bottom: -20, left: -20, width: 80, height: 80, borderRadius: "50%", background: "rgba(255,255,255,0.06)" }} />
 
@@ -231,70 +350,98 @@ export default function AddDeliveryBoyModal({ restaurantId, onClose, onAdded }) 
             )}
           </div>
 
-          {/* Zone Dropdown */}
-          <div style={{ marginBottom: form.zone === "📦 Custom Zone" ? "12px" : "28px" }}>
+          {/* Zone — Leaflet Map */}
+          <div style={{ marginBottom: "28px" }}>
             <label style={labelStyle}>Delivery Zone</label>
-            <div style={{ position: "relative" }}>
+
+            {/* Zone Display / Open Map Button */}
+            <div style={{ position: "relative", marginTop: "7px" }}>
               <span style={iconFloatStyle}>📍</span>
-              <select
-                value={form.zone}
-                onChange={(e) => setForm({ ...form, zone: e.target.value })}
+              <div
+                onClick={openMap}
                 style={{
                   ...inputStyle("zone"),
-                  appearance: "none", cursor: "pointer",
-                  paddingRight: "36px",
+                  paddingLeft: "44px",
+                  paddingRight: "14px",
+                  minHeight: "46px",
+                  display: "flex",
+                  alignItems: "center",
+                  cursor: "pointer",
+                  background: form.zone ? "#fff0f3" : "#fafafa",
+                  border: `2px solid ${form.zone ? MAROON : focused === "zone" ? MAROON : "#eee"}`,
                 }}
                 onFocus={() => setFocused("zone")}
                 onBlur={() => setFocused(null)}
+                tabIndex={0}
               >
-                <option value="">— Zone select karo —</option>
-                <optgroup label="Bilimora">
-                  {ZONES.filter(z => z.includes("Bilimora")).map(z => (
-                    <option key={z} value={z}>{z}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="Navsari">
-                  {ZONES.filter(z => z.includes("Navsari")).map(z => (
-                    <option key={z} value={z}>{z}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="Surat">
-                  {ZONES.filter(z => z.includes("Surat")).map(z => (
-                    <option key={z} value={z}>{z}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="Nearby Towns">
-                  {ZONES.filter(z => ["Gandevi", "Chikhli", "Vansda"].some(t => z.includes(t))).map(z => (
-                    <option key={z} value={z}>{z}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="Other">
-                  <option value="📦 Custom Zone">📦 Custom Zone</option>
-                </optgroup>
-              </select>
-              {/* Arrow */}
-              <span style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#aaa", fontSize: 12 }}>▼</span>
-            </div>
-          </div>
-
-          {/* Custom zone input */}
-          {form.zone === "📦 Custom Zone" && (
-            <div style={{ marginBottom: "28px" }}>
-              <label style={labelStyle}>Apna Zone Likho</label>
-              <div style={{ position: "relative" }}>
-                <span style={iconFloatStyle}>✏️</span>
-                <input
-                  type="text"
-                  placeholder="e.g. Vapi Station Road"
-                  value={customZone}
-                  onChange={(e) => setCustomZone(e.target.value)}
-                  style={inputStyle("customZone")}
-                  onFocus={() => setFocused("customZone")}
-                  onBlur={() => setFocused(null)}
-                />
+                <span style={{
+                  color: form.zone ? MAROON : "#999",
+                  fontSize: "14px",
+                  fontWeight: form.zone ? 600 : 400,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}>
+                  {form.zone || "📍 Map pe click karke zone select karo"}
+                </span>
               </div>
+              <span style={{
+                position: "absolute",
+                right: "14px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                fontSize: "18px",
+                pointerEvents: "none",
+              }}>
+                🗺️
+              </span>
             </div>
-          )}
+
+            {/* Selected zone tag */}
+            {form.zone && (
+              <div style={{
+                marginTop: "8px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                background: MAROON,
+                color: "#fff",
+                padding: "4px 12px",
+                borderRadius: "20px",
+                fontSize: "12px",
+                fontWeight: 600,
+              }}>
+                <span>📍</span>
+                <span style={{
+                  maxWidth: "300px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}>
+                  {form.zone}
+                </span>
+                <button
+                  onClick={() => setForm(prev => ({ ...prev, zone: "" }))}
+                  style={{
+                    background: "rgba(255,255,255,0.2)",
+                    border: "none",
+                    color: "#fff",
+                    width: "18px",
+                    height: "18px",
+                    borderRadius: "50%",
+                    cursor: "pointer",
+                    fontSize: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Info box */}
           <div style={{
@@ -332,6 +479,187 @@ export default function AddDeliveryBoyModal({ restaurantId, onClose, onAdded }) 
           </button>
         </div>
       </div>
+
+      {/* ===== LEAFLET MAP MODAL ===== */}
+      {showMap && (
+        <>
+          {/* Map Backdrop */}
+          <div
+            onClick={closeMap}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.7)",
+              zIndex: 2000,
+              backdropFilter: "blur(8px)",
+            }}
+          />
+
+          {/* Map Modal */}
+          <div style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 2001,
+            background: "#fff",
+            borderRadius: "24px",
+            width: "95%",
+            maxWidth: "700px",
+            height: "80vh",
+            maxHeight: "600px",
+            overflow: "hidden",
+            boxShadow: "0 40px 100px rgba(0,0,0,0.4)",
+            display: "flex",
+            flexDirection: "column",
+          }}>
+            {/* Map Header */}
+            <div style={{
+              background: `linear-gradient(135deg, ${MAROON}, #c0396b)`,
+              padding: "16px 20px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexShrink: 0,
+            }}>
+              <div>
+                <h3 style={{ color: "#fff", margin: 0, fontSize: "16px", fontWeight: 700 }}>
+                  🗺️ Zone Select Karo
+                </h3>
+                <p style={{ color: "rgba(255,255,255,0.7)", margin: "2px 0 0", fontSize: "12px" }}>
+                  Map pe click karke pin drop karo (100% Free — OpenStreetMap)
+                </p>
+              </div>
+              <button
+                onClick={closeMap}
+                style={{
+                  background: "rgba(255,255,255,0.15)",
+                  border: "1px solid rgba(255,255,255,0.25)",
+                  color: "#fff",
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "50%",
+                  cursor: "pointer",
+                  fontSize: "18px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Map Container */}
+            <div style={{ position: "relative", flex: 1 }}>
+              <div
+                id="delivery-zone-map"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  minHeight: "300px",
+                }}
+              />
+
+              {/* Map Loading Overlay */}
+              {mapLoading && (
+                <div style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(255,255,255,0.9)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "12px",
+                }}>
+                  <div style={{
+                    width: "40px",
+                    height: "40px",
+                    border: `3px solid ${MAROON}20`,
+                    borderTopColor: MAROON,
+                    borderRadius: "50%",
+                    animation: "spin 1s linear infinite",
+                  }} />
+                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                  <span style={{ color: MAROON, fontWeight: 600, fontSize: "14px" }}>
+                    Map load ho raha hai...
+                  </span>
+                </div>
+              )}
+
+              {/* Click hint */}
+              {!mapLoading && !form.zone && (
+                <div style={{
+                  position: "absolute",
+                  bottom: "20px",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "rgba(0,0,0,0.75)",
+                  color: "#fff",
+                  padding: "8px 16px",
+                  borderRadius: "20px",
+                  fontSize: "13px",
+                  fontWeight: 500,
+                  pointerEvents: "none",
+                  whiteSpace: "nowrap",
+                }}>
+                  👆 Map pe click karke zone select karo
+                </div>
+              )}
+
+              {/* Selected zone floating card */}
+              {form.zone && !mapLoading && (
+                <div style={{
+                  position: "absolute",
+                  bottom: "20px",
+                  left: "20px",
+                  right: "20px",
+                  background: "#fff",
+                  borderRadius: "16px",
+                  padding: "14px 18px",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+                  border: `2px solid ${MAROON}`,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <span style={{ fontSize: "24px" }}>📍</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "11px", color: "#999", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        Selected Zone
+                      </div>
+                      <div style={{
+                        fontSize: "14px",
+                        fontWeight: 700,
+                        color: MAROON,
+                        marginTop: "2px",
+                        lineHeight: 1.4,
+                      }}>
+                        {form.zone}
+                      </div>
+                    </div>
+                    <button
+                      onClick={closeMap}
+                      style={{
+                        background: MAROON,
+                        color: "#fff",
+                        border: "none",
+                        padding: "8px 16px",
+                        borderRadius: "10px",
+                        fontSize: "13px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        flexShrink: 0,
+                      }}
+                    >
+                      ✅ Done
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }

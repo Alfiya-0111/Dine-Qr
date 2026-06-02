@@ -8,24 +8,17 @@ const TableManagement = ({ restaurantId }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingTable, setEditingTable] = useState(null);
   const [formData, setFormData] = useState({
-    name: "",
-    capacity: 4,
-    location: "Center",
-    status: "available"
+    name: "", capacity: 4, location: "Center", status: "available"
   });
+  const [duplicateError, setDuplicateError] = useState("");
 
   useEffect(() => {
     if (!restaurantId) return;
-    
     const tablesRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}/tables`);
     onValue(tablesRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const tablesList = Object.entries(data).map(([id, table]) => ({
-          id,
-          ...table
-        }));
-        setTables(tablesList);
+        setTables(Object.entries(data).map(([id, table]) => ({ id, ...table })));
       } else {
         setTables([]);
       }
@@ -34,21 +27,29 @@ const TableManagement = ({ restaurantId }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
+    // ── Duplicate check ──────────────────────────────────────────
+    const isDuplicate = tables.some(
+      (t) =>
+        t.name.trim().toLowerCase() === formData.name.trim().toLowerCase() &&
+        (!editingTable || t.id !== editingTable.id)
+    );
+    if (isDuplicate) {
+      setDuplicateError(`"${formData.name}" naam ki table already exist karti hai!`);
+      return;
+    }
+    setDuplicateError("");
+    // ─────────────────────────────────────────────────────────────
+
     try {
       if (editingTable) {
         await update(rtdbRef(realtimeDB, `restaurants/${restaurantId}/tables/${editingTable.id}`), {
-          ...formData,
-          updatedAt: Date.now()
+          ...formData, updatedAt: Date.now()
         });
       } else {
         const newTableRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}/tables/${Date.now()}`);
-        await set(newTableRef, {
-          ...formData,
-          createdAt: Date.now()
-        });
+        await set(newTableRef, { ...formData, createdAt: Date.now() });
       }
-      
       resetForm();
     } catch (error) {
       console.error("Error saving table:", error);
@@ -58,7 +59,6 @@ const TableManagement = ({ restaurantId }) => {
 
   const handleDelete = async (tableId) => {
     if (!confirm("Are you sure? This will delete all bookings for this table!")) return;
-    
     try {
       await remove(rtdbRef(realtimeDB, `restaurants/${restaurantId}/tables/${tableId}`));
     } catch (error) {
@@ -68,11 +68,10 @@ const TableManagement = ({ restaurantId }) => {
 
   const handleEdit = (table) => {
     setEditingTable(table);
+    setDuplicateError("");
     setFormData({
-      name: table.name,
-      capacity: table.capacity,
-      location: table.location || "Center",
-      status: table.status || "available"
+      name: table.name, capacity: table.capacity,
+      location: table.location || "Center", status: table.status || "available"
     });
     setShowForm(true);
   };
@@ -81,6 +80,7 @@ const TableManagement = ({ restaurantId }) => {
     setFormData({ name: "", capacity: 4, location: "Center", status: "available" });
     setEditingTable(null);
     setShowForm(false);
+    setDuplicateError("");
   };
 
   return (
@@ -90,7 +90,7 @@ const TableManagement = ({ restaurantId }) => {
           <FaChair /> Table Management
         </h2>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}
           className="px-4 py-2 text-white rounded-lg flex items-center gap-2"
           style={{ background: "#8A244B" }}
           onMouseOver={(e) => (e.currentTarget.style.background = "#6e1c3b")}
@@ -100,7 +100,6 @@ const TableManagement = ({ restaurantId }) => {
         </button>
       </div>
 
-      {/* Add/Edit Form */}
       {showForm && (
         <form onSubmit={handleSubmit} className="mb-6 p-4 bg-gray-50 rounded-lg">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -109,47 +108,57 @@ const TableManagement = ({ restaurantId }) => {
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value });
+                  if (duplicateError) setDuplicateError("");
+                }}
                 className="w-full p-2 border rounded"
+                style={{ borderColor: duplicateError ? "#dc2626" : "" }}
                 placeholder="e.g. Table 1"
                 required
               />
+              {/* ── Duplicate Error ── */}
+              {duplicateError && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  background: "#fef2f2", border: "1px solid #fecaca",
+                  borderRadius: 6, padding: "6px 10px", marginTop: 6,
+                  fontSize: 12, color: "#dc2626", fontWeight: 600,
+                }}>
+                  ⚠️ {duplicateError}
+                </div>
+              )}
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Capacity</label>
               <input
                 type="number"
                 value={formData.capacity}
-                onChange={(e) => setFormData({...formData, capacity: parseInt(e.target.value)})}
+                onChange={(e) => setFormData({ ...formData, capacity: parseInt(e.target.value) })}
                 className="w-full p-2 border rounded"
-                min="1"
-                max="20"
-                required
+                min="1" max="20" required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Location</label>
               <select
                 value={formData.location}
-                onChange={(e) => setFormData({...formData, location: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 className="w-full p-2 border rounded"
               >
-                <option value="Window">Window</option>
-                <option value="Center">Center</option>
-                <option value="Corner">Corner</option>
-                <option value="Outdoor">Outdoor</option>
-                <option value="Private">Private</option>
-                <option value="Bar">Bar</option>
+                {["Window","Center","Corner","Outdoor","Private","Bar"].map(l => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
               </select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-1">Status</label>
               <select
                 value={formData.status}
-                onChange={(e) => setFormData({...formData, status: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                 className="w-full p-2 border rounded"
               >
                 <option value="available">Available</option>
@@ -158,7 +167,7 @@ const TableManagement = ({ restaurantId }) => {
               </select>
             </div>
           </div>
-          
+
           <div className="mt-4 flex gap-2">
             <button
               type="submit"
@@ -170,11 +179,8 @@ const TableManagement = ({ restaurantId }) => {
               {editingTable ? "Update Table" : "Add Table"}
             </button>
             {editingTable && (
-              <button
-                type="button"
-                onClick={resetForm}
-                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-              >
+              <button type="button" onClick={resetForm}
+                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
                 Cancel
               </button>
             )}
@@ -182,19 +188,16 @@ const TableManagement = ({ restaurantId }) => {
         </form>
       )}
 
-      {/* Tables Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {tables.map((table) => (
           <div key={table.id} className="border rounded-lg p-4 hover:shadow-md transition">
             <div className="flex justify-between items-start mb-2">
               <h3 className="font-bold text-lg">{table.name}</h3>
               <div className="flex gap-2">
-                <button
-                  onClick={() => handleEdit(table)}
+                <button onClick={() => handleEdit(table)}
                   style={{ color: "#8A244B" }}
                   onMouseOver={(e) => (e.currentTarget.style.color = "#6e1c3b")}
-                  onMouseOut={(e) => (e.currentTarget.style.color = "#8A244B")}
-                >
+                  onMouseOut={(e) => (e.currentTarget.style.color = "#8A244B")}>
                   <FaEdit />
                 </button>
                 <button onClick={() => handleDelete(table.id)} className="text-red-600 hover:text-red-800">
@@ -202,14 +205,9 @@ const TableManagement = ({ restaurantId }) => {
                 </button>
               </div>
             </div>
-            
             <div className="space-y-1 text-sm text-gray-600">
-              <p className="flex items-center gap-2">
-                <FaUsers /> Capacity: {table.capacity} guests
-              </p>
-              <p className="flex items-center gap-2">
-                <FaMapMarkerAlt /> {table.location}
-              </p>
+              <p className="flex items-center gap-2"><FaUsers /> Capacity: {table.capacity} guests</p>
+              <p className="flex items-center gap-2"><FaMapMarkerAlt /> {table.location}</p>
               <span className={`inline-block px-2 py-1 rounded text-xs ${
                 table.status === 'available' ? 'bg-green-100 text-green-700' :
                 table.status === 'maintenance' ? 'bg-yellow-100 text-yellow-700' :
