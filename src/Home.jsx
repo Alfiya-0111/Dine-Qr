@@ -1471,11 +1471,34 @@ const HomePage = () => {
 
       <style>{GLOBAL_CSS}</style>
 
-     <div data-theme={theme} style={{ minHeight: '100vh', background: 'var(--dark)', fontFamily: 'var(--font-body)' }}>
+   <div data-theme={theme} style={{ 
+  minHeight: '100vh', 
+  background: 'var(--dark)', 
+  fontFamily: 'var(--font-body)',
+  overflowX: 'hidden',  
+  width: '100%',
+  maxWidth: '100vw',
+   position: 'relative', 
+   
+}}>
 
         {/* ── Announcement ticker ──────────────────────────────────────── */}
-        <div className="ticker-top" style={{ background: 'var(--ticker-bg)', padding: '9px 0', overflow: 'hidden', position: 'relative' }}>
-          <div style={{ display: 'flex', animation: 'ticker 28s linear infinite', whiteSpace: 'nowrap', width: 'max-content' }}>
+<div className="ticker-top" style={{ 
+  background: 'var(--ticker-bg)', 
+  padding: '9px 0', 
+  overflow: 'hidden',  // ✅ yeh already hai
+  position: 'relative',
+  width: '100%',       // ✅ ADD
+  maxWidth: '100vw',   // ✅ ADD
+  boxSizing: 'border-box' // ✅ ADD
+}}>
+         <div style={{ 
+  display: 'flex', 
+  animation: 'ticker 28s linear infinite', 
+  whiteSpace: 'nowrap', 
+  width: 'max-content',
+  willChange: 'transform'  // ✅ ADD - overflow parent se bahar nahi jayega
+}}>
             {[...Array(3)].map((_, i) => (
               <span key={i} style={{ marginRight: 80, fontSize: 12, fontWeight: 700, color: 'var(--ticker-text)', letterSpacing: 0.5, fontFamily: 'var(--font-display)' }}>
                 🎉 Kitchen Display System LIVE &nbsp;·&nbsp; Zero Commission Forever &nbsp;·&nbsp; 500+ Restaurants Trust Khaatogo &nbsp;·&nbsp; 30 Din Free Trial — No Credit Card &nbsp;·&nbsp; 🇮🇳 Made in India
@@ -1487,6 +1510,9 @@ const HomePage = () => {
         {/* ── NAV ──────────────────────────────────────────────────────── */}
         <nav style={{
           position: 'fixed', top: 36, width: '100%', zIndex: 100,
+            maxWidth: '100vw', 
+             
+  overflowX: 'hidden',
           ...(scrolled ? {
             top: 0, background: 'var(--nav-bg)', backdropFilter: 'blur(24px)',
             borderBottom: `1px solid var(--nav-border)`,
@@ -1806,72 +1832,59 @@ const HomePage = () => {
         </section>
 
         {/* ── DEMO ──────────────────────────────────────────────────────── */}
-        <section id="demo" className="section-pad" style={{ background: 'var(--section-alt)', borderTop: '1px solid var(--glass-border)', borderBottom: '1px solid var(--glass-border)' }}>
-          <div className="container">
-            <Reveal>
-              <div style={{ textAlign: 'center', marginBottom: 40 }}>
-                <div className="section-tag"><Play style={{ width: 12, height: 12 }} /> Live Demo</div>
-                <h2 className="section-h2">See It In <span style={{ color: 'var(--maroon)' }}>Action</span></h2>
-              </div>
-            </Reveal>
+    <section id="demo" className="section-pad" style={{ background: 'var(--section-alt)', borderTop: '1px solid var(--glass-border)', borderBottom: '1px solid var(--glass-border)' }}>
+  <div className="container">
+    <Reveal>
+      <div style={{ textAlign: 'center', marginBottom: 40 }}>
+        <div className="section-tag"><Play style={{ width: 12, height: 12 }} /> Live Demo</div>
+        <h2 className="section-h2">See It In <span style={{ color: 'var(--maroon)' }}>Action</span></h2>
+      </div>
+    </Reveal>
 
-            <Reveal delay={100}>
-              <div className="demo-tabs">
-                {Object.entries(demoTabs).map(([key, d]) => (
-                  <button key={key} onClick={() => setActiveTab(key)} style={{
-                    padding: '10px 18px', borderRadius: 100, border: 'none', cursor: 'pointer',
-                    fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13,
-                    background: activeTab === key ? 'linear-gradient(135deg, var(--maroon), var(--maroon2))' : 'var(--card-bg)',
-                    color: activeTab === key ? '#fff' : 'var(--text3)',
-                    boxShadow: activeTab === key ? '0 4px 16px rgba(138,36,75,0.35)' : 'none',
-                    border: activeTab === key ? 'none' : '1px solid var(--glass-border)',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    {d.icon} {d.title}
-                  </button>
-                ))}
-              </div>
-            </Reveal>
-
-            <Reveal delay={150}>
-              <div style={{ background: isDark ? '#000' : 'rgba(138,36,75,0.08)', borderRadius: 24, padding: 3, boxShadow: isDark ? '0 40px 80px rgba(0,0,0,0.6)' : '0 20px 60px rgba(138,36,75,0.12)' }}>
-                <div style={{ background: 'var(--demo-bg)', borderRadius: 22, overflow: 'hidden' }}>
-                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ display: 'flex', gap: 5 }}>
-                      {['#f87171','#fbbf24','#4ade80'].map((c,i) => <div key={i} style={{ width: 11, height: 11, borderRadius: '50%', background: c }} />)}
-                    </div>
-                    <div style={{ flex: 1, background: 'var(--glass)', borderRadius: 6, padding: '5px 12px', fontSize: 11, color: 'var(--text3)', textAlign: 'center', fontFamily: 'var(--font-body)', maxWidth: 300, margin: '0 auto' }}>
-                      dashboard.khaatogo.com
-                    </div>
-                  </div>
-                  <div className="demo-browser-inner" style={{ padding: isMobile ? '32px 16px' : '48px 32px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 48, marginBottom: 14 }}>{demoTabs[activeTab].icon}</div>
-                    <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: isMobile ? 20 : 24, color: 'var(--maroon)', marginBottom: 24, letterSpacing: '-0.5px' }}>
-                      {demoTabs[activeTab].title}
-                    </h3>
-                    <div className="demo-points-grid">
-                      {demoTabs[activeTab].points.map((pt, i) => (
-                        <div key={i} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 14, padding: '14px 10px', textAlign: 'center' }}>
-                          <CheckCircle2 style={{ width: 18, height: 18, color: 'var(--maroon)', margin: '0 auto 8px' }} />
-                          <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, margin: 0 }}>{pt}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <button onClick={() => window.open('https://www.khaatogo.com/menu/teZtUXhLuqS4RD9vHLjKPRlEEpm1', '_blank')} style={{
-                      background: 'linear-gradient(135deg, var(--maroon), var(--maroon2))', color: '#fff',
-                      border: 'none', padding: '14px 28px', borderRadius: 100, cursor: 'pointer',
-                      fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15,
-                      boxShadow: '0 8px 24px rgba(138,36,75,0.35)',
-                      display: 'inline-flex', alignItems: 'center', gap: 8,
-                    }}>
-                      View Live Demo Menu <ArrowUpRight style={{ width: 16, height: 16 }} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </Reveal>
+    <Reveal delay={150}>
+      <div style={{ background: isDark ? '#000' : 'rgba(138,36,75,0.08)', borderRadius: 24, padding: 3, boxShadow: isDark ? '0 40px 80px rgba(0,0,0,0.6)' : '0 20px 60px rgba(138,36,75,0.12)' }}>
+        <div style={{ background: 'var(--demo-bg)', borderRadius: 22, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 5 }}>
+              {['#f87171','#fbbf24','#4ade80'].map((c,i) => <div key={i} style={{ width: 11, height: 11, borderRadius: '50%', background: c }} />)}
+            </div>
+            <div style={{ flex: 1, background: 'var(--glass)', borderRadius: 6, padding: '5px 12px', fontSize: 11, color: 'var(--text3)', textAlign: 'center', fontFamily: 'var(--font-body)', maxWidth: 300, margin: '0 auto' }}>
+              whatsapp.khaatogo.com
+            </div>
           </div>
-        </section>
+          <div className="demo-browser-inner" style={{ padding: isMobile ? '32px 16px' : '48px 32px', textAlign: 'center' }}>
+            <div style={{ fontSize: 48, marginBottom: 14 }}>💬</div>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: isMobile ? 20 : 24, color: 'var(--maroon)', marginBottom: 24, letterSpacing: '-0.5px' }}>
+              WhatsApp Ordering
+            </h3>
+            <div className="demo-points-grid">
+              {[
+                "Customers browse menu & place orders directly via WhatsApp",
+                "Auto-generated order messages with item details & total",
+                "No app download needed — works on any phone",
+                "Instant notifications for new orders"
+              ].map((pt, i) => (
+                <div key={i} style={{ background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: 14, padding: '14px 10px', textAlign: 'center' }}>
+                  <CheckCircle2 style={{ width: 18, height: 18, color: 'var(--maroon)', margin: '0 auto 8px' }} />
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, margin: 0 }}>{pt}</p>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => window.open('https://www.khaatogo.com/menu/teZtUXhLuqS4RD9vHLjKPRlEEpm1', '_blank')} style={{
+              background: 'linear-gradient(135deg, var(--maroon), var(--maroon2))', color: '#fff',
+              border: 'none', padding: '14px 28px', borderRadius: 100, cursor: 'pointer',
+              fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 15,
+              boxShadow: '0 8px 24px rgba(138,36,75,0.35)',
+              display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 24
+            }}>
+              View Live Demo Menu <ArrowUpRight style={{ width: 16, height: 16 }} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </Reveal>
+  </div>
+</section>
 
         {/* ── HOW IT WORKS ──────────────────────────────────────────────── */}
         <section id="how-it-works" className="section-pad">
@@ -2031,7 +2044,306 @@ const HomePage = () => {
             </Reveal>
           </div>
         </section>
+{/* ── COMING SOON — NEW FEATURES ────────────────────────────────── */}
+<section className="section-pad" style={{
+  background: isDark ? 'rgba(255,209,102,0.03)' : 'rgba(255,245,220,0.5)',
+  borderTop: '1px solid var(--glass-border)',
+  borderBottom: '1px solid var(--glass-border)',
+}}>
+  <div className="container">
+    <Reveal>
+      <div style={{ textAlign: 'center', marginBottom: 48 }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          background: isDark ? 'rgba(255,209,102,0.12)' : 'rgba(255,209,102,0.25)',
+          border: '1px solid rgba(196,125,0,0.3)',
+          borderRadius: 100, padding: '5px 16px', marginBottom: 16,
+          fontSize: 11, fontWeight: 700, letterSpacing: 2,
+          color: isDark ? '#FFD166' : '#a06800',
+          fontFamily: 'var(--font-display)', textTransform: 'uppercase',
+        }}>
+          <Sparkles style={{ width: 12, height: 12 }} />
+          Coming Soon
+        </div>
+        <h2 className="section-h2">
+          Khaatogo Mein <span style={{ color: 'var(--maroon)' }}>Kya Aa Raha Hai</span>
+        </h2>
+        <p style={{
+          fontFamily: 'var(--font-body)', fontSize: 16,
+          color: 'var(--text2)', lineHeight: 1.75,
+          maxWidth: 520, margin: '0 auto',
+        }}>
+          Hum constantly build kar rahe hain. Early users ko pehle access milega — free mein.
+        </p>
+      </div>
+    </Reveal>
 
+    {/* Feature cards grid */}
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr 1fr' : '2fr 1fr 1fr',
+      gap: 20,
+      marginBottom: 32,
+    }}>
+      {/* Inventory — Featured / Live Soon */}
+      <Reveal delay={0}>
+        <div style={{
+          background: 'var(--card-bg)',
+          border: `2px solid ${isDark ? 'rgba(255,209,102,0.4)' : 'rgba(196,125,0,0.35)'}`,
+          borderRadius: 24, padding: '28px 24px',
+          position: 'relative', overflow: 'hidden',
+          boxShadow: isDark ? '0 8px 32px rgba(255,209,102,0.08)' : '0 8px 32px rgba(196,125,0,0.1)',
+        }}>
+          {/* "Live Soon" badge at top */}
+          <div style={{
+            position: 'absolute', top: 0, right: 20,
+            background: isDark ? '#FFD166' : '#c47d00',
+            color: isDark ? '#000' : '#fff',
+            fontSize: 10, fontWeight: 800, letterSpacing: 1.5,
+            padding: '5px 14px', borderRadius: '0 0 10px 10px',
+            fontFamily: 'var(--font-display)', textTransform: 'uppercase',
+          }}>
+            Live Soon 🔥
+          </div>
+
+          {/* Ambient glow */}
+          <div style={{
+            position: 'absolute', top: -40, left: -40, width: 180, height: 180,
+            borderRadius: '50%',
+            background: `radial-gradient(circle, ${isDark ? 'rgba(255,209,102,0.1)' : 'rgba(196,125,0,0.08)'} 0%, transparent 70%)`,
+            pointerEvents: 'none',
+          }} />
+
+          <div style={{
+            width: 52, height: 52, borderRadius: 14,
+            background: isDark ? 'rgba(255,209,102,0.15)' : 'rgba(196,125,0,0.1)',
+            border: `1px solid ${isDark ? 'rgba(255,209,102,0.3)' : 'rgba(196,125,0,0.25)'}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 16, fontSize: 24,
+          }}>
+            📦
+          </div>
+
+          <h3 style={{
+            fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20,
+            color: 'var(--text1)', marginBottom: 8, letterSpacing: '-0.5px',
+          }}>
+            Inventory Management
+          </h3>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: 14,
+            color: 'var(--text2)', lineHeight: 1.75, marginBottom: 20,
+          }}>
+            Real-time stock tracking, low-stock alerts, aur ingredient-level management — sab ek jagah se.
+          </p>
+
+          {/* Feature bullets */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+            {[
+              'Real-time stock levels per dish',
+              'Auto alerts jab stock kam ho',
+              'Ingredient-wise tracking',
+              'Purchase order history',
+              'Wastage reports',
+              'Supplier management',
+            ].map((item, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                  background: isDark ? 'rgba(255,209,102,0.15)' : 'rgba(196,125,0,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <CheckCircle2 style={{ width: 11, height: 11, color: isDark ? '#FFD166' : '#a06800' }} />
+                </div>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--text2)' }}>
+                  {item}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text3)' }}>Development progress</span>
+              <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 11, color: isDark ? '#FFD166' : '#a06800' }}>70%</span>
+            </div>
+            <div style={{
+              height: 6, borderRadius: 6,
+              background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(138,36,75,0.1)',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                width: '70%', height: '100%', borderRadius: 6,
+                background: isDark
+                  ? 'linear-gradient(90deg, #FFD166, #FCB53B)'
+                  : 'linear-gradient(90deg, #c47d00, #e09020)',
+              }} />
+            </div>
+          </div>
+
+          {/* Notify CTA */}
+          <button
+            onClick={() => window.open('https://wa.me/916352799072?text=Hi%20Khaatogo%20team%2C%20Inventory%20Management%20feature%20ke%20liye%20early%20access%20chahiye!', '_blank')}
+            style={{
+              width: '100%', marginTop: 16, padding: '13px',
+              background: isDark
+                ? 'linear-gradient(135deg, rgba(255,209,102,0.2), rgba(255,209,102,0.1))'
+                : 'linear-gradient(135deg, rgba(196,125,0,0.12), rgba(196,125,0,0.06))',
+              border: `1px solid ${isDark ? 'rgba(255,209,102,0.35)' : 'rgba(196,125,0,0.3)'}`,
+              borderRadius: 12, cursor: 'pointer',
+              fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 13,
+              color: isDark ? '#FFD166' : '#a06800',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
+          >
+            <Bell style={{ width: 15, height: 15 }} />
+            Early Access Chahiye? Notify Karo
+          </button>
+        </div>
+      </Reveal>
+
+      {/* Supplier Management — Coming Later */}
+      <Reveal delay={100}>
+        <div style={{
+          background: 'var(--card-bg)',
+          border: '1px solid var(--card-border)',
+          borderRadius: 24, padding: '24px 20px',
+          opacity: 0.75,
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute', top: 0, right: 16,
+            background: 'var(--glass-border)',
+            fontSize: 10, fontWeight: 700, letterSpacing: 1,
+            padding: '4px 12px', borderRadius: '0 0 8px 8px',
+            fontFamily: 'var(--font-display)', color: 'var(--text3)',
+            textTransform: 'uppercase',
+          }}>
+            Q4 2025
+          </div>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>🚚</div>
+          <h3 style={{
+            fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16,
+            color: 'var(--text1)', marginBottom: 8,
+          }}>
+            Supplier Management
+          </h3>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: 13,
+            color: 'var(--text3)', lineHeight: 1.7, margin: 0,
+          }}>
+            Vendor contacts, purchase orders, aur payment history ek jagah.
+          </p>
+          <div style={{
+            marginTop: 16,
+            display: 'flex', flexDirection: 'column', gap: 6,
+          }}>
+            {['Vendor contact book', 'Auto reorder triggers', 'Bill tracking'].map((f, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--text3)' }}>
+                <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--text3)', flexShrink: 0 }} />
+                {f}
+              </div>
+            ))}
+          </div>
+        </div>
+      </Reveal>
+
+      {/* Advanced Reports — Coming Later */}
+      <Reveal delay={200}>
+        <div style={{
+          background: 'var(--card-bg)',
+          border: '1px solid var(--card-border)',
+          borderRadius: 24, padding: '24px 20px',
+          opacity: 0.75,
+          position: 'relative', overflow: 'hidden',
+        }}>
+          <div style={{
+            position: 'absolute', top: 0, right: 16,
+            background: 'var(--glass-border)',
+            fontSize: 10, fontWeight: 700, letterSpacing: 1,
+            padding: '4px 12px', borderRadius: '0 0 8px 8px',
+            fontFamily: 'var(--font-display)', color: 'var(--text3)',
+            textTransform: 'uppercase',
+          }}>
+            2026
+          </div>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
+          <h3 style={{
+            fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16,
+            color: 'var(--text1)', marginBottom: 8,
+          }}>
+            Advanced Reports
+          </h3>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: 13,
+            color: 'var(--text3)', lineHeight: 1.7, margin: 0,
+          }}>
+            GST-ready reports, P&L statements, aur custom Excel exports.
+          </p>
+          <div style={{
+            marginTop: 16,
+            display: 'flex', flexDirection: 'column', gap: 6,
+          }}>
+            {['GST invoice export', 'Profit & loss report', 'Custom date range'].map((f, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--text3)' }}>
+                <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--text3)', flexShrink: 0 }} />
+                {f}
+              </div>
+            ))}
+          </div>
+        </div>
+      </Reveal>
+    </div>
+
+    {/* Bottom notify strip */}
+    <Reveal delay={250}>
+      <div style={{
+        background: 'var(--card-bg)',
+        border: `1px solid ${isDark ? 'rgba(255,209,102,0.2)' : 'rgba(196,125,0,0.2)'}`,
+        borderRadius: 20, padding: '20px 24px',
+        display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+      }}>
+        <div style={{
+          width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+          background: isDark ? 'rgba(255,209,102,0.1)' : 'rgba(196,125,0,0.08)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Bell style={{ width: 18, height: 18, color: isDark ? '#FFD166' : '#a06800' }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{
+            fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15,
+            color: 'var(--text1)', marginBottom: 3,
+          }}>
+            Inventory Management launch hone wala hai!
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--text3)',
+          }}>
+            WhatsApp par notify karo — early users ko <strong style={{ color: isDark ? '#FFD166' : '#a06800' }}>60 din free access</strong> milega
+          </div>
+        </div>
+        
+        <a  href="https://wa.me/916352799072?text=Hi%20Khaatogo%20team%2C%20Inventory%20Management%20feature%20ke%20liye%20early%20access%20chahiye!"
+          target="_blank" rel="noreferrer"
+          style={{
+            background: isDark ? '#FFD166' : '#c47d00',
+            color: isDark ? '#000' : '#fff',
+            border: 'none', padding: '12px 22px', borderRadius: 100,
+            fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 13,
+            cursor: 'pointer', textDecoration: 'none', whiteSpace: 'nowrap',
+            display: 'flex', alignItems: 'center', gap: 8,
+            flexShrink: 0,
+          }}
+        >
+          <MessageSquare style={{ width: 15, height: 15 }} />
+          WhatsApp par Notify Karo
+        </a>
+      </div>
+    </Reveal>
+  </div>
+</section>
         {/* ── FAQ ───────────────────────────────────────────────────────── */}
         <section className="section-pad">
           <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 24px' }}>

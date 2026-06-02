@@ -600,7 +600,7 @@ export default function Checkout() {
   const [planFeatures, setPlanFeatures] = useState({
     dishes: 'Unlimited', qrMenu: true, whatsappOrders: false,
     kds: false, tableBooking: true, aiDescriptions: false,
-    deliveryManagement: false, arFoodView: false,
+    deliveryManagement: true, arFoodView: false,
     customBranding: false, analytics: 'Basic', support: 'Email',
   });
 
@@ -612,9 +612,6 @@ export default function Checkout() {
   const grandTotal      = total + (orderType === "delivery" ? deliveryCharge : 0);
   const theme           = restaurantSettings?.theme || { primary: "#8A244B", border: "#8A244B" };
   const effectiveRestaurantId = restaurantId;
-
-  // ─── AUTH GUARD ──────────────────────────────────────────────────────────
-
 
   // ─── LOAD RESTAURANT DATA ──────────────────────────────────────────────────
   useEffect(() => {
@@ -672,17 +669,17 @@ export default function Checkout() {
     const plans = {
       trial: {
         dishes: 'Unlimited', qrMenu: true, whatsappOrders: true, kds: true,
-        tableBooking: true, aiDescriptions: true, deliveryManagement: false,
+        tableBooking: true, aiDescriptions: true, deliveryManagement: true,
         arFoodView: true, customBranding: true, analytics: 'Full', support: 'Email',
       },
       starter: {
         dishes: 35, qrMenu: true, whatsappOrders: false, kds: false,
-        tableBooking: false, aiDescriptions: false, deliveryManagement: false,
+        tableBooking: true, aiDescriptions: false, deliveryManagement: true,
         arFoodView: false, customBranding: false, analytics: 'Basic', support: 'Email',
       },
       growth: {
         dishes: 50, qrMenu: true, whatsappOrders: true, kds: true,
-        tableBooking: true, aiDescriptions: true, deliveryManagement: false,
+        tableBooking: true, aiDescriptions: true, deliveryManagement: true,
         arFoodView: false, customBranding: false, analytics: 'Full', support: 'Email + Chat',
       },
       pro: {
@@ -694,30 +691,19 @@ export default function Checkout() {
     return plans[planId] || plans['starter'];
   };
 
+  // ✅ ALL plans mein delivery open — no restrictions
   const getAvailableOrderTypes = () => {
     const types = [];
-    if (planFeatures.tableBooking)       types.push({ id: "dine-in",  label: "Dine In",  icon: "🪑" });
+    types.push({ id: "dine-in",  label: "Dine In",  icon: "🪑" });
     types.push({ id: "takeaway", label: "Takeaway", icon: "🥡" });
-    if (planFeatures.deliveryManagement) types.push({ id: "delivery", label: "Delivery", icon: "🛵" });
+    types.push({ id: "delivery", label: "Delivery", icon: "🛵" });
     return types;
   };
 
   const isOrderTypeAllowed = (type) => {
-    switch (type) {
-      case 'delivery': return planFeatures.deliveryManagement === true;
-      case 'dine-in':  return planFeatures.tableBooking === true;
-      case 'takeaway': return true;
-      default:         return false;
-    }
+    // ✅ Sab types allowed hain — no plan restrictions
+    return true;
   };
-
-  // Auto-switch order type if not allowed
-  useEffect(() => {
-    const available = getAvailableOrderTypes();
-    if (!isOrderTypeAllowed(orderType) && available.length > 0) {
-      setOrderType(available[0].id);
-    }
-  }, [planFeatures]);
 
   const isValidPhone = (p) => /^[0-9]{10}$/.test(p.replace(/\s/g, ""));
 
@@ -743,11 +729,11 @@ export default function Checkout() {
 
   // ─── PLACE ORDER ──────────────────────────────────────────────────────────
   const handlePlaceOrder = async () => {
-   if (!auth.currentUser) {
-  toast.error("Order karne ke liye login karo");
-  navigate(`/menu/${restaurantId}?openLogin=true`);
-  return;
-}
+    if (!auth.currentUser) {
+      toast.error("Order karne ke liye login karo");
+      navigate(`/menu/${restaurantId}?openLogin=true`);
+      return;
+    }
     if (!validateForm()) return;
     const validCart = getValidCart();
     if (validCart.length === 0) { toast.error("Cart mein valid items nahi hain!"); return; }
@@ -803,29 +789,27 @@ export default function Checkout() {
       subtotal:       total,
       deliveryCharge: orderType === "delivery" ? deliveryCharge : 0,
       total:          grandTotal,
-    items: validCart.reduce((acc, item) => {
-  acc[item.id] = {
-    dishId:              item.id,
-    name:                item.name,
-    image:               item.image || "",
-    qty:                 Number(item.qty) || 1,
-    price:               Number(item.price) || 0,
-    prepTime:            Number(item.prepTime ?? 15),
-    // Original preferences (for Ordercard display)
-    spicePreference:     item.spicePreference || "normal",
-    sweetLevel:          item.sweetLevel || null,
-    saltPreference:      item.saltPreference || "normal",
-    salad:               item.salad || { qty: 0, taste: "normal" },
-    dishTasteProfile:    item.dishTasteProfile || "normal",
-    // Also keep normalized fields
-    sweetnessLevel:      item.sweetLevel || "normal",
-    spicinessLevel:      item.spicePreference || "normal",
-    saltLevel:           item.saltPreference || "normal",
-    includeSalad:        item.salad?.qty > 0 || false,
-    specialInstructions: item.specialInstructions || "",
-  };
-  return acc;
-}, {}),
+      items: validCart.reduce((acc, item) => {
+        acc[item.id] = {
+          dishId:              item.id,
+          name:                item.name,
+          image:               item.image || "",
+          qty:                 Number(item.qty) || 1,
+          price:               Number(item.price) || 0,
+          prepTime:            Number(item.prepTime ?? 15),
+          spicePreference:     item.spicePreference || "normal",
+          sweetLevel:          item.sweetLevel || null,
+          saltPreference:      item.saltPreference || "normal",
+          salad:               item.salad || { qty: 0, taste: "normal" },
+          dishTasteProfile:    item.dishTasteProfile || "normal",
+          sweetnessLevel:      item.sweetLevel || "normal",
+          spicinessLevel:      item.spicePreference || "normal",
+          saltLevel:           item.saltPreference || "normal",
+          includeSalad:        item.salad?.qty > 0 || false,
+          specialInstructions: item.specialInstructions || "",
+        };
+        return acc;
+      }, {}),
       status:        "confirmed",
       confirmedAt:   now,
       prepStartedAt: now,
@@ -936,48 +920,39 @@ export default function Checkout() {
         <div className="border-2 rounded-xl p-4 mb-5 bg-gray-50">
           <h3 className="font-bold text-gray-700 mb-3">📝 Order Summary</h3>
           <div className="space-y-2 max-h-48 overflow-y-auto">
-       {getValidCart().map((item) => (
-  <div key={item.id} className="flex justify-between py-2 border-b border-gray-200 last:border-0">
-    <div className="flex-1">
-      <p className="font-semibold text-sm text-gray-800">{item.name}</p>
-      <p className="text-xs text-gray-500">× {item.qty}</p>
-      
-      {/* 🌶️ Spice / 🍯 Sweet / 🧂 Salt / 🥗 Salad */}
-      <div className="flex flex-wrap gap-1 mt-1">
-        {/* 🌶️ SPICE - Only for non-sweet dishes */}
-        {item.dishTasteProfile !== "sweet" && item.spicePreference && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium">
-            🌶️ {item.spicePreference}
-          </span>
-        )}
-        
-        {/* 🍰 SWEETNESS - Only for sweet dishes */}
-        {item.dishTasteProfile === "sweet" && item.sweetLevel && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-pink-100 text-pink-700 font-medium">
-            🍯 {item.sweetLevel}
-          </span>
-        )}
-        
-        {/* 🧂 SALT - Only for non-sweet dishes */}
-        {item.dishTasteProfile !== "sweet" && item.saltPreference && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
-            🧂 {item.saltPreference}
-          </span>
-        )}
-        
-        {/* 🥗 SALAD - Always if present */}
-        {item.salad?.qty > 0 && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
-            🥗 Salad
-          </span>
-        )}
-      </div>
-    </div>
-    <p className="font-bold text-sm flex-shrink-0 ml-3" style={{ color: theme.primary }}>
-      ₹{item.price * item.qty}
-    </p>
-  </div>
-))}
+            {getValidCart().map((item) => (
+              <div key={item.id} className="flex justify-between py-2 border-b border-gray-200 last:border-0">
+                <div className="flex-1">
+                  <p className="font-semibold text-sm text-gray-800">{item.name}</p>
+                  <p className="text-xs text-gray-500">× {item.qty}</p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {item.dishTasteProfile !== "sweet" && item.spicePreference && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium">
+                        🌶️ {item.spicePreference}
+                      </span>
+                    )}
+                    {item.dishTasteProfile === "sweet" && item.sweetLevel && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-pink-100 text-pink-700 font-medium">
+                        🍯 {item.sweetLevel}
+                      </span>
+                    )}
+                    {item.dishTasteProfile !== "sweet" && item.saltPreference && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
+                        🧂 {item.saltPreference}
+                      </span>
+                    )}
+                    {item.salad?.qty > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
+                        🥗 Salad
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <p className="font-bold text-sm flex-shrink-0 ml-3" style={{ color: theme.primary }}>
+                  ₹{item.price * item.qty}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -1033,11 +1008,6 @@ export default function Checkout() {
           <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
             <FaUtensils /> 🍽️ Order Type
           </h3>
-          {!planFeatures.tableBooking && !planFeatures.deliveryManagement && (
-            <p className="text-xs text-amber-600 mb-3 bg-amber-50 p-2 rounded-lg">
-              ⚠️ Sirf Takeaway available hai. Dine-in aur Delivery ke liye plan upgrade karo.
-            </p>
-          )}
           <div className={`grid gap-2 ${
             availableOrderTypes.length === 1 ? 'grid-cols-1' :
             availableOrderTypes.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
@@ -1064,23 +1034,13 @@ export default function Checkout() {
               </button>
             ))}
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {!planFeatures.tableBooking && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-lg text-xs text-gray-500">
-                <FaLock size={10} /> Dine-in locked
-              </span>
-            )}
-            {!planFeatures.deliveryManagement && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-lg text-xs text-gray-500">
-                <FaLock size={10} /> Delivery locked
-              </span>
-            )}
-            {planFeatures.whatsappOrders && (
+          {planFeatures.whatsappOrders && (
+            <div className="mt-3 flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 rounded-lg text-xs text-green-600">
                 <FaWhatsapp size={10} /> WhatsApp alerts on
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Delivery Section */}
