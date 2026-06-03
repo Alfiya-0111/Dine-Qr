@@ -2853,7 +2853,7 @@ const handleOrderClick = (item, action = "order") => {
 
         </div>
 
-  <div className="w-full mx-auto max-w-7xl px-4 pt-[172px] md:pt-[172px]">
+  <div className="w-full mx-auto max-w-7xl px-4 pt-[230px] md:pt-[172px]">
 
 
           {activeTab === "menu" && (
