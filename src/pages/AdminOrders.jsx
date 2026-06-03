@@ -6,7 +6,8 @@ import { initWhatsAppAutoProcessor } from "../utils/whatsappAutoProcessor";
 import { useNavigate, useParams } from "react-router-dom";
 import { Ordercard } from "./Ordercard";
 import { FaLock } from "react-icons/fa";
-
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "../firebaseConfig";
 const PRIMARY  = "#8A244B";
 const GOLD     = "#FFD166";
 
@@ -92,7 +93,7 @@ export default function AdminOrders() {
   const [planFeatures, setPlanFeatures]               = useState(PLAN_FEATURES.trial);
   const [trialStatus, setTrialStatus]                 = useState(null);
   const [planLoading, setPlanLoading]                 = useState(true);
-
+const [deliveryBoys, setDeliveryBoys] = useState([]);
   const previousOrdersRef    = useRef([]);
   const announcedOrdersRef   = useRef(new Set());
   const ordersRefState       = useRef([]);
@@ -234,7 +235,14 @@ export default function AdminOrders() {
     });
     return () => unsub();
   }, [restaurantId, planFeatures.waiterCalls]);
-
+useEffect(() => {
+  if (!restaurantId) return;
+  const boysRef = collection(db, "restaurants", restaurantId, "deliveryBoys");
+  const unsub = onSnapshot(boysRef, (snap) => {
+    setDeliveryBoys(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  });
+  return () => unsub();
+}, [restaurantId]);
   const dismissWaiterCall = async (callId) => {
     await update(ref(realtimeDB, `waiterCalls/${restaurantId}/${callId}`), {
       status: "attended",
@@ -890,6 +898,8 @@ export default function AdminOrders() {
             order={o}
             now={now}
             isActive={true}
+             deliveryBoys={deliveryBoys}        
+  restaurantId={effectiveRestaurantId}
             onDelete={deleteOrder}
             onUpdateStatus={updateStatus}
             onUpdatePayment={updatePaymentStatus}
@@ -930,6 +940,8 @@ export default function AdminOrders() {
             order={o}
             now={now}
             isActive={false}
+             deliveryBoys={deliveryBoys}        
+  restaurantId={effectiveRestaurantId} 
             onDelete={deleteOrder}
             onUpdateStatus={updateStatus}
             onUpdatePayment={updatePaymentStatus}

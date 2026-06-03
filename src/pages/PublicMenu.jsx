@@ -643,6 +643,22 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
           <IoFastFoodOutline className="w-4 h-4" /> Collect Order
         </button>
       )}
+      {/* Delivery order track button */}
+{order.orderDetails?.type === "delivery" && 
+ !["delivered", "completed", "cancelled"].includes(order.status) && (
+  <button
+    onClick={() => {
+      const rid = order.restaurantId;
+      window.location.href = `/track/${rid}/${order.id}`;
+    }}
+    className="w-full mt-2 py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2"
+    style={{ backgroundColor: "#f97316" }}
+  >
+    🛵 {["shipped","out_for_delivery","picked_up"].includes(order.status) 
+        ? "Live Track Karo — Out for Delivery!" 
+        : "Track Your Delivery"}
+  </button>
+)}
     </div>
   );
 };
@@ -990,9 +1006,10 @@ const updateActiveOrders = useCallback((data) => {
     .filter(([id, order]) => {
     
 const currentUserId = userId;
-      if (order.userId !== currentUserId) return false;
-      // ★ HATA DIYA: viewedOrdersRef check - ab state se handle hota hai
-      if (order.billOpened) return false;
+    if (order.userId !== currentUserId) return false;
+if (order.billOpened) return false;
+if (order.orderDetails?.type === "delivery" && 
+    ["delivered", "completed"].includes(order.status)) return false;
       if (order.status === 'completed') {
         const completedAt = order.completedAt || order.updatedAt || order.createdAt;
         if (now - completedAt > TWO_MINUTES) return false;

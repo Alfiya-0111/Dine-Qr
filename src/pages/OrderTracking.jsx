@@ -367,7 +367,8 @@ export default function OrderTracking() {
   useEffect(() => {
     if (!orderId) return;
 
-    const orderRef = ref(realtimeDB, `orders/${orderId}`);
+const orderRef = ref(realtimeDB, `orders/${restaurantId}/${orderId}`);
+
     
     const unsubscribe = onValue(orderRef, (snap) => {
       if (!snap.exists()) {
@@ -393,7 +394,11 @@ export default function OrderTracking() {
     { id: "delivered", label: "Delivered", icon: "🏠" }
   ];
 
-  const currentStepIndex = statusSteps.findIndex(s => s.id === order?.status);
+const statusOrder = ["confirmed", "preparing", "ready", "out_for_delivery", "delivered"];
+const currentStepIndex = statusOrder.indexOf(
+  order?.status === "shipped" ? "out_for_delivery" : order?.status
+);
+
 
   if (loading) {
     return (
