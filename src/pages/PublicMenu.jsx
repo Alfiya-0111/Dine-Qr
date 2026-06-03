@@ -691,7 +691,7 @@ const { cart, addToCart, clearCart, initCartForRestaurant } = useCart();
   const [arItem, setArItem] = useState(null);
   const [showLiveKitchenBanner, setShowLiveKitchenBanner] = useState(false);
   const [dismissedKitchenNotif, setDismissedKitchenNotif] = useState(false);
-
+const [scrolled, setScrolled] = useState(false);
   const theme = restaurantSettings?.theme || {
     primary: "#8A244B",
     border: "#8A244B",
@@ -706,6 +706,11 @@ const handlePublicLogout = async () => {
   setUserId(null);
   setActiveTab("menu");
 };
+useEffect(() => {
+  const onScroll = () => setScrolled(window.scrollY > 60);
+  window.addEventListener('scroll', onScroll);
+  return () => window.removeEventListener('scroll', onScroll);
+}, []);
 useEffect(() => {
   if (!slug) return;
   const fetchId = async () => {
@@ -2470,57 +2475,132 @@ const handleOrderClick = (item, action = "order") => {
       ))}
 
       <div className="min-h-screen w-full" style={{ backgroundColor: theme.background }}>
-        <div className="w-full px-4 pt-28" >
-          <div className="flex justify-end items-center gap-2 mb-2">
-            <button
-              onClick={() => userId ? setShowMyBookings(!showMyBookings) : requireLogin()}
-              className="px-4 py-2 rounded-full text-sm font-medium border-2 transition-all flex items-center gap-1"
-              style={{ 
-                borderColor: theme.primary, 
-                color: showMyBookings ? '#fff' : theme.primary,
-                backgroundColor: showMyBookings ? theme.primary : 'transparent'
-              }}
-            >
-              <IoBookOutline className="w-4 h-4" /> My Bookings
-            </button>
 
-            <button
-              onClick={() => userId ? setShowTableBooking(true) : requireLogin()}
-              className="px-4 py-2 rounded-full text-sm font-medium text-white transition-all hover:opacity-90 shadow-md flex items-center gap-1"
-              style={{ backgroundColor: theme.primary }}
-            >
-              <IoCalendarOutline className="w-4 h-4" /> Book Table
-            </button>
-          </div>
-
-          {showMyBookings && userId && (
-            <div className="mb-4">
-              <MyBookings 
-                userId={userId} 
-                restaurantId={restaurantId} 
-                theme={theme} 
-              />
-            </div>
-          )}
-        </div>
 
         <div className="w-full" style={{ backgroundColor: theme.background }}>
 
 {/* ===== FIXED TRANSPARENT HEADER ===== */}
+
 <div 
   className="fixed top-0 left-0 right-0 z-[100]"
-  style={{
-    background: 'rgba(255, 255, 255, 0.08)',  // ← almost transparent
+ style={{
+    background: scrolled 
+      ? 'rgba(255, 255, 255, 0.95)'
+      : 'rgba(255, 255, 255, 0.08)',
     backdropFilter: 'blur(24px)',
     WebkitBackdropFilter: 'blur(24px)',
-    borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
-    boxShadow: '0 4px 30px rgba(0, 0, 0, 0.05)'
+    borderBottom: scrolled 
+      ? `1px solid ${theme?.primary || '#8A244B'}20`
+      : '1px solid rgba(255, 255, 255, 0.15)',
+    boxShadow: scrolled 
+      ? '0 4px 30px rgba(0, 0, 0, 0.1)'
+      : '0 4px 30px rgba(0, 0, 0, 0.05)',
+    transition: 'all 0.3s ease'
   }}
 >
+  
+    {/* Category Scroll */}
+    {!scrolled && (
+    <div className="flex gap-3 overflow-x-auto pb-1 snap-x scrollbar-hide w-full md:w-auto px-4 pt-2 pb-1">
+      {/* All button */}
+      <button
+        onClick={() => setActiveCategory("all")}
+        className="flex flex-col items-center gap-1 flex-shrink-0 snap-start"
+      >
+        <div
+          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl border-2 transition-all duration-300"
+          style={{
+            borderColor: activeCategory === "all" ? theme.primary : "rgba(255,255,255,0.2)",
+            backgroundColor: activeCategory === "all" ? `${theme.primary}15` : "rgba(255,255,255,0.08)",
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)'
+          }}
+        >
+          <img src={all_img} alt="all" width={26} height={26} />
+        </div>
+        <span
+          className="text-[10px] font-medium whitespace-nowrap"
+          style={{ color: activeCategory === "all" ? theme.primary : "#6b7280" }}
+        >
+          All
+        </span>
+      </button>
+
+      {visibleCategories.map((c) => (
+        <button
+          key={c.id}
+          onClick={() => setActiveCategory(c.id)}
+          className="flex flex-col items-center gap-1 flex-shrink-0 snap-start"
+        >
+          <div
+            className="w-12 h-12 rounded-xl overflow-hidden border-2 transition-all duration-300"
+            style={{
+              borderColor: activeCategory === c.id ? theme.primary : "rgba(255,255,255,0.2)",
+              backgroundColor: "rgba(255,255,255,0.08)",
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)'
+            }}
+          >
+            {c.image ? (
+              <img src={c.image} alt={c.name} className="w-full h-full object-cover" />
+            ) : (
+              <div
+                className="w-full h-full flex items-center justify-center"
+                style={{
+                  backgroundColor: activeCategory === c.id ? `${theme.primary}15` : "rgba(255,255,255,0.08)",
+                  backdropFilter: 'blur(12px)'
+                }}
+              >
+                <IoRestaurantOutline className="w-5 h-5" style={{ color: theme.primary }} />
+              </div>
+            )}
+          </div>
+          <span
+            className="text-[10px] font-medium whitespace-nowrap max-w-[56px] truncate"
+            style={{ color: activeCategory === c.id ? theme.primary : "#6b7280" }}
+          >
+            {c.name}
+          </span>
+        </button>
+      ))}
+      {/* Desktop My Bookings */}
+   
+    </div>
+    )}
+  {/* My Bookings Bar — scroll pe hide hoti hai */}
+{!scrolled && (
+  <div className="flex justify-end items-center gap-2 px-4 pt-2 pb-1 ">
+    <button
+      onClick={() => userId ? setShowMyBookings(!showMyBookings) : requireLogin()}
+      className="px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all flex items-center gap-1"
+      style={{ 
+        borderColor: theme.primary, 
+        color: showMyBookings ? '#fff' : theme.primary,
+        backgroundColor: showMyBookings ? theme.primary : 'transparent'
+      }}
+    >
+      <IoBookOutline className="w-3.5 h-3.5" /> My Bookings
+    </button>
+    <button
+      onClick={() => userId ? setShowTableBooking(true) : requireLogin()}
+      className="px-3 py-1.5 rounded-full text-xs font-medium text-white transition-all flex items-center gap-1"
+      style={{ backgroundColor: theme.primary }}
+    >
+      <IoCalendarOutline className="w-3.5 h-3.5" /> Book Table
+    </button>
+  </div>
+)}
+
+{/* MyBookings panel — scroll pe hide */}
+{!scrolled && showMyBookings && userId && (
+  <div className="px-4 pb-2 ">
+    <MyBookings userId={userId} restaurantId={restaurantId} theme={theme} />
+  </div>
+)}
   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-3 px-4 max-w-7xl mx-auto">
 
     {/* Logo / Name */}
-    <div className="flex items-center gap-3">
+  <div className="hidden md:flex items-center gap-3">
       {restaurantSettings?.logo ? (
         <img src={restaurantSettings.logo} alt="logo" className="h-10 md:h-12 object-contain" />
       ) : (
@@ -2569,7 +2649,28 @@ const handleOrderClick = (item, action = "order") => {
           </span>
         )}
       </button>
-
+{/* Tabs - Desktop */}
+{["menu", "about", "contact"].map((tab) => (
+  <button
+    key={tab}
+    onClick={() => setActiveTab(tab)}
+    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 hover:scale-105 uppercase tracking-wide"
+    style={{
+      border: `2px solid ${activeTab === tab ? theme.primary : 'rgba(255,255,255,0.3)'}`,
+      color: activeTab === tab ? '#ffffff' : theme.primary,
+      backgroundColor: activeTab === tab 
+        ? theme.primary 
+        : 'rgba(255,255,255,0.1)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)'
+    }}
+  >
+    {tab === 'menu' && <IoRestaurantOutline className="w-4 h-4" />}
+    {tab === 'about' && <IoBookOutline className="w-4 h-4" />}
+    {tab === 'contact' && <IoCallOutline className="w-4 h-4" />}
+    {tab}
+  </button>
+))}
       {/* Open/Closed Badge */}
       {restaurantSettings?.isOpen !== undefined && (
         <span 
@@ -2655,130 +2756,106 @@ const handleOrderClick = (item, action = "order") => {
       )}
     </div>
 
-    {/* Category Scroll */}
-    <div className="flex gap-3 overflow-x-auto pb-1 snap-x scrollbar-hide w-full md:w-auto">
-      {/* All button */}
-      <button
-        onClick={() => setActiveCategory("all")}
-        className="flex flex-col items-center gap-1 flex-shrink-0 snap-start"
-      >
-        <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl border-2 transition-all duration-300"
-          style={{
-            borderColor: activeCategory === "all" ? theme.primary : "rgba(255,255,255,0.2)",
-            backgroundColor: activeCategory === "all" ? `${theme.primary}15` : "rgba(255,255,255,0.08)",
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)'
-          }}
-        >
-          <img src={all_img} alt="all" width={26} height={26} />
-        </div>
-        <span
-          className="text-[10px] font-medium whitespace-nowrap"
-          style={{ color: activeCategory === "all" ? theme.primary : "#6b7280" }}
-        >
-          All
-        </span>
-      </button>
-
-      {visibleCategories.map((c) => (
-        <button
-          key={c.id}
-          onClick={() => setActiveCategory(c.id)}
-          className="flex flex-col items-center gap-1 flex-shrink-0 snap-start"
-        >
-          <div
-            className="w-12 h-12 rounded-xl overflow-hidden border-2 transition-all duration-300"
-            style={{
-              borderColor: activeCategory === c.id ? theme.primary : "rgba(255,255,255,0.2)",
-              backgroundColor: "rgba(255,255,255,0.08)",
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)'
-            }}
-          >
-            {c.image ? (
-              <img src={c.image} alt={c.name} className="w-full h-full object-cover" />
-            ) : (
-              <div
-                className="w-full h-full flex items-center justify-center"
-                style={{
-                  backgroundColor: activeCategory === c.id ? `${theme.primary}15` : "rgba(255,255,255,0.08)",
-                  backdropFilter: 'blur(12px)'
-                }}
-              >
-                <IoRestaurantOutline className="w-5 h-5" style={{ color: theme.primary }} />
-              </div>
-            )}
-          </div>
-          <span
-            className="text-[10px] font-medium whitespace-nowrap max-w-[56px] truncate"
-            style={{ color: activeCategory === c.id ? theme.primary : "#6b7280" }}
-          >
-            {c.name}
-          </span>
-        </button>
-      ))}
-    </div>
 
     {/* Mobile Tabs */}
-    <div className="flex justify-end items-center gap-2 text-sm font-medium md:hidden">
-      {["menu", "about", "contact"].map((tab) => (
-        <button
-          key={tab}
-          onClick={() => setActiveTab(tab)}
-          style={{ 
-            color: activeTab === tab ? theme.primary : "#6b7280",
-            border: activeTab === tab ? `2px solid ${theme.primary}` : '2px solid rgba(255,255,255,0.2)',
-            backgroundColor: activeTab === tab ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)'
-          }}
-          className="uppercase tracking-wide transition-all duration-300 flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs"
-        >
-          {tab === 'menu' && <IoRestaurantOutline className="w-3.5 h-3.5" />}
-          {tab === 'about' && <IoBookOutline className="w-3.5 h-3.5" />}
-          {tab === 'contact' && <IoCallOutline className="w-3.5 h-3.5" />}
-          {tab}
-        </button>
-      ))}
+   {/* Mobile: Row 1 - Logo + Auth */}
+<div className="flex justify-between items-center md:hidden">
+  <div className="flex items-center gap-2">
+    {restaurantSettings?.logo ? (
+      <img src={restaurantSettings.logo} alt="logo" className="h-9 object-contain" />
+    ) : (
+      <span 
+        className="font-bold text-base px-3 py-1.5 rounded-xl"
+        style={{ 
+          color: theme.primary,
+          border: `2px solid ${theme.primary}`,
+          backgroundColor: 'rgba(255,255,255,0.15)',
+        }}
+      >
+        {restaurantSettings?.name || restaurantName}
+      </span>
+    )}
+  </div>
 
-      {auth.currentUser ? (
-        <button
-        onClick={handlePublicLogout}
-          className="uppercase tracking-wide transition-all duration-300 flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs"
-          style={{
-            border: '2px solid #dc2626',
-            color: '#dc2626',
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)'
-          }}
-        >
-          <IoLogOutOutline className="w-3.5 h-3.5" />
-        </button>
-      ) : (
-        <button
-          onClick={() => requireLogin()}
-          className="uppercase tracking-wide transition-all duration-300 flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs"
-          style={{
-            border: `2px solid ${theme.primary}`,
-            color: theme.primary,
-            backgroundColor: 'rgba(255,255,255,0.05)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)'
-          }}
-        >
-          <IoLogInOutline className="w-3.5 h-3.5" />
-        </button>
+  <div className="flex items-center gap-2">
+    {/* Cart */}
+    <button
+      onClick={() => setOpenCart(true)}
+      className="relative p-2 rounded-xl transition-all"
+      style={{ 
+        border: `2px solid ${theme.primary}`,
+        color: theme.primary,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+      }}
+    >
+      <IoCartOutline className="w-5 h-5" />
+      {cart.length > 0 && (
+        <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold animate-bounce">
+          {cart.length}
+        </span>
       )}
-    </div>
+    </button>
+
+    {/* Auth */}
+    {auth.currentUser ? (
+      <button
+        onClick={handlePublicLogout}
+        className="p-2 rounded-xl transition-all"
+        style={{
+          border: '2px solid #dc2626',
+          color: '#dc2626',
+          backgroundColor: 'rgba(255,255,255,0.05)',
+        }}
+      >
+        <IoLogOutOutline className="w-5 h-5" />
+      </button>
+    ) : (
+      <button
+        onClick={() => requireLogin()}
+        className="p-2 rounded-xl transition-all"
+        style={{
+          border: `2px solid ${theme.primary}`,
+          color: theme.primary,
+          backgroundColor: 'rgba(255,255,255,0.05)',
+        }}
+      >
+        <IoLogInOutline className="w-5 h-5" />
+      </button>
+    )}
+  </div>
+</div>
+
+{/* Mobile: Row 2 - Tabs */}
+<div className="flex gap-2 md:hidden">
+  {["menu", "about", "contact"].map((tab) => (
+    <button
+      key={tab}
+      onClick={() => setActiveTab(tab)}
+      className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all"
+      style={{ 
+        color: activeTab === tab ? '#ffffff' : theme.primary,
+        border: `2px solid ${activeTab === tab ? theme.primary : 'rgba(255,255,255,0.2)'}`,
+        backgroundColor: activeTab === tab ? theme.primary : 'rgba(255,255,255,0.05)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)'
+      }}
+    >
+      {tab === 'menu' && <IoRestaurantOutline className="w-3.5 h-3.5" />}
+      {tab === 'about' && <IoBookOutline className="w-3.5 h-3.5" />}
+      {tab === 'contact' && <IoCallOutline className="w-3.5 h-3.5" />}
+      {tab}
+    </button>
+  ))}
+</div>
   </div>
 </div>
 
 
         </div>
 
-        <div className="w-full mx-auto max-w-7xl px-4">
+  <div className="w-full mx-auto max-w-7xl px-4 pt-[172px] md:pt-[172px]">
+
+
           {activeTab === "menu" && (
             <>
 
@@ -2800,8 +2877,8 @@ const handleOrderClick = (item, action = "order") => {
   <div className="fixed inset-0 z-50 bg-black/50 flex items-end" onClick={() => setShowSort(false)}>
     <div
       className="relative w-full rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto"
-      style={{
-        background: 'rgba(255,255,255,0.92)',
+     style={{
+        background: 'rgba(255,255,255,0.92)',  // ← FIXED, scrolled remove karo
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
         borderTop: '1px solid rgba(255,255,255,0.5)',
