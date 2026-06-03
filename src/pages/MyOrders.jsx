@@ -6,6 +6,7 @@ import { collection, getDocs, query, where, doc, getDoc } from "firebase/firesto
 import jsPDF from "jspdf";
 import { toast } from "sonner";
 import { Helmet } from "react-helmet-async";
+
 import {
   IoArrowBack,
   IoReceiptOutline,
@@ -37,12 +38,16 @@ const glass = {
 
 // ─── Status Config ────────────────────────────────────────────────────────────
 const STATUS = {
-  pending:   { color: "bg-amber-100 text-amber-800 border-amber-200",   label: "Pending",    icon: "⏳" },
-  confirmed: { color: "bg-blue-100 text-blue-800 border-blue-200",      label: "Confirmed",  icon: "✅" },
-  preparing: { color: "bg-purple-100 text-purple-800 border-purple-200",label: "Preparing",  icon: "👨‍🍳" },
-  ready:     { color: "bg-green-100 text-green-800 border-green-200",   label: "Ready",      icon: "🍽️" },
-  completed: { color: "bg-gray-100 text-gray-700 border-gray-200",      label: "Completed",  icon: "⭐" },
-  cancelled: { color: "bg-red-100 text-red-700 border-red-200",         label: "Cancelled",  icon: "❌" },
+  pending:          { color: "bg-amber-100 text-amber-800 border-amber-200",   label: "Pending",          icon: "⏳" },
+  confirmed:        { color: "bg-blue-100 text-blue-800 border-blue-200",      label: "Confirmed",        icon: "✅" },
+  preparing:        { color: "bg-purple-100 text-purple-800 border-purple-200",label: "Preparing",        icon: "👨‍🍳" },
+  ready:            { color: "bg-green-100 text-green-800 border-green-200",   label: "Ready",            icon: "🍽️" },
+  shipped:          { color: "bg-orange-100 text-orange-800 border-orange-200",label: "Out for Delivery", icon: "🛵" },
+  out_for_delivery: { color: "bg-orange-100 text-orange-800 border-orange-200",label: "Out for Delivery", icon: "🛵" },
+  picked_up:        { color: "bg-yellow-100 text-yellow-800 border-yellow-200",label: "Picked Up",        icon: "📦" },
+  delivered:        { color: "bg-green-100 text-green-800 border-green-200",   label: "Delivered",        icon: "🏠" },
+  completed:        { color: "bg-gray-100 text-gray-700 border-gray-200",      label: "Completed",        icon: "⭐" },
+  cancelled:        { color: "bg-red-100 text-red-700 border-red-200",         label: "Cancelled",        icon: "❌" },
 };
 
 // ─── Helper: get items array ──────────────────────────────────────────────────
@@ -131,7 +136,7 @@ const generateBillPDF = async (order, restaurantName, restaurantSettings) => {
 };
 
 // ─── Order Card Component ─────────────────────────────────────────────────────
-const OrderCard = ({ order, theme, restaurantName, restaurantSettings }) => {
+const OrderCard = ({ order, theme, restaurantName, restaurantSettings, restaurantId, navigate }) => {
   const [expanded, setExpanded] = useState(false);
   const status = STATUS[order.status] || STATUS.pending;
   const items = getItems(order.items);
@@ -259,6 +264,52 @@ const OrderCard = ({ order, theme, restaurantName, restaurantSettings }) => {
 
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-2 pt-1">
+{order.orderDetails?.type === "delivery" &&
+ !["delivered", "completed", "cancelled"].includes(order.status) && (
+  <button
+    onClick={() => navigate(`/track/${restaurantId}/${order.id}`)}
+    className="col-span-2 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 active:scale-95"
+    style={{
+      border: `2px solid ${theme.primary}`,
+      color: theme.primary,
+      backgroundColor: "transparent",
+    }}
+    onMouseEnter={e => { e.currentTarget.style.backgroundColor = theme.primary; e.currentTarget.style.color = "#fff"; }}
+    onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = theme.primary; }}
+  >
+    {["shipped", "out_for_delivery", "picked_up"].includes(order.status)
+      ? "🛵 Track Live Delivery"
+      : "🛵 Track Order"}
+  </button>
+)}
+{/* Cancel button - sirf tab jab order shipped nahi hua */}
+{!["shipped", "out_for_delivery", "picked_up", "delivered", "completed", "cancelled"].includes(order.status) && (
+  <button
+    onClick={async () => {
+      if (!window.confirm("Kya aap ye order cancel karna chahte hain?")) return;
+      try {
+        await update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
+          status: "cancelled",
+          cancelledAt: Date.now(),
+          cancelledBy: "customer",
+        });
+        toast.success("Order cancel ho gaya!");
+      } catch (e) {
+        toast.error("Cancel nahi hua, dobara try karo");
+      }
+    }}
+    className="col-span-2 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 active:scale-95"
+    style={{
+      border: "2px solid #dc2626",
+      color: "#dc2626",
+      backgroundColor: "transparent",
+    }}
+    onMouseEnter={e => { e.currentTarget.style.backgroundColor = "#dc2626"; e.currentTarget.style.color = "#fff"; }}
+    onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = "#dc2626"; }}
+  >
+    ❌ Cancel Order
+  </button>
+)}
             <button
               onClick={handleDownloadBill}
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 active:scale-95"
@@ -604,6 +655,9 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
               theme={theme}
               restaurantName={restaurantName}
               restaurantSettings={restaurantSettings}
+              restaurantId={restaurantId}
+  navigate={navigate}
+
             />
           ))}
 

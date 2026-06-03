@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { collection, query, where, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-
+import { ref, onValue, update } from "firebase/database";
+import { realtimeDB } from "../firebaseConfig";
 export default function DeliveryBoyDashboard({ restaurantId, session, onLogout }) {
   const [orders, setOrders] = useState([]);
   const [tab, setTab] = useState("active"); // "active" | "delivered"
@@ -10,50 +11,60 @@ export default function DeliveryBoyDashboard({ restaurantId, session, onLogout }
   const [updatingId, setUpdatingId] = useState(null);
 
   // ── Fetch assigned orders ─────────────────────────────────────
-  useEffect(() => {
-    if (!session?.boyId) return;
+ useEffect(() => {
+  if (!session?.boyId || !restaurantId) return;
+  setLoading(true);
 
-    const ordersRef = collection(db, "restaurants", restaurantId, "orders");
-    const q = query(ordersRef, where("deliveryBoyId", "==", session.boyId));
+  const ordersRef = ref(realtimeDB, `orders/${restaurantId}`);
+  const unsub = onValue(ordersRef, (snap) => {
+    const data = snap.val();
+    if (!data) { setOrders([]); setLoading(false); return; }
 
-    const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setOrders(data);
+    const myOrders = Object.entries(data)
+      .filter(([, order]) =>
+        order.deliveryInfo?.deliveryBoyId === session.boyId
+      )
+      .map(([id, order]) => ({ id, ...order }))
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-      // Aaj ki earnings calculate karo
-      const today = new Date().toDateString();
-      const earned = data
-        .filter(o =>
-          o.status === "delivered" &&
-          o.deliveredAt &&
-          new Date(o.deliveredAt?.toDate?.() || o.deliveredAt).toDateString() === today
-        )
-        .reduce((sum, o) => sum + (o.deliveryCharge || 0), 0);
-      setTodayEarnings(earned);
-      setLoading(false);
-    });
+    setOrders(myOrders);
 
-    return () => unsub();
-  }, [restaurantId, session?.boyId]);
+    const today = new Date().toDateString();
+    const earned = myOrders
+      .filter(o =>
+        o.deliveryInfo?.status === "delivered" &&
+        new Date(o.deliveryInfo.deliveredAt || 0).toDateString() === today
+      )
+      .reduce((sum, o) => sum + (o.deliveryInfo?.deliveryCharge || o.deliveryCharge || 0), 0);
+
+    setTodayEarnings(earned);
+    setLoading(false);
+  });
+
+  return () => unsub();
+}, [restaurantId, session?.boyId]);
 
   // ── Update order status ───────────────────────────────────────
-  const updateStatus = async (orderId, newStatus) => {
-    setUpdatingId(orderId);
-    try {
-      const orderRef = doc(db, "restaurants", restaurantId, "orders", orderId);
-      const updateData = { status: newStatus };
-      if (newStatus === "delivered") {
-        updateData.deliveredAt = new Date();
-      } else if (newStatus === "picked_up") {
-        updateData.pickedUpAt = new Date();
-      }
-      await updateDoc(orderRef, updateData);
-    } catch (err) {
-      console.error("Status update fail:", err);
-    } finally {
-      setUpdatingId(null);
+ const updateStatus = async (orderId, newStatus) => {
+  setUpdatingId(orderId);
+  try {
+    const updates = {
+      "deliveryInfo/status": newStatus,
+      status: newStatus === "delivered" ? "delivered" : "out_for_delivery",
+      updatedAt: Date.now(),
+    };
+    if (newStatus === "delivered") {
+      updates["deliveryInfo/deliveredAt"] = Date.now();
+    } else if (newStatus === "picked_up") {
+      updates["deliveryInfo/pickedUpAt"] = Date.now();
     }
-  };
+    await update(ref(realtimeDB, `orders/${restaurantId}/${orderId}`), updates);
+  } catch (err) {
+    console.error("Status update fail:", err);
+  } finally {
+    setUpdatingId(null);
+  }
+};
 
   const activeOrders = orders.filter(o => !["delivered", "cancelled"].includes(o.status));
   const deliveredOrders = orders.filter(o => o.status === "delivered");
@@ -71,14 +82,16 @@ export default function DeliveryBoyDashboard({ restaurantId, session, onLogout }
     cancelled: { bg: "#fef2f2", color: "#ef4444" },
   };
 
-  const nextAction = (status) => {
-    const map = {
-      ready: { label: "📦 Pickup Karo", next: "picked_up" },
-      picked_up: { label: "🛵 Out for Delivery", next: "out_for_delivery" },
-      out_for_delivery: { label: "✅ Delivered", next: "delivered" },
-    };
-    return map[status] || null;
+const nextAction = (status) => {
+  const map = {
+    shipped:          { label: "📦 Pickup Karo",       next: "picked_up" },
+    assigned:         { label: "📦 Pickup Karo",       next: "picked_up" },
+    ready:            { label: "📦 Pickup Karo",       next: "picked_up" },
+    picked_up:        { label: "🛵 Out for Delivery",  next: "out_for_delivery" },
+    out_for_delivery: { label: "✅ Delivered",          next: "delivered" },
   };
+  return map[status] || null;
+};
 
   // ── Styles ────────────────────────────────────────────────────
   const s = {
@@ -361,39 +374,49 @@ export default function DeliveryBoyDashboard({ restaurantId, session, onLogout }
                   </span>
                 </div>
 
-                {/* Customer Info */}
-                {order.customerName && (
-                  <div style={s.customerInfo}>
-                    <div style={s.customerName}>
-                      👤 {order.customerName}
-                      {order.customerPhone && (
-                        <a
-                          href={`tel:${order.customerPhone}`}
-                          style={{ marginLeft: "8px", color: "#2a7a4b", fontSize: "12px" }}
-                        >
-                          📞 Call
-                        </a>
-                      )}
-                    </div>
-                    {order.deliveryAddress && (
-                      <div style={s.customerAddr}>
-                        📍 {order.deliveryAddress}
-                      </div>
-                    )}
-                  </div>
-                )}
+             {/* Customer Info */}
+{(order.customerInfo?.name || order.customerName) && (
+  <div style={s.customerInfo}>
+    <div style={s.customerName}>
+      👤 {order.customerInfo?.name || order.customerName}
+      {(order.customerInfo?.phone || order.customerPhone) && (
+        
+         <a href={`tel:${order.customerInfo?.phone || order.customerPhone}`}
+          style={{ marginLeft: "8px", color: "#2a7a4b", fontSize: "12px" }}
+        >
+          📞 Call
+        </a>
+      )}
+    </div>
+    {order.deliveryInfo?.address && (
+      <div style={s.customerAddr}>
+        📍 {order.deliveryInfo.address}
+      </div>
+    )}
+    {order.deliveryInfo?.googleMapsLink && (
+      
+     <a   href={order.deliveryInfo.googleMapsLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ fontSize: "11px", color: "#2a7a4b", display: "block", marginTop: 4 }}
+      >
+        🗺️ Maps mein dekho
+      </a>
+    )}
+  </div>
+)}
 
-                {/* Items */}
-                {order.items && (
-                  <div style={s.orderItems}>
-                    {order.items.map((item, i) => (
-                      <span key={i}>
-                        {item.name} x{item.quantity}
-                        {i < order.items.length - 1 ? " • " : ""}
-                      </span>
-                    ))}
-                  </div>
-                )}
+{/* Items */}
+{order.items && (
+  <div style={s.orderItems}>
+    {Object.values(order.items).map((item, i, arr) => (
+      <span key={i}>
+        {item.name} x{item.qty}
+        {i < arr.length - 1 ? " • " : ""}
+      </span>
+    ))}
+  </div>
+)}
 
                 {/* Footer */}
                 <div style={s.orderFooter}>

@@ -23,7 +23,9 @@ import {
 } from "react-icons/fa";
 import { MdOutlineRestaurantMenu } from "react-icons/md";
 import { BiDish } from "react-icons/bi";
-
+import { ref, update } from "firebase/database";
+import { realtimeDB } from "../firebaseConfig";
+import { useState } from "react";
 const PRIMARY = "#8A244B";
 const GOLD    = "#FFD166";
 
@@ -136,12 +138,142 @@ const SectionLabel = ({ icon, children }) => (
     {children}
   </div>
 );
+function DeliveryAssignSection({ order, restaurantId, deliveryBoys }) {
+  const [selectedBoy, setSelectedBoy] = useState(
+    order.deliveryInfo?.deliveryBoyId || ""
+  );
+  const [assigning, setAssigning] = useState(false);
 
+  const activeBoys = (deliveryBoys || []).filter(b => b.isActive);
+
+  const assignDeliveryBoy = async () => {
+    if (!selectedBoy) return;
+    const boy = activeBoys.find(b => b.id === selectedBoy);
+    if (!boy) return;
+    setAssigning(true);
+    try {
+      await update(ref(realtimeDB, `orders/${restaurantId}/${order.id}`), {
+        "deliveryInfo/deliveryBoyId":    boy.id,
+        "deliveryInfo/deliveryBoyName":  boy.name,
+        "deliveryInfo/deliveryBoyPhone": boy.phone,
+        "deliveryInfo/status":           "assigned",
+        "deliveryInfo/assignedAt":       Date.now(),
+        status:    "shipped",
+        updatedAt: Date.now(),
+      });
+    } catch (e) {
+      console.error("Assign failed:", e);
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  return (
+    <div style={{
+      background: "#f0fdf4", border: "1px solid #bbf7d0",
+      borderRadius: 12, padding: "12px 14px", marginTop: 12,
+    }}>
+      <p style={{ fontSize: 12, fontWeight: 700, color: "#166534", marginBottom: 8 }}>
+        🛵 Delivery Assignment
+      </p>
+
+      {order.deliveryInfo?.zone && (
+        <p style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>
+          📍 Zone: <strong>{order.deliveryInfo.zone.name}</strong>
+          {" "}• Charge: ₹{order.deliveryInfo.zone.charge || 0}
+        </p>
+      )}
+
+      {order.deliveryInfo?.address && (
+        <p style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>
+          🏠 {order.deliveryInfo.address}
+          {order.deliveryInfo.landmark && ` (Near ${order.deliveryInfo.landmark})`}
+        </p>
+      )}
+
+      {order.deliveryInfo?.deliveryBoyName ? (
+        <div style={{
+          background: "#dcfce7", borderRadius: 8,
+          padding: "8px 12px", marginBottom: 8,
+        }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>
+            ✅ Assigned: {order.deliveryInfo.deliveryBoyName}
+          </p>
+          <p style={{ fontSize: 11, color: "#4b5563" }}>
+            📱 {order.deliveryInfo.deliveryBoyPhone}
+          </p>
+          <p style={{ fontSize: 11, color: "#4b5563", marginTop: 4 }}>
+            Status: <strong>{order.deliveryInfo.status}</strong>
+          </p>
+        </div>
+      ) : (
+        <p style={{ fontSize: 11, color: "#ef4444", marginBottom: 8 }}>
+          ⚠️ Koi delivery boy assign nahi hua
+        </p>
+      )}
+
+      {activeBoys.length > 0 ? (
+        <div style={{ display: "flex", gap: 8 }}>
+          <select
+            value={selectedBoy}
+            onChange={e => setSelectedBoy(e.target.value)}
+            style={{
+              flex: 1, padding: "8px 10px",
+              borderRadius: 8, border: "1.5px solid #d1d5db",
+              fontSize: 12, fontFamily: "'DM Sans', sans-serif",
+              outline: "none",
+            }}
+          >
+            <option value="">— Select Delivery Boy —</option>
+            {activeBoys.map(boy => (
+              <option key={boy.id} value={boy.id}>
+                {boy.name} • {boy.phone} {boy.zone ? `(${boy.zone})` : ""}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={assignDeliveryBoy}
+            disabled={!selectedBoy || assigning}
+            style={{
+              padding: "8px 14px", borderRadius: 8,
+              background: selectedBoy && !assigning ? "#16a34a" : "#d1d5db",
+              color: "#fff", border: "none",
+              fontWeight: 700, fontSize: 12,
+              cursor: selectedBoy && !assigning ? "pointer" : "not-allowed",
+              fontFamily: "'DM Sans', sans-serif",
+            }}
+          >
+            {assigning ? "..." : order.deliveryInfo?.deliveryBoyName ? "Re-assign" : "Assign"}
+          </button>
+        </div>
+      ) : (
+        <p style={{ fontSize: 11, color: "#9ca3af" }}>
+          No active delivery boys. Pehle add karo.
+        </p>
+      )}
+
+      {order.deliveryInfo?.googleMapsLink && (
+        
+        <a  href={order.deliveryInfo.googleMapsLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "block", marginTop: 8,
+            fontSize: 11, color: "#2563eb", fontWeight: 600,
+          }}
+        >
+          🗺️ Customer ka location dekho
+        </a>
+      )}
+    </div>
+  );
+}
 // ─── ORDER CARD ───────────────────────────────────────────────────────────────
 export function Ordercard({
   order, now, isActive, onDelete, onUpdateStatus,
   onUpdatePayment, onGenerateBill, autoCompleteEnabled,
-  theme, canSeeWhatsApp, isGuest,    // ← add karo
+  theme, canSeeWhatsApp, isGuest,
+  deliveryBoys, restaurantId,   
 }) {
   const isWhatsApp        = order.source === "whatsapp" || order.type === "whatsapp" || !!order.whatsappStatus;
   const showWhatsAppBadge = isWhatsApp && canSeeWhatsApp;
@@ -484,7 +616,13 @@ export function Ordercard({
             })
           )}
         </div>
-
+{order.orderDetails?.type === "delivery" && (
+  <DeliveryAssignSection
+    order={order}
+    restaurantId={restaurantId}
+    deliveryBoys={deliveryBoys}
+  />
+)}
         {/* ── FOOTER ── */}
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",

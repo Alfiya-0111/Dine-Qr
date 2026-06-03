@@ -22,12 +22,13 @@ import RevenueDashboard from "./pages/admin/RevenueDashboard";
 import KitchenDisplay from "./pages/admin/KitchenDisplay";
 import AdminCoupons from "./pages/admin/AdminCoupons";
 import HotelOwnerFeedback from "./components/HotelOwnerFeedback";
-import OrderTracking from "./pages/OrderTracking";
+
 import DeliveryBoyManagement from "./pages/admin/DeliveryBoyManagement";
 import StaticPage from "./pages/StaticPage"; // ✅ ADD THIS
 import RestaurantsList from "./pages/Restaurantslist";
 import MultiBranchDashboard from "./pages/Multibranchdashboard";
 import InventoryManagement from "./pages/Inventorymanagement";
+import OrderTracking from "./pages/OrderTracking";
 
 function App() {
   return (
@@ -48,8 +49,9 @@ function App() {
           {/* ── Public Customer Routes ─────────────────── */}
          <Route path="/menu/:slug" element={<PublicMenu />} />
           <Route path="/checkout/:restaurantId" element={<Checkout />} />
-          <Route path="/track/:restaurantId/:orderId" element={<OrderTracking />} />
+        <Route path="/track/:restaurantId/:orderId" element={<OrderTracking />} />
 <Route path="/menu/:restaurantId/my-orders" element={<MyOrders />} />
+
           {/* ── Owner Dashboard (Nested Routes) ───────── */}
           <Route path="/dashboard/:restaurantId" element={<Dashboard />}>
             <Route path="adminorder" element={<AdminOrders />} />
