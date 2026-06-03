@@ -630,7 +630,8 @@ export default function KitchenDisplay() {
 
   useEffect(() => {
     if (!restaurantId) return;
-    const ordersRef = ref(realtimeDB, "orders");
+   const ordersRef = ref(realtimeDB, `orders/${restaurantId}`);
+
     const unsub = onValue(ordersRef, (snap) => {
       const data = snap.val();
       setLastUpdated(Date.now());
@@ -641,16 +642,17 @@ export default function KitchenDisplay() {
       const todayStartTs = todayStart.getTime();
       const ACTIVE_STATUSES = ["pending", "confirmed", "preparing", "ready"];
 
-      const myOrders = Object.entries(data)
-        .filter(([, o]) => {
-          if (String(o.restaurantId || "").trim() !== String(restaurantId).trim()) return false;
-          if (ACTIVE_STATUSES.includes(o.status)) return true;
-          if (o.status === "completed") {
-            const completedAt = o.completedAt || o.updatedAt || o.createdAt || 0;
-            return completedAt >= todayStartTs;
-          }
-          return false;
-        })
+     const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+const myOrders = Object.entries(data)
+  .filter(([, o]) => {
+    if (ACTIVE_STATUSES.includes(o.status)) return true;
+    if (o.status === "completed") {
+      const completedAt = o.completedAt || o.updatedAt || o.createdAt || 0;
+      return (Date.now() - completedAt) < TWENTY_FOUR_HOURS;
+    }
+    return false;
+  })
         .map(([id, o]) => ({ id, ...o }))
         .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
