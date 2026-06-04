@@ -1,8 +1,5 @@
-// ═══════════════════════════════════════════════════════════════════════════════
-// 📍 ORDER TRACKING PAGE - Live Location + Delivery Status
-// File: pages/OrderTracking.jsx
-// ═══════════════════════════════════════════════════════════════════════════════
 
+import { MapPin, CheckCircle2, ChefHat, Package, Bike, Home, Rocket, Wifi, Share2 } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { ref, onValue, update, serverTimestamp } from "firebase/database";
 import { realtimeDB, auth } from "../firebaseConfig";
@@ -208,7 +205,7 @@ function CustomerLiveLocation({ orderId, restaurantPhone, customerName, theme })
         <div className="flex items-center gap-2">
           <div className={`w-3 h-3 rounded-full ${isSharing ? "animate-pulse bg-green-500" : "bg-gray-400"}`} />
           <span className="font-bold" style={{ color: theme.primary }}>
-            {isSharing ? "🟢 Live Location ON" : "📍 Share Your Location"}
+            {isSharing ? <span style={{color:"#22c55e"}}>● Live Location ON</span> : "📍 Share Your Location"}
           </span>
         </div>
         {isSharing && (
@@ -235,7 +232,7 @@ function CustomerLiveLocation({ orderId, restaurantPhone, customerName, theme })
               className="w-full py-3 rounded-xl font-bold text-white text-lg shadow-lg hover:shadow-xl transition-all active:scale-95"
               style={{ backgroundColor: theme.primary }}
             >
-              🚀 Start Live Sharing
+             <Rocket size={18} /> Start Live Sharing
             </button>
             <p className="text-xs text-gray-400 mt-3">
               ⏱️ 30 minutes auto-stop • 🔋 Battery optimized
@@ -259,7 +256,7 @@ function CustomerLiveLocation({ orderId, restaurantPhone, customerName, theme })
               </div>
               {currentLocation?.accuracy && (
                 <p className="text-xs text-green-600 ml-13">
-                  📡 Accuracy: ±{Math.round(currentLocation.accuracy)} meters
+                  <Wifi size={12} /> Accuracy: ±{Math.round(currentLocation.accuracy)} meters
                 </p>
               )}
             </div>
@@ -284,7 +281,7 @@ function CustomerLiveLocation({ orderId, restaurantPhone, customerName, theme })
             {/* Share Count */}
             {shareCount > 0 && (
               <p className="text-center text-sm text-green-600 font-medium">
-                ✅ {shareCount} time share ho chuka hai
+                <CheckCircle2 size={14} /> {shareCount} time share ho chuka hai
               </p>
             )}
 
@@ -324,7 +321,7 @@ function DeliveryBoyCard({ deliveryBoy, theme }) {
       <div className="flex items-center gap-4">
         <div className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
              style={{ backgroundColor: theme.primary + "15" }}>
-          🛵
+          <Bike size={24} />
         </div>
         <div className="flex-1">
           <p className="font-bold text-gray-800">{deliveryBoy.name}</p>
@@ -387,11 +384,11 @@ const orderRef = ref(realtimeDB, `orders/${restaurantId}/${orderId}`);
 
   // Status steps
   const statusSteps = [
-    { id: "confirmed", label: "Confirmed", icon: "✅" },
-    { id: "preparing", label: "Preparing", icon: "👨‍🍳" },
-    { id: "ready", label: "Ready", icon: "🍱" },
-    { id: "out_for_delivery", label: "Out for Delivery", icon: "🛵" },
-    { id: "delivered", label: "Delivered", icon: "🏠" }
+    { id: "confirmed", label: "Confirmed", icon: <CheckCircle2 size={18} color="#fff"/>  },
+    { id: "preparing", label: "Preparing", icon:<ChefHat size={18} color="#fff" /> },
+    { id: "ready", label: "Ready", icon: <Package size={18} color="#fff" />  },
+    { id: "out_for_delivery", label: "Out for Delivery", icon: <Bike size={18} color="#fff" />  },
+    { id: "delivered", label: "Delivered", icon: <Home size={18} color="#fff" /> }
   ];
 
 const statusOrder = ["confirmed", "preparing", "ready", "out_for_delivery", "delivered"];

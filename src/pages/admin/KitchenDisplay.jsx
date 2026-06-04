@@ -3,7 +3,14 @@ import { ref, onValue, update, get } from "firebase/database";
 import { realtimeDB } from "../../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-
+import {
+  FaLock, FaRocket, FaArrowUp, FaUtensils,
+  FaCheckCircle, FaBell, FaVolumeUp, FaVolumeMute,
+  FaSync, FaChair, FaClipboardList, FaFire,
+  FaCheck, FaExclamationTriangle, FaArrowLeft,
+  FaDrumstickBite, FaStar, FaHourglassHalf,
+  FaClock, FaTimes
+} from 'react-icons/fa';
 const MAROON = "#8A244B";
 const GOLD   = "#FFD166";
 const GOLD2  = "#D4A843";
@@ -137,7 +144,7 @@ function LockedScreen({ planName, navigate, restaurantId }) {
           display: "flex", alignItems: "center", justifyContent: "center",
           margin: "0 auto 20px",
           fontSize: 36,
-        }}>🔒</div>
+        }}><FaLock style={{ fontSize: 36, color: MAROON }} /></div>
 
         {/* badge */}
         <div style={{
@@ -176,17 +183,20 @@ function LockedScreen({ planName, navigate, restaurantId }) {
           <div style={{ fontSize: 12, fontWeight: 800, color: MAROON, marginBottom: 10, letterSpacing: 0.5 }}>
             KDS SE KYA MILEGA:
           </div>
-          {[
-            "🍳 Real-time order tracking",
-            "⏱️ Per-item prep timers with countdown",
-            "🔔 Audio alerts for new orders",
-            "📱 Mobile-friendly 3-column view",
-            "✅ One-tap order status updates",
-          ].map((f, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7, fontSize: 13, color: "#444", fontWeight: 500 }}>
-              {f}
-            </div>
-          ))}
+      
+{[
+  [<FaClipboardList />, "Real-time order tracking"],
+  [<FaClock />,         "Per-item prep timers with countdown"],
+  [<FaBell />,          "Audio alerts for new orders"],
+  [<FaUtensils />,      "Mobile-friendly 3-column view"],
+  [<FaCheck />,         "One-tap order status updates"],
+].map(([icon, text], i) => (
+  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7, fontSize: 13, color: "#444", fontWeight: 500 }}>
+    <span style={{ color: MAROON, fontSize: 14 }}>{icon}</span>
+    {text}
+  </div>
+))}
+
         </div>
 
         {/* plan pills */}
@@ -226,7 +236,9 @@ function LockedScreen({ planName, navigate, restaurantId }) {
             marginBottom: 12,
           }}
         >
-          🚀 Plan Upgrade Karo
+<span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+  <FaRocket style={{ fontSize: 13 }} /> Plan Upgrade Karo
+</span>
         </button>
 
         <button
@@ -244,7 +256,9 @@ function LockedScreen({ planName, navigate, restaurantId }) {
             fontFamily: "'Sora', sans-serif",
           }}
         >
-          ← Dashboard pe Wapas
+         <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+  <FaArrowLeft style={{ fontSize: 12 }} /> Dashboard pe Wapas
+</span>
         </button>
       </div>
     </div>
@@ -301,10 +315,10 @@ function OrderCard({ order, onUpdateStatus, tick }) {
   const items = getItemsArray(order.items);
 
   const statusConfig = {
-    pending:   { label: "Pending",   color: "#d97706", next: "confirmed",  nextLabel: "✅ Confirm Order",  nextColor: "#16a34a" },
-    confirmed: { label: "Confirmed", color: "#2563eb", next: "preparing",  nextLabel: "👨‍🍳 Start Cooking", nextColor: MAROON    },
-    preparing: { label: "Preparing", color: "#ea580c", next: "ready",      nextLabel: "🍽️ Mark Ready",    nextColor: "#7c3aed" },
-    ready:     { label: "Ready",     color: "#16a34a", next: "completed",  nextLabel: "✅ Complete Order", nextColor: "#64748b" },
+   pending:   { nextLabel: <><FaCheckCircle style={{fontSize:12}}/> Confirm Order</> },
+confirmed: { nextLabel: <><FaFire style={{fontSize:12}}/> Start Cooking</> },
+preparing: { nextLabel: <><FaUtensils style={{fontSize:12}}/> Mark Ready</> },
+ready:     { nextLabel: <><FaCheckCircle style={{fontSize:12}}/> Complete Order</> },
     completed: { label: "Completed", color: "#9ca3af", next: null,         nextLabel: null },
   };
 
@@ -367,7 +381,7 @@ function OrderCard({ order, onUpdateStatus, tick }) {
               fontWeight: 800,
               color: GOLD,
             }}>
-              🪑 Table {order.tableNumber || order.orderDetails?.tableNumber}
+              <FaChair style={{ color: GOLD, fontSize: 11, marginRight: 4 }} /> Table {order.tableNumber || order.orderDetails?.tableNumber}
             </div>
           ) : (
             <div style={{ fontSize: 11, opacity: 0.75, marginTop: 3 }}>
@@ -414,7 +428,9 @@ function OrderCard({ order, onUpdateStatus, tick }) {
           alignItems: "center",
           gap: 6,
         }}>
-          <span style={{ fontSize: 13 }}>🔔</span>
+         <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+  <FaBell style={{ fontSize: 16 }} /> NEW ORDER RECEIVED!
+</span>
           <span style={{ fontSize: 11, fontWeight: 800, color: "#92400e" }}>NEW — Confirmation Required!</span>
         </div>
       )}
@@ -452,7 +468,7 @@ function OrderCard({ order, onUpdateStatus, tick }) {
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3 }}>
                     {item.dishTasteProfile !== "sweet" && item.spicePreference && item.spicePreference !== "normal" && (
                       <span style={{ fontSize: 10, padding: "1px 6px", background: "#fee2e2", color: "#991b1b", borderRadius: 4, fontWeight: 700 }}>
-                        🌶️ {item.spicePreference}
+                        <FaFire style={{ fontSize: 10, color: "#991b1b" }} /> {item.spicePreference}
                       </span>
                     )}
                     {item.dishTasteProfile === "sweet" && item.sweetLevel && item.sweetLevel !== "normal" && (
@@ -474,17 +490,22 @@ function OrderCard({ order, onUpdateStatus, tick }) {
 
                   {item.specialInstructions && (
                     <div style={{ fontSize: 10, color: MAROON, background: "#fdf0f4", borderRadius: 4, padding: "2px 6px", marginTop: 3, fontWeight: 500 }}>
-                      📝 {item.specialInstructions}
+                      <FaClipboardList style={{ fontSize: 10, color: MAROON }} /> {item.specialInstructions}
                     </div>
                   )}
 
                   {!isCompleted && (
                     isDishReady ? (
-                      <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 700, marginTop: 3 }}>✅ Ready!</div>
+                      <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 700, marginTop: 3 }}><span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+  <FaCheckCircle style={{ color: "#16a34a", fontSize: 12 }} /> Ready!
+</span>
+ Ready!</div>
                     ) : prepStart ? (
                       <div style={{ marginTop: 4 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#9b7080", marginBottom: 2 }}>
-                          <span>👨‍🍳 Cooking...</span>
+                          <span><span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+  <FaFire style={{ fontSize: 10, color: MAROON }} /> Cooking...
+</span> Cooking...</span>
                           <span style={{ fontWeight: 700, color: timeLeft < 60000 ? "#ef4444" : MAROON }}>
                             {formatCountdown(timeLeft)} left
                           </span>
@@ -501,7 +522,10 @@ function OrderCard({ order, onUpdateStatus, tick }) {
                         </div>
                       </div>
                     ) : (
-                      <div style={{ fontSize: 10, color: "#b88a99", marginTop: 3 }}>⏳ {item.prepTime || 15} min prep</div>
+                      <div style={{ fontSize: 10, color: "#b88a99", marginTop: 3 }}><span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+  <FaHourglassHalf style={{ fontSize: 10 }} /> {item.prepTime || 15} min prep
+</span>
+ {item.prepTime || 15} min prep</div>
                     )
                   )}
                 </div>
@@ -515,7 +539,7 @@ function OrderCard({ order, onUpdateStatus, tick }) {
       {(order.specialInstructions || order.orderDetails?.specialInstructions) && (
         <div style={{ margin: "0 12px 8px", padding: "6px 10px", background: `${GOLD}22`, border: `1px solid ${GOLD}66`, borderRadius: 8 }}>
           <span style={{ fontSize: 11, color: "#5c1030", fontWeight: 600 }}>
-            📝 {order.specialInstructions || order.orderDetails?.specialInstructions}
+            <FaClipboardList style={{ fontSize: 10, color: MAROON }} /> {order.specialInstructions || order.orderDetails?.specialInstructions}
           </span>
         </div>
       )}
@@ -559,7 +583,10 @@ function OrderCard({ order, onUpdateStatus, tick }) {
             textAlign: "center",
             boxSizing: "border-box",
           }}>
-            ✨ Delivered
+            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+  <FaStar style={{ color: "#b88a99", fontSize: 12 }} /> Delivered
+</span>
+ Delivered
           </div>
         ) : null}
       </div>
@@ -718,21 +745,24 @@ const myOrders = Object.entries(data)
 
   const columns = [
     {
-      label: "🆕 New Orders",
+    label: "New Orders",
+    labelIcon: <FaBell style={{ fontSize: 11 }} />,
       color: "#d97706",
       bgLight: "#fef3c7",
       orders: [...pendingOrders, ...confirmedOrders],
       badge: pendingOrders.length > 0 ? `${pendingOrders.length} new` : null,
     },
     {
-      label: "👨‍🍳 Cooking",
+      label: "Cooking",
+    labelIcon: <FaFire style={{ fontSize: 11 }} />,
       color: "#ea580c",
       bgLight: "#fff7ed",
       orders: preparingOrders,
       badge: preparingOrders.length > 0 ? preparingOrders.length : null,
     },
     {
-      label: "✅ Ready / Done",
+       label: "Ready / Done",
+    labelIcon: <FaCheckCircle style={{ fontSize: 11 }} />,
       color: "#16a34a",
       bgLight: "#f0fdf4",
       orders: [...readyOrders, ...completedOrders],
@@ -1022,7 +1052,7 @@ const myOrders = Object.entries(data)
         {/* TOP BAR */}
         <div className="kd-topbar">
           <div className="kd-topbar-left">
-            <div className="kd-logo-badge">🍳</div>
+            <div className="kd-logo-badge"><FaDrumstickBite style={{ fontSize: 22, color: GOLD }} /></div>
             <div>
               <div className="kd-topbar-title">Kitchen Display</div>
               <div className="kd-topbar-date">
@@ -1048,23 +1078,29 @@ const myOrders = Object.entries(data)
             </div>
 
             <div className="kd-updated">
-              <div style={{ fontSize: 11, fontWeight: 700, color: GOLD }}>🔄 Updated</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: GOLD }}><span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+  <FaSync style={{ fontSize: 10, color: GOLD }} /> Updated
+</span> Updated</div>
               <div style={{ fontSize: 10, opacity: 0.65 }}>{formatLastUpdated(lastUpdated)}</div>
             </div>
 
             <button className="kd-sound-btn" onClick={() => setSoundEnabled((s) => !s)}>
-              {soundEnabled ? "🔊 ON" : "🔇 OFF"}
+             {soundEnabled 
+  ? <><FaVolumeUp style={{ fontSize: 12 }} /> ON</>
+  : <><FaVolumeMute style={{ fontSize: 12 }} /> OFF</>
+}
+
             </button>
           </div>
         </div>
 
         {/* NEW ORDER FLASH */}
-        {newOrderFlash && <div className="kd-flash">🔔 NEW ORDER RECEIVED!</div>}
+        {newOrderFlash && <div className="kd-flash"><FaBell style={{ fontSize: 13, color: "#92400e" }} /> NEW ORDER RECEIVED!</div>}
 
         {/* PENDING ALERT */}
         {pendingOrders.length > 0 && (
           <div className="kd-pending-alert">
-            <span>⚠️ {pendingOrders.length} order{pendingOrders.length > 1 ? "s" : ""} waiting for confirmation!</span>
+            <span><FaExclamationTriangle style={{ fontSize: 14, color: "#78350f" }} /> {pendingOrders.length} order{pendingOrders.length > 1 ? "s" : ""} waiting for confirmation!</span>
             <span style={{ fontSize: 11, opacity: 0.75 }}>Tap "New Orders" tab</span>
           </div>
         )}
@@ -1088,7 +1124,7 @@ const myOrders = Object.entries(data)
           {/* NO ORDERS */}
           {orders.length === 0 && (
             <div className="kd-no-orders">
-              <div style={{ fontSize: 56 }}>🍽️</div>
+              <div style={{ fontSize: 56 }}><FaUtensils style={{ fontSize: 56, color: "#c9a0b0" }} /></div>
               <div style={{ fontSize: 22, fontWeight: 900, color: "#b88a99" }}>No Active Orders</div>
               <div style={{ fontSize: 14, color: "#c9a0b0" }}>Waiting for new orders...</div>
               {lastUpdated && (
@@ -1105,7 +1141,9 @@ const myOrders = Object.entries(data)
               {columns.map((col, i) => (
                 <div key={i} className="kd-col">
                   <div className="kd-col-header" style={{ background: col.color }}>
-                    <span className="kd-col-title">{col.label}</span>
+                   <span className="kd-col-title" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+  {col.labelIcon} {col.label}
+</span>
                     <span className="kd-col-badge" style={{ color: col.color }}>
                       {col.badge || col.orders.length}
                     </span>
@@ -1113,7 +1151,7 @@ const myOrders = Object.entries(data)
                   <div className="kd-col-scroll">
                     {col.orders.length === 0 ? (
                       <div className="kd-empty">
-                        <div className="kd-empty-icon">✓</div>
+                        <div className="kd-empty-icon"><FaCheck style={{ fontSize: 36, color: "#c9a0b0" }} /></div>
                         <div className="kd-empty-txt">All clear!</div>
                       </div>
                     ) : (
@@ -1132,7 +1170,7 @@ const myOrders = Object.entries(data)
             <div className="kd-tab-panel">
               {columns[activeTab].orders.length === 0 ? (
                 <div className="kd-empty" style={{ paddingTop: 60 }}>
-                  <div className="kd-empty-icon">✓</div>
+                  <div className="kd-empty-icon"><FaCheck style={{ fontSize: 36, color: "#c9a0b0" }} /></div>
                   <div className="kd-empty-txt">All clear in this section!</div>
                 </div>
               ) : (

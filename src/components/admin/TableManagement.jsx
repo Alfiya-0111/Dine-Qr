@@ -200,7 +200,7 @@ const TableManagement = ({ restaurantId }) => {
                   onMouseOut={(e) => (e.currentTarget.style.color = "#8A244B")}>
                   <FaEdit />
                 </button>
-                <button onClick={() => handleDelete(table.id)} className="text-red-600 hover:text-red-800">
+                <button onClick={() => handleDelete(table.id)} className="text-bg-[#8A244B]">
                   <FaTrash />
                 </button>
               </div>

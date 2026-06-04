@@ -8,25 +8,27 @@ import { Ordercard } from "./Ordercard";
 import { FaLock } from "react-icons/fa";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebaseConfig";
+import { Gift, Rocket, TrendingUp, Infinity, RefreshCw, ArrowUpCircle, Crown } from "lucide-react";
+import { UtensilsCrossed, Circle, CheckCircle, AlertTriangle, Bell, IndianRupee } from "lucide-react";
 const PRIMARY  = "#8A244B";
 const GOLD     = "#FFD166";
 
 // ─── PLAN CONFIG ─────────────────────────────────────────────────────────────
 const PLAN_CONFIG = {
   trial: {
-    label: "🎁 FREE TRIAL", color: "#22c55e", bgColor: "#dcfce7",
+    label: "FREE TRIAL", color: "#22c55e", bgColor: "#dcfce7",
     textColor: "#166534", borderColor: "#bbf7d0", desc: "30 din unlimited",
   },
   starter: {
-    label: "🚀 STARTER", color: "#3b82f6", bgColor: "#dbeafe",
+label: "STARTER", color: "#3b82f6", bgColor: "#dbeafe",
     textColor: "#1e40af", borderColor: "#bfdbfe", desc: "35 dishes",
   },
   growth: {
-    label: "📈 GROWTH", color: "#f97316", bgColor: "#ffedd5",
+    label: "GROWTH", color: "#f97316", bgColor: "#ffedd5",
     textColor: "#9a3412", borderColor: "#fed7aa", desc: "50 dishes",
   },
   pro: {
-    label: "♾️ PRO", color: "#FFD166", bgColor: "#fef9c3",
+    label: "PRO", color: "#FFD166", bgColor: "#fef9c3",
     textColor: "#854d0e", borderColor: "#fde047", desc: "Unlimited",
   },
 };
@@ -46,7 +48,7 @@ const UpgradeBanner = ({ onUpgrade }) => (
     padding: "12px 16px", marginBottom: 16, gap: 10, flexWrap: "wrap",
   }}>
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <span style={{ fontSize: 20 }}>⬆️</span>
+<ArrowUpCircle size={20} color="#9a3412" />
       <div>
         <div style={{ fontSize: 13, fontWeight: 800, color: "#9a3412", fontFamily: "'Sora', sans-serif" }}>
           Growth plan mein upgrade karo
@@ -132,7 +134,7 @@ const [deliveryBoys, setDeliveryBoys] = useState([]);
   const showBrowserNotification = (order, isWhatsApp) => {
     if (!("Notification" in window)) return;
     if (Notification.permission === "granted") {
-      new Notification(isWhatsApp ? "📱 New WhatsApp Order!" : "🍽️ New Order!", {
+      new Notification(isWhatsApp ? "📱 New WhatsApp Order!" : "<UtensilsCrossed size={20} /> New Order!", {
         body: `Order #${order.id?.slice(-6)} — ₹${order.total || 0}\n${order.customerInfo?.name || "Customer"}`,
         icon: "/logo192.png", tag: order.id, requireInteraction: true,
       });
@@ -502,7 +504,7 @@ useEffect(() => {
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
                 }}>
-                  {planConfig.label.split(" ")[0]}
+{planId === "trial" ? <Gift size={24} /> : planId === "starter" ? <Rocket size={24} /> : planId === "growth" ? <TrendingUp size={24} /> : <Infinity size={24} />}
                 </div>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -552,7 +554,8 @@ useEffect(() => {
                     padding: "9px 18px", background: "#dc2626", color: "#fff",
                     border: "none", borderRadius: 12, fontWeight: 800, fontSize: 13,
                     cursor: "pointer", fontFamily: "'Sora', sans-serif",
-                  }}>🔄 Renew Now</button>
+                  }}><RefreshCw size={14} /> Renew Now
+</button>
                 )}
                 {!isPlanExpired() && planId !== "pro" && (
                   <button onClick={goToSubscription} style={{
@@ -560,14 +563,15 @@ useEffect(() => {
                     color: planConfig.textColor, border: `2px solid ${planConfig.borderColor}`,
                     borderRadius: 12, fontWeight: 800, fontSize: 13,
                     cursor: "pointer", fontFamily: "'Sora', sans-serif",
-                  }}>⬆️ Upgrade</button>
+                  }}><ArrowUpCircle size={14} /> Upgrade</button>
                 )}
                 {planId === "pro" && !isPlanExpired() && (
                   <span style={{
                     padding: "9px 18px", background: PRIMARY,
                     color: "#fff", borderRadius: 12, fontWeight: 800, fontSize: 13,
                   }}>
-                    👑 Best Plan
+                  <Crown size={14} color={GOLD} /> Best Plan
+
                   </span>
                 )}
               </div>
@@ -582,7 +586,7 @@ useEffect(() => {
             borderRadius: 14, padding: "14px 18px", marginBottom: 16,
           }}>
             <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#991b1b" }}>
-              ⚠️ Aapka {userPlan?.planName} plan expire ho gaya hai. Full access ke liye renew karo.
+              <AlertTriangle size={16} color="#991b1b" /> Aapka {userPlan?.planName} plan expire ho gaya hai. Full access ke liye renew karo.
             </p>
           </div>
         )}
@@ -601,7 +605,7 @@ useEffect(() => {
             margin: 0, fontSize: 22, fontWeight: 800,
             color: "#111827", fontFamily: "'Sora', sans-serif",
           }}>
-            🍽️ Orders Dashboard
+           <UtensilsCrossed size={20} /> Orders Dashboard
           </h2>
         </div>
 
@@ -616,7 +620,7 @@ useEffect(() => {
               display: "flex", alignItems: "center", gap: 8,
               marginBottom: 12, fontFamily: "'Sora', sans-serif",
             }}>
-              🔔 Waiter Calls
+              <Bell size={16} color="#9a3412" /> Waiter Calls
               <span style={{
                 background: "#ea580c", color: "#fff",
                 padding: "1px 8px", borderRadius: 20, fontSize: 11,
@@ -661,7 +665,7 @@ useEffect(() => {
               {activeOrders.length}
             </div>
             <div style={{ fontSize: 12, fontWeight: 600, color: "#b45309", marginTop: 6 }}>
-              🟡 Active Orders
+             <Circle size={12} fill="#fbbf24" color="#fbbf24" /> Active Orders
             </div>
           </div>
           <div style={{
@@ -675,7 +679,7 @@ useEffect(() => {
               {completedOrders.length}
             </div>
             <div style={{ fontSize: 12, fontWeight: 600, color: "#166534", marginTop: 6 }}>
-              ✅ Completed
+              <CheckCircle size={16} color="#22c55e" />Completed
             </div>
           </div>
 
@@ -692,7 +696,7 @@ useEffect(() => {
               <>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", marginBottom: 4 }}>
-                    💰 Total Revenue
+                    <IndianRupee size={14} color="#6b7280" /> Total Revenue
                   </div>
                   <div style={{
                     fontSize: 28, fontWeight: 900,
@@ -874,7 +878,8 @@ useEffect(() => {
           margin: "20px 0 12px", fontFamily: "'Sora', sans-serif",
         }}>
           <span style={{ fontSize: 16, fontWeight: 800, color: "#111827" }}>
-            🟡 Active Orders
+            <Circle size={14} fill="#fbbf24" color="#fbbf24" /> Active Orders
+
           </span>
           <span style={{
             padding: "2px 10px", borderRadius: 20, fontSize: 12,
@@ -916,7 +921,7 @@ useEffect(() => {
           margin: "20px 0 12px", fontFamily: "'Sora', sans-serif",
         }}>
           <span style={{ fontSize: 16, fontWeight: 800, color: "#111827" }}>
-            ✅ Completed Orders
+           <CheckCircle size={16} color="#22c55e" /> Completed Orders
           </span>
           <span style={{
             padding: "2px 10px", borderRadius: 20, fontSize: 12,

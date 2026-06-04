@@ -4,14 +4,14 @@ import { realtimeDB } from "../firebaseConfig";
 import { useOutletContext, useNavigate } from "react-router-dom";
 import { getAuth } from "firebase/auth";
 import { get, ref as rtdbRef } from "firebase/database";
-import { FaLock, FaComments, FaStar, FaHeart, FaTrash, FaSyncAlt, FaArrowUp } from "react-icons/fa";
+import { FaGift, FaRocket, FaChartLine, FaInfinity, FaLock, FaComments, FaStar, FaHeart, FaTrash, FaSyncAlt, FaArrowUp } from "react-icons/fa";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PLAN CONFIG — SubscriptionPage.js ke saath EXACT SYNC
 // ═══════════════════════════════════════════════════════════════════════════════
 const PLAN_CONFIG = {
   trial: {
-    label: "🎁 FREE TRIAL",
+    label: " FREE TRIAL",
     color: "#22c55e",
     bgColor: "#dcfce7",
     textColor: "#166534",
@@ -35,7 +35,7 @@ const PLAN_CONFIG = {
     },
   },
   starter: {
-    label: "🚀 STARTER",
+    label: " STARTER",
     color: "#3b82f6",
     bgColor: "#dbeafe",
     textColor: "#1e40af",
@@ -59,7 +59,7 @@ const PLAN_CONFIG = {
     },
   },
   growth: {
-    label: "📈 GROWTH",
+    label: " GROWTH",
     color: "#f97316",
     bgColor: "#ffedd5",
     textColor: "#9a3412",
@@ -83,7 +83,7 @@ const PLAN_CONFIG = {
     },
   },
   pro: {
-    label: "♾️ PRO",
+    label: " PRO",
     color: "#FFD166",
     bgColor: "#fef9c3",
     textColor: "#854d0e",
@@ -115,11 +115,15 @@ const PLAN_LABELS = {
   pro: "Pro",
 };
 
-const PLAN_BADGES = {
-  trial: { icon: "🎁", color: "#22c55e" },
-  starter: { icon: "🚀", color: "#3b82f6" },
-  growth: { icon: "📈", color: "#8A244B" },
-  pro: { icon: "♾️", color: "#FFD166" },
+const PLAN_ICON_MAP = {
+  trial:   FaGift,
+  starter: FaRocket,
+  growth:  FaChartLine,
+  pro:     FaInfinity,
+};
+const PlanIcon = ({ planId, size = 20, color }) => {
+  const Icon = PLAN_ICON_MAP[planId] || FaRocket;
+  return <Icon style={{ fontSize: size, color }} />;
 };
 
 // ─── STYLES ─────────────────────────────────────────────────────────────────
@@ -571,9 +575,10 @@ export default function FeedbackTab() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <div style={{ ...styles.planIcon, backgroundColor: planConfig.color }}>
-              {planConfig.label.split(" ")[0]}
-            </div>
+           <div style={{ ...styles.planIcon, backgroundColor: planConfig.color, 
+              display: "flex", alignItems: "center", justifyContent: "center" }}>
+  <PlanIcon planId={planId} size={22} color="#fff" />
+</div>
             <div>
               <span style={{ ...styles.planLabel, color: planConfig.textColor }}>
                 {planConfig.label}
@@ -625,9 +630,10 @@ export default function FeedbackTab() {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <div style={{ ...styles.planIcon, backgroundColor: planConfig.color }}>
-              {planConfig.label.split(" ")[0]}
-            </div>
+<div style={{ ...styles.planIcon, backgroundColor: planConfig.color,
+    display: "flex", alignItems: "center", justifyContent: "center" }}>
+  <PlanIcon planId={planId} size={22} color="#fff" />
+</div>
             <div>
               <span style={{ ...styles.planLabel, color: planConfig.textColor }}>
                 {planConfig.label}
@@ -642,12 +648,15 @@ export default function FeedbackTab() {
             style={{
               ...styles.upgradeBtn,
               background: "#fff",
+              display:"flex",
+              alignItems:"center",
               color: planConfig.textColor,
               border: `2px solid ${planConfig.borderColor}`,
             }}
           >
             <FaArrowUp style={{ marginRight: 6, fontSize: "0.8rem" }} />
-            Upgrade
+            <span> Upgrade</span>
+           
           </button>
         </div>
 
@@ -675,9 +684,10 @@ export default function FeedbackTab() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-          <div style={{ ...styles.planIcon, backgroundColor: planConfig.color }}>
-            {planConfig.label.split(" ")[0]}
-          </div>
+         <div style={{ ...styles.planIcon, backgroundColor: planConfig.color,
+    display: "flex", alignItems: "center", justifyContent: "center" }}>
+  <PlanIcon planId={planId} size={22} color="#fff" />
+</div>
           <div>
             <span style={{ ...styles.planLabel, color: planConfig.textColor }}>
               {planConfig.label}
@@ -719,12 +729,17 @@ export default function FeedbackTab() {
             style={{
               ...styles.upgradeBtn,
               background: "#fff",
+              display:'flex',
+              alignItems:'center',
+              gap:"2px",
+
               color: planConfig.textColor,
               border: `2px solid ${planConfig.borderColor}`,
             }}
           >
             <FaArrowUp style={{ marginRight: 6, fontSize: "0.8rem" }} />
-            Upgrade
+            <span> Upgrade</span>
+           
           </button>
         )}
       </div>
@@ -846,10 +861,10 @@ export default function FeedbackTab() {
               onClick={() => handleDeleteFeedback(dish.dishId)}
               style={styles.deleteFeedbackBtn}
               onMouseOver={(e) =>
-                (e.currentTarget.style.background = "#b02a37")
+                (e.currentTarget.style.background = "#6b1535")
               }
               onMouseOut={(e) =>
-                (e.currentTarget.style.background = "#dc3545")
+                (e.currentTarget.style.background = "#6b1535")
               }
             >
               <FaTrash style={{ marginRight: 6 }} />

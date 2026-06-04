@@ -5,7 +5,14 @@ import { ref as rtdbRef, get as rtdbGet, onValue as rtdbOnValue } from "firebase
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useNavigate, useParams } from "react-router-dom";
 
-
+import {
+  FaUtensils, FaFire, FaMoneyBillWave, FaStore,
+  FaStar, FaTachometerAlt, FaClipboardList, FaUsers,
+  FaLink, FaPlus, FaLock, FaChair, FaMotorcycle,
+  FaUserTie, FaPhone, FaEdit, FaBoxOpen, FaHome,
+  FaMapMarkerAlt, FaInbox, FaTimesCircle, FaBuilding,
+  FaGift, FaCheckCircle, FaHourglass, FaExclamationTriangle,  FaChartBar 
+} from 'react-icons/fa';
 const MAROON = "#8A244B";
 const GOLD = "#FFD166";
 
@@ -86,7 +93,9 @@ function BranchCard({ branch, selected, onClick }) {
         </span>
       </div>
       <div style={{ fontSize: 12, color: selected ? "rgba(255,255,255,0.6)" : "#888", marginBottom: 12 }}>
-        📍 {branch.city || "—"} • {branch.manager || "—"}
+<span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+  <FaMapMarkerAlt style={{ fontSize: 11 }} /> {branch.city || "—"} • {branch.manager || "—"}
+</span>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <div style={{ textAlign: "center" }}>
@@ -386,7 +395,9 @@ const handleLinkBranch = async () => {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ background: GOLD, borderRadius: 10, padding: "6px 8px", fontSize: 18 }}>🍽️</div>
+             <div style={{ background: GOLD, borderRadius: 10, padding: "6px 8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+  <FaUtensils style={{ fontSize: 18, color: MAROON }} />
+</div>
                 <div>
                   <div style={{ color: "#fff", fontWeight: 800, fontSize: 18 }}>Khaatogo</div>
                   <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>Multi-Branch Control Panel</div>
@@ -421,17 +432,17 @@ const handleLinkBranch = async () => {
                       padding: "7px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora', sans-serif",
                       display: "flex", alignItems: "center", gap: 6,
                     }}>
-                    🔗 Link Branch
+                    <FaLink style={{ fontSize: 12 }} /> Link Branch
                   </button>
-                  {/* <button
+                   {/* <button
                     onClick={() => setShowAddModal(true)}
                     style={{
                       background: GOLD, color: "#111", border: "none", borderRadius: 100,
                       padding: "7px 16px", fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "'Sora', sans-serif",
                       display: "flex", alignItems: "center", gap: 6,
                     }}>
-                    + New Branch
-                  </button> */}
+                    <FaPlus style={{ fontSize: 12 }} /> New Branch
+                  </button>  */}
                 </div>
               )}
             </div>
@@ -440,16 +451,17 @@ const handleLinkBranch = async () => {
           {/* Summary chips */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {[
-              { label: `${openBranches}/${branches.length} Open`, icon: "🏪" },
-              { label: `${totalActive} Live Orders`, icon: "🔥" },
-              { label: `${fmt(totalRevenue)} Today`, icon: "💰" },
+{ label: `${openBranches}/${branches.length} Open`, icon: <FaStore style={{ fontSize: 12 }} /> },
+{ label: `${totalActive} Live Orders`, icon: <FaFire style={{ fontSize: 12 }} /> },
+{ label: `${fmt(totalRevenue)} Today`, icon: <FaMoneyBillWave style={{ fontSize: 12 }} /> },
+
             ].map(chip => (
               <div key={chip.label} style={{
                 background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)",
                 borderRadius: 100, padding: "5px 14px", fontSize: 12, color: "#fff", fontWeight: 700,
                 display: "flex", alignItems: "center", gap: 6,
               }}>
-                {chip.icon} {chip.label}
+<span style={{ display: "flex", alignItems: "center" }}>{chip.icon}</span> {chip.label}
               </div>
             ))}
 
@@ -461,7 +473,11 @@ const handleLinkBranch = async () => {
               color: userPlan?.planId === "pro" ? GOLD : "#4ade80",
               fontWeight: 700, display: "flex", alignItems: "center", gap: 6,
             }}>
-              {userPlan?.planId === "pro" ? "⭐ PRO" : userPlan?.planId === "trial" ? "🎁 TRIAL" : "📋 FREE"} — Multi-Branch
+{userPlan?.planId === "pro" 
+  ? <><FaStar style={{ fontSize: 11 }} /> PRO</> 
+  : userPlan?.planId === "trial" 
+  ? <><FaGift style={{ fontSize: 11 }} /> TRIAL</> 
+  : <><FaClipboardList style={{ fontSize: 11 }} /> FREE</>} — Multi-Branch
             </div>
           </div>
         </div>
@@ -483,7 +499,9 @@ const handleLinkBranch = async () => {
               border: !selectedBranch ? "none" : "2px solid #f5eaef",
               boxShadow: !selectedBranch ? `0 4px 20px ${MAROON}30` : "none",
             }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: !selectedBranch ? "#fff" : "#111", marginBottom: 4 }}>🏢 Saari Branches</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: !selectedBranch ? "#fff" : "#111", marginBottom: 4 }}><span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+  <FaBuilding style={{ color: !selectedBranch ? GOLD : MAROON, fontSize: 14 }} /> Saari Branches
+</span></div>
             <div style={{ fontSize: 11, color: !selectedBranch ? "rgba(255,255,255,0.6)" : "#aaa", fontWeight: 600 }}>Combined overview</div>
           </div>
 
@@ -493,7 +511,7 @@ const handleLinkBranch = async () => {
 
           {branches.length === 0 ? (
             <div style={{ textAlign: "center", padding: "20px 10px", color: "#bbb" }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>🏪</div>
+             <FaStore style={{ fontSize: 32, color: "#ddd", marginBottom: 8 }} />
               <div style={{ fontSize: 12, fontWeight: 600 }}>Koi branch nahi hai</div>
               <div style={{ fontSize: 11, marginTop: 4 }}>New Branch ya Link Branch se add karo</div>
             </div>
@@ -520,7 +538,8 @@ const handleLinkBranch = async () => {
               padding: "14px 12px",
               textAlign: "center",
             }}>
-              <div style={{ fontSize: 20, marginBottom: 6 }}>🔒</div>
+<FaLock style={{ fontSize: 20, color: MAROON, marginBottom: 6 }} />
+
               <div style={{ fontSize: 12, fontWeight: 700, color: MAROON, marginBottom: 4 }}>Multi-Branch Locked</div>
               <div style={{ fontSize: 11, color: "#888", marginBottom: 10 }}>
                 Pro plan ya Free Trial leke unlimited branches manage karo
@@ -549,20 +568,24 @@ const handleLinkBranch = async () => {
               {branch ? (branch.name || "Branch") : "All Branches Overview"}
             </h2>
             <p style={{ fontSize: 13, color: "#888", margin: 0 }}>
-              {branch
-                ? `📍 ${branch.city || "—"} • Manager: ${branch.manager || "—"} • ☎ ${branch.phone || "—"}`
-                : `${branches.length} locations • ${openBranches} currently open`
-              }
-            </p>
+  {branch
+    ? <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <FaMapMarkerAlt style={{ fontSize: 11 }} /> {branch.city || "—"} 
+        &nbsp;•&nbsp; Manager: {branch.manager || "—"} 
+        &nbsp;•&nbsp; <FaPhone style={{ fontSize: 11 }} /> {branch.phone || "—"}
+      </span>
+    : `${branches.length} locations • ${openBranches} currently open`
+  }
+</p>
           </div>
 
           {/* Tabs */}
           <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "#fff", padding: 4, borderRadius: 14, width: "fit-content", border: "1px solid #f0e8ec" }}>
             {[
-              { id: "overview", label: "📊 Overview" },
-              { id: "orders", label: "🧾 Orders" },
-              { id: "staff", label: "👥 Staff" },
-              { id: "menu", label: "🍽️ Menu" },
+{ id: "overview", label: <><FaTachometerAlt style={{ marginRight: 5 }} />Overview</> },
+{ id: "orders",   label: <><FaClipboardList style={{ marginRight: 5 }} />Orders</> },
+{ id: "staff",    label: <><FaUsers style={{ marginRight: 5 }} />Staff</> },
+{ id: "menu",     label: <><FaUtensils style={{ marginRight: 5 }} />Menu</> },
             ].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
                 padding: "8px 18px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 700,
@@ -583,17 +606,20 @@ const handleLinkBranch = async () => {
             <>
               {/* Stats Row */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14, marginBottom: 24 }}>
-                <StatCard icon="💰" label={`Revenue (${period})`} value={fmt(displayRevenue)} color={MAROON} />
-                <StatCard icon="🧾" label={`Orders (${period})`} value={displayOrders} color="#7c3aed" />
-                <StatCard icon="🔥" label="Live Orders" value={displayActive} sub="Right now" color="#ea580c" />
-                {!branch && <StatCard icon="🏪" label="Open Branches" value={`${openBranches}/${branches.length}`} color="#16a34a" />}
-                {branch && <StatCard icon="⭐" label="Rating" value={branch.rating || "N/A"} sub="Avg customer" color={GOLD} />}
+              <StatCard icon={<FaMoneyBillWave style={{ color: MAROON }} />}  label={`Revenue (${period})`} value={fmt(displayRevenue)} />
+<StatCard icon={<FaClipboardList style={{ color: "#7c3aed" }} />} label={`Orders (${period})`} value={displayOrders} />
+<StatCard icon={<FaFire style={{ color: "#ea580c" }} />}        label="Live Orders" value={displayActive} sub="Right now" />
+<StatCard icon={<FaStore style={{ color: "#16a34a" }} />}       label="Open Branches" value={`${openBranches}/${branches.length}`} />
+<StatCard icon={<FaStar style={{ color: GOLD }} />}             label="Rating" value={branch?.rating || "N/A"} />
               </div>
+              
 
               {/* Branch Revenue Comparison */}
               {!branch && branches.length > 0 && (
                 <div style={{ background: "#fff", borderRadius: 18, padding: "20px 24px", marginBottom: 20, border: "1px solid #f0e8ec" }}>
-                  <div style={{ fontWeight: 800, fontSize: 15, color: "#111", marginBottom: 16 }}>📊 Branch-wise Revenue</div>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: "#111", marginBottom: 16 }}><span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+  <FaChartBar style={{ color: MAROON }} /> Branch-wise Revenue
+</span></div>
                   {branches.map(b => {
                     const rev = b.revenue?.[period] || 0;
                     const pct = totalRevenue > 0 ? (rev / totalRevenue * 100).toFixed(1) : 0;
@@ -636,7 +662,9 @@ const handleLinkBranch = async () => {
                     { label: "Top Dish", value: branch.topDish || "—", icon: "⭐" },
                   ].map(item => (
                     <div key={item.label} style={{ background: "#fff", borderRadius: 14, padding: "16px 18px", border: "1px solid #f0e8ec", display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ fontSize: 24 }}>{item.icon}</div>
+<div style={{ fontSize: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>
+  {item.icon}
+</div>
                       <div>
                         <div style={{ fontWeight: 800, fontSize: 16, color: "#111" }}>{item.value}</div>
                         <div style={{ fontSize: 12, color: "#888" }}>{item.label}</div>
@@ -655,13 +683,15 @@ const handleLinkBranch = async () => {
             <div style={{ background: "#fff", borderRadius: 18, border: "1px solid #f0e8ec", overflow: "hidden" }}>
               <div style={{ padding: "16px 20px", borderBottom: "1px solid #f5eaef", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontWeight: 800, fontSize: 15, color: "#111" }}>
-                  🧾 Live Orders {branch ? `— ${branch.name?.replace("Khaatogo - ", "") || branch.name}` : "— All Branches"}
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+  <FaClipboardList style={{ color: MAROON }} /> Live Orders ...
+</span> {branch ? `— ${branch.name?.replace("Khaatogo - ", "") || branch.name}` : "— All Branches"}
                 </div>
                 <div style={{ fontSize: 12, color: "#888" }}>{filteredOrders.length} orders</div>
               </div>
               {filteredOrders.length === 0 ? (
                 <div style={{ padding: 40, textAlign: "center", color: "#bbb" }}>
-                  <div style={{ fontSize: 40, marginBottom: 8 }}>📭</div>
+                 <FaInbox style={{ fontSize: 40, color: "#ddd", marginBottom: 8 }} />
                   <div style={{ fontWeight: 700 }}>No active orders</div>
                 </div>
               ) : (
@@ -682,7 +712,9 @@ const handleLinkBranch = async () => {
                           <div style={{ fontSize: 12, color: "#666" }}>
                             {order.items?.map(i => `${i.name} x${i.qty}`).join(", ") || order.item || "—"}
                           </div>
-                          {!branch && <div style={{ fontSize: 11, color: "#aaa", marginTop: 1 }}>📍 {order.branchName || order.branch}</div>}
+                          {!branch && <div style={{ fontSize: 11, color: "#aaa", marginTop: 1 }}><span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+  <FaMapMarkerAlt style={{ fontSize: 10, color: "#aaa" }} /> {order.branchName || order.branch}
+</span></div>}
                         </div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "right" }}>
@@ -717,24 +749,29 @@ const handleLinkBranch = async () => {
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
                     <div style={{ background: "#faf7f8", borderRadius: 12, padding: "12px 14px", textAlign: "center" }}>
-                      <div style={{ fontSize: 22, marginBottom: 4 }}>👨‍🍳</div>
+                     <FaUsers style={{ fontSize: 22, color: MAROON, marginBottom: 4 }} />
                       <div style={{ fontWeight: 800, fontSize: 20, color: MAROON }}>{b.staff || 0}</div>
                       <div style={{ fontSize: 11, color: "#888" }}>Kitchen Staff</div>
                     </div>
                     <div style={{ background: "#faf7f8", borderRadius: 12, padding: "12px 14px", textAlign: "center" }}>
-                      <div style={{ fontSize: 22, marginBottom: 4 }}>🛵</div>
+                    <FaMotorcycle style={{ fontSize: 22, color: "#7c3aed", marginBottom: 4 }} />
+
                       <div style={{ fontWeight: 800, fontSize: 20, color: "#7c3aed" }}>{b.deliveryBoys || 0}</div>
                       <div style={{ fontSize: 11, color: "#888" }}>Delivery Boys</div>
                     </div>
                     <div style={{ background: "#faf7f8", borderRadius: 12, padding: "12px 14px", textAlign: "center" }}>
-                      <div style={{ fontSize: 22, marginBottom: 4 }}>🪑</div>
+                   <FaChair style={{ fontSize: 22, color: "#16a34a", marginBottom: 4 }} />
                       <div style={{ fontWeight: 800, fontSize: 20, color: "#16a34a" }}>{b.tables || 0}</div>
                       <div style={{ fontSize: 11, color: "#888" }}>Tables</div>
                     </div>
                   </div>
                   <div style={{ marginTop: 12, padding: "10px 14px", background: "#f5eaef", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: "#666" }}>👤 Manager: <strong>{b.manager || "—"}</strong></span>
-                    <span style={{ fontSize: 12, color: MAROON, fontWeight: 700 }}>📞 {b.phone || "—"}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+  <FaUserTie style={{ color: "#888" }} /> Manager: <strong>{b.manager || "—"}</strong>
+</span>
+<span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+  <FaPhone style={{ color: MAROON }} /> {b.phone || "—"}
+</span>
                   </div>
                 </div>
               ))}
@@ -756,7 +793,9 @@ const handleLinkBranch = async () => {
                       background: MAROON, color: "#fff", border: "none", borderRadius: 8,
                       padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora', sans-serif",
                     }}>
-                      ✏️ Edit Menu
+<span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+  <FaEdit /> Edit Menu
+</span>
                     </button>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
@@ -771,7 +810,7 @@ const handleLinkBranch = async () => {
                           {[8, 12, 15, 6, 10, 7][i]} items
                         </div>
                         <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 600, marginTop: 4 }}>
-                          ⭐ {b.topDish?.includes(cat.slice(0, 3)) ? b.topDish : "—"}
+                          <FaStar style={{ color: GOLD, fontSize: 11 }} /> {b.topDish?.includes(cat.slice(0, 3)) ? b.topDish : "—"}
                         </div>
                       </div>
                     ))}
@@ -790,13 +829,13 @@ const handleLinkBranch = async () => {
         <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 420, boxShadow: "0 24px 80px rgba(0,0,0,0.3)" }}>
             <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0e8ec", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#111" }}>🏪 Nayi Branch Add Karo</h3>
-              <button onClick={() => { setShowAddModal(false); setError(""); }} style={{ background: "#f5f5f5", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18 }}>×</button>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#111" }}><FaStore style={{ color: MAROON, marginRight: 8 }} /> Nayi Branch Add Karo</h3>
+              <button onClick={() => { setShowAddModal(false); setError(""); }} style={{ background: "#f5f5f5", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18 }}><FaTimesCircle style={{ fontSize: 16, color: "#888" }} /></button>
             </div>
             <div style={{ padding: 24 }}>
               {error && (
                 <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px", marginBottom: 16, color: "#dc2626", fontSize: 13, fontWeight: 600 }}>
-                  ⚠️ {error}
+                  <FaExclamationTriangle style={{ color: "#dc2626", marginRight: 6 }} /> {error}
                 </div>
               )}
               {[
@@ -832,7 +871,9 @@ const handleLinkBranch = async () => {
                   cursor: actionLoading ? "not-allowed" : "pointer",
                   fontFamily: "'Sora', sans-serif", marginTop: 4,
                 }}>
-                {actionLoading ? "⏳ Adding..." : "✅ Branch Add Karo"}
+               {actionLoading 
+  ? <><FaHourglass style={{ fontSize: 13 }} /> Adding...</> 
+  : <><FaCheckCircle style={{ fontSize: 13 }} /> Branch Add Karo</>}
               </button>
             </div>
           </div>
@@ -846,7 +887,7 @@ const handleLinkBranch = async () => {
         <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <div style={{ background: "#fff", borderRadius: 24, width: "100%", maxWidth: 420, boxShadow: "0 24px 80px rgba(0,0,0,0.3)" }}>
             <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0e8ec", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#111" }}>🔗 Existing Branch Link Karo</h3>
+              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#111" }}><FaLink style={{ color: MAROON, marginRight: 8 }} /></h3>
               <button onClick={() => { setShowLinkModal(false); setError(""); setLinkCredentials({ email: "", password: "" }); }} style={{ background: "#f5f5f5", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 18 }}>×</button>
             </div>
             <div style={{ padding: 24 }}>
@@ -905,7 +946,9 @@ const handleLinkBranch = async () => {
                   fontFamily: "'Sora', sans-serif",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 }}>
-                {actionLoading ? "⏳ Logging in..." : "🔗 Branch Link Karo"}
+               {actionLoading 
+  ? <><FaHourglass style={{ fontSize: 13 }} /> Logging in...</> 
+  : <><FaLink style={{ fontSize: 13 }} /> Branch Link Karo</>}
               </button>
             </div>
           </div>

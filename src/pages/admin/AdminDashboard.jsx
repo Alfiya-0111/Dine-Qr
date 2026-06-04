@@ -6,6 +6,7 @@ import TableManagement from "../../components/admin/TableManagement";
 import BookingManagement from "../../components/admin/BookingManagement";
 import { FaTable, FaCalendarCheck, FaLock, FaCrown } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { Gift, Rocket, TrendingUp, Infinity, Crown, RefreshCw, ArrowUpCircle } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PLAN CONFIG — RestaurantSettings.js ke saath EXACT SYNC
@@ -186,14 +187,15 @@ const AdminDashboard = () => {
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-xl md:text-2xl shadow-sm"
                 style={{ backgroundColor: planConfig.color }}
               >
-                {planId === "trial" ? "🎁" : planId === "starter" ? "🚀" : planId === "growth" ? "📈" : "♾️"}
+{planId === "trial" ? <Gift size={24} /> : planId === "starter" ? <Rocket size={24} /> : planId === "growth" ? <TrendingUp size={24} /> : <Infinity size={24} />}
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm md:text-base font-extrabold tracking-wide"
                     style={{ color: planConfig.textColor }}
                   >
-                    {planId === "trial" ? "🎁 FREE TRIAL" : planId === "starter" ? "🚀 STARTER" : planId === "growth" ? "📈 GROWTH" : "♾️ PRO"}
+                   {planId === "trial" ? "FREE TRIAL" : planId === "starter" ? "STARTER" : planId === "growth" ? "GROWTH" : "PRO"}
+
                   </span>
                   {isPlanExpired() && (
                     <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full border border-red-300">
@@ -219,7 +221,7 @@ const AdminDashboard = () => {
                 <button onClick={goToSubscription}
                   className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition shadow-md"
                 >
-                  🔄 Renew Now
+               <RefreshCw size={14} /> Renew Now
                 </button>
               )}
               {!isPlanExpired() && planId !== "pro" && (
@@ -231,12 +233,12 @@ const AdminDashboard = () => {
                     borderColor: planConfig.borderColor,
                   }}
                 >
-                  ⬆️ Upgrade
+                <ArrowUpCircle size={14} /> Upgrade
                 </button>
               )}
               {planId === "pro" && !isPlanExpired() && (
                 <span className="px-4 py-2 bg-[#8A244B] text-white text-sm font-bold rounded-xl">
-                  👑 Best Plan
+                 <Crown size={14} /> Best Plan
                 </span>
               )}
             </div>

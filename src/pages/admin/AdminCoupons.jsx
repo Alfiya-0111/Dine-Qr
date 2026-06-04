@@ -3,18 +3,23 @@ import { ref, onValue, push, update, remove, set, get } from "firebase/database"
 import { realtimeDB } from "../../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+import {
+  FaLock, FaRocket, FaArrowUp, FaTag, FaMagic,
+  FaCheckCircle, FaPauseCircle, FaTrash, FaEdit,
+  FaGift, FaCheck, FaSave, FaPlus, FaTimes,
+  FaCalendarAlt, FaExclamationTriangle, FaStar,
+  FaToggleOn, FaToggleOff, FaMobileAlt, FaRedo,
+  FaUtensils, FaPercentage, FaRupeeSign
+} from "react-icons/fa";
 
 const PRIMARY = "#8A244B";
 const GOLD    = "#FFD166";
 const TODAY   = new Date().toISOString().split("T")[0];
 
-// ─── PLAN ACCESS CONFIG ────────────────────────────────────────────────────────
-// From SubscriptionPage: Starter has whatsappOrders:false, kds:false, aiDescriptions:false
-// Coupons & Promo Popup are marketing features — available Growth, Pro, Trial only
 const COUPON_ALLOWED_PLANS = ["trial", "growth", "pro"];
 const PROMO_ALLOWED_PLANS  = ["trial", "growth", "pro"];
 
-// ─── SHARED: useSubscription hook ─────────────────────────────────────────────
+// ─── useSubscription hook ──────────────────────────────────────────────────────
 function useSubscription() {
   const [subscription, setSubscription] = useState(null);
   const [subLoading, setSubLoading]     = useState(true);
@@ -51,7 +56,7 @@ function useSubscription() {
   return { subscription, subLoading, hasAccess, restaurantId };
 }
 
-// ─── LOCKED FEATURE BANNER (inline, not full-screen) ─────────────────────────
+// ─── LOCKED BANNER ────────────────────────────────────────────────────────────
 function LockedBanner({ featureName, planName, navigate, restaurantId }) {
   return (
     <div style={{
@@ -62,7 +67,6 @@ function LockedBanner({ featureName, planName, navigate, restaurantId }) {
       textAlign: "center",
       fontFamily: "'Sora', sans-serif",
     }}>
-      {/* icon */}
       <div style={{
         width: 72, height: 72,
         borderRadius: "50%",
@@ -70,10 +74,10 @@ function LockedBanner({ featureName, planName, navigate, restaurantId }) {
         border: `2px solid ${PRIMARY}30`,
         display: "flex", alignItems: "center", justifyContent: "center",
         margin: "0 auto 18px",
-        fontSize: 32,
-      }}>🔒</div>
+      }}>
+        <FaLock style={{ fontSize: 32, color: PRIMARY }} />
+      </div>
 
-      {/* badge */}
       <div style={{
         display: "inline-block",
         background: `${PRIMARY}12`,
@@ -97,15 +101,13 @@ function LockedBanner({ featureName, planName, navigate, restaurantId }) {
         Yeh feature <strong>Growth</strong>, <strong>Pro</strong> aur <strong>Free Trial</strong> mein available hai.
       </p>
 
-      {/* plan pills */}
       <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 24, flexWrap: "wrap" }}>
         {[
           { name: "Growth", price: "₹499/mo", color: PRIMARY },
           { name: "Pro",    price: "₹999/mo", color: "#7c3aed" },
         ].map((p) => (
           <div key={p.name} style={{
-            padding: "6px 16px",
-            borderRadius: 100,
+            padding: "6px 16px", borderRadius: 100,
             border: `2px solid ${p.color}30`,
             background: `${p.color}08`,
             fontSize: 12, fontWeight: 700, color: p.color,
@@ -116,27 +118,23 @@ function LockedBanner({ featureName, planName, navigate, restaurantId }) {
       </div>
 
       <button
-onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)}
+        onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)}
         style={{
-          padding: "12px 32px",
-          borderRadius: 13,
-          border: "none",
+          padding: "12px 32px", borderRadius: 13, border: "none",
           background: `linear-gradient(135deg, ${PRIMARY} 0%, #5c1030 100%)`,
-          color: "#fff",
-          fontSize: 14,
-          fontWeight: 800,
-          cursor: "pointer",
+          color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer",
           fontFamily: "'Sora', sans-serif",
           boxShadow: `0 5px 18px ${PRIMARY}44`,
+          display: "inline-flex", alignItems: "center", gap: 8,
         }}
       >
-        Upgrade Plan →
+        <FaArrowUp style={{ fontSize: 13 }} /> Upgrade Plan
       </button>
     </div>
   );
 }
 
-// ─── TOGGLE ────────────────────────────────────────────────────────────────────
+// ─── TOGGLE ───────────────────────────────────────────────────────────────────
 function Toggle({ value, onChange, label }) {
   return (
     <label style={{
@@ -155,8 +153,7 @@ function Toggle({ value, onChange, label }) {
         <div style={{
           position: "absolute", top: 2,
           left: value ? 26 : 2,
-          width: 20, height: 20,
-          background: "#fff",
+          width: 20, height: 20, background: "#fff",
           borderRadius: "50%",
           boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
           transition: "left 0.2s",
@@ -169,7 +166,7 @@ function Toggle({ value, onChange, label }) {
   );
 }
 
-// ─── PROMO POPUP MANAGER ───────────────────────────────────────────────────────
+// ─── PROMO POPUP MANAGER ──────────────────────────────────────────────────────
 function PromoManager({ restaurantId }) {
   const [promo, setPromo] = useState({
     active: false, title: "", subtitle: "", tagline: "",
@@ -237,10 +234,14 @@ function PromoManager({ restaurantId }) {
             </div>
           ))}
         </div>
-        {promo.validTill && <p style={{ fontSize: 7, color: "#aaa", margin: "0 0 4px" }}>📅 Valid till {promo.validTill}</p>}
+        {promo.validTill && (
+          <p style={{ fontSize: 7, color: "#aaa", margin: "0 0 4px", display: "flex", alignItems: "center", justifyContent: "center", gap: 3 }}>
+            <FaCalendarAlt style={{ fontSize: 6 }} /> Valid till {promo.validTill}
+          </p>
+        )}
         {promo.tagline && <p style={{ fontSize: 7, fontStyle: "italic", color: "#aaa", margin: "0 0 6px" }}>"{promo.tagline}"</p>}
-        <div style={{ borderRadius: 8, padding: "6px", color: "#fff", fontSize: 8, fontWeight: 700, background: `linear-gradient(130deg,${PRIMARY},#C8922A)` }}>
-          {promo.ctaText || "🍽️ Explore Menu"}
+        <div style={{ borderRadius: 8, padding: "6px", color: "#fff", fontSize: 8, fontWeight: 700, background: `linear-gradient(130deg,${PRIMARY},#C8922A)`, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+          <FaUtensils style={{ fontSize: 7 }} /> {promo.ctaText || "Explore Menu"}
         </div>
       </div>
       <div style={{ height: 4, background: `linear-gradient(90deg,#C8922A,${PRIMARY},#C8922A)` }} />
@@ -265,8 +266,11 @@ function PromoManager({ restaurantId }) {
         transition: "all 0.2s",
       }}>
         <div>
-          <p style={{ fontWeight: 800, fontSize: 13, margin: "0 0 2px", color: "#1a0a11" }}>
-            {promo.active ? "🟢 Popup Live — Customers ko dikh raha hai" : "⏸️ Popup Off — Kisi ko nahi dikhega"}
+          <p style={{ fontWeight: 800, fontSize: 13, margin: "0 0 2px", color: "#1a0a11", display: "flex", alignItems: "center", gap: 6 }}>
+            {promo.active
+              ? <><FaCheckCircle style={{ color: "#22c55e", fontSize: 13 }} /> Popup Live — Customers ko dikh raha hai</>
+              : <><FaPauseCircle style={{ color: "#9ca3af", fontSize: 13 }} /> Popup Off — Kisi ko nahi dikhega</>
+            }
           </p>
           <p style={{ fontSize: 12, color: "#888", margin: 0 }}>Toggle karke instantly on/off karo</p>
         </div>
@@ -316,8 +320,8 @@ function PromoManager({ restaurantId }) {
                 <label style={{ fontSize: 11, fontWeight: 700, color: "#666" }}>Offer Cards * <span style={{ color: "#aaa" }}>(max 4, ideal 3)</span></label>
                 {promo.offers.length < 4 && (
                   <button onClick={addOffer}
-                    style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 8, border: "none", background: PRIMARY, color: "#fff", cursor: "pointer", fontFamily: "'Sora', sans-serif" }}>
-                    + Add Card
+                    style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 8, border: "none", background: PRIMARY, color: "#fff", cursor: "pointer", fontFamily: "'Sora', sans-serif", display: "flex", alignItems: "center", gap: 5 }}>
+                    <FaPlus style={{ fontSize: 10 }} /> Add Card
                   </button>
                 )}
               </div>
@@ -335,8 +339,8 @@ function PromoManager({ restaurantId }) {
                       onBlur={e => e.target.style.borderColor = "#f0e4ea"} />
                     {promo.offers.length > 1 && (
                       <button onClick={() => removeOffer(i)}
-                        style={{ width: 32, height: 32, borderRadius: 8, background: "#fee2e2", border: "none", color: "#dc2626", fontWeight: 700, cursor: "pointer", flexShrink: 0, fontSize: 12 }}>
-                        ✕
+                        style={{ width: 32, height: 32, borderRadius: 8, background: "#fee2e2", border: "none", color: "#dc2626", fontWeight: 700, cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <FaTimes style={{ fontSize: 12 }} />
                       </button>
                     )}
                   </div>
@@ -364,7 +368,7 @@ function PromoManager({ restaurantId }) {
             <div>
               <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#666", marginBottom: 6 }}>Button Text</label>
               <input value={promo.ctaText} onChange={e => setPromo({ ...promo, ctaText: e.target.value })}
-                placeholder="e.g. 🍽️ Explore Menu" style={inputStyle}
+                placeholder="e.g. Explore Menu" style={inputStyle}
                 onFocus={e => e.target.style.borderColor = PRIMARY}
                 onBlur={e => e.target.style.borderColor = "#f0e4ea"} />
             </div>
@@ -372,7 +376,11 @@ function PromoManager({ restaurantId }) {
             <Toggle
               value={promo.showOnce}
               onChange={v => setPromo({ ...promo, showOnce: v })}
-              label={promo.showOnce ? "📱 Sirf ek baar dikhao per session" : "🔄 Har visit pe dikhao (testing ke liye)"}
+              label={
+                promo.showOnce
+                  ? <span style={{ display: "flex", alignItems: "center", gap: 6 }}><FaMobileAlt style={{ color: PRIMARY, fontSize: 12 }} /> Sirf ek baar dikhao per session</span>
+                  : <span style={{ display: "flex", alignItems: "center", gap: 6 }}><FaRedo style={{ color: "#6366f1", fontSize: 12 }} /> Har visit pe dikhao (testing ke liye)</span>
+              }
             />
           </div>
 
@@ -393,8 +401,14 @@ function PromoManager({ restaurantId }) {
             fontSize: 14, fontWeight: 800, cursor: saving ? "not-allowed" : "pointer",
             fontFamily: "'Sora', sans-serif",
             boxShadow: saving ? "none" : `0 5px 18px ${PRIMARY}44`,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           }}>
-          {saving ? "Saving..." : saved ? "✅ Saved! Customers ko naya popup dikhega" : "💾 Save Promo Popup"}
+          {saving
+            ? "Saving..."
+            : saved
+            ? <><FaCheckCircle style={{ fontSize: 14 }} /> Saved! Customers ko naya popup dikhega</>
+            : <><FaSave style={{ fontSize: 14 }} /> Save Promo Popup</>
+          }
         </button>
       </div>
     </div>
@@ -516,7 +530,9 @@ export default function AdminCoupons() {
 
       {/* ── HEADER ── */}
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 900, color: "#1a0a11", margin: "0 0 4px" }}>🎁 Offers &amp; Promotions</h2>
+        <h2 style={{ fontSize: 24, fontWeight: 900, color: "#1a0a11", margin: "0 0 4px", display: "flex", alignItems: "center", gap: 10 }}>
+          <FaGift style={{ color: PRIMARY, fontSize: 22 }} /> Offers &amp; Promotions
+        </h2>
         <p style={{ fontSize: 13, color: "#888", margin: 0 }}>Discount coupons aur promo popup dono ek jagah se manage karo</p>
       </div>
 
@@ -526,8 +542,8 @@ export default function AdminCoupons() {
         background: "#f5eef1", borderRadius: 18, marginBottom: 24, width: "fit-content",
       }}>
         {[
-          { key: "coupons", label: "🏷️ Discount Coupons", count: coupons.length, locked: !canUseCoupons },
-          { key: "promo",   label: "🪄 Promo Popup",       locked: !canUsePromo  },
+          { key: "coupons", label: "Discount Coupons", icon: <FaTag style={{ fontSize: 12 }} />, count: coupons.length, locked: !canUseCoupons },
+          { key: "promo",   label: "Promo Popup",       icon: <FaMagic style={{ fontSize: 12 }} />, locked: !canUsePromo },
         ].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{
@@ -539,7 +555,7 @@ export default function AdminCoupons() {
               color: tab === t.key ? "#fff" : "#9b7080",
               transition: "all 0.2s",
             }}>
-            {t.label}
+            {t.icon} {t.label}
             {t.count !== undefined && (
               <span style={{
                 fontSize: 10, padding: "2px 8px", borderRadius: 20, fontWeight: 800,
@@ -554,8 +570,9 @@ export default function AdminCoupons() {
                 fontSize: 10, padding: "1px 7px", borderRadius: 20, fontWeight: 800,
                 background: tab === t.key ? "rgba(255,255,255,0.22)" : "#f0d4df",
                 color: tab === t.key ? "#fff" : "#c47a90",
+                display: "flex", alignItems: "center",
               }}>
-                🔒
+                <FaLock style={{ fontSize: 9 }} />
               </span>
             )}
           </button>
@@ -566,8 +583,7 @@ export default function AdminCoupons() {
       {tab === "coupons" && (
         <>
           {!canUseCoupons ? (
-           <LockedBanner featureName="Discount Coupons" planName={planName} navigate={navigate} restaurantId={restaurantId} />
-
+            <LockedBanner featureName="Discount Coupons" planName={planName} navigate={navigate} restaurantId={restaurantId} />
           ) : (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -578,8 +594,9 @@ export default function AdminCoupons() {
                     border: "none", background: `linear-gradient(135deg, ${PRIMARY} 0%, #5c1030 100%)`,
                     boxShadow: `0 4px 14px ${PRIMARY}44`, cursor: "pointer",
                     fontFamily: "'Sora', sans-serif", fontSize: 13,
+                    display: "flex", alignItems: "center", gap: 6,
                   }}>
-                  + New Coupon
+                  <FaPlus style={{ fontSize: 11 }} /> New Coupon
                 </button>
               </div>
 
@@ -589,12 +606,15 @@ export default function AdminCoupons() {
                   <div style={{ background: "#fff", width: "100%", maxWidth: 480, borderRadius: 22, padding: 24, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.28)" }}>
 
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                      <h3 style={{ fontSize: 18, fontWeight: 900, margin: 0, color: "#1a0a11" }}>
-                        {editId ? "✏️ Edit Coupon" : "🎁 New Coupon"}
+                      <h3 style={{ fontSize: 18, fontWeight: 900, margin: 0, color: "#1a0a11", display: "flex", alignItems: "center", gap: 8 }}>
+                        {editId
+                          ? <><FaEdit style={{ color: PRIMARY, fontSize: 16 }} /> Edit Coupon</>
+                          : <><FaGift style={{ color: PRIMARY, fontSize: 16 }} /> New Coupon</>
+                        }
                       </h3>
                       <button onClick={resetForm}
-                        style={{ width: 32, height: 32, background: "#f5eef1", border: "none", borderRadius: "50%", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", color: "#888" }}>
-                        ✕
+                        style={{ width: 32, height: 32, background: "#f5eef1", border: "none", borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#888" }}>
+                        <FaTimes style={{ fontSize: 14 }} />
                       </button>
                     </div>
 
@@ -659,7 +679,11 @@ export default function AdminCoupons() {
                         )}
                       </div>
                       <div>
-                        <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#666", marginBottom: 6 }}>Expiry Date <span style={{ color: "#aaa" }}>(Optional)</span></label>
+                        <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#666", marginBottom: 6 }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                            <FaCalendarAlt style={{ color: PRIMARY, fontSize: 11 }} /> Expiry Date <span style={{ color: "#aaa", fontWeight: 400 }}>(Optional)</span>
+                          </span>
+                        </label>
                         <input type="date" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })}
                           min={TODAY} style={inputStyle}
                           onFocus={e => e.target.style.borderColor = PRIMARY}
@@ -668,7 +692,11 @@ export default function AdminCoupons() {
                       <Toggle
                         value={form.active}
                         onChange={v => setForm({ ...form, active: v })}
-                        label={form.active ? "✅ Active — Customers ko dikhega" : "⏸️ Inactive — Hidden"}
+                        label={
+                          form.active
+                            ? <span style={{ display: "flex", alignItems: "center", gap: 6 }}><FaCheckCircle style={{ color: "#22c55e", fontSize: 12 }} /> Active — Customers ko dikhega</span>
+                            : <span style={{ display: "flex", alignItems: "center", gap: 6 }}><FaPauseCircle style={{ color: "#9ca3af", fontSize: 12 }} /> Inactive — Hidden</span>
+                        }
                       />
                     </div>
 
@@ -676,8 +704,11 @@ export default function AdminCoupons() {
                     {form.code && form.discountValue && (
                       <div style={{ marginTop: 16, padding: 14, borderRadius: 12, border: `2px dashed ${PRIMARY}50`, background: `${PRIMARY}06` }}>
                         <p style={{ fontSize: 11, fontWeight: 700, color: "#888", margin: "0 0 4px" }}>Preview:</p>
-                        <p style={{ fontSize: 14, fontWeight: 900, color: PRIMARY, margin: "0 0 2px" }}>
-                          {form.discountType === "percent" ? `${form.discountValue}% OFF` : `₹${form.discountValue} OFF`}
+                        <p style={{ fontSize: 14, fontWeight: 900, color: PRIMARY, margin: "0 0 2px", display: "flex", alignItems: "center", gap: 6 }}>
+                          {form.discountType === "percent"
+                            ? <><FaPercentage style={{ fontSize: 13 }} /> {form.discountValue}% OFF</>
+                            : <><FaRupeeSign style={{ fontSize: 13 }} /> {form.discountValue} OFF</>
+                          }
                           {form.minOrder ? ` on orders above ₹${form.minOrder}` : ""}
                         </p>
                         <p style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 700, color: "#555", margin: 0 }}>
@@ -692,8 +723,11 @@ export default function AdminCoupons() {
                         Cancel
                       </button>
                       <button onClick={handleSubmit}
-                        style={{ flex: 2, padding: 13, border: "none", borderRadius: 13, fontWeight: 800, background: `linear-gradient(135deg, ${PRIMARY} 0%, #5c1030 100%)`, color: "#fff", cursor: "pointer", fontFamily: "'Sora', sans-serif", fontSize: 13 }}>
-                        {editId ? "✅ Update Coupon" : "🎁 Create Coupon"}
+                        style={{ flex: 2, padding: 13, border: "none", borderRadius: 13, fontWeight: 800, background: `linear-gradient(135deg, ${PRIMARY} 0%, #5c1030 100%)`, color: "#fff", cursor: "pointer", fontFamily: "'Sora', sans-serif", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                        {editId
+                          ? <><FaCheckCircle style={{ fontSize: 13 }} /> Update Coupon</>
+                          : <><FaGift style={{ fontSize: 13 }} /> Create Coupon</>
+                        }
                       </button>
                     </div>
                   </div>
@@ -703,7 +737,7 @@ export default function AdminCoupons() {
               {/* Coupon list */}
               {coupons.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "56px 24px", border: "2px dashed #f0d4df", borderRadius: 20 }}>
-                  <p style={{ fontSize: 40, margin: "0 0 10px" }}>🏷️</p>
+                  <FaTag style={{ fontSize: 40, color: "#f0d4df", marginBottom: 10 }} />
                   <p style={{ color: "#888", fontWeight: 600, margin: "0 0 4px" }}>No coupons yet</p>
                   <p style={{ fontSize: 12, color: "#aaa", margin: 0 }}>Pehla coupon banao aur customers ko attract karo</p>
                 </div>
@@ -741,10 +775,14 @@ export default function AdminCoupons() {
                               {coupon.title}
                             </p>
                             {isExpired && (
-                              <span style={{ fontSize: 10, background: "#fee2e2", color: "#dc2626", padding: "1px 8px", borderRadius: 20, fontWeight: 700 }}>Expired</span>
+                              <span style={{ fontSize: 10, background: "#fee2e2", color: "#dc2626", padding: "1px 8px", borderRadius: 20, fontWeight: 700, display: "flex", alignItems: "center", gap: 3 }}>
+                                <FaExclamationTriangle style={{ fontSize: 9 }} /> Expired
+                              </span>
                             )}
                             {!coupon.active && !isExpired && (
-                              <span style={{ fontSize: 10, background: "#f3f0f1", color: "#888", padding: "1px 8px", borderRadius: 20, fontWeight: 700 }}>Inactive</span>
+                              <span style={{ fontSize: 10, background: "#f3f0f1", color: "#888", padding: "1px 8px", borderRadius: 20, fontWeight: 700, display: "flex", alignItems: "center", gap: 3 }}>
+                                <FaPauseCircle style={{ fontSize: 9 }} /> Inactive
+                              </span>
                             )}
                           </div>
                           <p style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 13, color: PRIMARY, margin: "2px 0 4px" }}>
@@ -766,7 +804,9 @@ export default function AdminCoupons() {
                                 fontSize: 10, padding: "1px 8px", borderRadius: 20, fontWeight: 700,
                                 background: isExpired ? "#fee2e2" : "#f0fdf4",
                                 color: isExpired ? "#dc2626" : "#16a34a",
+                                display: "flex", alignItems: "center", gap: 3,
                               }}>
+                                <FaCalendarAlt style={{ fontSize: 9 }} />
                                 {isExpired ? "Expired" : `Expires ${new Date(coupon.expiryDate).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`}
                               </span>
                             )}
@@ -780,16 +820,20 @@ export default function AdminCoupons() {
                               background: coupon.active ? "#f0fdf4" : "#f3f0f1",
                               color: coupon.active ? "#16a34a" : "#888",
                               fontFamily: "'Sora', sans-serif",
+                              display: "flex", alignItems: "center", gap: 4,
                             }}>
-                            {coupon.active ? "✅ Active" : "⏸️ Off"}
+                            {coupon.active
+                              ? <><FaCheckCircle style={{ fontSize: 10 }} /> Active</>
+                              : <><FaPauseCircle style={{ fontSize: 10 }} /> Off</>
+                            }
                           </button>
                           <button onClick={() => handleEdit(coupon)}
-                            style={{ padding: "5px 12px", borderRadius: 9, border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", background: "#eff6ff", color: "#1d4ed8", fontFamily: "'Sora', sans-serif" }}>
-                            ✏️ Edit
+                            style={{ padding: "5px 12px", borderRadius: 9, border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", background: "#eff6ff", color: "#1d4ed8", fontFamily: "'Sora', sans-serif", display: "flex", alignItems: "center", gap: 4 }}>
+                            <FaEdit style={{ fontSize: 10 }} /> Edit
                           </button>
                           <button onClick={() => handleDelete(coupon.id)}
-                            style={{ padding: "5px 12px", borderRadius: 9, border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", background: "#fee2e2", color: "#dc2626", fontFamily: "'Sora', sans-serif" }}>
-                            🗑️ Delete
+                            style={{ padding: "5px 12px", borderRadius: 9, border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", background: "#fee2e2", color: "#dc2626", fontFamily: "'Sora', sans-serif", display: "flex", alignItems: "center", gap: 4 }}>
+                            <FaTrash style={{ fontSize: 10 }} /> Delete
                           </button>
                         </div>
                       </div>
@@ -806,7 +850,7 @@ export default function AdminCoupons() {
       {tab === "promo" && (
         <>
           {!canUsePromo ? (
-           <LockedBanner featureName="Promo Popup" planName={planName} navigate={navigate} restaurantId={restaurantId} />
+            <LockedBanner featureName="Promo Popup" planName={planName} navigate={navigate} restaurantId={restaurantId} />
           ) : (
             restaurantId && <PromoManager restaurantId={restaurantId} />
           )}
