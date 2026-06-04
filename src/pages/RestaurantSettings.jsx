@@ -6,7 +6,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { FaQrcode, FaCopy, FaCheckCircle } from "react-icons/fa";
 import PhoneInput from "../components/Phoneinput";
 import { useNavigate, useParams } from "react-router-dom";
-
+import { Utensils, Coffee, Flame, Croissant, CloudCog } from "lucide-react";
+import { Gift, Rocket, TrendingUp, Infinity, Store, Palette, MapPin, BookOpen, Settings, AlertTriangle, Save, Lock, UtensilsCrossed, Instagram, Map, Camera, Video, Image, QrCode, Clock, CreditCard } from "lucide-react";
 const PLAN_FEATURES = {
   trial:   { dishes: "Unlimited", paymentStatus: true, revenueDashboard: true, adminCoupons: true },
   starter: { dishes: 35,          paymentStatus: true, revenueDashboard: false, adminCoupons: false },
@@ -14,15 +15,21 @@ const PLAN_FEATURES = {
   pro:     { dishes: "Unlimited", paymentStatus: true, revenueDashboard: true,  adminCoupons: true },
 };
 const PLAN_LABELS = { trial: "Free Trial", starter: "Starter", growth: "Growth", pro: "Pro" };
-const PLAN_BADGES = { trial: "🎁", starter: "🚀", growth: "📈", pro: "♾️" };
+const PLAN_BADGES = {
+  trial:   <Gift size={14} />,
+  starter: <Rocket size={14} />,
+  growth:  <TrendingUp size={14} />,
+  pro:     <Infinity size={14} />,
+};
+
 
 // Bar removed — alcohol is haram in Islam
 const VENUE_TYPES = [
-  { id: "restaurant",    label: "Restaurant",    emoji: "🍽️" },
-  { id: "cafe",          label: "Café",          emoji: "☕" },
-  { id: "dhaba",         label: "Dhaba",         emoji: "🥘" },
-  { id: "bakery",        label: "Bakery",        emoji: "🍰" },
-  { id: "cloud_kitchen", label: "Cloud Kitchen", emoji: "🧁" },
+  { id: "restaurant",    label: "Restaurant",    icon: <Utensils size={24} /> },
+  { id: "cafe",          label: "Café",          icon: <Coffee size={24} /> },
+  { id: "dhaba",         label: "Dhaba",         icon: <Flame size={24} /> },
+  { id: "bakery",        label: "Bakery",        icon: <Croissant size={24} /> },
+  { id: "cloud_kitchen", label: "Cloud Kitchen", icon: <CloudCog size={24} /> },
 ];
 
 const isValidUPI = (upi) => !upi || /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(upi);
@@ -563,7 +570,7 @@ if (!ownerSnap.exists()) {
       {/* ── Expired alert ── */}
       {subStatus && !subStatus.active && (
         <div style={{ marginBottom: "20px", padding: "16px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "16px", fontSize: "14px", color: "#b91c1c" }}>
-          ⚠️ Aapka <strong>{PLAN_LABELS[planId]}</strong> plan expire ho gaya hai.{" "}
+          <AlertTriangle size={14} /> Aapka <strong>{PLAN_LABELS[planId]}</strong> plan expire ho gaya hai.{" "}
           <button onClick={goToSubscription} style={{ textDecoration: "underline", fontWeight: 600, background: "none", border: "none", color: "#b91c1c", cursor: "pointer" }}>
             Renew karo →
           </button>
@@ -571,7 +578,7 @@ if (!ownerSnap.exists()) {
       )}
 
       {/* ════ 1. VENUE TYPE ════ */}
-      <SectionCard icon="🏪" title="Venue type">
+<SectionCard icon={<Store size={18} />} title="Venue type">
         <Field label="Aap kaun se venue hain?">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px" }}>
             {VENUE_TYPES.map((v) => (
@@ -588,7 +595,7 @@ if (!ownerSnap.exists()) {
                   transition: "all 0.15s",
                 }}
               >
-                <span style={{ fontSize: "20px" }}>{v.emoji}</span>
+<span style={{ color: venueType === v.id ? "#8A244B" : "#6b7280" }}>{v.icon}</span>
                 {v.label}
               </button>
             ))}
@@ -597,12 +604,13 @@ if (!ownerSnap.exists()) {
       </SectionCard>
 
       {/* ════ 2. BRAND IDENTITY ════ */}
-      <SectionCard icon="🎨" title="Brand identity">
+     <SectionCard icon={<Palette size={18} />} title="Brand identity">
+
         <div style={{ display: "flex", alignItems: "center", gap: "16px", padding: "16px", borderRadius: "12px", border: "1px dashed #e5e7eb", background: "#f9fafb" }}>
           <div style={{ width: "56px", height: "56px", borderRadius: "12px", background: "#fff", border: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
             {logoPreview || logo
               ? <img src={logoPreview || logo} alt="logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : <span style={{ fontSize: "24px" }}>🍛</span>}
+              : <span style={{ fontSize: "24px" }}><UtensilsCrossed size={24} color="#9ca3af" /></span>}
           </div>
           <div style={{ flex: 1 }}>
             <p style={{ fontSize: "14px", fontWeight: 500, color: "#374151", margin: 0 }}>Restaurant logo</p>
@@ -666,7 +674,7 @@ if (!ownerSnap.exists()) {
       </SectionCard>
 
       {/* ════ 3. CONTACT & LOCATION ════ */}
-      <SectionCard icon="📍" title="Contact & location">
+<SectionCard icon={<MapPin size={18} />} title="Contact & location">
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
           <Field label="Phone number *">
             <PhoneInput value={phone} onChange={setPhone} placeholder="+91 98765 43210" />
@@ -709,7 +717,7 @@ if (!ownerSnap.exists()) {
         <Field label="Social media">
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontSize: "18px", flexShrink: 0 }}>📸</span>
+              <span style={{ fontSize: "18px", flexShrink: 0 }}><Instagram size={18} /></span>
               <TextInput
                 value={instagram}
                 onChange={(e) => setInstagram(e.target.value)}
@@ -717,7 +725,7 @@ if (!ownerSnap.exists()) {
               />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ fontSize: "18px", flexShrink: 0 }}>🗺️</span>
+              <span style={{ fontSize: "18px", flexShrink: 0 }}><Map size={18} /></span>
               <TextInput
                 value={googleMap}
                 onChange={(e) => setGoogleMap(e.target.value)}
@@ -729,7 +737,7 @@ if (!ownerSnap.exists()) {
       </SectionCard>
 
       {/* ════ 4. MENU CATEGORIES ════ */}
-      <SectionCard icon="📋" title="Menu categories">
+     <SectionCard icon={<UtensilsCrossed size={18} />} title="Menu categories">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
           <span style={{ fontSize: "12px", color: "#9ca3af" }}>Categories added</span>
           <span style={{ fontSize: "12px", fontWeight: 600, color: "#8A244B", background: "#FBE8EF", padding: "2px 10px", borderRadius: "20px" }}>
@@ -779,7 +787,7 @@ if (!ownerSnap.exists()) {
                 </>
               ) : (
                 <>
-                  <span style={{ color: "#374151" }}>🍽️ {c.name}</span>
+                  <span style={{ color: "#374151" }}><UtensilsCrossed size={12} /> {c.name}</span>
                   <button onClick={() => { setEditCatId(c.id); setEditCatName(c.name); }} style={{ color: "#60a5fa", fontSize: "12px", background: "none", border: "none", cursor: "pointer" }}>✎</button>
                   <button onClick={() => deleteCategory(c.id)} style={{ color: "#f87171", fontSize: "12px", background: "none", border: "none", cursor: "pointer" }}>✕</button>
                 </>
@@ -790,7 +798,7 @@ if (!ownerSnap.exists()) {
       </SectionCard>
 
       {/* ════ 5. OPERATING HOURS ════ */}
-      <SectionCard icon="🕐" title="Operating hours">
+     <SectionCard icon={<Clock size={18} />} title="Operating hours">
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
           {[
             { key: "weekday",  label: "Mon – Fri" },
@@ -819,7 +827,7 @@ if (!ownerSnap.exists()) {
       </SectionCard>
 
       {/* ════ 6. PAYMENT SETTINGS ════ */}
-      <SectionCard icon="💳" title="Payment settings">
+    <SectionCard icon={<CreditCard size={18} />} title="Payment settings">
         <Field label="Merchant UPI ID">
           <div style={{ position: "relative" }}>
             <TextInput
@@ -844,7 +852,7 @@ if (!ownerSnap.exists()) {
         {upiId && isValidUPI(upiId) && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "20px", background: "#fff5f8", borderRadius: "16px", border: "1px solid rgba(138,36,75,0.1)" }}>
             <p style={{ fontSize: "12px", fontWeight: 600, color: "#8A244B", display: "flex", alignItems: "center", gap: "4px", margin: 0 }}>
-              <FaQrcode /> Live QR Preview
+             <QrCode size={14} /> Live QR Preview
             </p>
             <div style={{ padding: "12px", background: "#fff", borderRadius: "12px", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
               <QRCodeSVG
@@ -877,7 +885,7 @@ if (!ownerSnap.exists()) {
             </div>
           ) : (
             <label style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", padding: "20px", border: "1px dashed #e5e7eb", borderRadius: "12px", background: "#f9fafb", cursor: "pointer" }}>
-              <span style={{ fontSize: "28px" }}>📷</span>
+              <span style={{ fontSize: "28px" }}><Camera size={28} /><Camera size={28} /></span>
               <span style={{ fontSize: "12px", color: "#6b7280" }}>UPI QR image upload karo</span>
               <span style={{ fontSize: "12px", color: "#8A244B", fontWeight: 500 }}>Browse file</span>
               <input
@@ -902,7 +910,7 @@ if (!ownerSnap.exists()) {
       </SectionCard>
 
       {/* ════ 7. ABOUT PAGE ════ */}
-      <SectionCard icon="📖" title="About page">
+     <SectionCard icon={<BookOpen size={18} />} title="About page">
         <Field label="Restaurant story / description">
           <textarea
             style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "10px 16px", fontSize: "14px", backgroundColor: "#ffffff", color: "#111827", outline: "none", minHeight: "80px", resize: "vertical", boxSizing: "border-box", fontFamily: "inherit" }}
@@ -938,7 +946,7 @@ if (!ownerSnap.exists()) {
         </Field>
 
         <div style={{ display: "flex", alignItems: "center", gap: "16px", padding: "16px", borderRadius: "12px", border: "1px dashed #e5e7eb", background: "#f9fafb" }}>
-          <div style={{ width: "56px", height: "56px", borderRadius: "12px", background: "#fff", border: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "20px" }}>🎬</div>
+          <div style={{ width: "56px", height: "56px", borderRadius: "12px", background: "#fff", border: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: "20px" }}><Video size={20} /></div>
           <div style={{ flex: 1 }}>
             <p style={{ fontSize: "14px", fontWeight: 500, color: "#374151", margin: 0 }}>Hero video (optional)</p>
             <p style={{ fontSize: "12px", color: "#9ca3af", margin: "2px 0 0" }}>MP4/WebM • max 5MB</p>
@@ -972,7 +980,7 @@ if (!ownerSnap.exists()) {
           <div style={{ width: "56px", height: "56px", borderRadius: "12px", background: "#fff", border: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
             {aboutImagePreview || aboutData.sectionImage
               ? <img src={aboutImagePreview || aboutData.sectionImage} alt="section" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : <span style={{ fontSize: "20px" }}>🖼️</span>}
+              : <span style={{ fontSize: "20px" }}><Image size={20} /><Image size={20} /></span>}
           </div>
           <div style={{ flex: 1 }}>
             <p style={{ fontSize: "14px", fontWeight: 500, color: "#374151", margin: 0 }}>Section image (optional)</p>
@@ -1006,7 +1014,7 @@ if (!ownerSnap.exists()) {
       </SectionCard>
 
       {/* ════ 8. ADMIN SETTINGS ════ */}
-      <SectionCard icon="⚙️" title="Account & admin">
+    <SectionCard icon={<Settings size={18} />} title="Account & admin">
         <Toggle checked={menuPublic}       onChange={setMenuPublic}       label="Public menu visible"  sub="Customers apka QR menu dekh sakein" />
         <Toggle checked={feedbackEnabled}  onChange={setFeedbackEnabled}  label="Customer feedback"    sub="Menu page par feedback form dikhao" />
         <Toggle checked={adminOrderEnabled} onChange={setAdminOrderEnabled} label="Admin order entry"   sub="Dashboard se manual orders add karo" />
@@ -1036,7 +1044,11 @@ if (!ownerSnap.exists()) {
               <span style={{ width: "16px", height: "16px", border: "2px solid #fff", borderTopColor: "transparent", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite" }} />
               {saveMsg || "Saving..."}
             </>
-          ) : !isOwner ? "🔒 Owner Only" : "💾 Save all settings"}
+) : !isOwner ? (
+  <><Lock size={16} /> Owner Only</>
+) : (
+  <><Save size={16} /> Save all settings</>
+)}
         </button>
       </div>
 

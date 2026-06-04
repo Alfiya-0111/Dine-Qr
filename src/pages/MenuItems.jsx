@@ -14,13 +14,15 @@ import { realtimeDB } from "../firebaseConfig";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Qrmodal from "./Qrmodal";
 import { FaQrcode } from "react-icons/fa";
+import { QrCode ,Gift, Rocket, TrendingUp, Infinity, RefreshCw, ArrowUpCircle, Crown, UtensilsCrossed, AlertTriangle } from "lucide-react";
+// FaQrcode hata do
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PLAN CONFIG — SubscriptionPage.js ke saath EXACT SYNC
 // ═══════════════════════════════════════════════════════════════════════════════
 const PLAN_CONFIG = {
   trial: {
-    label: "🎁 FREE TRIAL",
+    label: " FREE TRIAL",
     color: "#22c55e",
     bgColor: "#dcfce7",
     textColor: "#166534",
@@ -33,7 +35,7 @@ const PLAN_CONFIG = {
     },
   },
   starter: {
-    label: "🚀 STARTER",
+    label: " STARTER",
     color: "#3b82f6",
     bgColor: "#dbeafe",
     textColor: "#1e40af",
@@ -46,7 +48,7 @@ const PLAN_CONFIG = {
     },
   },
   growth: {
-    label: "📈 GROWTH",
+    label: " GROWTH",
     color: "#f97316",
     bgColor: "#ffedd5",
     textColor: "#9a3412",
@@ -59,7 +61,7 @@ const PLAN_CONFIG = {
     },
   },
   pro: {
-    label: "♾️ PRO",
+    label: " PRO",
     color: "#FFD166",
     bgColor: "#fef9c3",
     textColor: "#854d0e",
@@ -294,7 +296,7 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
                   className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-xl md:text-2xl shadow-sm"
                   style={{ backgroundColor: planConfig.color }}
                 >
-                  {planConfig.label.split(" ")[0]}
+{userPlan?.planId === "trial" ? <Gift size={24} /> : userPlan?.planId === "starter" ? <Rocket size={24} /> : userPlan?.planId === "growth" ? <TrendingUp size={24} /> : <Infinity size={24} />}
                 </div>
 
                 <div>
@@ -351,7 +353,7 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
                     onClick={goToSubscription}
                     className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition shadow-md"
                   >
-                    🔄 Renew Now
+                     <RefreshCw size={14} /> Renew Now
                   </button>
                 )}
                 {!isPlanExpired() && userPlan?.planId !== "pro" && (
@@ -364,12 +366,12 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
                       borderColor: planConfig.borderColor,
                     }}
                   >
-                    ⬆️ Upgrade
+                    <ArrowUpCircle size={14} />  Upgrade
                   </button>
                 )}
                 {userPlan?.planId === "pro" && !isPlanExpired() && (
                   <span className="px-4 py-2 bg-[#8A244B] text-white text-sm font-bold rounded-xl">
-                    👑 Best Plan
+                    <Crown size={14} /> Best Plan
                   </span>
                 )}
               </div>
@@ -381,7 +383,7 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6 border border-gray-100">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-bold text-gray-700">
-              🍽️ {getDishCountDisplay()}
+              <UtensilsCrossed size={14} /> {getDishCountDisplay()}
             </span>
             {dishLimit !== "unlimited" && dishLimit !== "Unlimited" && (
               <span
@@ -408,7 +410,7 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
           {isPlanExpired() && (
             <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl">
               <p className="text-sm text-red-700 font-bold">
-                ⚠️ Your {userPlan?.planName} plan has expired. Please renew to continue managing your menu.
+                <AlertTriangle size={14} />  Your {userPlan?.planName} plan has expired. Please renew to continue managing your menu.
               </p>
             </div>
           )}
@@ -424,7 +426,7 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
             <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                  <p className="text-sm font-bold text-gray-700">📲 Digital Menu QR</p>
+                  <p className="text-sm font-bold text-gray-700"><QrCode size={14} />  Digital Menu QR</p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     Customers scan karke directly menu dekh sakte hain
                   </p>
@@ -614,7 +616,7 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
             {!canAddMoreDishes() && (
               <div className="md:hidden fixed bottom-6 left-6 right-6 z-20">
                 <div className="bg-white border-2 border-[#B45253] rounded-xl p-4 shadow-lg text-center">
-                  <p className="text-sm font-bold text-[#8A244B] mb-1">🍽️ Dish Limit Reached!</p>
+                  <p className="text-sm font-bold text-[#8A244B] mb-1"><UtensilsCrossed size={14} /> Dish Limit Reached!</p>
                   <p className="text-xs text-gray-600 mb-2">
                     Your {userPlan?.planName} plan allows {dishLimit} dishes.
                   </p>
@@ -642,7 +644,7 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
             {/* DESKTOP — Limit Reached */}
             {!canAddMoreDishes() && (
               <div className="hidden md:block mt-6 p-4 bg-orange-50 border border-orange-200 rounded-xl text-center">
-                <p className="text-sm font-bold text-[#8A244B] mb-1">🍽️ Dish Limit Reached!</p>
+                <p className="text-sm font-bold text-[#8A244B] mb-1"><UtensilsCrossed size={14} /> Dish Limit Reached!</p>
                 <p className="text-xs text-gray-600 mb-2">
                   Your {userPlan?.planName} plan allows {dishLimit} dishes. Upgrade to add more.
                 </p>

@@ -4,7 +4,7 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { push, ref as rtdbRef, onValue, set } from "firebase/database";
 import { useRequireLogin } from "../utils/requireLogin";
 import { useParams, useNavigate } from "react-router-dom";
-
+import { Tag, PartyPopper, Rocket, X } from "lucide-react";
 // =============== THEME CONFIG ===============
 const theme = {
   primary: "#8A244B",
@@ -169,7 +169,7 @@ export default function OrderModal({ item, onClose }) {
             onMouseEnter={(e) => e.target.style.backgroundColor = theme.gray[100]}
             onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
           >
-            ✕
+            <X size={18} />
           </button>
         </div>
 
@@ -218,7 +218,7 @@ export default function OrderModal({ item, onClose }) {
 
         {/* ===== COUPON SECTION ===== */}
         <div className="mb-4">
-          <p className="text-xs font-semibold mb-2" style={{ color: theme.gray[600] }}>🏷️ Coupon / Offer</p>
+          <p className="text-xs font-semibold mb-2" style={{ color: theme.gray[600] }}><Tag size={12} /> Coupon / Offer</p>
           {appliedCoupon ? (
             <div 
               className="flex items-center justify-between border rounded-xl px-3 py-2"
@@ -307,7 +307,7 @@ export default function OrderModal({ item, onClose }) {
           </div>
           {appliedCoupon && discount > 0 && (
             <div className="flex justify-between text-sm font-medium" style={{ color: theme.success }}>
-              <span>🏷️ Discount ({appliedCoupon.code})</span>
+              <span><Tag size={12} /> Discount ({appliedCoupon.code})</span>
               <span>− ₹{discount.toFixed(2)}</span>
             </div>
           )}
@@ -325,7 +325,7 @@ export default function OrderModal({ item, onClose }) {
               className="rounded-lg py-1 text-center text-xs font-bold"
               style={{ backgroundColor: theme.successLight, color: theme.success }}
             >
-              🎉 You save ₹{discount.toFixed(0)}!
+              <PartyPopper size={12} /> You save ₹{discount.toFixed(0)}!
             </div>
           )}
         </div>
@@ -360,7 +360,7 @@ export default function OrderModal({ item, onClose }) {
             className="flex-1 text-white rounded-xl py-2.5 font-bold transition-opacity hover:opacity-90"
             style={{ backgroundColor: theme.primary }}
           >
-            Proceed to Checkout {appliedCoupon ? '🏷️' : '🚀'}
+            Proceed to Checkout {appliedCoupon ? '<Tag size={14} />' : '<Rocket size={14}'}
           </button>
         </div>
       </div>

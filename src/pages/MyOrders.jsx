@@ -1,33 +1,33 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { ref as rtdbRef, onValue, update } from "firebase/database";
 import { realtimeDB, db, auth } from "../firebaseConfig";
 import { useParams, useNavigate } from "react-router-dom";
-import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
 import { Helmet } from "react-helmet-async";
-
+import { IndianRupee, Lock, ShoppingCart, Search } from "lucide-react";
+import {MapPin, Armchair, User, StickyNote, PartyPopper } from "lucide-react";
 import {
   IoArrowBack,
-  IoReceiptOutline,
   IoSearchOutline,
-  IoFilterOutline,
+  IoClose,
+  IoDownloadOutline,
+  IoCalendarOutline,
+  IoChevronDownOutline,
+  IoChevronUpOutline,
   IoTimeOutline,
   IoCheckmarkCircle,
   IoRestaurantOutline,
   IoFastFoodOutline,
   IoStar,
-  IoClose,
-  IoDownloadOutline,
-  IoShareSocialOutline,
-  IoCalendarOutline,
-  IoCartOutline,
-  IoChevronDownOutline,
-  IoChevronUpOutline,
+  IoBan,
+  IoLocationOutline,
 } from "react-icons/io5";
 import { FaWhatsapp } from "react-icons/fa";
 import { BsReceipt, BsTag } from "react-icons/bs";
-
+import { GiChiliPepper } from "react-icons/gi";
+// import { GiCake } from "react-icons/gi";
 // ─── Glass Morphism Styles ────────────────────────────────────────────────────
 const glass = {
   card: "backdrop-blur-md bg-white/80 border border-white/30 shadow-xl",
@@ -38,16 +38,16 @@ const glass = {
 
 // ─── Status Config ────────────────────────────────────────────────────────────
 const STATUS = {
-  pending:          { color: "bg-amber-100 text-amber-800 border-amber-200",   label: "Pending",          icon: "⏳" },
-  confirmed:        { color: "bg-blue-100 text-blue-800 border-blue-200",      label: "Confirmed",        icon: "✅" },
-  preparing:        { color: "bg-purple-100 text-purple-800 border-purple-200",label: "Preparing",        icon: "👨‍🍳" },
-  ready:            { color: "bg-green-100 text-green-800 border-green-200",   label: "Ready",            icon: "🍽️" },
-  shipped:          { color: "bg-orange-100 text-orange-800 border-orange-200",label: "Out for Delivery", icon: "🛵" },
-  out_for_delivery: { color: "bg-orange-100 text-orange-800 border-orange-200",label: "Out for Delivery", icon: "🛵" },
-  picked_up:        { color: "bg-yellow-100 text-yellow-800 border-yellow-200",label: "Picked Up",        icon: "📦" },
-  delivered:        { color: "bg-green-100 text-green-800 border-green-200",   label: "Delivered",        icon: "🏠" },
-  completed:        { color: "bg-gray-100 text-gray-700 border-gray-200",      label: "Completed",        icon: "⭐" },
-  cancelled:        { color: "bg-red-100 text-red-700 border-red-200",         label: "Cancelled",        icon: "❌" },
+  pending:          { color: "bg-amber-100 text-amber-800 border-amber-200",   label: "Pending",          icon: IoTimeOutline },
+  confirmed:        { color: "bg-blue-100 text-blue-800 border-blue-200",      label: "Confirmed",        icon: IoCheckmarkCircle },
+  preparing:        { color: "bg-purple-100 text-purple-800 border-purple-200",label: "Preparing",        icon: IoRestaurantOutline },
+  ready:            { color: "bg-green-100 text-green-800 border-green-200",   label: "Ready",            icon: IoFastFoodOutline },
+  shipped:          { color: "bg-orange-100 text-orange-800 border-orange-200",label: "Out for Delivery", icon: IoLocationOutline },
+  out_for_delivery: { color: "bg-orange-100 text-orange-800 border-orange-200",label: "Out for Delivery", icon: IoLocationOutline },
+  picked_up:        { color: "bg-yellow-100 text-yellow-800 border-yellow-200",label: "Picked Up",        icon: IoLocationOutline },
+  delivered:        { color: "bg-green-100 text-green-800 border-green-200",   label: "Delivered",        icon: IoCheckmarkCircle },
+  completed:        { color: "bg-gray-100 text-gray-700 border-gray-200",      label: "Completed",        icon: IoStar },
+  cancelled:        { color: "bg-red-100 text-red-700 border-red-200",         label: "Cancelled",        icon: IoBan },
 };
 
 // ─── Helper: get items array ──────────────────────────────────────────────────
@@ -135,23 +135,24 @@ const generateBillPDF = async (order, restaurantName, restaurantSettings) => {
   }
 };
 
-// ─── Order Card Component ─────────────────────────────────────────────────────
-const OrderCard = ({ order, theme, restaurantName, restaurantSettings, restaurantId, navigate }) => {
+// ─── Order Card Component (MEMOIZED) ─────────────────────────────────────────
+const OrderCard = React.memo(({ order, theme, restaurantName, restaurantSettings, restaurantId, navigate }) => {
   const [expanded, setExpanded] = useState(false);
   const status = STATUS[order.status] || STATUS.pending;
   const items = getItems(order.items);
   const date = new Date(order.createdAt || Date.now());
+  const isCancelled = order.status === "cancelled";
 
-  const handleDownloadBill = async () => {
+  const handleDownloadBill = useCallback(async () => {
     try {
       await generateBillPDF(order, restaurantName, restaurantSettings);
       toast.success("Bill downloaded!");
     } catch (e) {
       toast.error("Could not generate bill: " + e.message);
     }
-  };
+  }, [order, restaurantName, restaurantSettings]);
 
-  const handleShareWhatsApp = () => {
+  const handleShareWhatsApp = useCallback(() => {
     const msg = `🧾 *BILL - ${restaurantName || "Restaurant"}*\n\n` +
       `Order #${order.id.slice(-6).toUpperCase()}\n` +
       `Date: ${date.toLocaleString()}\n` +
@@ -164,29 +165,54 @@ const OrderCard = ({ order, theme, restaurantName, restaurantSettings, restauran
       (Number(order.discount) > 0 ? `\nDiscount: -₹${order.discount}` : "") +
       `\n*Total: ₹${order.total || 0}*\n\nThank you! 🙏`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, "_blank");
-  };
+  }, [order, restaurantName, items, date]);
+
+  const handleCancel = useCallback(async () => {
+    if (!window.confirm("Kya aap ye order cancel karna chahte hain?")) return;
+    try {
+      await update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
+        status: "cancelled",
+        cancelledAt: Date.now(),
+        cancelledBy: "customer",
+      });
+      toast.success("Order cancel ho gaya!");
+    } catch (e) {
+      toast.error("Cancel nahi hua, dobara try karo");
+    }
+  }, [restaurantId, order.id]);
+
+  const StatusIcon = status.icon;
 
   return (
-    <div className={`${glass.card} rounded-2xl overflow-hidden mb-4 transition-all duration-300`}>
+    <div className={`rounded-2xl overflow-hidden mb-4 transition-all duration-300
+      ${isCancelled 
+        ? "bg-gray-100/80 border border-gray-200 opacity-60 pointer-events-none" 
+        : glass.card
+      }`}>
+      
       {/* Header Row */}
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => !isCancelled && setExpanded(!expanded)}
         className="w-full text-left p-4 flex items-center gap-3"
       >
         {/* Status Icon */}
         <div
           className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-          style={{ backgroundColor: `${theme.primary}15` }}
+          style={{ backgroundColor: isCancelled ? "#fee2e2" : `${theme.primary}15` }}
         >
-          {status.icon}
+          {isCancelled ? (
+            <IoBan className="w-6 h-6 text-red-500" />
+          ) : (
+            <StatusIcon className="w-6 h-6" style={{ color: theme.primary }} />
+          )}
         </div>
 
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-bold text-sm">#{order.id.slice(-6).toUpperCase()}</span>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${status.color}`}>
-              {status.label}
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${isCancelled ? "bg-red-100 text-red-800 border-red-200" : status.color}`}>
+              {isCancelled ? "Cancelled" : status.label}
             </span>
           </div>
           <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
@@ -203,15 +229,19 @@ const OrderCard = ({ order, theme, restaurantName, restaurantSettings, restauran
 
         {/* Total + Chevron */}
         <div className="text-right flex-shrink-0">
-          <p className="font-black text-base" style={{ color: theme.primary }}>₹{order.total || 0}</p>
-          {expanded
-            ? <IoChevronUpOutline className="w-4 h-4 text-gray-400 ml-auto mt-1" />
-            : <IoChevronDownOutline className="w-4 h-4 text-gray-400 ml-auto mt-1" />}
+          <p className="font-black text-base" style={{ color: isCancelled ? "#9ca3af" : theme.primary }}>
+            ₹{order.total || 0}
+          </p>
+          {!isCancelled && (
+            expanded
+              ? <IoChevronUpOutline className="w-4 h-4 text-gray-400 ml-auto mt-1" />
+              : <IoChevronDownOutline className="w-4 h-4 text-gray-400 ml-auto mt-1" />
+          )}
         </div>
       </button>
 
       {/* Expanded Details */}
-      {expanded && (
+      {expanded && !isCancelled && (
         <div className="px-4 pb-4 border-t border-gray-100/60 pt-3 space-y-3 animate-in slide-in-from-top-2 duration-200">
 
           {/* Items List */}
@@ -230,8 +260,8 @@ const OrderCard = ({ order, theme, restaurantName, restaurantSettings, restauran
                   <p className="font-medium text-sm truncate">{item.name}</p>
                   <p className="text-xs text-gray-500">
                     ₹{item.price} × {item.qty || 1}
-                    {item.spicePreference && item.spicePreference !== "normal" && ` · 🌶️ ${item.spicePreference}`}
-                    {item.sweetLevel && ` · 🍰 ${item.sweetLevel}`}
+                    {item.spicePreference && item.spicePreference !== "normal" && ` · <GiChiliPepper size={12} color="#dc2626" /> ${item.spicePreference}`}
+                    {item.sweetLevel && `${item.sweetLevel}`}
                   </p>
                 </div>
                 <p className="font-bold text-sm flex-shrink-0">₹{(item.price || 0) * (item.qty || 1)}</p>
@@ -264,52 +294,42 @@ const OrderCard = ({ order, theme, restaurantName, restaurantSettings, restauran
 
           {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-2 pt-1">
-{order.orderDetails?.type === "delivery" &&
- !["delivered", "completed", "cancelled"].includes(order.status) && (
-  <button
-    onClick={() => navigate(`/track/${restaurantId}/${order.id}`)}
-    className="col-span-2 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 active:scale-95"
-    style={{
-      border: `2px solid ${theme.primary}`,
-      color: theme.primary,
-      backgroundColor: "transparent",
-    }}
-    onMouseEnter={e => { e.currentTarget.style.backgroundColor = theme.primary; e.currentTarget.style.color = "#fff"; }}
-    onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = theme.primary; }}
-  >
-    {["shipped", "out_for_delivery", "picked_up"].includes(order.status)
-      ? "🛵 Track Live Delivery"
-      : "🛵 Track Order"}
-  </button>
-)}
-{/* Cancel button - sirf tab jab order shipped nahi hua */}
-{!["shipped", "out_for_delivery", "picked_up", "delivered", "completed", "cancelled"].includes(order.status) && (
-  <button
-    onClick={async () => {
-      if (!window.confirm("Kya aap ye order cancel karna chahte hain?")) return;
-      try {
-        await update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
-          status: "cancelled",
-          cancelledAt: Date.now(),
-          cancelledBy: "customer",
-        });
-        toast.success("Order cancel ho gaya!");
-      } catch (e) {
-        toast.error("Cancel nahi hua, dobara try karo");
-      }
-    }}
-    className="col-span-2 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 active:scale-95"
-    style={{
-      border: "2px solid #dc2626",
-      color: "#dc2626",
-      backgroundColor: "transparent",
-    }}
-    onMouseEnter={e => { e.currentTarget.style.backgroundColor = "#dc2626"; e.currentTarget.style.color = "#fff"; }}
-    onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = "#dc2626"; }}
-  >
-    ❌ Cancel Order
-  </button>
-)}
+            {order.orderDetails?.type === "delivery" &&
+             !["delivered", "completed", "cancelled"].includes(order.status) && (
+              <button
+                onClick={() => navigate(`/track/${restaurantId}/${order.id}`)}
+                className="col-span-2 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 active:scale-95"
+                style={{
+                  border: `2px solid ${theme.primary}`,
+                  color: theme.primary,
+                  backgroundColor: "transparent",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = theme.primary; e.currentTarget.style.color = "#fff"; }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = theme.primary; }}
+              >
+                <IoLocationOutline className="w-4 h-4" />
+                {["shipped", "out_for_delivery", "picked_up"].includes(order.status)
+                  ? "Track Live Delivery"
+                  : "Track Order"}
+              </button>
+            )}
+
+            {!["shipped", "out_for_delivery", "picked_up", "delivered", "completed", "cancelled"].includes(order.status) && (
+              <button
+                onClick={handleCancel}
+                className="col-span-2 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 active:scale-95"
+                style={{
+                  border: "2px solid #dc2626",
+                  color: "#dc2626",
+                  backgroundColor: "transparent",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = "#dc2626"; e.currentTarget.style.color = "#fff"; }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = "#dc2626"; }}
+              >
+                <IoBan className="w-4 h-4" /> Cancel Order
+              </button>
+            )}
+
             <button
               onClick={handleDownloadBill}
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 active:scale-95"
@@ -341,14 +361,14 @@ const OrderCard = ({ order, theme, restaurantName, restaurantSettings, restauran
           {/* Special Instructions */}
           {order.specialInstructions && (
             <p className="text-xs text-gray-400 italic px-1">
-              📝 {order.specialInstructions}
+              <StickyNote size={12} color="#9ca3af" /> {order.specialInstructions}
             </p>
           )}
         </div>
       )}
     </div>
   );
-};
+});
 
 // ─── Main MyOrders Page ───────────────────────────────────────────────────────
 export default function MyOrders() {
@@ -358,7 +378,7 @@ export default function MyOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all"); // "all" | "last30"
+  const [filter, setFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [restaurantName, setRestaurantName] = useState("");
   const [restaurantSettings, setRestaurantSettings] = useState(null);
@@ -395,14 +415,20 @@ export default function MyOrders() {
 
   // ── Load orders ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!userId || !restaurantId) return;
+    if (!userId || !restaurantId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
-const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
-
+    const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
     const unsub = onValue(ordersRef, snap => {
       const data = snap.val();
-      if (!data) { setOrders([]); setLoading(false); return; }
+      if (!data) { 
+        setOrders([]); 
+        setLoading(false); 
+        return; 
+      }
 
       const myOrders = Object.entries(data)
         .filter(([, o]) => o.userId === userId && o.restaurantId === restaurantId)
@@ -416,39 +442,54 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
     return () => unsub();
   }, [userId, restaurantId]);
 
-  // ── Derived filtered list ──────────────────────────────────────────────────
+  // ── Derived filtered list (MEMOIZED) ──────────────────────────────────────
   const now = Date.now();
   const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
 
-  let visible = [...orders];
+  const visible = useMemo(() => {
+    let result = [...orders];
 
-  // Time filter
-  if (filter === "last30") {
-    visible = visible.filter(o => (now - (o.createdAt || 0)) <= THIRTY_DAYS);
-  }
+    if (filter === "last30") {
+      result = result.filter(o => (now - (o.createdAt || 0)) <= THIRTY_DAYS);
+    }
 
-  // Status filter
-  if (statusFilter !== "all") {
-    visible = visible.filter(o => o.status === statusFilter);
-  }
+    if (statusFilter !== "all") {
+      result = result.filter(o => o.status === statusFilter);
+    }
 
-  // Search
-  if (search.trim()) {
-    const q = search.toLowerCase();
-    visible = visible.filter(o =>
-      o.id.toLowerCase().includes(q) ||
-      String(o.total).includes(q) ||
-      String(o.tableNumber || "").includes(q) ||
-      getItems(o.items).some(i => (i.name || "").toLowerCase().includes(q))
-    );
-  }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(o =>
+        o.id.toLowerCase().includes(q) ||
+        String(o.total).includes(q) ||
+        String(o.tableNumber || "").includes(q) ||
+        getItems(o.items).some(i => (i.name || "").toLowerCase().includes(q))
+      );
+    }
 
-  // ── Stats ──────────────────────────────────────────────────────────────────
-  const totalSpent = orders
-    .filter(o => o.status === "completed")
-    .reduce((s, o) => s + Number(o.total || 0), 0);
-  const totalOrders = orders.length;
-  const completedOrders = orders.filter(o => o.status === "completed").length;
+    return result;
+  }, [orders, filter, statusFilter, search, now, THIRTY_DAYS]);
+
+  // ── Stats (MEMOIZED) ──────────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const completed = orders.filter(o => o.status === "completed");
+    return {
+      totalSpent: completed.reduce((s, o) => s + Number(o.total || 0), 0),
+      totalOrders: orders.length,
+      completedOrders: completed.length,
+    };
+  }, [orders]);
+
+  // ── Handlers (STABLE REFERENCES) ──────────────────────────────────────────
+  const handleClearFilters = useCallback(() => {
+    setSearch("");
+    setFilter("all");
+    setStatusFilter("all");
+  }, []);
+
+  const handleNavigateMenu = useCallback(() => {
+    navigate(`/menu/${restaurantId}`);
+  }, [navigate, restaurantId]);
 
   return (
     <>
@@ -471,7 +512,7 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
         >
           <div className="max-w-2xl mx-auto flex items-center gap-3">
             <button
-              onClick={() => navigate(`/menu/${restaurantId}`)}
+              onClick={handleNavigateMenu}
               className="w-9 h-9 rounded-xl flex items-center justify-center transition hover:scale-105 active:scale-95"
               style={{ border: `2px solid ${theme.primary}`, color: theme.primary }}
             >
@@ -491,7 +532,7 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
               className="text-xs font-bold px-3 py-1 rounded-full"
               style={{ backgroundColor: `${theme.primary}15`, color: theme.primary }}
             >
-              {totalOrders} orders
+              {stats.totalOrders} orders
             </div>
           </div>
         </div>
@@ -502,12 +543,14 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
           {!loading && orders.length > 0 && (
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Total Orders", value: totalOrders, icon: "🧾" },
-                { label: "Completed",    value: completedOrders, icon: "✅" },
-                { label: "Total Spent",  value: `₹${totalSpent.toFixed(0)}`, icon: "💰" },
+                { label: "Total Orders", value: stats.totalOrders, icon: BsReceipt },
+                { label: "Completed",    value: stats.completedOrders, icon: IoCheckmarkCircle },
+                { label: "Total Spent",  value: `₹${stats.totalSpent.toFixed(0)}`, icon: null },
               ].map((s, i) => (
                 <div key={i} className={`${glass.card} rounded-2xl p-3 text-center`}>
-                  <div className="text-xl mb-1">{s.icon}</div>
+                  <div className="text-xl mb-1 flex justify-center">
+                    {s.icon ? <s.icon className="w-5 h-5" style={{ color: theme.primary }} /> : "<IndianRupee size={20} style={{ color: theme.primary }} />"}
+                  </div>
                   <div className="font-black text-lg" style={{ color: theme.primary }}>{s.value}</div>
                   <div className="text-[10px] text-gray-500">{s.label}</div>
                 </div>
@@ -539,7 +582,6 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
 
           {/* ── Filter Row ── */}
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {/* Time Filters */}
             {[
               { val: "all",    label: "All Time" },
               { val: "last30", label: "Last 30 Orders" },
@@ -560,13 +602,12 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
 
             <div className="w-px bg-gray-200 flex-shrink-0 self-stretch" />
 
-            {/* Status Filters */}
             {[
               { val: "all",       label: "All Status" },
-              { val: "completed", label: "✅ Done" },
-              { val: "pending",   label: "⏳ Pending" },
-              { val: "preparing", label: "👨‍🍳 Cooking" },
-              { val: "ready",     label: "🍽️ Ready" },
+              { val: "completed", label: "Done" },
+              { val: "pending",   label: "Pending" },
+              { val: "preparing", label: "Cooking" },
+              { val: "ready",     label: "Ready" },
             ].map(f => (
               <button
                 key={f.val}
@@ -604,10 +645,10 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
           {/* ── Not Logged In ── */}
           {!loading && !userId && (
             <div className="text-center py-20">
-              <div className="text-5xl mb-4">🔐</div>
+              <div className="text-5xl mb-4"><Lock size={48} color="#9ca3af" /></div>
               <p className="text-gray-500 font-medium">Please log in to view your orders</p>
               <button
-                onClick={() => navigate(`/menu/${restaurantId}`)}
+                onClick={handleNavigateMenu}
                 className="mt-4 px-6 py-2.5 rounded-xl font-bold text-white text-sm transition hover:opacity-90"
                 style={{ backgroundColor: theme.primary }}
               >
@@ -619,11 +660,11 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
           {/* ── Empty State ── */}
           {!loading && userId && orders.length === 0 && (
             <div className="text-center py-20">
-              <div className="text-5xl mb-4">🛒</div>
+              <div className="text-5xl mb-4"><ShoppingCart size={48} color="#9ca3af" /></div>
               <p className="text-lg font-bold text-gray-600">No orders yet</p>
               <p className="text-sm text-gray-400 mt-1">Your orders will appear here after you place them.</p>
               <button
-                onClick={() => navigate(`/menu/${restaurantId}`)}
+                onClick={handleNavigateMenu}
                 className="mt-5 px-6 py-2.5 rounded-xl font-bold text-white text-sm transition hover:opacity-90"
                 style={{ backgroundColor: theme.primary }}
               >
@@ -635,10 +676,10 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
           {/* ── No Results ── */}
           {!loading && userId && orders.length > 0 && visible.length === 0 && (
             <div className="text-center py-12">
-              <div className="text-4xl mb-3">🔍</div>
+              <div className="text-4xl mb-3"><Search size={40} color="#9ca3af" /></div>
               <p className="text-gray-500 font-medium">No orders match your filters</p>
               <button
-                onClick={() => { setSearch(""); setFilter("all"); setStatusFilter("all"); }}
+                onClick={handleClearFilters}
                 className="mt-3 text-sm font-bold underline"
                 style={{ color: theme.primary }}
               >
@@ -656,8 +697,7 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
               restaurantName={restaurantName}
               restaurantSettings={restaurantSettings}
               restaurantId={restaurantId}
-  navigate={navigate}
-
+              navigate={navigate}
             />
           ))}
 

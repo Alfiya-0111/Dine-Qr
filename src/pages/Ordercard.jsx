@@ -26,6 +26,8 @@ import { BiDish } from "react-icons/bi";
 import { ref, update } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { useState } from "react";
+import { Phone } from "lucide-react";
+import { Bike, MapPin, Home, AlertTriangle, Map, CheckCircle } from "lucide-react";
 const PRIMARY = "#8A244B";
 const GOLD    = "#FFD166";
 
@@ -174,12 +176,13 @@ function DeliveryAssignSection({ order, restaurantId, deliveryBoys }) {
       borderRadius: 12, padding: "12px 14px", marginTop: 12,
     }}>
       <p style={{ fontSize: 12, fontWeight: 700, color: "#166534", marginBottom: 8 }}>
-        🛵 Delivery Assignment
+        <Bike size={12} /> Delivery Assignment
+
       </p>
 
       {order.deliveryInfo?.zone && (
         <p style={{ fontSize: 11, color: "#6b7280", marginBottom: 8 }}>
-          📍 Zone: <strong>{order.deliveryInfo.zone.name}</strong>
+          <MapPin size={11} /> Zone: <strong>{order.deliveryInfo.zone.name}</strong>
           {" "}• Charge: ₹{order.deliveryInfo.zone.charge || 0}
         </p>
       )}
@@ -197,10 +200,10 @@ function DeliveryAssignSection({ order, restaurantId, deliveryBoys }) {
           padding: "8px 12px", marginBottom: 8,
         }}>
           <p style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>
-            ✅ Assigned: {order.deliveryInfo.deliveryBoyName}
+           <CheckCircle size={12} color="#166534" /> Assigned: {order.deliveryInfo.deliveryBoyName}
           </p>
           <p style={{ fontSize: 11, color: "#4b5563" }}>
-            📱 {order.deliveryInfo.deliveryBoyPhone}
+            <Phone size={11} /> {order.deliveryInfo.deliveryBoyPhone}
           </p>
           <p style={{ fontSize: 11, color: "#4b5563", marginTop: 4 }}>
             Status: <strong>{order.deliveryInfo.status}</strong>
@@ -208,7 +211,7 @@ function DeliveryAssignSection({ order, restaurantId, deliveryBoys }) {
         </div>
       ) : (
         <p style={{ fontSize: 11, color: "#ef4444", marginBottom: 8 }}>
-          ⚠️ Koi delivery boy assign nahi hua
+          <AlertTriangle size={11} color="#ef4444" /> Koi delivery boy assign nahi hua
         </p>
       )}
 
@@ -262,7 +265,7 @@ function DeliveryAssignSection({ order, restaurantId, deliveryBoys }) {
             fontSize: 11, color: "#2563eb", fontWeight: 600,
           }}
         >
-          🗺️ Customer ka location dekho
+          <Map size={11} /> Customer ka location dekho
         </a>
       )}
     </div>
@@ -449,7 +452,7 @@ export function Ordercard({
       borderRadius: 6, padding: "1px 6px",
       marginLeft: 6,
     }}>
-      👤 Guest
+      <User size={10} /> Guest
     </span>
   )}
 </div>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { ref as rtdbRef, onValue, set, update, remove, get } from "firebase/database";
 import { realtimeDB } from "../../firebaseConfig";
-import { FaPlus, FaEdit, FaTrash, FaChair, FaMapMarkerAlt, FaUsers, FaLock, FaCrown } from "react-icons/fa";
+import { Plus, Pencil, Trash2, Armchair, MapPin, Users, Lock, Crown } from "lucide-react";
+
 import { useNavigate } from "react-router-dom";
 
 // ─── PLAN CONFIG (Only Trial & Pro have table management) ───────────────────
@@ -222,7 +223,7 @@ const TableManagement = ({ restaurantId }) => {
 
         <div className="tm-locked-wrap">
           <div className="tm-locked-icon">
-            <FaLock size={36} color="#dc2626" />
+<Lock size={36} color="#dc2626" />
           </div>
           <h2 className="tm-locked-title">Table Management Locked 🔒</h2>
           <p className="tm-locked-sub">
@@ -230,7 +231,7 @@ const TableManagement = ({ restaurantId }) => {
             Upgrade to Pro to add and manage tables.
           </p>
           <button className="tm-locked-btn" onClick={goToSubscription}>
-            <FaCrown color={GOLD} /> Upgrade to Pro →
+           <Crown size={16} color={GOLD} /> Upgrade to Pro →
           </button>
 
           <div className="tm-locked-features">
@@ -530,7 +531,7 @@ const TableManagement = ({ restaurantId }) => {
         {/* Header */}
         <div className="tm-header">
           <h2 className="tm-title">
-            <FaChair /> Table Management
+           <Armchair size={22} /> Table Management
           </h2>
           <button
             onClick={() => { setShowForm(!showForm); if (showForm) resetForm(); }}
@@ -539,7 +540,7 @@ const TableManagement = ({ restaurantId }) => {
             onMouseOver={(e) => (e.currentTarget.style.background = "#6e1c3b")}
             onMouseOut={(e) => (e.currentTarget.style.background = "#8A244B")}
           >
-            <FaPlus /> {showForm ? "Cancel" : "Add Table"}
+           <Plus size={15} /> {showForm ? "Cancel" : "Add Table"}
           </button>
         </div>
 
@@ -636,21 +637,21 @@ const TableManagement = ({ restaurantId }) => {
                     <span className="tm-card-name">{table.name}</span>
                     <div className="tm-card-actions">
                       <button className="tm-icon-btn edit" onClick={() => handleEdit(table)} title="Edit">
-                        <FaEdit />
+<Pencil size={14} />
                       </button>
                       <button className="tm-icon-btn delete" onClick={() => handleDelete(table.id)} title="Delete">
-                        <FaTrash />
+                       <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
 
                   <div className="tm-card-info">
                     <div className="tm-info-row">
-                      <FaUsers size={12} />
+<Users size={12} />
                       Capacity: {table.capacity} guests
                     </div>
                     <div className="tm-info-row">
-                      <FaMapMarkerAlt size={12} />
+<MapPin size={12} />
                       {table.location}
                     </div>
                   </div>

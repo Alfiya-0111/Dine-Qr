@@ -6,6 +6,12 @@ import {
   updateDoc,
   deleteDoc,
 } from "firebase/firestore";
+import { 
+  FaGift, FaRocket, FaChartLine, FaInfinity, FaMotorcycle,
+  FaHourglass, FaLightbulb, FaClipboard,
+  FaLock, FaArrowUp, FaSyncAlt, FaCheckCircle,
+  FaMapMarkerAlt, FaBox, FaPause, FaPlay, FaEdit, FaTrash, FaLink
+} from "react-icons/fa";
 import { ref as rtdbRef, get } from "firebase/database";
 import { getAuth } from "firebase/auth";
 import { db, realtimeDB } from "../../firebaseConfig";
@@ -13,7 +19,7 @@ import { useOutletContext, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import Adddeliveryboymodal from "./Adddeliveryboymodal";
 import Editdeliveryboymodal from "./Editdeliveryboymodal";
-import { FaLock, FaArrowUp, FaSyncAlt, FaCheckCircle } from "react-icons/fa";
+
 
 const MAROON = "#8A244B";
 const GOLD = "#FFD166";
@@ -23,7 +29,7 @@ const GOLD = "#FFD166";
 // ═══════════════════════════════════════════════════════════════════════════════
 const PLAN_CONFIG = {
   trial: {
-    label: "🎁 FREE TRIAL",
+    label: " FREE TRIAL",
     color: "#22c55e",
     bgColor: "#dcfce7",
     textColor: "#166534",
@@ -47,7 +53,7 @@ const PLAN_CONFIG = {
     },
   },
   starter: {
-    label: "🚀 STARTER",
+    label: " STARTER",
     color: "#3b82f6",
     bgColor: "#dbeafe",
     textColor: "#1e40af",
@@ -71,7 +77,7 @@ const PLAN_CONFIG = {
     },
   },
   growth: {
-    label: "📈 GROWTH",
+    label: " GROWTH",
     color: "#f97316",
     bgColor: "#ffedd5",
     textColor: "#9a3412",
@@ -95,7 +101,7 @@ const PLAN_CONFIG = {
     },
   },
   pro: {
-    label: "♾️ PRO",
+    label: " PRO",
     color: "#FFD166",
     bgColor: "#fef9c3",
     textColor: "#854d0e",
@@ -133,7 +139,16 @@ const PLAN_BADGES = {
   growth: { icon: "📈", color: "#8A244B" },
   pro: { icon: "♾️", color: "#FFD166" },
 };
-
+const PLAN_ICON_MAP = {
+  trial:   FaGift,
+  starter: FaRocket,
+  growth:  FaChartLine,
+  pro:     FaInfinity,
+};
+const PlanIcon = ({ planId, size = 20, color }) => {
+  const Icon = PLAN_ICON_MAP[planId] || FaRocket;
+  return <Icon style={{ fontSize: size, color }} />;
+};
 // ═══════════════════════════════════════════════════════════════════════════════
 // LOCKED SCREEN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -219,37 +234,37 @@ function DeliveryLockedScreen({ planId, planName, navigate, restaurantId }) {
           </p>
 
           {/* What you get */}
-          <div style={{
-            background: "#faf9f7",
-            borderRadius: 14,
-            padding: "16px 20px",
-            marginBottom: 24,
-            textAlign: "left",
-          }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: "#555", margin: "0 0 10px", textTransform: "uppercase", letterSpacing: 0.5 }}>
-              Pro Plan mein milega:
-            </p>
-            {[
-              "🛵 Delivery Boy Management",
-              "✨ AR Food View",
-              "🎨 Custom Branding",
-              "♾️ Unlimited Dishes",
-              "📊 Full Analytics + Reports",
-              "🎧 Priority Support",
-            ].map((f, i) => (
-              <div key={i} style={{
-                display: "flex", alignItems: "center", gap: 8,
-                fontSize: 13, color: "#333",
-                padding: "4px 0",
-                borderBottom: i < 5 ? "1px solid #eee" : "none",
-              }}>
-                <span style={{ fontSize: 15 }}>{f.split(" ")[0]}</span>
-                <span>{f.split(" ").slice(1).join(" ")}</span>
-                <span style={{ marginLeft: "auto", color: "#22c55e", fontWeight: 700 }}>✓</span>
-              </div>
-            ))}
-          </div>
-
+         {/* What you get */}
+<div style={{
+  background: "#faf9f7",
+  borderRadius: 14,
+  padding: "16px 20px",
+  marginBottom: 24,
+  textAlign: "left",
+}}>
+  <p style={{ fontSize: 12, fontWeight: 700, color: "#555", margin: "0 0 10px", textTransform: "uppercase", letterSpacing: 0.5 }}>
+    Pro Plan mein milega:
+  </p>
+  {[
+    { icon: <FaMotorcycle />, text: "Delivery Boy Management" },
+    { icon: <FaCheckCircle />, text: "AR Food View" },
+    { icon: <FaCheckCircle />, text: "Custom Branding" },
+    { icon: <FaInfinity />,    text: "Unlimited Dishes" },
+    { icon: <FaChartLine />,   text: "Full Analytics + Reports" },
+    { icon: <FaCheckCircle />, text: "Priority Support" },
+  ].map((f, i) => (
+    <div key={i} style={{
+      display: "flex", alignItems: "center", gap: 8,
+      fontSize: 13, color: "#333",
+      padding: "4px 0",
+      borderBottom: i < 5 ? "1px solid #eee" : "none",
+    }}>
+      <span style={{ color: MAROON, fontSize: 14 }}>{f.icon}</span>
+      <span>{f.text}</span>
+      <FaCheckCircle style={{ marginLeft: "auto", color: "#22c55e" }} />
+    </div>
+  ))}
+</div>
           <button
             onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)}
             style={{
@@ -354,8 +369,8 @@ function ExpiredPlanScreen({ planId, planName, navigate, restaurantId }) {
             marginBottom: 10,
           }}
         >
-          <FaSyncAlt style={{ marginRight: 8, fontSize: "0.9rem" }} />
-          🔄 Renew Now
+         <FaSyncAlt style={{ marginRight: 8 }} />
+Renew Now
         </button>
       </div>
     </div>
@@ -590,7 +605,10 @@ export default function DeliveryBoyManagement() {
 
       <div style={s.topBar}>
         <div>
-          <div style={s.title}>🛵 Delivery Boys</div>
+         <div style={s.title} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+  <FaMotorcycle style={{ color: MAROON }} /> Delivery Boys
+</div>
+
           <div style={s.titleSub}>{boys.length} total • {activeCount} active</div>
         </div>
       </div>
@@ -611,35 +629,39 @@ export default function DeliveryBoyManagement() {
       </div>
 
       <div style={s.toolbar}>
-        <input
-          style={s.searchInput}
-          placeholder="🔍 Name, phone ya zone se search karo..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onFocus={(e) => (e.target.style.borderColor = MAROON)}
-          onBlur={(e) => (e.target.style.borderColor = "#eee")}
-        />
-        <button style={s.linkBtn} onClick={copyLoginLink}>🔗 Login Link Copy Karo</button>
-        <button style={s.addBtn} onClick={() => setShowAddModal(true)}>＋ Delivery Boy Add Karo</button>
+<input
+  style={s.searchInput}
+  placeholder="Name, phone ya zone se search karo..."
+  value={search}
+  onChange={(e) => setSearch(e.target.value)}
+  onFocus={(e) => (e.target.style.borderColor = MAROON)}
+  onBlur={(e) => (e.target.style.borderColor = "#eee")}
+/>
+       <button style={s.linkBtn} onClick={copyLoginLink}>
+  <FaLink /> Login Link Copy Karo
+</button>
+<button style={s.addBtn} onClick={() => setShowAddModal(true)}>
+  ＋ Delivery Boy Add Karo
+</button>
       </div>
 
       {/* Login Link Info Box */}
       <div style={{ background: "linear-gradient(135deg, #f0fdf4, #dcfce7)", border: "1px solid #bbf7d0", borderRadius: "14px", padding: "14px 18px", marginBottom: "20px", display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-        <span style={{ fontSize: "20px" }}>💡</span>
+        <span style={{ fontSize: "20px" }}><FaLightbulb style={{ color: "#166534", fontSize: 18 }} /></span>
         <div style={{ flex: 1 }}>
           <p style={{ fontSize: "13px", fontWeight: 700, color: "#166534", margin: 0 }}>Delivery Boy Login Link</p>
           <p style={{ fontSize: "12px", color: "#166534", margin: "2px 0 0", opacity: 0.8 }}>
             {window.location.origin}/login/{restaurantId}
           </p>
         </div>
-        <button style={{ ...s.linkBtn, fontSize: "12px", padding: "8px 14px" }} onClick={copyLoginLink}>📋 Copy</button>
+        <button style={{ ...s.linkBtn, fontSize: "12px", padding: "8px 14px" }} onClick={copyLoginLink}><FaClipboard style={{ marginRight: 4 }} /> Copy</button>
       </div>
 
       {loading ? (
-        <div style={s.emptyState}><div style={{ fontSize: "44px" }}>⏳</div><p>Loading...</p></div>
+        <div style={s.emptyState}><div style={{ fontSize: "44px" }}><FaHourglass style={{ fontSize: 44, color: "#aaa" }} /></div><p>Loading...</p></div>
       ) : filtered.length === 0 ? (
         <div style={s.emptyState}>
-          <div style={{ fontSize: "56px", marginBottom: "12px" }}>🛵</div>
+          <div style={{ fontSize: "56px", marginBottom: "12px" }}><FaMotorcycle /></div>
           <p style={{ fontSize: "15px", fontWeight: 700 }}>
             {search ? "Koi match nahi mila" : "Abhi koi delivery boy nahi hai"}
           </p>
@@ -655,7 +677,7 @@ export default function DeliveryBoyManagement() {
             <div key={boy.id} style={s.card(boy.isActive)}>
               <div style={s.cardAccent(boy.isActive)} />
               <div style={s.cardTop}>
-                <div style={s.avatar}>🛵</div>
+                <div style={s.avatar}><FaMotorcycle /></div>
                 <div style={{ flex: 1 }}>
                   <div style={s.name}>{boy.name}</div>
                   <div style={s.phone}>{boy.phone}</div>
@@ -665,28 +687,30 @@ export default function DeliveryBoyManagement() {
                 </div>
               </div>
               <div style={s.infoRow}>
-                <span style={s.infoPill}>🏍️ {boy.vehicleNumber || "—"}</span>
-                <span style={s.infoPill}>📍 {boy.zone || "—"}</span>
-                <span style={s.infoPill}>📦 {boy.totalDeliveries || 0} deliveries</span>
+              <div style={s.infoRow}>
+  <span style={s.infoPill}><FaMotorcycle style={{ color: "#555" }} /> {boy.vehicleNumber || "—"}</span>
+  <span style={s.infoPill}><FaMapMarkerAlt style={{ color: "#555" }} /> {boy.zone || "—"}</span>
+  <span style={s.infoPill}><FaBox style={{ color: "#555" }} /> {boy.totalDeliveries || 0} deliveries</span>
+</div>
               </div>
-              <div style={s.actions}>
-                <button
-                  style={s.actionBtn(boy.isActive ? "#dc2626" : "#16a34a", boy.isActive ? "#fee2e2" : "#dcfce7")}
-                  onClick={() => toggleActive(boy)}
-                >
-                  {boy.isActive ? "⏸ Deactivate" : "▶ Activate"}
-                </button>
-                <button style={s.actionBtn("#1d4ed8", "#dbeafe")} onClick={() => setEditingBoy(boy)}>
-                  ✏️ Edit
-                </button>
-                <button
-                  style={s.actionBtn("#dc2626", "#fee2e2")}
-                  onClick={() => handleDelete(boy)}
-                  disabled={deletingId === boy.id}
-                >
-                  {deletingId === boy.id ? "..." : "🗑️"}
-                </button>
-              </div>
+             <div style={s.actions}>
+  <button
+    style={s.actionBtn(boy.isActive ? "#dc2626" : "#16a34a", boy.isActive ? "#fee2e2" : "#dcfce7")}
+    onClick={() => toggleActive(boy)}
+  >
+    {boy.isActive ? <><FaPause style={{ fontSize: 11 }} /> Deactivate</> : <><FaPlay style={{ fontSize: 11 }} /> Activate</>}
+  </button>
+  <button style={s.actionBtn("#1d4ed8", "#dbeafe")} onClick={() => setEditingBoy(boy)}>
+    <FaEdit style={{ fontSize: 11 }} /> Edit
+  </button>
+  <button
+    style={s.actionBtn("#dc2626", "#fee2e2")}
+    onClick={() => handleDelete(boy)}
+    disabled={deletingId === boy.id}
+  >
+    {deletingId === boy.id ? "..." : <FaTrash style={{ fontSize: 11 }} />}
+  </button>
+</div>
             </div>
           ))}
         </div>

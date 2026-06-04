@@ -7,7 +7,9 @@ import { ref, set as setRTDB, update as updateRTDB } from "firebase/database";
 
 import { FaMagic, FaSpinner, FaLock, FaUtensils, FaChartLine, FaTicketAlt, FaComments, FaMotorcycle, FaChair, FaClipboardList, FaQrcode } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-
+import { FaCoffee, FaGift, FaRocket, FaInfinity, FaBan, FaExclamationTriangle, FaBox, FaLeaf, FaFire, FaSyncAlt, FaArrowRight } from "react-icons/fa";
+import { GiCookingPot, GiChiliPepper, GiSaltShaker,  } from "react-icons/gi";
+import { MdCake, MdKitchen } from "react-icons/md";
 const CLOUDINARY_CONFIG = {
   cloudName: "dgvjgl2ls",
   uploadPreset: "portfolio_upload",
@@ -21,7 +23,7 @@ const CLOUDINARY_CONFIG = {
 const VENUE_CONFIGS = {
   restaurant: {
     label: "Restaurant",
-    emoji: "🍽️",
+    emoji: <FaUtensils />,
     itemWord: "Dish",
     showVegNonVeg: true,
     showSpiceLevel: true,
@@ -37,7 +39,7 @@ const VENUE_CONFIGS = {
   },
   cafe: {
     label: "Café",
-    emoji: "☕",
+    emoji: <FaCoffee />,
     itemWord: "Item",
     showVegNonVeg: false,
     showSpiceLevel: false,
@@ -53,7 +55,7 @@ const VENUE_CONFIGS = {
   },
   dhaba: {
     label: "Dhaba",
-    emoji: "🥘",
+    emoji: <GiCookingPot />,
     itemWord: "Item",
     showVegNonVeg: true,
     showSpiceLevel: true,
@@ -69,7 +71,7 @@ const VENUE_CONFIGS = {
   },
   bakery: {
     label: "Bakery",
-    emoji: "🍰",
+    emoji: <MdCake />,
     itemWord: "Item",
     showVegNonVeg: false,
     showSpiceLevel: false,
@@ -85,7 +87,7 @@ const VENUE_CONFIGS = {
   },
   cloud_kitchen: {
     label: "Cloud Kitchen",
-    emoji: "🧁",
+    emoji: <MdKitchen />,
     itemWord: "Dish",
     showVegNonVeg: true,
     showSpiceLevel: true,
@@ -137,10 +139,10 @@ const PLAN_FEATURES = {
 
 const PLAN_LABELS = { trial: "Free Trial", starter: "Starter", growth: "Growth", pro: "Pro" };
 const PLAN_BADGES = {
-  trial:   { icon: "🎁", color: "#22c55e" },
-  starter: { icon: "🚀", color: "#3b82f6" },
-  growth:  { icon: "📈", color: "#8A244B" },
-  pro:     { icon: "♾️", color: "#FFD166" },
+trial:   { icon: <FaGift />,     color: "#22c55e" },
+starter: { icon: <FaRocket />,   color: "#3b82f6" },
+growth:  { icon: <FaChartLine />, color: "#8A244B" },
+pro:     { icon: <FaInfinity />, color: "#FFD166" },
 };
 
 // ─── SPELLCHECK ───────────────────────────────────────────────────────────────
@@ -508,13 +510,13 @@ export default function AddItem() {
   const canUseAR = planFeatures.arFoodView === true;
   const isPlanExpired = subscriptionStatus ? !subscriptionStatus.active : false;
 
-  const getDishLimitInfo = () => {
+ const getDishLimitInfo = () => {
     if (!subPlan) return null;
-    if (isUnlimited) return { color: "#22c55e", bg: "#f0fdf4", border: "#bbf7d0", text: `∞ Unlimited ${venueCfg.itemWord.toLowerCase()}s — ${PLAN_LABELS[planId] || planId} plan` };
+    if (isUnlimited) return { color: "#22c55e", bg: "#f0fdf4", border: "#bbf7d0", text: <><FaInfinity className="inline mr-1"/> Unlimited {venueCfg.itemWord.toLowerCase()}s — {PLAN_LABELS[planId] || planId} plan</> };
     const remaining = Math.max(0, maxDishes - dishesUsed);
-    if (remaining === 0) return { color: "#dc2626", bg: "#fef2f2", border: "#fecaca", text: `⛔ ${venueCfg.itemWord} limit reached! (${dishesUsed}/${maxDishes}) — Upgrade karo` };
-    if (remaining <= 5) return { color: "#f97316", bg: "#fff7ed", border: "#fed7aa", text: `⚠️ Sirf ${remaining} ${venueCfg.itemWord.toLowerCase()}s baaki (${dishesUsed}/${maxDishes} used)` };
-    return { color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe", text: `📦 ${dishesUsed}/${maxDishes} ${venueCfg.itemWord.toLowerCase()}s used — ${remaining} remaining` };
+    if (remaining === 0) return { color: "#dc2626", bg: "#fef2f2", border: "#fecaca", text: <><FaBan className="inline mr-1"/> {venueCfg.itemWord} limit reached! ({dishesUsed}/{maxDishes}) — Upgrade karo</> };
+    if (remaining <= 5) return { color: "#f97316", bg: "#fff7ed", border: "#fed7aa", text: <><FaExclamationTriangle className="inline mr-1"/> Sirf {remaining} {venueCfg.itemWord.toLowerCase()}s baaki ({dishesUsed}/{maxDishes} used)</> };
+    return { color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe", text: <><FaBox className="inline mr-1"/> {dishesUsed}/{maxDishes} {venueCfg.itemWord.toLowerCase()}s used — {remaining} remaining</> };
   };
 
   const dishLimitInfo = getDishLimitInfo();
@@ -722,7 +724,7 @@ export default function AddItem() {
               <VenueBadge venueType={venueType} />
               {planId && (
                 <span
-                  className="px-3 py-1 rounded-full text-xs font-bold text-white shrink-0"
+                  className="px-3 py-1 rounded-full text-xs font-bold text-white shrink-0 flex items-center gap-1"
                   style={{
                     background: planId === "pro" ? "linear-gradient(135deg,#8A244B,#f18e49)"
                       : planId === "growth" ? "#8A244B"
@@ -754,9 +756,9 @@ export default function AddItem() {
           {/* ── Subscription Expired Alert ── */}
           {isPlanExpired && (
             <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl">
-              <p className="text-red-700 font-bold text-sm">⚠️ Your {PLAN_LABELS[planId]} plan has expired! Please renew.</p>
+              <p className="text-red-700 font-bold text-sm"><FaExclamationTriangle className="inline mr-1 text-red-600"/> Your {PLAN_LABELS[planId]} plan has expired! Please renew.</p>
               <button onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)} className="mt-2 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition">
-                🔄 Renew Now
+                <FaSyncAlt className="inline mr-1"/> Renew Now
               </button>
             </div>
           )}
@@ -776,7 +778,7 @@ export default function AddItem() {
           {/* ── Plan Badge ── */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-gray-500">Current Plan:</span>
-            <span className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ background: planId === "pro" ? "linear-gradient(135deg,#8A244B,#f18e49)" : planId === "growth" ? "#8A244B" : planId === "trial" ? "#22c55e" : "#374151", color: "#fff" }}>
+            <span className="px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1" style={{ background: planId === "pro" ? "linear-gradient(135deg,#8A244B,#f18e49)" : planId === "growth" ? "#8A244B" : planId === "trial" ? "#22c55e" : "#374151", color: "#fff" }}>
               {PLAN_BADGES[planId]?.icon} {PLAN_LABELS[planId] || planId}
             </span>
             <button onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)} className="text-xs text-[#8A244B] font-medium hover:underline">Upgrade →</button>
@@ -857,7 +859,7 @@ export default function AddItem() {
           {/* ═══ BAKERY: Weight field ═══ */}
           {venueCfg.showWeight && (
             <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3">
-              <p className="text-sm font-semibold text-purple-800">📦 Weight / Quantity</p>
+              <p className="text-sm font-semibold text-purple-800"><FaBox className="mr-1"/> Weight / Quantity</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Value</label>
@@ -891,7 +893,7 @@ export default function AddItem() {
           {/* ═══ CAFÉ: Drink / Cup Size ═══ */}
           {venueCfg.showDrinkSize && (
             <div className="border rounded-xl p-4 space-y-3" style={{ background: "#fef3c7", borderColor: "#fde68a" }}>
-              <p className="text-sm font-semibold" style={{ color: "#92400e" }}>☕ Cup / Drink Sizes</p>
+              <p className="text-sm font-semibold" style={{ color: "#92400e" }}><FaCoffee className="mr-1"/> Cup / Drink Sizes</p>
               <div className="flex flex-wrap gap-2">
                 {["S", "M", "L", "XL"].map((sz) => (
                   <button
@@ -1043,9 +1045,9 @@ export default function AddItem() {
                     onChange={(e) => setForm({ ...form, spiceLevel: e.target.value })}
                   >
                     <option value="">Select Spice Level</option>
-                    <option value="mild">🌿 Mild</option>
-                    <option value="medium">🌶️ Medium</option>
-                    <option value="spicy">🔥 Spicy</option>
+                    <option value="mild"> Mild</option>
+                    <option value="medium"> Medium</option>
+                    <option value="spicy"> Spicy</option>
                   </select>
                 </div>
               )}
@@ -1057,9 +1059,9 @@ export default function AddItem() {
                     value={form.dishTasteProfile}
                     onChange={(e) => setForm({ ...form, dishTasteProfile: e.target.value })}
                   >
-                    <option value="spicy">🌶️ Spicy</option>
-                    <option value="salty">🧂 Salty</option>
-                    <option value="sweet">🍬 Sweet</option>
+                  <option value="spicy"><GiChiliPepper /> Spicy</option>
+<option value="salty"><GiSaltShaker /> Salty</option>
+<option value="sweet">  Sweet</option>
                   </select>
                 </div>
               )}
@@ -1170,9 +1172,6 @@ export default function AddItem() {
             />
             <p className="text-xs text-gray-500">Max size: 5MB • Powered by Cloudinary</p>
           </div>
-
-        
-
           {/* ═══ ACTION BUTTONS ═══ */}
           <div className="space-y-3 pt-4">
             <button
@@ -1193,16 +1192,16 @@ export default function AddItem() {
                   : "linear-gradient(135deg, #B45253, #8A244B)",
               }}
             >
-              {uploading || glbUploading ? "Uploading..."
-                : isPlanExpired ? "Plan Expired — Renew to Save"
-                : !editData && dishLimitReached ? `${venueCfg.itemWord} Limit Reached (${dishesUsed}/${maxDishes})`
-                : editData ? `Update ${venueCfg.itemWord}`
-                : `${venueCfg.emoji} Add ${venueCfg.itemWord}`}
+             {uploading || glbUploading ? "Uploading..."
+  : isPlanExpired ? "Plan Expired — Renew to Save"
+  : !editData && dishLimitReached ? `${venueCfg.itemWord} Limit Reached (${dishesUsed}/${maxDishes})`
+  : editData ? `Update ${venueCfg.itemWord}`
+  : <> Add {venueCfg.itemWord}</>}
             </button>
 
             {isPlanExpired && (
               <button onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)} className="w-full py-3 rounded-xl font-bold text-white transition" style={{ background: "linear-gradient(135deg, #8A244B, #f18e49)" }}>
-                🔄 Renew Plan →
+                <FaSyncAlt className="inline mr-1"/> Renew Plan →
               </button>
             )}
 

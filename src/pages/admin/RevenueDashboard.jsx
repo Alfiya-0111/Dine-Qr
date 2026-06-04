@@ -3,16 +3,28 @@ import { ref, onValue, get } from "firebase/database";
 import { realtimeDB } from "../../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+import {
+  FaGift, FaRocket, FaChartLine, FaInfinity,
+  FaLock, FaArrowUp, FaCrown, FaChartBar,
+  FaUtensils, FaMoneyBillWave, FaClipboardList,
+  FaCheckCircle, FaTimesCircle, FaClock,
+  FaDownload, FaCalendarAlt, FaStar, FaCreditCard,
+  FaExclamationTriangle, FaTrophy, FaMedal,
+  FaFireAlt, FaReceipt, FaBoxOpen, FaSync,
+  FaBan, FaCheck, FaHourglassHalf, FaConciergeBell,
+  FaFileAlt, FaTable, FaSearchDollar, FaWallet
+} from 'react-icons/fa';
 
 const MAROON = "#8A244B";
 const GOLD = "#FFD166";
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PLAN CONFIG — SubscriptionPage.js ke saath EXACT SYNC
+// PLAN CONFIG
 // ═══════════════════════════════════════════════════════════════════════════════
 const PLAN_CONFIG = {
   trial: {
-    label: "🎁 FREE TRIAL",
+    label: "FREE TRIAL",
+    icon: <FaGift />,
     color: "#22c55e",
     bgColor: "#dcfce7",
     textColor: "#166534",
@@ -37,7 +49,8 @@ const PLAN_CONFIG = {
     },
   },
   starter: {
-    label: "🚀 STARTER",
+    label: "STARTER",
+    icon: <FaRocket />,
     color: "#3b82f6",
     bgColor: "#dbeafe",
     textColor: "#1e40af",
@@ -62,7 +75,8 @@ const PLAN_CONFIG = {
     },
   },
   growth: {
-    label: "📈 GROWTH",
+    label: "GROWTH",
+    icon: <FaChartLine />,
     color: "#f97316",
     bgColor: "#ffedd5",
     textColor: "#9a3412",
@@ -87,7 +101,8 @@ const PLAN_CONFIG = {
     },
   },
   pro: {
-    label: "♾️ PRO",
+    label: "PRO",
+    icon: <FaInfinity />,
     color: "#FFD166",
     bgColor: "#fef9c3",
     textColor: "#854d0e",
@@ -114,36 +129,32 @@ const PLAN_CONFIG = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ACCESS LEVEL — Revenue Dashboard ke hisaab se
+// ACCESS LEVEL
 // ═══════════════════════════════════════════════════════════════════════════════
 const getAccessLevel = (planId, features) => {
-  // No plan = locked
   if (!planId) return "locked";
-
-  // Starter = locked (revenueDashboard: false)
   if (planId === "starter") return "locked";
-
-  // Check revenueDashboard feature
-  if (features?.revenueDashboard === false) return "locked";
-
-  // Check analytics level for feature gating
-  const analytics = features?.analytics || "";
-  if (analytics === "Full + Reports") return "pro";      // Pro only
-  if (analytics === "Full") return "full";               // Trial & Growth
-  if (analytics === "Basic") return "basic";             // Should not happen for revenue
-
-  // Fallbacks by planId
   if (planId === "pro") return "pro";
-  if (planId === "growth") return "full";
   if (planId === "trial") return "full";
-
+  if (planId === "growth") return "full";
+  // features-based fallback
+  if (features?.revenueDashboard === true) return "full";
   return "locked";
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// LOCKED SCREEN — Starter plan
+// LOCKED SCREEN
 // ═══════════════════════════════════════════════════════════════════════════════
 function AnalyticsLockedScreen({ navigate, restaurantId, planConfig }) {
+  const featureItems = [
+    [<FaChartBar />, "Revenue tracking (daily/weekly/monthly)"],
+    [<FaCreditCard />, "Cash vs Online payment split"],
+    [<FaUtensils />, "Top selling dishes"],
+    [<FaChartLine />, "7-day bar chart"],
+    [<FaClipboardList />, "Order status breakdown"],
+    [<FaFileAlt />, "Full Reports (Pro only)"],
+  ];
+
   return (
     <div style={{
       minHeight: "70vh", display: "flex", alignItems: "center",
@@ -154,29 +165,34 @@ function AnalyticsLockedScreen({ navigate, restaurantId, planConfig }) {
         background: "#fff", borderRadius: "24px", padding: "48px 40px",
         maxWidth: "480px", width: "100%", textAlign: "center",
         boxShadow: `0 8px 40px ${MAROON}18`,
-        border: `2px solid ${planConfig.borderColor || "#fce7f3"}`, 
+        border: `2px solid ${planConfig.borderColor || "#fce7f3"}`,
         position: "relative", overflow: "hidden",
       }}>
-        <div style={{ 
-          position: "absolute", top: -60, right: -60, width: 200, height: 200, 
-          borderRadius: "50%", background: `${planConfig.color || MAROON}08` 
+        <div style={{
+          position: "absolute", top: -60, right: -60, width: 200, height: 200,
+          borderRadius: "50%", background: `${planConfig.color || MAROON}08`
         }} />
-        <div style={{ 
-          position: "absolute", bottom: -40, left: -40, width: 150, height: 150, 
-          borderRadius: "50%", background: `${GOLD}12` 
+        <div style={{
+          position: "absolute", bottom: -40, left: -40, width: 150, height: 150,
+          borderRadius: "50%", background: `${GOLD}12`
         }} />
         <div style={{ position: "relative", zIndex: 1 }}>
+          {/* Lock icon */}
           <div style={{
             width: 88, height: 88, background: `${planConfig.color || MAROON}18`,
             borderRadius: "50%", display: "flex", alignItems: "center",
             justifyContent: "center", margin: "0 auto 20px",
-            border: `2px dashed ${planConfig.color || MAROON}40`, fontSize: 40,
-          }}>🔒</div>
+            border: `2px dashed ${planConfig.color || MAROON}40`,
+          }}>
+            <FaLock style={{ fontSize: 36, color: planConfig.color || MAROON }} />
+          </div>
+
           <div style={{
             display: "inline-block", background: "#fee2e2", color: "#dc2626",
             borderRadius: 100, padding: "4px 14px", fontSize: 11,
             fontWeight: 800, letterSpacing: 1, marginBottom: 16,
           }}>FEATURE LOCKED</div>
+
           <h2 style={{ fontSize: 22, fontWeight: 800, color: "#1a1a1a", margin: "0 0 10px" }}>
             Revenue & Analytics
           </h2>
@@ -186,34 +202,31 @@ function AnalyticsLockedScreen({ navigate, restaurantId, planConfig }) {
           <p style={{ fontSize: 13, color: "#888", margin: "0 0 28px", lineHeight: 1.6 }}>
             Revenue track karne ke liye <strong>Growth (₹499)</strong> ya <strong>Pro Plan (₹999)</strong> chahiye.
           </p>
+
+          {/* Feature list */}
           <div style={{
             background: "#faf9f7", borderRadius: 14, padding: "16px 20px",
             marginBottom: 24, textAlign: "left",
           }}>
-            <p style={{ 
-              fontSize: 12, fontWeight: 700, color: "#555", margin: "0 0 10px", 
-              textTransform: "uppercase", letterSpacing: 0.5 
+            <p style={{
+              fontSize: 12, fontWeight: 700, color: "#555", margin: "0 0 10px",
+              textTransform: "uppercase", letterSpacing: 0.5
             }}>
               Analytics mein milega:
             </p>
-            {[
-              ["📊", "Revenue tracking (daily/weekly/monthly)"],
-              ["💳", "Cash vs Online payment split"],
-              ["🍽️", "Top selling dishes"],
-              ["📈", "7-day bar chart"],
-              ["📋", "Order status breakdown"],
-              ["📄", "Full Reports (Pro only)"],
-            ].map(([icon, text], i, arr) => (
+            {featureItems.map(([icon, text], i, arr) => (
               <div key={i} style={{
                 display: "flex", alignItems: "center", gap: 8,
-                fontSize: 13, color: "#333", padding: "5px 0",
+                fontSize: 13, color: "#333", padding: "6px 0",
                 borderBottom: i < arr.length - 1 ? "1px solid #eee" : "none",
               }}>
-                <span>{icon}</span><span>{text}</span>
-                <span style={{ marginLeft: "auto", color: "#22c55e", fontWeight: 700 }}>✓</span>
+                <span style={{ color: MAROON, fontSize: 14, flexShrink: 0 }}>{icon}</span>
+                <span>{text}</span>
+                <FaCheck style={{ marginLeft: "auto", color: "#22c55e", fontSize: 13 }} />
               </div>
             ))}
           </div>
+
           <button
             onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)}
             style={{
@@ -223,8 +236,11 @@ function AnalyticsLockedScreen({ navigate, restaurantId, planConfig }) {
               fontSize: 15, fontWeight: 800, cursor: "pointer",
               fontFamily: "'Sora', 'DM Sans', sans-serif",
               boxShadow: `0 6px 20px ${MAROON}40`, marginBottom: 10,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
             }}
-          >🚀 Plan Upgrade Karo</button>
+          >
+            <FaArrowUp style={{ fontSize: 14 }} /> Plan Upgrade Karo
+          </button>
           <p style={{ fontSize: 11, color: "#aaa", margin: 0 }}>Growth ₹499 ya Pro ₹999/month</p>
         </div>
       </div>
@@ -241,9 +257,8 @@ export default function RevenueDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState("today");
 
-  // Subscription state
   const [planLoading, setPlanLoading] = useState(true);
-  const [accessLevel, setAccessLevel] = useState("locked"); // "locked" | "full" | "pro"
+  const [accessLevel, setAccessLevel] = useState("locked");
   const [planId, setPlanId] = useState("starter");
   const [planFeatures, setPlanFeatures] = useState(PLAN_CONFIG.starter.features);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
@@ -263,30 +278,24 @@ export default function RevenueDashboard() {
   // ── Load Subscription ─────────────────────────────────────────
   useEffect(() => {
     if (!restaurantId) return;
-    
+
     const loadSubscription = async () => {
       try {
         const snap = await get(ref(realtimeDB, `subscriptions/${restaurantId}`));
         if (snap.exists()) {
           const data = snap.val();
           const pId = data.planId || "starter";
-          
           setPlanId(pId);
-          // Use stored features or fallback to PLAN_CONFIG
           const features = data.planFeatures || PLAN_CONFIG[pId]?.features || PLAN_CONFIG.starter.features;
           setPlanFeatures(features);
-          
           setSubscriptionStatus({
             active: data.status === "active",
             expiresAt: data.expiresAt,
             isTrial: data.isTrial || false,
           });
-
-          // Calculate access level
           const level = getAccessLevel(pId, features);
           setAccessLevel(level);
         } else {
-          // No subscription = starter (locked)
           setPlanId("starter");
           setPlanFeatures(PLAN_CONFIG.starter.features);
           setAccessLevel("locked");
@@ -305,45 +314,52 @@ export default function RevenueDashboard() {
     loadSubscription();
   }, [restaurantId]);
 
-  // ── Orders listener (only if not locked) ────────────────────
-  useEffect(() => {
-    if (!restaurantId || accessLevel === "locked") return;
-    
-    const ordersRef = ref(realtimeDB, "orders");
-    const unsub = onValue(ordersRef, (snap) => {
-      const data = snap.val();
-      if (!data) { setOrders([]); return; }
-      const myOrders = Object.entries(data)
-        .filter(([, o]) => String(o.restaurantId || "").trim() === String(restaurantId).trim())
-        .map(([id, o]) => ({ id, ...o, total: Number(o.total) || 0 }));
-      setOrders(myOrders);
-    });
-    return () => unsub();
-  }, [restaurantId, accessLevel]);
+  // ── Orders listener ──────────────────────────────────────────
+// ── Orders listener ──────────────────────────────────────────
+useEffect(() => {
+  if (!restaurantId || accessLevel === "locked") return;
 
-  // ── Helpers ─────────────────────────────────────────────────
+  // ✅ Sahi path — orders/{restaurantId}/ se directly fetch karo
+  const ordersRef = ref(realtimeDB, `orders/${restaurantId}`);
+  const unsub = onValue(ordersRef, (snap) => {
+    const data = snap.val();
+    if (!data) { setOrders([]); return; }
+    
+    // Ab restaurantId filter ki zaroorat nahi — directly map karo
+    const myOrders = Object.entries(data)
+      .map(([id, o]) => ({ id, ...o, total: Number(o.total) || 0 }));
+    setOrders(myOrders);
+  });
+  return () => unsub();
+}, [restaurantId, accessLevel]);
+
+  // ── Helpers ──────────────────────────────────────────────────
   const startOf = (period) => {
     const now = new Date();
     if (period === "today") return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     if (period === "week") {
-      const d = new Date(now); d.setDate(now.getDate() - now.getDay()); d.setHours(0,0,0,0); return d.getTime();
+      const d = new Date(now); d.setDate(now.getDate() - now.getDay()); d.setHours(0, 0, 0, 0); return d.getTime();
     }
     if (period === "month") return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
     return 0;
   };
 
-  const isPlanExpired = () => {
-    if (!subscriptionStatus) return false;
-    if (subscriptionStatus.expiresAt && subscriptionStatus.expiresAt < Date.now()) return true;
-    return !subscriptionStatus.active;
-  };
+const isPlanExpired = () => {
+  if (!subscriptionStatus) return false;
+  // Trial expired = sirf expiresAt check karo
+  if (subscriptionStatus.isTrial) {
+    return subscriptionStatus.expiresAt && subscriptionStatus.expiresAt < Date.now();
+  }
+  // Paid plans = active status + expiry
+  if (subscriptionStatus.expiresAt && subscriptionStatus.expiresAt < Date.now()) return true;
+  return !subscriptionStatus.active;
+};
 
   const goToSubscription = () => navigate(`/dashboard/${restaurantId}/subscription`);
 
-  // ── Data calculations ──────────────────────────────────────
+  // ── Data ─────────────────────────────────────────────────────
   const filteredOrders = orders.filter(o => o.createdAt >= startOf(selectedPeriod));
   const completedOrders = filteredOrders.filter(o => o.status === "completed");
-
   const totalRevenue = completedOrders.reduce((s, o) => s + o.total, 0);
   const totalOrders = filteredOrders.length;
   const completedCount = completedOrders.length;
@@ -356,33 +372,28 @@ export default function RevenueDashboard() {
   const cashPct = totalRevenue > 0 ? Math.round((cashRevenue / totalRevenue) * 100) : 0;
   const onlinePct = 100 - cashPct;
 
-  // Top dishes
   const dishMap = {};
   completedOrders.forEach(order => {
     const items = Array.isArray(order.items) ? order.items : Object.values(order.items || {});
     items.forEach(item => {
       if (!item?.name) return;
-      if (!dishMap[item.name]) dishMap[item.name] = { 
-        name: item.name, qty: 0, revenue: 0, image: item.image || "" 
-      };
+      if (!dishMap[item.name]) dishMap[item.name] = { name: item.name, qty: 0, revenue: 0, image: item.image || "" };
       dishMap[item.name].qty += Number(item.qty) || 1;
       dishMap[item.name].revenue += (Number(item.price) || 0) * (Number(item.qty) || 1);
     });
   });
   const topDishes = Object.values(dishMap).sort((a, b) => b.qty - a.qty).slice(0, 5);
 
-  // Today vs yesterday
   const todayStart = startOf("today");
   const yesterdayStart = todayStart - 86400000;
-  const todayRevenue = orders.filter(o => o.status === "completed" && o.createdAt >= todayStart).reduce((s,o) => s+o.total, 0);
-  const yesterdayRevenue = orders.filter(o => o.status === "completed" && o.createdAt >= yesterdayStart && o.createdAt < todayStart).reduce((s,o) => s+o.total, 0);
+  const todayRevenue = orders.filter(o => o.status === "completed" && o.createdAt >= todayStart).reduce((s, o) => s + o.total, 0);
+  const yesterdayRevenue = orders.filter(o => o.status === "completed" && o.createdAt >= yesterdayStart && o.createdAt < todayStart).reduce((s, o) => s + o.total, 0);
   const growth = yesterdayRevenue > 0 ? Math.round(((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100) : null;
 
-  // Last 7 days
   const last7 = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (6 - i)); d.setHours(0,0,0,0);
+    const d = new Date(); d.setDate(d.getDate() - (6 - i)); d.setHours(0, 0, 0, 0);
     const start = d.getTime(); const end = start + 86400000;
-    const rev = orders.filter(o => o.status === "completed" && o.createdAt >= start && o.createdAt < end).reduce((s,o) => s+o.total, 0);
+    const rev = orders.filter(o => o.status === "completed" && o.createdAt >= start && o.createdAt < end).reduce((s, o) => s + o.total, 0);
     return { label: d.toLocaleDateString("en-IN", { weekday: "short" }), revenue: rev };
   });
   const maxRev = Math.max(...last7.map(d => d.revenue), 1);
@@ -411,98 +422,77 @@ export default function RevenueDashboard() {
     </div>
   );
 
-  // ── Locked (Starter or expired) ─────────────────────────────
+  // ── Locked ───────────────────────────────────────────────────
   if (accessLevel === "locked" || isPlanExpired()) {
     return (
       <>
-        {/* Plan Badge for expired plans */}
         {isPlanExpired() && (
           <div className="p-4 bg-gray-50">
-            <div 
+            <div
               className="relative overflow-hidden rounded-2xl border-2 p-4 md:p-5 max-w-3xl mx-auto mb-4"
-              style={{ 
-                backgroundColor: currentPlanConfig.bgColor, 
-                borderColor: currentPlanConfig.borderColor 
-              }}
+              style={{ backgroundColor: currentPlanConfig.bgColor, borderColor: currentPlanConfig.borderColor }}
             >
               <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-20"
-                style={{ backgroundColor: currentPlanConfig.color }}
-              />
+                style={{ backgroundColor: currentPlanConfig.color }} />
               <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-sm"
-                    style={{ backgroundColor: currentPlanConfig.color }}
-                  >
-                    {currentPlanConfig.label.split(" ")[0]}
+                    style={{ backgroundColor: currentPlanConfig.color, color: "#fff" }}>
+                    {currentPlanConfig.icon}
                   </div>
                   <div>
-                    <span className="text-sm font-extrabold tracking-wide"
-                      style={{ color: currentPlanConfig.textColor }}
-                    >
+                    <span className="text-sm font-extrabold tracking-wide" style={{ color: currentPlanConfig.textColor }}>
                       {currentPlanConfig.label}
                     </span>
                     <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full border border-red-300 ml-2">
                       EXPIRED
                     </span>
-                    <p className="text-xs mt-1 font-medium"
-                      style={{ color: currentPlanConfig.textColor, opacity: 0.8 }}
-                    >
+                    <p className="text-xs mt-1 font-medium" style={{ color: currentPlanConfig.textColor, opacity: 0.8 }}>
                       {currentPlanConfig.desc}
                     </p>
                   </div>
                 </div>
                 <button onClick={goToSubscription}
                   className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition shadow-md"
-                >
-                  🔄 Renew Now
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <FaSync style={{ fontSize: 12 }} /> Renew Now
                 </button>
               </div>
             </div>
           </div>
         )}
-        <AnalyticsLockedScreen 
-          navigate={navigate} 
-          restaurantId={restaurantId} 
-          planConfig={currentPlanConfig}
-        />
+        <AnalyticsLockedScreen navigate={navigate} restaurantId={restaurantId} planConfig={currentPlanConfig} />
       </>
     );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // FULL RENDER — Trial, Growth, Pro (active)
+  // FULL RENDER
   // ═══════════════════════════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
 
-      {/* ═══ PLAN BADGE SECTION ═══ */}
+      {/* ── PLAN BADGE ── */}
       <div className="mb-6">
-        <div 
+        <div
           className="relative overflow-hidden rounded-2xl border-2 p-4 md:p-5"
-          style={{ 
-            backgroundColor: currentPlanConfig.bgColor, 
-            borderColor: currentPlanConfig.borderColor 
-          }}
+          style={{ backgroundColor: currentPlanConfig.bgColor, borderColor: currentPlanConfig.borderColor }}
         >
           <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-20"
-            style={{ backgroundColor: currentPlanConfig.color }}
-          />
+            style={{ backgroundColor: currentPlanConfig.color }} />
           <div className="absolute -bottom-4 -left-4 w-16 h-16 rounded-full opacity-10"
-            style={{ backgroundColor: currentPlanConfig.color }}
-          />
+            style={{ backgroundColor: currentPlanConfig.color }} />
 
           <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-xl md:text-2xl shadow-sm"
-                style={{ backgroundColor: currentPlanConfig.color }}
-              >
-                {currentPlanConfig.label.split(" ")[0]}
+                style={{ backgroundColor: currentPlanConfig.color, color: "#fff" }}>
+                {currentPlanConfig.icon}
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm md:text-base font-extrabold tracking-wide"
-                    style={{ color: currentPlanConfig.textColor }}
-                  >
+                    style={{ color: currentPlanConfig.textColor }}>
                     {currentPlanConfig.label}
                   </span>
                   <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-300">
@@ -510,8 +500,7 @@ export default function RevenueDashboard() {
                   </span>
                 </div>
                 <p className="text-xs md:text-sm mt-1 font-medium"
-                  style={{ color: currentPlanConfig.textColor, opacity: 0.8 }}
-                >
+                  style={{ color: currentPlanConfig.textColor, opacity: 0.8 }}>
                   {currentPlanConfig.desc} • {planFeatures.analytics} Analytics
                 </p>
               </div>
@@ -525,14 +514,15 @@ export default function RevenueDashboard() {
                     backgroundColor: "#fff",
                     color: currentPlanConfig.textColor,
                     borderColor: currentPlanConfig.borderColor,
-                  }}
-                >
-                  ⬆️ Upgrade
+                    display: "flex", alignItems: "center", gap: 6,
+                  }}>
+                  <FaArrowUp style={{ fontSize: 12 }} /> Upgrade
                 </button>
               )}
               {planId === "pro" && (
-                <span className="px-4 py-2 bg-[#8A244B] text-white text-sm font-bold rounded-xl">
-                  👑 Best Plan
+                <span className="px-4 py-2 bg-[#8A244B] text-white text-sm font-bold rounded-xl"
+                  style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <FaCrown style={{ fontSize: 13 }} /> Best Plan
                 </span>
               )}
             </div>
@@ -540,13 +530,15 @@ export default function RevenueDashboard() {
         </div>
       </div>
 
-      {/* Header */}
+      {/* ── HEADER ── */}
       <div className="mb-5">
-        <h1 className="text-2xl font-black text-gray-900">📊 Revenue Dashboard</h1>
+        <h1 className="text-2xl font-black text-gray-900" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <FaChartBar style={{ color: MAROON, fontSize: 22 }} /> Revenue Dashboard
+        </h1>
         <p className="text-gray-500 text-sm mt-1">Track your restaurant's performance</p>
       </div>
 
-      {/* Period tabs */}
+      {/* ── PERIOD TABS ── */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
         {periods.map(p => (
           <button
@@ -561,25 +553,46 @@ export default function RevenueDashboard() {
         ))}
       </div>
 
-      {/* Top stat cards */}
+      {/* ── STAT CARDS ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <StatCard icon="💰" label="Total Revenue" value={`₹${totalRevenue.toLocaleString("en-IN")}`}
+        <StatCard
+          icon={<FaMoneyBillWave style={{ color: MAROON, fontSize: 18 }} />}
+          label="Total Revenue"
+          value={`₹${totalRevenue.toLocaleString("en-IN")}`}
           sub={growth !== null ? `${growth >= 0 ? "▲" : "▼"} ${Math.abs(growth)}% vs yesterday` : null}
-          subColor={growth >= 0 ? "text-green-600" : "text-red-500"} accent={MAROON} />
-        <StatCard icon="🧾" label="Total Orders" value={totalOrders}
-          sub={`${completedCount} completed`} accent="#f59e0b" />
-        <StatCard icon="✅" label="Completed" value={completedCount}
-          sub={totalOrders > 0 ? `${Math.round((completedCount / totalOrders) * 100)}% rate` : "0%"} accent="#10b981" />
-        <StatCard icon="📈" label="Avg Order Value"
+          subColor={growth >= 0 ? "text-green-600" : "text-red-500"}
+          accent={MAROON}
+        />
+        <StatCard
+          icon={<FaReceipt style={{ color: "#f59e0b", fontSize: 18 }} />}
+          label="Total Orders"
+          value={totalOrders}
+          sub={`${completedCount} completed`}
+          accent="#f59e0b"
+        />
+        <StatCard
+          icon={<FaCheckCircle style={{ color: "#10b981", fontSize: 18 }} />}
+          label="Completed"
+          value={completedCount}
+          sub={totalOrders > 0 ? `${Math.round((completedCount / totalOrders) * 100)}% rate` : "0%"}
+          accent="#10b981"
+        />
+        <StatCard
+          icon={<FaChartLine style={{ color: "#6366f1", fontSize: 18 }} />}
+          label="Avg Order Value"
           value={`₹${Math.round(avgOrderValue).toLocaleString("en-IN")}`}
-          sub="per completed order" accent="#6366f1" />
+          sub="per completed order"
+          accent="#6366f1"
+        />
       </div>
 
-      {/* Charts + Payment Split */}
+      {/* ── CHARTS + PAYMENT SPLIT ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         {/* 7-day chart */}
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-          <h3 className="font-bold text-gray-800 mb-4">📅 Last 7 Days Revenue</h3>
+          <h3 className="font-bold text-gray-800 mb-4" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <FaCalendarAlt style={{ color: MAROON, fontSize: 14 }} /> Last 7 Days Revenue
+          </h3>
           <div className="flex items-end gap-2 h-32">
             {last7.map((day, i) => (
               <div key={i} className="flex-1 flex flex-col items-center gap-1">
@@ -598,10 +611,12 @@ export default function RevenueDashboard() {
 
         {/* Payment split */}
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-          <h3 className="font-bold text-gray-800 mb-4">💳 Payment Split</h3>
+          <h3 className="font-bold text-gray-800 mb-4" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <FaCreditCard style={{ color: MAROON, fontSize: 14 }} /> Payment Split
+          </h3>
           <div className="space-y-4">
-            <PaymentBar label="💵 Cash" amount={cashRevenue} count={cashOrders.length} pct={cashPct} color="#10b981" />
-            <PaymentBar label="💳 Online" amount={onlineRevenue} count={onlineOrders.length} pct={onlinePct} color="#6366f1" />
+            <PaymentBar label="Cash" icon={<FaWallet style={{ color: "#10b981", fontSize: 13 }} />} amount={cashRevenue} count={cashOrders.length} pct={cashPct} color="#10b981" />
+            <PaymentBar label="Online" icon={<FaCreditCard style={{ color: "#6366f1", fontSize: 13 }} />} amount={onlineRevenue} count={onlineOrders.length} pct={onlinePct} color="#6366f1" />
           </div>
           <div className="mt-4 pt-3 border-t border-gray-100 flex justify-between text-xs text-gray-500">
             <span>Total: ₹{totalRevenue.toLocaleString("en-IN")}</span>
@@ -610,9 +625,11 @@ export default function RevenueDashboard() {
         </div>
       </div>
 
-      {/* Top dishes */}
+      {/* ── TOP DISHES ── */}
       <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm mb-4">
-        <h3 className="font-bold text-gray-800 mb-4">🍽️ Top Selling Dishes</h3>
+        <h3 className="font-bold text-gray-800 mb-4" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <FaUtensils style={{ color: MAROON, fontSize: 14 }} /> Top Selling Dishes
+        </h3>
         {topDishes.length === 0 ? (
           <p className="text-gray-400 text-sm text-center py-6">No completed orders in this period</p>
         ) : (
@@ -621,7 +638,7 @@ export default function RevenueDashboard() {
               <div key={dish.name} className="flex items-center gap-3">
                 <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white flex-shrink-0"
                   style={{ backgroundColor: i === 0 ? MAROON : i === 1 ? "#f59e0b" : "#6b7280" }}>
-                  {i + 1}
+                  {i === 0 ? <FaTrophy style={{ fontSize: 12 }} /> : i === 1 ? <FaMedal style={{ fontSize: 12 }} /> : i + 1}
                 </div>
                 {dish.image && <img src={dish.image} className="w-9 h-9 rounded-lg object-cover flex-shrink-0" alt="" />}
                 <div className="flex-1 min-w-0">
@@ -641,23 +658,25 @@ export default function RevenueDashboard() {
         )}
       </div>
 
-      {/* Order status breakdown */}
+      {/* ── ORDER STATUS BREAKDOWN ── */}
       <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm mb-4">
-        <h3 className="font-bold text-gray-800 mb-4">📋 Order Status Breakdown</h3>
+        <h3 className="font-bold text-gray-800 mb-4" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <FaClipboardList style={{ color: MAROON, fontSize: 14 }} /> Order Status Breakdown
+        </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {["pending", "confirmed", "preparing", "ready", "completed", "cancelled"].map(status => {
             const count = filteredOrders.filter(o => o.status === status).length;
             const cfg = {
-              pending:   { icon: "⏳", color: "bg-yellow-50 border-yellow-200 text-yellow-800" },
-              confirmed: { icon: "✅", color: "bg-green-50 border-green-200 text-green-800" },
-              preparing: { icon: "👨‍🍳", color: "bg-blue-50 border-blue-200 text-blue-800" },
-              ready:     { icon: "🍽️", color: "bg-purple-50 border-purple-200 text-purple-800" },
-              completed: { icon: "✨", color: "bg-gray-50 border-gray-200 text-gray-800" },
-              cancelled: { icon: "❌", color: "bg-red-50 border-red-200 text-red-800" },
+              pending:   { icon: <FaHourglassHalf />, color: "bg-yellow-50 border-yellow-200 text-yellow-800" },
+              confirmed: { icon: <FaCheckCircle />,   color: "bg-green-50 border-green-200 text-green-800" },
+              preparing: { icon: <FaConciergeBell />, color: "bg-blue-50 border-blue-200 text-blue-800" },
+              ready:     { icon: <FaUtensils />,      color: "bg-purple-50 border-purple-200 text-purple-800" },
+              completed: { icon: <FaStar />,          color: "bg-gray-50 border-gray-200 text-gray-800" },
+              cancelled: { icon: <FaBan />,           color: "bg-red-50 border-red-200 text-red-800" },
             }[status];
             return (
               <div key={status} className={`rounded-xl p-3 border text-center ${cfg.color}`}>
-                <p className="text-lg">{cfg.icon}</p>
+                <p className="text-lg flex justify-center">{cfg.icon}</p>
                 <p className="text-xl font-black">{count}</p>
                 <p className="text-xs font-medium capitalize">{status}</p>
               </div>
@@ -666,57 +685,59 @@ export default function RevenueDashboard() {
         </div>
       </div>
 
-      {/* Pro-only: Reports Section */}
+      {/* ── PRO ONLY: Full Reports ── */}
       {accessLevel === "pro" && (
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-gray-800">📄 Full Reports</h3>
-            <span className="px-2 py-1 rounded-full text-xs font-bold bg-[#FFD166] text-black">PRO</span>
+            <h3 className="font-bold text-gray-800" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <FaFileAlt style={{ color: MAROON, fontSize: 14 }} /> Full Reports
+            </h3>
+            <span className="px-2 py-1 rounded-full text-xs font-bold bg-[#FFD166] text-black"
+              style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <FaCrown style={{ fontSize: 10 }} /> PRO
+            </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="p-4 rounded-xl border border-gray-200 hover:border-[#8A244B] transition-colors cursor-pointer">
-              <div className="text-2xl mb-2">📥</div>
-              <p className="font-bold text-gray-800">Export Revenue Report</p>
-              <p className="text-xs text-gray-500">CSV format mein download karo</p>
-            </div>
-            <div className="p-4 rounded-xl border border-gray-200 hover:border-[#8A244B] transition-colors cursor-pointer">
-              <div className="text-2xl mb-2">📊</div>
-              <p className="font-bold text-gray-800">Monthly Summary</p>
-              <p className="text-xs text-gray-500">Detailed monthly breakdown</p>
-            </div>
-            <div className="p-4 rounded-xl border border-gray-200 hover:border-[#8A244B] transition-colors cursor-pointer">
-              <div className="text-2xl mb-2">🍽️</div>
-              <p className="font-bold text-gray-800">Dish Performance</p>
-              <p className="text-xs text-gray-500">Per dish revenue analysis</p>
-            </div>
-            <div className="p-4 rounded-xl border border-gray-200 hover:border-[#8A244B] transition-colors cursor-pointer">
-              <div className="text-2xl mb-2">💳</div>
-              <p className="font-bold text-gray-800">Payment Analysis</p>
-              <p className="text-xs text-gray-500">Cash vs Online trends</p>
-            </div>
+            {[
+              { icon: <FaDownload />,     title: "Export Revenue Report",  desc: "CSV format mein download karo" },
+              { icon: <FaTable />,        title: "Monthly Summary",        desc: "Detailed monthly breakdown" },
+              { icon: <FaUtensils />,     title: "Dish Performance",       desc: "Per dish revenue analysis" },
+              { icon: <FaSearchDollar />, title: "Payment Analysis",       desc: "Cash vs Online trends" },
+            ].map((item, i) => (
+              <div key={i} className="p-4 rounded-xl border border-gray-200 hover:border-[#8A244B] transition-colors cursor-pointer">
+                <div className="text-2xl mb-2" style={{ color: MAROON }}>{item.icon}</div>
+                <p className="font-bold text-gray-800">{item.title}</p>
+                <p className="text-xs text-gray-500">{item.desc}</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Growth/Trial: Upgrade teaser for Reports */}
+      {/* ── GROWTH/TRIAL: Reports teaser ── */}
       {accessLevel === "full" && (
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm mt-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-gray-800">📄 Full Reports</h3>
-            <span className="px-2 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600">PRO ONLY</span>
+            <h3 className="font-bold text-gray-800" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <FaFileAlt style={{ color: MAROON, fontSize: 14 }} /> Full Reports
+            </h3>
+            <span className="px-2 py-1 rounded-full text-xs font-bold bg-gray-200 text-gray-600"
+              style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <FaLock style={{ fontSize: 10 }} /> PRO ONLY
+            </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 opacity-50">
             {[
-              { icon: "📥", title: "Export Revenue Report", desc: "CSV format mein download karo" },
-              { icon: "📊", title: "Monthly Summary", desc: "Detailed monthly breakdown" },
-              { icon: "🍽️", title: "Dish Performance", desc: "Per dish revenue analysis" },
-              { icon: "💳", title: "Payment Analysis", desc: "Cash vs Online trends" },
+              { icon: <FaDownload />,     title: "Export Revenue Report",  desc: "CSV format mein download karo" },
+              { icon: <FaTable />,        title: "Monthly Summary",        desc: "Detailed monthly breakdown" },
+              { icon: <FaUtensils />,     title: "Dish Performance",       desc: "Per dish revenue analysis" },
+              { icon: <FaSearchDollar />, title: "Payment Analysis",       desc: "Cash vs Online trends" },
             ].map((item, i) => (
               <div key={i} className="p-4 rounded-xl border border-dashed border-gray-300 relative overflow-hidden">
                 <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
-                  <span className="text-2xl">🔒</span>
+                  <FaLock style={{ fontSize: 24, color: "#9ca3af" }} />
                 </div>
-                <div className="text-2xl mb-2">{item.icon}</div>
+                <div className="text-2xl mb-2" style={{ color: MAROON }}>{item.icon}</div>
                 <p className="font-bold text-gray-800">{item.title}</p>
                 <p className="text-xs text-gray-500">{item.desc}</p>
               </div>
@@ -725,9 +746,13 @@ export default function RevenueDashboard() {
           <button
             onClick={goToSubscription}
             className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-white"
-            style={{ background: `linear-gradient(135deg, ${MAROON}, #c0396b)`, border: "none", cursor: "pointer" }}
+            style={{
+              background: `linear-gradient(135deg, ${MAROON}, #c0396b)`,
+              border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+            }}
           >
-            🚀 Pro Plan pe Upgrade Karo — ₹999/month
+            <FaArrowUp style={{ fontSize: 13 }} /> Pro Plan pe Upgrade Karo — ₹999/month
           </button>
         </div>
       )}
@@ -740,7 +765,7 @@ function StatCard({ icon, label, value, sub, subColor = "text-gray-400", accent 
   return (
     <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-xl">{icon}</span>
+        <span>{icon}</span>
         <p className="text-xs text-gray-500 font-medium">{label}</p>
       </div>
       <p className="text-xl md:text-2xl font-black text-gray-900">{value}</p>
@@ -751,11 +776,13 @@ function StatCard({ icon, label, value, sub, subColor = "text-gray-400", accent 
 }
 
 // ─── PAYMENT BAR ─────────────────────────────────────────────────────────────
-function PaymentBar({ label, amount, count, pct, color }) {
+function PaymentBar({ label, icon, amount, count, pct, color }) {
   return (
     <div>
       <div className="flex justify-between items-center mb-1">
-        <span className="text-sm font-semibold text-gray-700">{label}</span>
+        <span className="text-sm font-semibold text-gray-700" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {icon} {label}
+        </span>
         <div className="text-right">
           <span className="text-sm font-bold text-gray-800">₹{amount.toLocaleString("en-IN")}</span>
           <span className="text-xs text-gray-400 ml-2">({count} orders)</span>

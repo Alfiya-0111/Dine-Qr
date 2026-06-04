@@ -4,20 +4,19 @@ import { ref as rtdbRef, push, set, get, onValue } from 'firebase/database';
 import { realtimeDB } from '../firebaseConfig';
 import { getAuth } from 'firebase/auth';
 import { 
-  FaCheckCircle, 
-  FaCopy, 
-  FaMobileAlt, 
-  FaQrcode,
-  FaArrowRight,
-  FaClock,
-  FaBuilding,
-  FaTimes
+  FaCheckCircle, FaCopy, FaMobileAlt, FaQrcode,
+  FaArrowRight, FaClock, FaBuilding, FaTimes,
+  FaUtensils, FaWhatsapp, FaChair, FaClipboardList,
+  FaCommentAlt, FaMotorcycle, FaChartBar, FaTicketAlt,
+  FaHeadset, FaLock, FaGift, FaRocket, FaChartLine,
+  FaInfinity, FaFire, FaStar, FaCheckDouble
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 // ─── RAZORPAY KEY FROM ENV ─────────────────────────────────────────────────────
 const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID;
-
+const MAROON = '#8A244B';
+const GOLD = '#FFD166';
 // ─── PLAN CONFIG ───────────────────────────────────────────────────────────────
 const PLANS = [
   {
@@ -25,7 +24,7 @@ const PLANS = [
     name: 'Free Trial',
     price: 0,
     period: '30 days',
-    icon: '🎁',
+ icon: <FaGift style={{ fontSize: 40, color: '#22c55e' }} />,
     tagline: '30 din free, sab kuch unlock',
     badge: 'YAHAN SE SHURU KARO',
     badgeColor: '#22c55e',
@@ -54,7 +53,7 @@ const PLANS = [
     name: 'Starter',
     price: 199,
     period: 'month',
-    icon: '🚀',
+  icon: <FaRocket style={{ fontSize: 40, color: '#3b82f6' }} />,    
     tagline: 'Chote dhabe ke liye perfect',
     badge: null,
     accentColor: '#3b82f6',
@@ -82,10 +81,11 @@ const PLANS = [
     name: 'Growth',
     price: 499,
     period: 'month',
-    icon: '📈',
+  icon: <FaChartLine style={{ fontSize: 40, color: '#8A244B' }} />,
+
     tagline: 'Growing restaurants ke liye',
     badge: '🔥 POPULAR',
-    badgeColor: '#f97316',
+     badgeColor: '#f97316',
     accentColor: '#8A244B',
     features: {
       dishes: 50,
@@ -111,7 +111,7 @@ const PLANS = [
     name: 'Pro',
     price: 999,
     period: 'month',
-    icon: '♾️',
+   icon: <FaInfinity style={{ fontSize: 40, color: '#FFD166' }} />,
     tagline: 'Full power, no limits',
     badge: 'BEST VALUE',
     badgeColor: '#FFD166',
@@ -137,8 +137,7 @@ const PLANS = [
   },
 ];
 
-const MAROON = '#8A244B';
-const GOLD = '#FFD166';
+
 
 // ─── MAIN COMPONENT ────────────────────────────────────────────────────────────
 export default function SubscriptionPage() {
@@ -394,20 +393,20 @@ export default function SubscriptionPage() {
   };
 
   // Feature list for plan cards
-  const featureList = [
-    { key: 'dishes', label: '🍽️ Dishes', format: (v) => v === 'Unlimited' ? '∞ Unlimited' : v },
-    { key: 'qrMenu', label: '📱 QR Menu' },
-    { key: 'whatsappOrders', label: '💬 WhatsApp Orders' },
-    { key: 'kds', label: '👨‍🍳 Kitchen Display' },
-    { key: 'tableBooking', label: '🪑 Table Booking' },
-    { key: 'adminOrder', label: '📋 Admin Order' },
-    { key: 'customerFeedback', label: '💬 Customer Feedback' },
-    { key: 'deliveryBoys', label: '🛵 Delivery Boys' },
-    { key: 'revenueDashboard', label: '📊 Revenue Dashboard' },
-    { key: 'adminCoupons', label: '🎫 Admin Coupons' },
-    { key: 'multiBranch', label: '🏢 Multi-Branch', highlight: true },
-    { key: 'analytics', label: '📈 Analytics', format: (v) => v },
-  ];
+ const featureList = [
+  { key: 'dishes',           label: 'Dishes',            icon: <FaUtensils />,      format: (v) => v === 'Unlimited' ? '∞ Unlimited' : v },
+  { key: 'qrMenu',           label: 'QR Menu',           icon: <FaQrcode /> },
+  { key: 'whatsappOrders',   label: 'WhatsApp Orders',   icon: <FaWhatsapp /> },
+  { key: 'kds',              label: 'Kitchen Display',   icon: <FaClipboardList /> },
+  { key: 'tableBooking',     label: 'Table Booking',     icon: <FaChair /> },
+  { key: 'adminOrder',       label: 'Admin Order',       icon: <FaClipboardList /> },
+  { key: 'customerFeedback', label: 'Customer Feedback', icon: <FaCommentAlt /> },
+  { key: 'deliveryBoys',     label: 'Delivery Boys',     icon: <FaMotorcycle /> },
+  { key: 'revenueDashboard', label: 'Revenue Dashboard', icon: <FaChartBar /> },
+  { key: 'adminCoupons',     label: 'Admin Coupons',     icon: <FaTicketAlt /> },
+  { key: 'multiBranch',      label: 'Multi-Branch',      icon: <FaBuilding />,      highlight: true },
+  { key: 'analytics',        label: 'Analytics',         icon: <FaChartLine />,     format: (v) => v },
+];
 
   return (
     <div style={{ minHeight: '100vh', background: '#faf9f7', fontFamily: "'Sora', sans-serif", paddingBottom: 80 }}>
@@ -439,7 +438,7 @@ export default function SubscriptionPage() {
           {/* Razorpay badge */}
           <div style={{ display: 'block', marginTop: 8 }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 100, padding: '8px 20px' }}>
-              <span style={{ fontSize: 16 }}>🔒</span>
+<FaLock style={{ color: GOLD, fontSize: 16 }} />
               <span style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600, fontSize: 13 }}>Secured by Razorpay — GPay, PhonePe, UPI, Cards</span>
             </div>
           </div>
@@ -488,7 +487,7 @@ export default function SubscriptionPage() {
 
                 <div style={{ padding: '28px 24px 24px' }}>
                   <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                    <div style={{ fontSize: 42, marginBottom: 8 }}>{plan.icon}</div>
+                   <div style={{ fontSize: 42, marginBottom: 8, display: 'flex', justifyContent: 'center' }}>{plan.icon}</div>
                     <h3 style={{ fontSize: 22, fontWeight: 800, color: '#111', margin: '0 0 4px' }}>{plan.name}</h3>
                     <p style={{ fontSize: 13, color: '#888', margin: 0 }}>{plan.tagline}</p>
                   </div>
@@ -511,9 +510,9 @@ export default function SubscriptionPage() {
                   {hasMultiBranch && (
                     <div style={{ background: isTrial ? 'rgba(34,197,94,0.1)' : 'rgba(255,209,102,0.15)', border: `1px solid ${isTrial ? 'rgba(34,197,94,0.3)' : 'rgba(255,209,102,0.4)'}`, borderRadius: 10, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <FaBuilding style={{ color: isTrial ? '#22c55e' : GOLD, fontSize: 16 }} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: isTrial ? '#16a34a' : '#8A244B' }}>
-                        🏢 Multi-Branch {isTrial ? 'Trial me FREE' : 'Unlimited'}
-                      </span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: isTrial ? '#16a34a' : '#8A244B', display: 'flex', alignItems: 'center', gap: 5 }}>
+  <FaBuilding style={{ fontSize: 12 }} /> Multi-Branch {isTrial ? 'Trial me FREE' : 'Unlimited'}
+</span>
                     </div>
                   )}
 
@@ -524,7 +523,10 @@ export default function SubscriptionPage() {
                       const displayValue = f.format ? f.format(value) : value;
                       return (
                         <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, padding: isMultiBranch && value ? '4px 8px' : '0', background: isMultiBranch && value ? 'rgba(255,209,102,0.1)' : 'transparent', borderRadius: isMultiBranch && value ? 6 : 0 }}>
-                          <span style={{ fontSize: 12, color: '#666', fontWeight: isMultiBranch && value ? 700 : 400 }}>{f.label}</span>
+<span style={{ fontSize: 12, color: '#666', fontWeight: isMultiBranch && value ? 700 : 400, display: 'flex', alignItems: 'center', gap: 5 }}>
+  <span style={{ color: MAROON, fontSize: 12 }}>{f.icon}</span>
+  {f.label}
+</span>
                           {typeof value === 'boolean'
                             ? value
                               ? <span style={{ color: '#22c55e', fontWeight: 700, fontSize: 15 }}>✓</span>
@@ -535,7 +537,9 @@ export default function SubscriptionPage() {
                       );
                     })}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, paddingTop: 8, borderTop: '1px solid #eee' }}>
-                      <span style={{ fontSize: 12, color: '#666' }}>🎧 Support</span>
+                     <span style={{ fontSize: 12, color: '#666', display: 'flex', alignItems: 'center', gap: 5 }}>
+  <FaHeadset style={{ color: MAROON, fontSize: 11 }} /> Support
+</span>
                       <span style={{ fontSize: 11, fontWeight: 700, color: MAROON }}>{plan.features.support}</span>
                     </div>
                   </div>
@@ -576,9 +580,9 @@ export default function SubscriptionPage() {
 
                   {/* Razorpay hint for paid plans */}
                   {!isTrial && !isCurrent && !isTrialUsed(plan) && (
-                    <p style={{ fontSize: 11, color: '#aaa', textAlign: 'center', marginTop: 8, margin: '8px 0 0' }}>
-                      🔒 GPay · PhonePe · UPI · Cards via Razorpay
-                    </p>
+                   <p style={{ fontSize: 11, color: '#aaa', textAlign: 'center', marginTop: 8, margin: '8px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+  <FaLock style={{ fontSize: 10, color: '#aaa' }} /> GPay · PhonePe · UPI · Cards via Razorpay
+</p>
                   )}
                 </div>
               </div>
@@ -591,7 +595,9 @@ export default function SubscriptionPage() {
       <div style={{ maxWidth: 1100, margin: '40px auto 0', padding: '0 16px' }}>
         <div style={{ background: '#fff', borderRadius: 20, padding: '24px', border: '1px solid #f0e8ec', boxShadow: '0 2px 16px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111' }}>📊 Plan Comparison</h3>
+<h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111', display: 'flex', alignItems: 'center', gap: 8 }}>
+  <FaChartBar style={{ color: MAROON }} /> Plan Comparison
+</h3>
             <button
               onClick={() => setShowComparison(!showComparison)}
               style={{ background: 'none', border: 'none', color: MAROON, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: "'Sora', sans-serif" }}
@@ -601,16 +607,19 @@ export default function SubscriptionPage() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: showComparison ? 20 : 0 }}>
-            {[
-              { label: '🍽️ Dishes', key: 'dishes' },
-              { label: '🏢 Multi-Branch', key: 'multiBranch', highlight: true },
-              { label: '📱 QR Menu', key: 'qrMenu' },
-              { label: '💬 WhatsApp Orders', key: 'whatsappOrders' },
-              { label: '👨‍🍳 Kitchen Display', key: 'kds' },
-              { label: '🪑 Table Booking', key: 'tableBooking' },
-            ].map(item => (
-              <div key={item.key} style={{ background: item.highlight ? 'rgba(255,209,102,0.1)' : '#faf9f7', borderRadius: 10, padding: '10px 14px', border: item.highlight ? `1px solid ${GOLD}40` : '1px solid transparent' }}>
-                <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>{item.label}</div>
+         {[
+  { label: 'Dishes',          key: 'dishes',        icon: <FaUtensils /> },
+  { label: 'Multi-Branch',    key: 'multiBranch',   icon: <FaBuilding />,    highlight: true },
+  { label: 'QR Menu',         key: 'qrMenu',        icon: <FaQrcode /> },
+  { label: 'WhatsApp Orders', key: 'whatsappOrders',icon: <FaWhatsapp /> },
+  { label: 'Kitchen Display', key: 'kds',           icon: <FaClipboardList /> },
+  { label: 'Table Booking',   key: 'tableBooking',  icon: <FaChair /> },
+].map(item => (
+  <div key={item.key} style={{ background: item.highlight ? 'rgba(255,209,102,0.1)' : '#faf9f7', borderRadius: 10, padding: '10px 14px', border: item.highlight ? `1px solid ${GOLD}40` : '1px solid transparent' }}>
+    <div style={{ fontSize: 11, color: '#888', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
+      <span style={{ color: MAROON }}>{item.icon}</span>
+      {item.label}
+    </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {PLANS.map(plan => {
                     const val = plan.features[item.key];
@@ -646,7 +655,11 @@ export default function SubscriptionPage() {
                   {featureList.map((f, idx) => (
                     <tr key={f.key} style={{ borderBottom: '1px solid #f5f5f5', background: f.key === 'multiBranch' ? 'rgba(255,209,102,0.08)' : idx % 2 === 0 ? '#fafafa' : '#fff' }}>
                       <td style={{ padding: '10px 8px', fontWeight: f.key === 'multiBranch' ? 700 : 400, color: f.key === 'multiBranch' ? '#8A244B' : '#555' }}>
-                        {f.label} {f.key === 'multiBranch' && '⭐'}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+  <span style={{ color: MAROON, fontSize: 12 }}>{f.icon}</span>
+  {f.label}
+  {f.key === 'multiBranch' && <FaStar style={{ color: GOLD, fontSize: 11 }} />}
+</span>
                       </td>
                       {PLANS.map(plan => {
                         const val = plan.features[f.key];
@@ -667,7 +680,11 @@ export default function SubscriptionPage() {
                     </tr>
                   ))}
                   <tr style={{ borderTop: '2px solid #f0e8ec' }}>
-                    <td style={{ padding: '10px 8px', fontWeight: 600, color: '#555' }}>🎧 Support</td>
+                   <td style={{ padding: '10px 8px', fontWeight: 600, color: '#555' }}>
+  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+    <FaHeadset style={{ color: MAROON, fontSize: 12 }} /> Support
+  </span>
+</td>
                     {PLANS.map(plan => (
                       <td key={plan.id} style={{ textAlign: 'center', padding: '10px 8px', fontWeight: 700, color: MAROON }}>
                         {plan.features.support}
@@ -684,7 +701,9 @@ export default function SubscriptionPage() {
       {/* ── MULTI-BRANCH INFO SECTION ── */}
       <div style={{ maxWidth: 1100, margin: '30px auto 0', padding: '0 16px' }}>
         <div style={{ background: `linear-gradient(135deg, ${MAROON}10, ${GOLD}15)`, borderRadius: 20, padding: '24px', border: `1px solid ${MAROON}25`, display: 'flex', alignItems: 'center', gap: 20 }}>
-          <div style={{ width: 60, height: 60, background: `linear-gradient(135deg, ${MAROON}, #5c1030)`, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0 }}>🏢</div>
+         <div style={{ width: 60, height: 60, background: `linear-gradient(135deg, ${MAROON}, #5c1030)`, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+  <FaBuilding style={{ fontSize: 28, color: '#fff' }} />
+</div>
           <div style={{ flex: 1 }}>
             <h4 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 800, color: '#111' }}>Multi-Branch Management</h4>
             <p style={{ margin: 0, fontSize: 13, color: '#666', lineHeight: 1.6 }}>
@@ -702,7 +721,8 @@ export default function SubscriptionPage() {
       {/* ── RAZORPAY TRUST BADGE ── */}
       <div style={{ maxWidth: 1100, margin: '20px auto 0', padding: '0 16px', textAlign: 'center' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16, background: '#fff', borderRadius: 16, padding: '16px 28px', border: '1px solid #f0e8ec', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
-          <span style={{ fontSize: 22 }}>🔒</span>
+<FaLock style={{ fontSize: 22, color: MAROON }} />
+
           <div style={{ textAlign: 'left' }}>
             <div style={{ fontWeight: 800, fontSize: 13, color: '#111' }}>100% Secure Payments</div>
             <div style={{ fontSize: 12, color: '#888' }}>Powered by Razorpay · GPay · PhonePe · UPI · Credit/Debit Cards · Net Banking</div>
