@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
+import { IoLogoInstagram, IoNavigate } from "react-icons/io5";
 import { ref as rtdbRef, onValue, update, remove, push, set } from "firebase/database";
 import { 
   IoCartOutline, 
@@ -654,7 +655,7 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
     className="w-full mt-2 py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2"
     style={{ backgroundColor: "#f97316" }}
   >
-    🛵 {["shipped","out_for_delivery","picked_up"].includes(order.status) 
+    <MdOutlineDeliveryDining className="w-5 h-5" /> {["shipped","out_for_delivery","picked_up"].includes(order.status) 
         ? "Live Track Karo — Out for Delivery!" 
         : "Track Your Delivery"}
   </button>
@@ -3055,9 +3056,9 @@ const handleOrderClick = (item, action = "order") => {
                       <div>
                         <p className="font-bold text-blue-800 text-sm">Queue mein aapki position</p>
                         <p className="text-xs text-blue-600">
-                          {queuePosition === 1
-                            ? "🎉 Aap next hain! Thoda wait karo"
-                            : `${queuePosition - 1} order${queuePosition - 1 > 1 ? 's' : ''} aapse pehle hain`}
+{queuePosition === 1
+  ? <><IoCheckmarkCircle className="w-3.5 h-3.5 inline mr-1 text-green-500" /> Aap next hain! Thoda wait karo</>
+  : `${queuePosition - 1} order${queuePosition - 1 > 1 ? 's' : ''} aapse pehle hain`}
                         </p>
                       </div>
                     </div>
@@ -3656,7 +3657,8 @@ const handleOrderClick = (item, action = "order") => {
             rel="noopener noreferrer"
             className="flex items-center gap-3 text-sm text-pink-600 hover:underline"
           >
-            <span className="text-lg">📸</span> Instagram
+            <IoLogoInstagram className="w-5 h-5 text-pink-600" /> Instagram
+
           </a>
         )}
         {restaurantSettings?.social?.googleMap && (
@@ -3666,7 +3668,7 @@ const handleOrderClick = (item, action = "order") => {
             rel="noopener noreferrer"
             className="flex items-center gap-3 text-sm text-blue-600 hover:underline"
           >
-            <span className="text-lg">🗺️</span> Google Maps pe dekho
+               <IoNavigate className="w-5 h-5 text-blue-600" /> Google Maps pe dekho
           </a>
         )}
       </div>
