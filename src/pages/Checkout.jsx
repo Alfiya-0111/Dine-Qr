@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { useCart } from "../context/CartContext";
 import { 
-  FaArrowLeft,FaUtensils ,FaSpinner,FaMotorcycle,FaMapMarkedAlt,FaTimes, FaCrosshairs ,FaMapMarkerAlt
+  FaArrowLeft,FaUtensils ,FaLock ,FaSpinner,FaMotorcycle,FaMapMarkedAlt,FaTimes, FaCrosshairs ,FaMapMarkerAlt
 
 } from "react-icons/fa";
 import {

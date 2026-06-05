@@ -34,7 +34,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <LoginModal />
+       
 
         <Routes>
           {/* ── Home ───────────────────────────────────── */}
@@ -50,8 +50,9 @@ function App() {
          <Route path="/menu/:slug" element={<PublicMenu />} />
           <Route path="/checkout/:restaurantId" element={<Checkout />} />
         <Route path="/track/:restaurantId/:orderId" element={<OrderTracking />} />
+     
 <Route path="/menu/:restaurantId/my-orders" element={<MyOrders />} />
-
+   <Route path="/logins/:restaurantId" element={<LoginModal />} />
           {/* ── Owner Dashboard (Nested Routes) ───────── */}
           <Route path="/dashboard/:restaurantId" element={<Dashboard />}>
             <Route path="adminorder" element={<AdminOrders />} />

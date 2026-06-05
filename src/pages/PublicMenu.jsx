@@ -186,7 +186,7 @@ import Rating from "../components/Rating";
 import Comments from "../components/Comments";
 import OrderModal from "../pages/OrderModal";
 import { useRequireLogin } from "../utils/requireLogin";
-import LoginModal from "../components/LoginModal";
+// import LoginModal from "../components/LoginModal";
 import NewItemsSlider from "../components/Slider";
 import BottomCart from "../components/BottomCart";
 import CartSidebar from "../components/CartSidebar";
@@ -3820,7 +3820,7 @@ const handleOrderClick = (item, action = "order") => {
           )}
 
           {selectedItem && <OrderModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
-          <LoginModal />
+          {/* <LoginModal /> */}
         </div>
       </div>
     </>

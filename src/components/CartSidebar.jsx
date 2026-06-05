@@ -6,7 +6,7 @@ import { FaWhatsapp } from "react-icons/fa";
 import { IoCartOutline } from "react-icons/io5";
 import { useNavigate } from 'react-router-dom';
 import { ref as rtdbRef, onValue } from "firebase/database";
-import { realtimeDB } from "../firebaseConfig";
+import { realtimeDB, auth } from "../firebaseConfig";
 
 // ================= COUPON LOGIC =================
 function getBestCoupon(coupons, subtotal) {
@@ -178,10 +178,19 @@ useEffect(() => {
     setCouponInput('');
   };
 
-  const handleCheckout = () => {
-    if (cart.length === 0) return;
+const handleCheckout = () => {
+  if (cart.length === 0) return;
+  
+  const user = auth.currentUser;
+  if (!user) {
+    // User logged in nahi hai → LoginPage pe bhejo
+    // redirectUrl mein cart wapas khulne ka flag bhejo
+    navigate(`/logins/${restaurantId}?redirect=cart`);
+  } else {
+    // User logged in hai → CheckoutPage pe bhejo
     navigate(`/checkout/${restaurantId}`);
-  };
+  }
+};
 
   const handleWhatsAppCheckout = () => {
     if (cart.length === 0) { alert('Cart empty!'); return; }

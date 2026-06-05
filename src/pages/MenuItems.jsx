@@ -426,7 +426,7 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
             <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                  <p className="text-sm font-bold text-gray-700"><QrCode size={14} />  Digital Menu QR</p>
+                  <p className="text-sm font-bold text-gray-700 flex items-center gap-1"><QrCode size={14} />  Digital Menu QR</p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     Customers scan karke directly menu dekh sakte hain
                   </p>

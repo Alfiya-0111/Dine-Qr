@@ -229,7 +229,7 @@ function CustomerLiveLocation({ orderId, restaurantPhone, customerName, theme })
             </p>
             <button
               onClick={startSharing}
-              className="w-full py-3 rounded-xl font-bold text-white text-lg shadow-lg hover:shadow-xl transition-all active:scale-95"
+              className="w-full py-3 rounded-xl font-bold text-white text-lg shadow-lg hover:shadow-xl transition-all active:scale-95 flex items-center justify-center"
               style={{ backgroundColor: theme.primary }}
             >
              <Rocket size={18} /> Start Live Sharing

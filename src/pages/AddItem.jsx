@@ -1161,14 +1161,15 @@ export default function AddItem() {
             <input
               type="file" accept="image/*"
               className="w-full p-3 border border-gray-300 rounded-xl file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#B45253] file:text-white hover:file:bg-[#8A244B] text-sm"
-              onChange={(e) => {
-                const f = e.target.files[0];
-                if (f) {
-                  if (f.size > 5 * 1024 * 1024) { alert("File size should be less than 5MB"); return; }
-                  setImage(f);
-                  setPreview(URL.createObjectURL(f));
-                }
-              }}
+             onChange={async (e) => {
+  const f = e.target.files[0];
+  if (f) {
+    if (f.size > 5 * 1024 * 1024) { alert("File size should be less than 5MB"); return; }
+    const compressed = await compressImage(f);
+    setImage(compressed);
+    setPreview(URL.createObjectURL(compressed));
+  }
+}}
             />
             <p className="text-xs text-gray-500">Max size: 5MB • Powered by Cloudinary</p>
           </div>
