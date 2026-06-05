@@ -4,12 +4,16 @@ import { realtimeDB, auth } from "../firebaseConfig";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { useCart } from "../context/CartContext";
+import { 
+  FaArrowLeft,FaUtensils ,FaSpinner,FaMotorcycle,FaMapMarkedAlt,FaTimes, FaCrosshairs ,FaMapMarkerAlt
+
+} from "react-icons/fa";
 import {
   IoMapOutline, IoLocationOutline, IoCheckmarkCircle,
   IoPersonOutline, IoCallOutline, IoMailOutline,
   IoRestaurantOutline, IoReceiptOutline, IoCardOutline,
   IoInformationCircleOutline, IoWarningOutline,
-  IoCartOutline, IoTimeOutline, IoLeaf, IoFlame, IoSnow,FaArrowLeft
+  IoCartOutline, IoTimeOutline, IoLeaf, IoFlame, IoSnow,
 } from "react-icons/io5";
 import { toast } from "sonner";
 
