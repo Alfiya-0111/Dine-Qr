@@ -549,7 +549,7 @@ export default function MyOrders() {
               ].map((s, i) => (
                 <div key={i} className={`${glass.card} rounded-2xl p-3 text-center`}>
                   <div className="text-xl mb-1 flex justify-center">
-                    {s.icon ? <s.icon className="w-5 h-5" style={{ color: theme.primary }} /> : "<IndianRupee size={20} style={{ color: theme.primary }} />"}
+                    {s.icon ? <s.icon className="w-5 h-5" style={{ color: theme.primary }} /> : <IndianRupee size={20} style={{ color: theme.primary }} />}
                   </div>
                   <div className="font-black text-lg" style={{ color: theme.primary }}>{s.value}</div>
                   <div className="text-[10px] text-gray-500">{s.label}</div>

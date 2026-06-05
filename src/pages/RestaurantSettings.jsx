@@ -323,6 +323,24 @@ useEffect(() => {
   // ══════════════════════════════════════════
   // CLOUDINARY UPLOAD
   // ══════════════════════════════════════════
+  const compressImage = (file) =>
+  new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const MAX_WIDTH = 1200;
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => resolve(new File([blob], file.name, { type: "image/jpeg" })), "image/jpeg", 0.8);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
   const uploadImage = useCallback(async (file) => {
     const fd = new FormData();
     fd.append("file", file);
@@ -623,12 +641,13 @@ if (!ownerSnap.exists()) {
               type="file"
               accept="image/*"
               style={{ display: "none" }}
-              onChange={(e) => {
-                const f = e.target.files[0];
-                if (!f) return;
-                setLogoFile(f);
-                setLogoPreview(URL.createObjectURL(f));
-              }}
+onChange={async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const compressed = await compressImage(f);
+  setLogoFile(compressed);
+  setLogoPreview(URL.createObjectURL(compressed));
+}}
             />
           </label>
         </div>
@@ -885,19 +904,20 @@ if (!ownerSnap.exists()) {
             </div>
           ) : (
             <label style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", padding: "20px", border: "1px dashed #e5e7eb", borderRadius: "12px", background: "#f9fafb", cursor: "pointer" }}>
-              <span style={{ fontSize: "28px" }}><Camera size={28} /><Camera size={28} /></span>
+              <span style={{ fontSize: "28px" }}><Camera size={28} /></span>
               <span style={{ fontSize: "12px", color: "#6b7280" }}>UPI QR image upload karo</span>
               <span style={{ fontSize: "12px", color: "#8A244B", fontWeight: 500 }}>Browse file</span>
               <input
                 type="file"
                 accept="image/*"
                 style={{ display: "none" }}
-                onChange={(e) => {
-                  const f = e.target.files[0];
-                  if (!f) return;
-                  setPaymentQRFile(f);
-                  setPaymentQRPreview(URL.createObjectURL(f));
-                }}
+                onChange={async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const compressed = await compressImage(f);
+  setPaymentQRFile(compressed);
+  setPaymentQRPreview(URL.createObjectURL(compressed));
+}}
               />
             </label>
           )}
@@ -980,7 +1000,7 @@ if (!ownerSnap.exists()) {
           <div style={{ width: "56px", height: "56px", borderRadius: "12px", background: "#fff", border: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
             {aboutImagePreview || aboutData.sectionImage
               ? <img src={aboutImagePreview || aboutData.sectionImage} alt="section" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : <span style={{ fontSize: "20px" }}><Image size={20} /><Image size={20} /></span>}
+              : <span style={{ fontSize: "20px" }}><Image size={20} /></span>}
           </div>
           <div style={{ flex: 1 }}>
             <p style={{ fontSize: "14px", fontWeight: 500, color: "#374151", margin: 0 }}>Section image (optional)</p>
@@ -993,12 +1013,13 @@ if (!ownerSnap.exists()) {
               type="file"
               accept="image/*"
               style={{ display: "none" }}
-              onChange={(e) => {
-                const f = e.target.files[0];
-                if (!f) return;
-                setAboutImageFile(f);
-                setAboutImagePreview(URL.createObjectURL(f));
-              }}
+             onChange={async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const compressed = await compressImage(f);
+  setAboutImageFile(compressed);
+  setAboutImagePreview(URL.createObjectURL(compressed));
+}}
             />
           </label>
         </div>
