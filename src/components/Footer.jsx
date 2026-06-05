@@ -4,9 +4,18 @@ import { realtimeDB as db } from "../firebaseConfig";
 import { ref, onValue } from "firebase/database";
 import khaatogologo from "../assets/khaatogo_logo.png";
 import { QrCode, MessageSquare, Shield, Zap, CheckCircle2 } from 'lucide-react';
-import { 
+import {
   FaWhatsapp, FaInstagram, FaFacebook, FaTwitter, FaYoutube, FaLinkedin
 } from 'react-icons/fa';
+import {
+  IoCallOutline,
+  IoMailOutline,
+  IoLocationOutline,
+  IoStar,
+  IoShieldCheckmarkOutline,
+  IoLeaf,
+  IoRibbonOutline,
+} from "react-icons/io5";
 
 export default function Footer() {
   const [footerData, setFooterData] = useState({
@@ -34,7 +43,7 @@ export default function Footer() {
           gst: data.gst || "",
         });
       }
-    }); 
+    });
     return () => unsubscribe();
   }, []);
 
@@ -73,7 +82,7 @@ export default function Footer() {
   return (
     <>
       {/* ── Main Footer ───────────────────────────────────────────────── */}
-      <footer 
+      <footer
         className="text-white"
         style={{
           background: 'linear-gradient(160deg, #6B1535 0%, #8A244B 50%, #A02D58 100%)'
@@ -85,11 +94,7 @@ export default function Footer() {
             {/* Brand Column */}
             <div className="lg:col-span-2">
               <div className="flex items-center gap-2 mb-4">
-               
-                   <img src={khaatogologo} alt="Khaatogo" style={{
-                   height: "auto",
-                   width: "auto"
-                 }} />
+                <img src={khaatogologo} alt="Khaatogo" style={{ height: "auto", width: "auto" }} />
               </div>
 
               <p className="text-gray-400 text-sm leading-relaxed mb-6 max-w-sm">
@@ -100,17 +105,20 @@ export default function Footer() {
               <div className="space-y-2.5 text-sm text-gray-400 mb-6">
                 {footerData.phone && (
                   <a href={`tel:${footerData.phone}`} className="flex items-center gap-2 hover:text-[#FCB53B] transition">
-                    📞 <span>{footerData.phone}</span>
+                    <IoCallOutline className="w-4 h-4 shrink-0" />
+                    <span>{footerData.phone}</span>
                   </a>
                 )}
                 {footerData.mailUs && (
                   <a href={`mailto:${footerData.mailUs}`} className="flex items-center gap-2 hover:text-[#FCB53B] transition">
-                    ✉️ <span>{footerData.mailUs}</span>
+                    <IoMailOutline className="w-4 h-4 shrink-0" />
+                    <span>{footerData.mailUs}</span>
                   </a>
                 )}
                 {footerData.address && (
                   <div className="flex items-center gap-2">
-                    📍 <span>{footerData.address}</span>
+                    <IoLocationOutline className="w-4 h-4 shrink-0" />
+                    <span>{footerData.address}</span>
                   </div>
                 )}
               </div>
@@ -144,11 +152,11 @@ export default function Footer() {
                 <ul className="space-y-2">
                   {colData.links &&
                     Object.entries(colData.links).map(([linkName, linkData]) => {
-                      const slug = getSlug(linkData); // ✅ FIX: Proper slug extraction
+                      const slug = getSlug(linkData);
                       if (!slug) return null;
                       return (
                         <li key={`${colName}-${linkName}`}>
-                          <Link 
+                          <Link
                             to={`/${slug}`}
                             className="text-sm text-gray-400 hover:text-[#FCB53B] transition"
                           >
@@ -166,11 +174,11 @@ export default function Footer() {
           <div className="border-t border-gray-800 pt-8 pb-4">
             <div className="flex flex-wrap justify-center gap-8 items-center mb-6">
               {[
-                { icon: <Shield className="w-4 h-4" />, label: 'SSL Secured' },
-                { icon: '🇮🇳', label: 'Made in India' },
-                { icon: <Zap className="w-4 h-4" />, label: '99.9% Uptime' },
-                { icon: '🏆', label: 'ISO 27001' },
-                { icon: '⭐', label: '#1 Rated' },
+                { icon: <Shield className="w-4 h-4" />,                  label: 'SSL Secured'   },
+                { icon: <IoLeaf className="w-4 h-4" />,                  label: 'Made in India' },
+                { icon: <Zap className="w-4 h-4" />,                     label: '99.9% Uptime'  },
+                { icon: <IoShieldCheckmarkOutline className="w-4 h-4" />, label: 'ISO 27001'     },
+                { icon: <IoStar className="w-4 h-4" />,                   label: '#1 Rated'      },
               ].map((badge, i) => (
                 <div key={i} className="flex items-center gap-2 text-gray-500 text-xs">
                   <span className="text-gray-400">{badge.icon}</span>
@@ -187,12 +195,12 @@ export default function Footer() {
               {columns["Legal"] && columns["Legal"].links && (
                 <div className="flex flex-wrap gap-4 justify-center">
                   {Object.entries(columns["Legal"].links).map(([linkName, linkData]) => {
-                    const slug = getSlug(linkData); // ✅ FIX: Proper slug extraction
+                    const slug = getSlug(linkData);
                     if (!slug) return null;
                     return (
-                      <Link 
-                        key={linkName} 
-                        to={`/${slug}`} 
+                      <Link
+                        key={linkName}
+                        to={`/${slug}`}
                         className="text-gray-500 text-xs hover:text-[#FCB53B] transition"
                       >
                         {linkName}
@@ -203,8 +211,12 @@ export default function Footer() {
               )}
 
               <div className="flex items-center gap-4 text-xs text-gray-500">
-                <span className="flex items-center gap-1"><Shield className="w-3.5 h-3.5" /> SSL Secured</span>
-                <span>🇮🇳 Made in India</span>
+                <span className="flex items-center gap-1">
+                  <Shield className="w-3.5 h-3.5" /> SSL Secured
+                </span>
+                <span className="flex items-center gap-1">
+                  <IoLeaf className="w-3.5 h-3.5" /> Made in India
+                </span>
               </div>
             </div>
           </div>

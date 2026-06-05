@@ -5,10 +5,12 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { useCart } from "../context/CartContext";
 import {
-  FaArrowLeft, FaSpinner, FaMapMarkerAlt,
-  FaMotorcycle, FaChevronDown, FaChevronUp, FaCrosshairs,
-  FaMapMarkedAlt, FaTimes, FaWhatsapp, FaLock, FaCrown, FaUtensils,
-} from "react-icons/fa";
+  IoMapOutline, IoLocationOutline, IoCheckmarkCircle,
+  IoPersonOutline, IoCallOutline, IoMailOutline,
+  IoRestaurantOutline, IoReceiptOutline, IoCardOutline,
+  IoInformationCircleOutline, IoWarningOutline,
+  IoCartOutline, IoTimeOutline, IoLeaf, IoFlame, IoSnow,
+} from "react-icons/io5";
 import { toast } from "sonner";
 
 // ─── LOAD LEAFLET ─────────────────────────────────────────────────────────────
@@ -202,7 +204,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
         <div className="px-4 sm:px-6 py-4 flex justify-between items-center shrink-0"
           style={{ backgroundColor: theme.primary }}>
           <h3 className="text-white font-bold text-lg flex items-center gap-2">
-            <FaMapMarkedAlt /> 📍 Location Pick Karo
+            <FaMapMarkedAlt /> <IoLocationOutline className="w-4 h-4 mr-1" /> Location Pick Karo
           </h3>
           <button onClick={onClose} className="text-white/80 hover:text-white text-2xl p-1">
             <FaTimes />
@@ -260,7 +262,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
           </div>
           {selectedLocation && (
             <div className="rounded-xl p-4 border-l-4 bg-gray-50" style={{ borderLeftColor: theme.primary }}>
-              <p className="font-semibold text-gray-800 mb-1 text-sm">✅ Selected Location:</p>
+              <p className="font-semibold text-gray-800 mb-1 text-sm"><IoCheckmarkCircle className="w-4 h-4 mr-1 text-green-600" /> Selected Location:</p>
               <p className="text-sm text-gray-600 leading-relaxed">{selectedLocation.address}</p>
               <p className="text-xs text-gray-400 mt-2 font-mono">
                 Lat: {selectedLocation.lat.toFixed(5)} | Lng: {selectedLocation.lng.toFixed(5)}
@@ -314,11 +316,11 @@ function ZoneBadge({ zone, selected, onClick, theme }) {
         fontSize: "14px", fontWeight: 800, marginTop: "6px",
         color: isSelected ? "white" : zone.charge === 0 ? "#16a34a" : theme.primary,
       }}>
-        {zone.charge === 0 ? "🆓 FREE Delivery" : `₹${zone.charge} Delivery`}
+        {zone.charge === 0 ? " FREE Delivery" : `₹${zone.charge} Delivery`}
       </div>
       {zone.distance && (
         <div style={{ fontSize: "10px", marginTop: "2px", opacity: 0.8 }}>
-          📍 {zone.distance}km away
+          <IoLocationOutline /> {zone.distance}km away
         </div>
       )}
     </button>
@@ -380,7 +382,7 @@ function DeliveryAddressSection({
         }}>
           <FaMotorcycle style={{ color: "white", fontSize: "20px" }} />
           <span style={{ color: "white", fontWeight: 700, fontSize: "16px" }}>
-            🛵 Delivery Details
+             Delivery Details
           </span>
         </div>
         <div style={{ padding: "18px", display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -396,7 +398,7 @@ function DeliveryAddressSection({
                   border: `2px dashed ${theme.primary}`,
                 }}>
                 <FaMapMarkedAlt size={24} />
-                <span className="text-base">🗺️ Map Se Location Pick Karo</span>
+                <span className="text-base"><IoMapOutline className="w-6 h-6" />  Map Se Location Pick Karo</span>
               </button>
             ) : (
               <div className="rounded-xl p-4 border-2 relative"
@@ -421,7 +423,7 @@ function DeliveryAddressSection({
                 <button onClick={() => setShowLocationPicker(true)}
                   className="w-full mt-3 py-2 rounded-lg font-medium text-sm border transition-colors"
                   style={{ borderColor: theme.primary, color: theme.primary, backgroundColor: "white" }}>
-                  ✏️ Location Edit Karo
+                  <IoMapOutline className="w-3.5 h-3.5 mr-1" />  Location Edit Karo
                 </button>
               </div>
             )}
@@ -438,7 +440,7 @@ function DeliveryAddressSection({
                   fontSize: "14px", color: "#374151",
                 }}>
                 <span className="flex items-center gap-2">
-                  🎯 Delivery Zone *
+                  <IoMapOutline /> Delivery Zone *
                   {selectedZone && (
                     <span style={{
                       backgroundColor: theme.primary + "18", color: theme.primary,
@@ -476,7 +478,7 @@ function DeliveryAddressSection({
           {/* Address textarea */}
           <div>
             <label style={{ fontSize: "13px", fontWeight: 700, color: "#374151", display: "block", marginBottom: "6px" }}>
-              🏠 Full Delivery Address *
+              <IoLocationOutline /> Full Delivery Address *
             </label>
             <textarea
               placeholder="House/Flat no., Building, Street, Area, Landmark..."
@@ -496,7 +498,7 @@ function DeliveryAddressSection({
           {/* Landmark */}
           <div>
             <label style={{ fontSize: "13px", fontWeight: 700, color: "#374151", display: "block", marginBottom: "6px" }}>
-              🎯 Nearby Landmark (Optional)
+              <IoLocationOutline /> Nearby Landmark (Optional)
             </label>
             <input
               placeholder="School, Mandir, Petrol Pump, Park..."
@@ -513,7 +515,7 @@ function DeliveryAddressSection({
           {/* Maps link */}
           <div>
             <label style={{ fontSize: "13px", fontWeight: 700, color: "#374151", display: "block", marginBottom: "6px" }}>
-              🔗 Google Maps Link (Auto-generated)
+              <IoMapOutline /> Google Maps Link (Auto-generated)
             </label>
             <input type="url" value={googleMapsLink} readOnly
               style={{
@@ -534,7 +536,7 @@ function DeliveryAddressSection({
               display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
               <div>
-                <p style={{ fontSize: "13px", color: "#6b7280", margin: 0, fontWeight: 600 }}>🚚 Delivery Charge</p>
+                <p style={{ fontSize: "13px", color: "#6b7280", margin: 0, fontWeight: 600 }}><FaMotorcycle /> Delivery Charge</p>
                 <p style={{ fontSize: "12px", color: "#9ca3af", margin: "4px 0 0 0" }}>{selectedZone.name}</p>
               </div>
               <span style={{
@@ -861,7 +863,7 @@ export default function Checkout() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
         <div className="text-center">
-          <div className="text-6xl mb-4">🛒</div>
+          <div className="text-6xl mb-4"><IoCartOutline className="w-16 h-16 mx-auto text-gray-300" /></div>
           <p className="text-xl text-gray-600 mb-6 font-semibold">Cart khali hai</p>
           <button
             onClick={() => navigate(`/menu/${restaurantId}`)}
@@ -918,7 +920,7 @@ export default function Checkout() {
 
         {/* Cart Summary */}
         <div className="border-2 rounded-xl p-4 mb-5 bg-gray-50">
-          <h3 className="font-bold text-gray-700 mb-3">📝 Order Summary</h3>
+          <h3 className="font-bold text-gray-700 mb-3"><IoReceiptOutline className="w-5 h-5" /> Order Summary</h3>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {getValidCart().map((item) => (
               <div key={item.id} className="flex justify-between py-2 border-b border-gray-200 last:border-0">
@@ -928,22 +930,24 @@ export default function Checkout() {
                   <div className="flex flex-wrap gap-1 mt-1">
                     {item.dishTasteProfile !== "sweet" && item.spicePreference && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium">
-                        🌶️ {item.spicePreference}
+                        <IoFlame className="w-3 h-3 mr-0.5 text-orange-500" />
+ {item.spicePreference}
                       </span>
                     )}
                     {item.dishTasteProfile === "sweet" && item.sweetLevel && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-pink-100 text-pink-700 font-medium">
-                        🍯 {item.sweetLevel}
+                        <IoStar className="w-3 h-3 mr-0.5 text-pink-500" /> {item.sweetLevel}
                       </span>
                     )}
                     {item.dishTasteProfile !== "sweet" && item.saltPreference && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
-                        🧂 {item.saltPreference}
+                        <IoSnow className="w-3 h-3 mr-0.5 text-blue-500" /> {item.saltPreference}
                       </span>
                     )}
                     {item.salad?.qty > 0 && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
-                        🥗 Salad
+                        <IoLeaf className="w-3 h-3 mr-0.5 text-green-500" />
+ Salad
                       </span>
                     )}
                   </div>
@@ -979,7 +983,7 @@ export default function Checkout() {
 
         {/* Customer Form */}
         <div className="space-y-4 mb-6">
-          <input placeholder="👤 Full Name *" value={customerName}
+          <input placeholder=" Full Name *" value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
             className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
             style={{ borderColor: customerName ? theme.primary : "#e5e7eb" }} />
@@ -990,13 +994,13 @@ export default function Checkout() {
               onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
               className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
               style={{ borderColor: customerPhone ? theme.primary : "#e5e7eb" }} />
-            <input type="email" placeholder="📧 Email (Optional)" value={customerEmail}
+            <input type="email" placeholder=" Email (Optional)" value={customerEmail}
               onChange={(e) => setCustomerEmail(e.target.value)}
               className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
               style={{ borderColor: customerEmail ? theme.primary : "#e5e7eb" }} />
           </div>
           {orderType === "dine-in" && (
-            <input placeholder="🪑 Table Number *" value={tableNumber}
+            <input placeholder=" Table Number *" value={tableNumber}
               onChange={(e) => setTableNumber(e.target.value)}
               className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
               style={{ borderColor: tableNumber ? theme.primary : "#e5e7eb" }} />
@@ -1006,7 +1010,7 @@ export default function Checkout() {
         {/* Order Type */}
         <div className="border-2 rounded-xl p-4 mb-5">
           <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
-            <FaUtensils /> 🍽️ Order Type
+            <FaUtensils />  Order Type
           </h3>
           <div className={`grid gap-2 ${
             availableOrderTypes.length === 1 ? 'grid-cols-1' :
@@ -1059,7 +1063,7 @@ export default function Checkout() {
         {/* Special Instructions */}
         <div className="mb-6">
           <textarea
-            placeholder="📝 Special instructions (optional)..."
+            placeholder=" Special instructions (optional)..."
             value={specialInstructions}
             onChange={(e) => setSpecialInstructions(e.target.value)}
             rows={2}
@@ -1070,10 +1074,10 @@ export default function Checkout() {
         {/* Payment Info Box */}
         <div className="border-2 rounded-xl p-4 mb-6"
           style={{ borderColor: theme.primary + "30", backgroundColor: theme.primary + "05" }}>
-          <h3 className="font-bold text-gray-700 mb-2">💳 Payment</h3>
+          <h3 className="font-bold text-gray-700 mb-2"><IoCardOutline className="w-5 h-5" /> Payment</h3>
           {orderType === "delivery" ? (
             <div className="flex items-center gap-3">
-              <span className="text-2xl">💵</span>
+             
               <div>
                 <p className="font-bold text-gray-800">Cash on Delivery</p>
                 <p className="text-xs text-gray-500">Delivery boy aayega tab cash ya UPI se pay karna hoga</p>
@@ -1081,7 +1085,7 @@ export default function Checkout() {
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <span className="text-2xl">🏪</span>
+             
               <div>
                 <p className="font-bold text-gray-800">Pay at Counter</p>
                 <p className="text-xs text-gray-500">Order place karo — counter pe aake cash ya UPI se pay karo</p>
@@ -1100,13 +1104,13 @@ export default function Checkout() {
             ? <span className="flex items-center justify-center gap-2"><FaSpinner className="animate-spin" /> Loading...</span>
             : isPlacing
             ? <span className="flex items-center justify-center gap-2"><FaSpinner className="animate-spin" /> Order place ho raha hai...</span>
-            : `✅ Place Order • ₹${grandTotal}`}
+            : ` Place Order • ₹${grandTotal}`}
         </button>
 
         <p className="text-center text-xs text-gray-400 mt-3">
           {orderType === "delivery"
-            ? "💵 Payment delivery ke waqt hogi"
-            : "🏪 Counter pe payment karo — Cash ya UPI dono accepted"}
+            ? " Payment delivery ke waqt hogi"
+            : " Counter pe payment karo — Cash ya UPI dono accepted"}
         </p>
 
       </div>
