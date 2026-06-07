@@ -1,22 +1,21 @@
-import { useParams } from "react-router-dom";
-import { ref, onValue, push, update } from "firebase/database";
+import { useParams, useNavigate } from "react-router-dom";
+import { ref, onValue, push } from "firebase/database";
 import { realtimeDB, auth } from "../firebaseConfig";
-import { useNavigate } from "react-router-dom";
 import { useEffect, useState, useRef } from "react";
 import { useCart } from "../context/CartContext";
-import { 
-  FaCrown, FaArrowLeft,FaUtensils ,FaLock ,FaSpinner,FaMotorcycle,FaMapMarkedAlt,FaTimes, FaCrosshairs ,FaMapMarkerAlt
-
-} from "react-icons/fa";
-import {
-  IoMapOutline, IoLocationOutline, IoCheckmarkCircle,
-  IoPersonOutline, IoCallOutline, IoMailOutline,
-  IoRestaurantOutline, IoReceiptOutline, IoCardOutline,
-  IoInformationCircleOutline, IoWarningOutline,
-  IoCartOutline, IoTimeOutline, IoLeaf, IoFlame, IoSnow,
-} from "react-icons/io5";
 import { toast } from "sonner";
 
+import {
+  FaCrown, FaArrowLeft, FaUtensils, FaLock, FaSpinner,
+  FaMotorcycle, FaMapMarkedAlt, FaTimes, FaCrosshairs,
+  FaMapMarkerAlt, FaWhatsapp, FaChevronUp, FaChevronDown
+} from "react-icons/fa";
+
+import {
+  IoMapOutline, IoLocationOutline, IoCheckmarkCircle,
+  IoReceiptOutline, IoCardOutline, IoCartOutline,
+  IoLeaf, IoFlame, IoSnow, IoStar
+} from "react-icons/io5";
 // ─── LOAD LEAFLET ─────────────────────────────────────────────────────────────
 const loadLeaflet = () => {
   return new Promise((resolve, reject) => {
