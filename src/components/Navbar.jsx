@@ -3,7 +3,20 @@ import { auth, db } from "../firebaseConfig";
 import { useNavigate, NavLink, useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { doc, getDoc } from "firebase/firestore";
-
+import {
+  CalendarCheck,
+  ClipboardList,
+  Settings,
+  UtensilsCrossed,
+  PlusCircle,
+  MessageSquare,
+  Bike,
+  CreditCard,
+  Wallet,
+  BarChart2,
+  ChefHat,
+  Ticket,
+} from "lucide-react";
 const Navbar = ({ user, onToggleSidebar, sidebarOpen }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [restaurantName, setRestaurantName] = useState("");
@@ -56,20 +69,20 @@ const Navbar = ({ user, onToggleSidebar, sidebarOpen }) => {
     }
   };
 
-  const navItems = [
-    { name: "Table Booking", path: `/dashboard/${restaurantId}/bookingtable`, icon: "🪑" },
-    { name: "Admin Order", path: `/dashboard/${restaurantId}/adminorder`, icon: "📋" },
-    { name: "Restaurant Settings", path: `/dashboard/${restaurantId}/restaurant-settings`, icon: "⚙️" },
-    { name: "Menu Items", path: `/dashboard/${restaurantId}/menu`, icon: "🍽️" },
-    { name: "Add Item", path: `/dashboard/${restaurantId}/add-item`, icon: "➕" },
-    { name: "Home Feedback", path: `/dashboard/${restaurantId}/feedback-admin`, icon: "💬" },
-    { name: "Delivery Boy", path: `/dashboard/${restaurantId}/delivery-management`, icon: "🛵" },
-    { name: "Subscription", path: `/dashboard/${restaurantId}/subscription`, icon: "💳" },
-    { name: "Payment Status", path: `/dashboard/${restaurantId}/payment-status`, icon: "💰" },
-    { name: "Revenue Dashboard", path: `/dashboard/${restaurantId}/revenue`, icon: "📊" },
-    { name: "Kitchen Display", path: `/dashboard/${restaurantId}/kitchen-display`, icon: "👨‍🍳" },
-    { name: "Admin Coupons", path: `/dashboard/${restaurantId}/admin-coupen`, icon: "🎟️" },
-  ];
+ const navItems = [
+  { name: "Table Booking",        path: `/dashboard/${restaurantId}/bookingtable`,        icon: CalendarCheck   },
+  { name: "Admin Order",          path: `/dashboard/${restaurantId}/adminorder`,          icon: ClipboardList   },
+  { name: "Restaurant Settings",  path: `/dashboard/${restaurantId}/restaurant-settings`, icon: Settings        },
+  { name: "Menu Items",           path: `/dashboard/${restaurantId}/menu`,                icon: UtensilsCrossed },
+  { name: "Add Item",             path: `/dashboard/${restaurantId}/add-item`,            icon: PlusCircle      },
+  { name: "Home Feedback",        path: `/dashboard/${restaurantId}/feedback-admin`,      icon: MessageSquare   },
+  { name: "Delivery Boy",         path: `/dashboard/${restaurantId}/delivery-management`, icon: Bike            },
+  { name: "Subscription",         path: `/dashboard/${restaurantId}/subscription`,        icon: CreditCard      },
+  { name: "Payment Status",       path: `/dashboard/${restaurantId}/payment-status`,      icon: Wallet          },
+  { name: "Revenue Dashboard",    path: `/dashboard/${restaurantId}/revenue`,             icon: BarChart2       },
+  { name: "Kitchen Display",      path: `/dashboard/${restaurantId}/kitchen-display`,     icon: ChefHat         },
+  { name: "Admin Coupons",        path: `/dashboard/${restaurantId}/admin-coupen`,        icon: Ticket          },
+];
 
   return (
     <>
@@ -317,19 +330,25 @@ const Navbar = ({ user, onToggleSidebar, sidebarOpen }) => {
         }
 
         /* ── Mobile Dropdown ── */
-        .kh-mobile-menu {
-          display: none;
-          flex-direction: column;
-          background: linear-gradient(160deg, #6B1535 0%, #8A244B 50%, #A02D58 100%);
-          border-top: 1px solid rgba(212,168,67,0.3);
-          overflow: hidden;
-        }
+      .kh-mobile-menu {
+  display: none;
+  flex-direction: column;
+  background: linear-gradient(160deg, #6B1535 0%, #8A244B 50%, #A02D58 100%);
+  border-top: 1px solid rgba(212,168,67,0.3);
+  overflow: hidden;
+}
 
-        .kh-mobile-menu.open {
-          display: flex;
-          max-height: 85vh;
-          overflow-y: auto;
-        }
+       .kh-mobile-menu.open {
+  display: flex;
+  position: fixed;
+  top: 64px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(100vh - 64px);
+  overflow-y: auto;
+  z-index: 997;
+}
 
         .kh-mobile-menu.open::-webkit-scrollbar { width: 4px; }
         .kh-mobile-menu.open::-webkit-scrollbar-track { background: transparent; }
@@ -501,7 +520,7 @@ const Navbar = ({ user, onToggleSidebar, sidebarOpen }) => {
                   className={({ isActive }) => `kh-nav-link${isActive ? " active" : ""}`}
                   onClick={() => setMenuOpen(false)}
                 >
-                  <span className="kh-nav-icon">{item.icon}</span>
+<span className="kh-nav-icon"><item.icon size={16} /></span>
                   <span className="kh-nav-label">{item.name}</span>
                   <span className="kh-active-dot" />
                 </NavLink>
