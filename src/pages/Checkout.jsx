@@ -8,7 +8,8 @@ import { toast } from "sonner";
 import {
   FaCrown, FaArrowLeft, FaUtensils, FaLock, FaSpinner,
   FaMotorcycle, FaMapMarkedAlt, FaTimes, FaCrosshairs,
-  FaMapMarkerAlt, FaWhatsapp, FaChevronUp, FaChevronDown
+  FaMapMarkerAlt, FaWhatsapp, FaChevronUp, FaChevronDown,
+  FaConciergeBell, FaShoppingBag, FaTruck  
 } from "react-icons/fa";
 
 import {
@@ -697,14 +698,13 @@ export default function Checkout() {
   };
 
   // ✅ ALL plans mein delivery open — no restrictions
-  const getAvailableOrderTypes = () => {
-    const types = [];
-    types.push({ id: "dine-in",  label: "Dine In",  icon: "🪑" });
-    types.push({ id: "takeaway", label: "Takeaway", icon: "🥡" });
-    types.push({ id: "delivery", label: "Delivery", icon: "🛵" });
-    return types;
-  };
-
+const getAvailableOrderTypes = () => {
+  return [
+    { id: "dine-in",  label: "Dine In",  icon: <FaConciergeBell size={20} /> },
+    { id: "takeaway", label: "Takeaway", icon: <FaShoppingBag size={20} />   },
+    { id: "delivery", label: "Delivery", icon: <FaTruck size={20} />         },
+  ];
+};
   const isOrderTypeAllowed = (type) => {
     // ✅ Sab types allowed hain — no plan restrictions
     return true;
@@ -1036,7 +1036,7 @@ export default function Checkout() {
                   color:           orderType === type.id ? "white" : theme.primary,
                   transform:       orderType === type.id ? "scale(1.02)" : "scale(1)",
                 }}>
-                <div className="text-lg mb-1">{type.icon}</div>
+<div className="flex justify-center mb-1">{type.icon}</div>
                 <div className="text-xs sm:text-sm">{type.label}</div>
               </button>
             ))}

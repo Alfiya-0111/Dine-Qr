@@ -323,11 +323,11 @@ useEffect(() => {
   // ══════════════════════════════════════════
   // CLOUDINARY UPLOAD
   // ══════════════════════════════════════════
-  const compressImage = (file) =>
+ const compressImage = (file) =>
   new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      const img = new Image();
+      const img = new window.Image(); // ← sirf yeh change karo
       img.onload = () => {
         const canvas = document.createElement("canvas");
         const MAX_WIDTH = 1200;
@@ -341,20 +341,25 @@ useEffect(() => {
     };
     reader.readAsDataURL(file);
   });
-  const uploadImage = useCallback(async (file) => {
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("upload_preset", UPLOAD_PRESET);
-    fd.append("folder", `khaatogo/${restaurantId}`);
-    const res  = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-      { method: "POST", body: fd }
-    );
-    if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-    const data = await res.json();
-    if (!data.secure_url) throw new Error(data.error?.message || "Upload failed");
-    return data.secure_url.replace("/upload/", "/upload/q_auto,f_auto,w_800/");
-  }, [restaurantId]);
+const uploadImage = useCallback(async (file) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("upload_preset", UPLOAD_PRESET);
+  fd.append("folder", `khaatogo/${restaurantId}`);
+  
+  console.log("Uploading to:", CLOUD_NAME, "preset:", UPLOAD_PRESET); // ← yeh add karo
+  
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+    { method: "POST", body: fd }
+  );
+  const data = await res.json();
+  console.log("Cloudinary response:", data); // ← yeh bhi add karo
+  
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+  if (!data.secure_url) throw new Error(data.error?.message || "Upload failed");
+  return data.secure_url.replace("/upload/", "/upload/q_auto,f_auto,w_800/");
+}, [restaurantId]);
 
   const uploadVideo = useCallback((file) =>
     new Promise((resolve, reject) => {
