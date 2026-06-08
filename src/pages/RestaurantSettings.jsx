@@ -629,33 +629,75 @@ if (!ownerSnap.exists()) {
       {/* ════ 2. BRAND IDENTITY ════ */}
      <SectionCard icon={<Palette size={18} />} title="Brand identity">
 
-        <div style={{ display: "flex", alignItems: "center", gap: "16px", padding: "16px", borderRadius: "12px", border: "1px dashed #e5e7eb", background: "#f9fafb" }}>
-          <div style={{ width: "56px", height: "56px", borderRadius: "12px", background: "#fff", border: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-            {logoPreview || logo
-              ? <img src={logoPreview || logo} alt="logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : <span style={{ fontSize: "24px" }}><UtensilsCrossed size={24} color="#9ca3af" /></span>}
-          </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: "14px", fontWeight: 500, color: "#374151", margin: 0 }}>Restaurant logo</p>
-            <p style={{ fontSize: "12px", color: "#9ca3af", margin: "2px 0 0" }}>PNG, JPG • max 2MB • 400×400px</p>
-            {logoFile && <p style={{ fontSize: "11px", color: "#8A244B", margin: "4px 0 0" }}>✓ {logoFile.name} selected</p>}
-          </div>
-          <label style={{ cursor: "pointer", padding: "8px 16px", background: "#8A244B", color: "#fff", fontSize: "12px", fontWeight: 600, borderRadius: "8px", flexShrink: 0 }}>
-            Upload
-            <input
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-onChange={async (e) => {
-  const f = e.target.files[0];
-  if (!f) return;
-  const compressed = await compressImage(f);
-  setLogoFile(compressed);
-  setLogoPreview(URL.createObjectURL(compressed));
-}}
-            />
-          </label>
-        </div>
+       <div style={{ display: "flex", alignItems: "center", gap: "16px", padding: "16px", borderRadius: "12px", border: "1px dashed #e5e7eb", background: "#f9fafb" }}>
+  <div style={{ width: "56px", height: "56px", borderRadius: "12px", background: "#fff", border: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+    {logoPreview || logo
+      ? <img src={logoPreview || logo} alt="logo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      : <span style={{ fontSize: "24px" }}><UtensilsCrossed size={24} color="#9ca3af" /></span>}
+  </div>
+  <div style={{ flex: 1 }}>
+    <p style={{ fontSize: "14px", fontWeight: 500, color: "#374151", margin: 0 }}>Restaurant logo</p>
+    <p style={{ fontSize: "12px", color: "#9ca3af", margin: "2px 0 0" }}>PNG, JPG • max 2MB • 400×400px</p>
+    {logoFile && <p style={{ fontSize: "11px", color: "#8A244B", margin: "4px 0 0" }}>✓ {logoFile.name} selected</p>}
+  </div>
+  
+  {/* Action Buttons */}
+  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+    {/* Delete Button — sirf tab dikhaye jab logo ho */}
+    {(logoPreview || logo) && (
+      <button
+        type="button"
+        onClick={() => {
+          if (window.confirm("🗑️ Logo delete karna hai?")) {
+            setLogo("");
+            setLogoFile(null);
+            setLogoPreview("");
+          }
+        }}
+        style={{
+          padding: "8px 14px",
+          borderRadius: "8px",
+          border: "1px solid #ef4444",
+          background: "#fef2f2",
+          color: "#ef4444",
+          fontSize: "12px",
+          fontWeight: 600,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+          transition: "all 0.15s",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "#ef4444";
+          e.currentTarget.style.color = "#fff";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "#fef2f2";
+          e.currentTarget.style.color = "#ef4444";
+        }}
+      >
+        🗑️ Delete
+      </button>
+    )}
+    
+    <label style={{ cursor: "pointer", padding: "8px 16px", background: "#8A244B", color: "#fff", fontSize: "12px", fontWeight: 600, borderRadius: "8px", flexShrink: 0 }}>
+      {logoPreview || logo ? "Change" : "Upload"}
+      <input
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={async (e) => {
+          const f = e.target.files[0];
+          if (!f) return;
+          const compressed = await compressImage(f);
+          setLogoFile(compressed);
+          setLogoPreview(URL.createObjectURL(compressed));
+        }}
+      />
+    </label>
+  </div>
+</div>
 
         <Field label="Restaurant name *">
           <TextInput

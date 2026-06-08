@@ -9,7 +9,7 @@ import {
   FaCrown, FaArrowLeft, FaUtensils, FaLock, FaSpinner,
   FaMotorcycle, FaMapMarkedAlt, FaTimes, FaCrosshairs,
   FaMapMarkerAlt, FaWhatsapp, FaChevronUp, FaChevronDown,
-  FaConciergeBell, FaShoppingBag, FaTruck  
+  FaConciergeBell, FaShoppingBag, FaTruck
 } from "react-icons/fa";
 
 import {
@@ -17,6 +17,7 @@ import {
   IoReceiptOutline, IoCardOutline, IoCartOutline,
   IoLeaf, IoFlame, IoSnow, IoStar
 } from "react-icons/io5";
+
 // ─── LOAD LEAFLET ─────────────────────────────────────────────────────────────
 const loadLeaflet = () => {
   return new Promise((resolve, reject) => {
@@ -123,7 +124,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
           draggable: true,
           icon: window.L.divIcon({
             className: 'custom-marker',
-            html: `<div style="background-color:${theme.primary};width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>`,
+            html: `<div style="background-color:${theme?.primary || "#8A244B"};width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 5px rgba(0,0,0,0.3);"></div>`,
             iconSize: [30, 30], iconAnchor: [15, 30]
           })
         }).addTo(map);
@@ -153,7 +154,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
         mapInstanceRef.current = null;
       }
     };
-  }, [isOpen, initialLocation, theme.primary]);
+  }, [isOpen, initialLocation, theme?.primary]);
 
   useEffect(() => {
     if (!searchQuery || searchQuery.length < 3) { setSearchResults([]); return; }
@@ -206,7 +207,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
     <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-2 sm:p-4">
       <div className="bg-white w-full max-w-3xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
         <div className="px-4 sm:px-6 py-4 flex justify-between items-center shrink-0"
-          style={{ backgroundColor: theme.primary }}>
+          style={{ backgroundColor: theme?.primary || "#8A244B" }}>
           <h3 className="text-white font-bold text-lg flex items-center gap-2">
             <FaMapMarkedAlt /> <IoLocationOutline className="w-4 h-4 mr-1" /> Location Pick Karo
           </h3>
@@ -223,7 +224,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full border-2 rounded-xl px-4 py-3 pr-10 text-sm sm:text-base"
-                style={{ borderColor: theme.primary + "40" }}
+                style={{ borderColor: (theme?.primary || "#8A244B") + "40" }}
               />
               {isSearching && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -232,7 +233,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
               )}
               {searchResults.length > 0 && (
                 <div className="absolute top-full left-0 right-0 bg-white border-2 rounded-xl mt-1 shadow-xl max-h-48 overflow-y-auto z-50"
-                  style={{ borderColor: theme.primary + "20" }}>
+                  style={{ borderColor: (theme?.primary || "#8A244B") + "20" }}>
                   {searchResults.map((result) => (
                     <button key={result.id} onClick={() => handleSelectResult(result)}
                       className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-0 last:rounded-b-xl text-sm transition-colors">
@@ -245,7 +246,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
             </div>
             <button onClick={handleGetCurrentLocation}
               className="px-4 py-3 rounded-xl font-medium flex items-center gap-2 shrink-0"
-              style={{ backgroundColor: theme.primary + "15", color: theme.primary }}
+              style={{ backgroundColor: (theme?.primary || "#8A244B") + "15", color: theme?.primary || "#8A244B" }}
               title="Current Location">
               <FaCrosshairs />
             </button>
@@ -253,20 +254,22 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
           <div className="relative">
             <div ref={mapContainerRef}
               className="w-full h-64 sm:h-80 rounded-xl border-2 z-0"
-              style={{ borderColor: theme.primary + "30" }}
+              style={{ borderColor: (theme?.primary || "#8A244B") + "30" }}
             />
             {isLoading && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-xl">
                 <div className="text-center">
-                  <FaSpinner className="animate-spin text-3xl mb-2" style={{ color: theme.primary }} />
+                  <FaSpinner className="animate-spin text-3xl mb-2" style={{ color: theme?.primary || "#8A244B" }} />
                   <p className="text-sm text-gray-600">Map load ho raha hai...</p>
                 </div>
               </div>
             )}
           </div>
           {selectedLocation && (
-            <div className="rounded-xl p-4 border-l-4 bg-gray-50" style={{ borderLeftColor: theme.primary }}>
-              <p className="font-semibold text-gray-800 mb-1 text-sm"><IoCheckmarkCircle className="w-4 h-4 mr-1 text-green-600" /> Selected Location:</p>
+            <div className="rounded-xl p-4 border-l-4 bg-gray-50" style={{ borderLeftColor: theme?.primary || "#8A244B" }}>
+              <p className="font-semibold text-gray-800 mb-1 text-sm">
+                <IoCheckmarkCircle className="w-4 h-4 mr-1 text-green-600" /> Selected Location:
+              </p>
               <p className="text-sm text-gray-600 leading-relaxed">{selectedLocation.address}</p>
               <p className="text-xs text-gray-400 mt-2 font-mono">
                 Lat: {selectedLocation.lat.toFixed(5)} | Lng: {selectedLocation.lng.toFixed(5)}
@@ -288,7 +291,7 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
           </button>
           <button onClick={handleConfirm} disabled={!selectedLocation}
             className="flex-[2] py-3 rounded-xl font-bold text-white text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            style={{ backgroundColor: theme.primary }}>
+            style={{ backgroundColor: theme?.primary || "#8A244B" }}>
             {selectedLocation ? "✅ Confirm Location" : "📍 Pehle Location Select Karo"}
           </button>
         </div>
@@ -303,8 +306,8 @@ function ZoneBadge({ zone, selected, onClick, theme }) {
   return (
     <button onClick={() => onClick(zone)} className="transition-all duration-200"
       style={{
-        border: `2px solid ${isSelected ? theme.primary : "#e5e7eb"}`,
-        backgroundColor: isSelected ? theme.primary : "white",
+        border: `2px solid ${isSelected ? (theme?.primary || "#8A244B") : "#e5e7eb"}`,
+        backgroundColor: isSelected ? (theme?.primary || "#8A244B") : "white",
         color: isSelected ? "white" : "#374151",
         borderRadius: "12px", padding: "12px",
         cursor: "pointer", textAlign: "left", width: "100%",
@@ -318,7 +321,7 @@ function ZoneBadge({ zone, selected, onClick, theme }) {
       )}
       <div style={{
         fontSize: "14px", fontWeight: 800, marginTop: "6px",
-        color: isSelected ? "white" : zone.charge === 0 ? "#16a34a" : theme.primary,
+        color: isSelected ? "white" : zone.charge === 0 ? "#16a34a" : (theme?.primary || "#8A244B"),
       }}>
         {zone.charge === 0 ? " FREE Delivery" : `₹${zone.charge} Delivery`}
       </div>
@@ -376,17 +379,17 @@ function DeliveryAddressSection({
   return (
     <>
       <div style={{
-        border: "2px solid #e5e7eb", borderRadius: "16px",
+        border: `2px solid ${(theme?.primary || "#8A244B")}30`, borderRadius: "16px",
         overflow: "hidden", marginBottom: "20px",
         boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
       }}>
         <div style={{
-          backgroundColor: theme.primary, padding: "14px 18px",
+          backgroundColor: theme?.primary || "#8A244B", padding: "14px 18px",
           display: "flex", alignItems: "center", gap: "10px",
         }}>
           <FaMotorcycle style={{ color: "white", fontSize: "20px" }} />
           <span style={{ color: "white", fontWeight: 700, fontSize: "16px" }}>
-             Delivery Details
+            Delivery Details
           </span>
         </div>
         <div style={{ padding: "18px", display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -397,24 +400,24 @@ function DeliveryAddressSection({
               <button onClick={() => setShowLocationPicker(true)}
                 className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-3 transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
                 style={{
-                  backgroundColor: theme.primary + "15",
-                  color: theme.primary,
-                  border: `2px dashed ${theme.primary}`,
+                  backgroundColor: (theme?.primary || "#8A244B") + "15",
+                  color: theme?.primary || "#8A244B",
+                  border: `2px dashed ${theme?.primary || "#8A244B"}`,
                 }}>
                 <FaMapMarkedAlt size={24} />
-                <span className="text-base"><IoMapOutline className="w-6 h-6" />  Map Se Location Pick Karo</span>
+                <span className="text-base"><IoMapOutline className="w-6 h-6" /> Map Se Location Pick Karo</span>
               </button>
             ) : (
               <div className="rounded-xl p-4 border-2 relative"
-                style={{ borderColor: theme.primary + "30", backgroundColor: theme.primary + "05" }}>
+                style={{ borderColor: (theme?.primary || "#8A244B") + "30", backgroundColor: (theme?.primary || "#8A244B") + "05" }}>
                 <button onClick={clearLocation}
                   className="absolute top-2 right-2 p-2 rounded-full hover:bg-red-100 text-red-500 transition-colors"
                   title="Clear location">
                   <FaTimes />
                 </button>
                 <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg shrink-0" style={{ backgroundColor: theme.primary + "15" }}>
-                    <FaMapMarkerAlt style={{ color: theme.primary, fontSize: "20px" }} />
+                  <div className="p-2 rounded-lg shrink-0" style={{ backgroundColor: (theme?.primary || "#8A244B") + "15" }}>
+                    <FaMapMarkerAlt style={{ color: theme?.primary || "#8A244B", fontSize: "20px" }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-800 text-sm mb-1">📍 Selected Location</p>
@@ -426,8 +429,8 @@ function DeliveryAddressSection({
                 </div>
                 <button onClick={() => setShowLocationPicker(true)}
                   className="w-full mt-3 py-2 rounded-lg font-medium text-sm border transition-colors"
-                  style={{ borderColor: theme.primary, color: theme.primary, backgroundColor: "white" }}>
-                  <IoMapOutline className="w-3.5 h-3.5 mr-1" />  Location Edit Karo
+                  style={{ borderColor: theme?.primary || "#8A244B", color: theme?.primary || "#8A244B", backgroundColor: "white" }}>
+                  <IoMapOutline className="w-3.5 h-3.5 mr-1" /> Location Edit Karo
                 </button>
               </div>
             )}
@@ -441,13 +444,13 @@ function DeliveryAddressSection({
                   width: "100%", display: "flex", justifyContent: "space-between",
                   alignItems: "center", background: "none", border: "none",
                   cursor: "pointer", padding: "4px 0", fontWeight: 700,
-                  fontSize: "14px", color: "#374151",
+                  fontSize: "14px", color: theme?.primary || "#8A244B",
                 }}>
                 <span className="flex items-center gap-2">
                   <IoMapOutline /> Delivery Zone *
                   {selectedZone && (
                     <span style={{
-                      backgroundColor: theme.primary + "18", color: theme.primary,
+                      backgroundColor: (theme?.primary || "#8A244B") + "18", color: theme?.primary || "#8A244B",
                       borderRadius: "20px", padding: "4px 12px",
                       fontSize: "12px", fontWeight: 800,
                     }}>
@@ -472,7 +475,7 @@ function DeliveryAddressSection({
                 </div>
               )}
               {selectedZone?.distance && (
-                <p className="text-xs mt-2" style={{ color: theme.primary }}>
+                <p className="text-xs mt-2" style={{ color: theme?.primary || "#8A244B" }}>
                   ✓ Auto-detected: {selectedZone.distance}km from your location
                 </p>
               )}
@@ -481,7 +484,7 @@ function DeliveryAddressSection({
 
           {/* Address textarea */}
           <div>
-            <label style={{ fontSize: "13px", fontWeight: 700, color: "#374151", display: "block", marginBottom: "6px" }}>
+            <label style={{ fontSize: "13px", fontWeight: 700, color: theme?.primary || "#8A244B", display: "block", marginBottom: "6px" }}>
               <IoLocationOutline /> Full Delivery Address *
             </label>
             <textarea
@@ -491,7 +494,7 @@ function DeliveryAddressSection({
               rows={3}
               style={{
                 width: "100%",
-                border: `2px solid ${deliveryAddress ? theme.primary : "#e5e7eb"}`,
+                border: `2px solid ${deliveryAddress ? (theme?.primary || "#8A244B") : (theme?.primary || "#8A244B") + "30"}`,
                 borderRadius: "10px", padding: "12px", fontSize: "14px",
                 resize: "none", outline: "none",
                 fontFamily: "inherit", transition: "all 0.2s",
@@ -501,7 +504,7 @@ function DeliveryAddressSection({
 
           {/* Landmark */}
           <div>
-            <label style={{ fontSize: "13px", fontWeight: 700, color: "#374151", display: "block", marginBottom: "6px" }}>
+            <label style={{ fontSize: "13px", fontWeight: 700, color: theme?.primary || "#8A244B", display: "block", marginBottom: "6px" }}>
               <IoLocationOutline /> Nearby Landmark (Optional)
             </label>
             <input
@@ -509,7 +512,7 @@ function DeliveryAddressSection({
               value={deliveryLandmark}
               onChange={(e) => setDeliveryLandmark(e.target.value)}
               style={{
-                width: "100%", border: "2px solid #e5e7eb",
+                width: "100%", border: `2px solid ${(theme?.primary || "#8A244B") + "30"}`,
                 borderRadius: "10px", padding: "12px", fontSize: "14px",
                 outline: "none", transition: "all 0.2s",
               }}
@@ -518,13 +521,13 @@ function DeliveryAddressSection({
 
           {/* Maps link */}
           <div>
-            <label style={{ fontSize: "13px", fontWeight: 700, color: "#374151", display: "block", marginBottom: "6px" }}>
+            <label style={{ fontSize: "13px", fontWeight: 700, color: theme?.primary || "#8A244B", display: "block", marginBottom: "6px" }}>
               <IoMapOutline /> Google Maps Link (Auto-generated)
             </label>
             <input type="url" value={googleMapsLink} readOnly
               style={{
                 width: "100%",
-                border: `2px solid ${theme.primary}`,
+                border: `2px solid ${theme?.primary || "#8A244B"}`,
                 borderRadius: "10px", padding: "12px", fontSize: "13px",
                 backgroundColor: "#f9fafb", color: "#6b7280",
               }}
@@ -534,18 +537,20 @@ function DeliveryAddressSection({
           {/* Delivery charge summary */}
           {selectedZone && (
             <div style={{
-              backgroundColor: theme.primary + "10",
-              border: `2px solid ${theme.primary}40`,
+              backgroundColor: (theme?.primary || "#8A244B") + "10",
+              border: `2px solid ${(theme?.primary || "#8A244B")}40`,
               borderRadius: "12px", padding: "14px",
               display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
               <div>
-                <p style={{ fontSize: "13px", color: "#6b7280", margin: 0, fontWeight: 600 }}><FaMotorcycle /> Delivery Charge</p>
+                <p style={{ fontSize: "13px", color: theme?.primary || "#8A244B", margin: 0, fontWeight: 600 }}>
+                  <FaMotorcycle /> Delivery Charge
+                </p>
                 <p style={{ fontSize: "12px", color: "#9ca3af", margin: "4px 0 0 0" }}>{selectedZone.name}</p>
               </div>
               <span style={{
                 fontWeight: 900, fontSize: "20px",
-                color: selectedZone.charge === 0 ? "#16a34a" : theme.primary,
+                color: selectedZone.charge === 0 ? "#16a34a" : (theme?.primary || "#8A244B"),
               }}>
                 {selectedZone.charge === 0 ? "FREE" : `₹${selectedZone.charge}`}
               </span>
@@ -616,8 +621,16 @@ export default function Checkout() {
   const today           = new Date().toISOString().split("T")[0];
   const isPhoneRequired = orderType === "delivery" || orderType === "takeaway";
   const grandTotal      = total + (orderType === "delivery" ? deliveryCharge : 0);
-  const theme           = restaurantSettings?.theme || { primary: "#8A244B", border: "#8A244B" };
-  const effectiveRestaurantId = restaurantId;
+
+  // ★ KEY FIX: theme — restaurantData se bhi fallback lo, aur optional chaining use karo
+  const theme = restaurantSettings?.theme || restaurantData?.theme || { primary: "#8A244B", border: "#8A244B", background: "#ffffff" };
+
+  // ★ Order types — icon component reference store karo, JSX nahi
+  const ORDER_TYPES = [
+    { id: "dine-in",  label: "Dine In",  Icon: FaConciergeBell },
+    { id: "takeaway", label: "Takeaway", Icon: FaShoppingBag   },
+    { id: "delivery", label: "Delivery", Icon: FaTruck         },
+  ];
 
   // ─── LOAD RESTAURANT DATA ──────────────────────────────────────────────────
   useEffect(() => {
@@ -697,19 +710,6 @@ export default function Checkout() {
     return plans[planId] || plans['starter'];
   };
 
-  // ✅ ALL plans mein delivery open — no restrictions
-const getAvailableOrderTypes = () => {
-  return [
-    { id: "dine-in",  label: "Dine In",  icon: <FaConciergeBell size={20} /> },
-    { id: "takeaway", label: "Takeaway", icon: <FaShoppingBag size={20} />   },
-    { id: "delivery", label: "Delivery", icon: <FaTruck size={20} />         },
-  ];
-};
-  const isOrderTypeAllowed = (type) => {
-    // ✅ Sab types allowed hain — no plan restrictions
-    return true;
-  };
-
   const isValidPhone = (p) => /^[0-9]{10}$/.test(p.replace(/\s/g, ""));
 
   const validateForm = () => {
@@ -746,14 +746,11 @@ const getAvailableOrderTypes = () => {
     setIsPlacing(true);
     const now         = Date.now();
     const maxPrepTime = Math.max(...validCart.map((i) => Number(i.prepTime ?? 15)));
-
-    const userId = auth.currentUser.uid;
-
-    const paymentStatus =
-      orderType === "delivery" ? "cod_pending" : "pay_at_counter";
+    const userId      = auth.currentUser.uid;
+    const paymentStatus = orderType === "delivery" ? "cod_pending" : "pay_at_counter";
 
     const orderPayload = {
-      restaurantId: effectiveRestaurantId,
+      restaurantId,
       userId,
       customerInfo: {
         name:  customerName.trim(),
@@ -825,12 +822,11 @@ const getAvailableOrderTypes = () => {
 
     try {
       const newOrderRef = await push(
-        ref(realtimeDB, `orders/${effectiveRestaurantId}`),
+        ref(realtimeDB, `orders/${restaurantId}`),
         orderPayload
       );
       const orderId = newOrderRef.key;
 
-      // WhatsApp notification if feature enabled
       if (planFeatures.whatsappOrders && customerPhone) {
         await sendWhatsAppNotification(orderId, validCart);
       }
@@ -853,25 +849,39 @@ const getAvailableOrderTypes = () => {
   const sendWhatsAppNotification = async (orderId, items) => {
     try {
       await push(ref(realtimeDB, 'whatsappNotifications'), {
-        phone:   customerPhone,
-        message: `🎉 Order Confirmed!\n\nOrder #${orderId.slice(-6)}\nHotel: ${hotelName}\nTotal: ₹${grandTotal}\nItems: ${items.length}\n\nTrack: ${window.location.origin}/track/${restaurantId}/${orderId}`,
+        phone:     customerPhone,
+        message:   `🎉 Order Confirmed!\n\nOrder #${orderId.slice(-6)}\nHotel: ${hotelName}\nTotal: ₹${grandTotal}\nItems: ${items.length}\n\nTrack: ${window.location.origin}/track/${restaurantId}/${orderId}`,
         status:    'pending',
         createdAt: Date.now(),
       });
     } catch (e) { console.error("WhatsApp notification failed:", e); }
   };
 
+  // ─── LOADING STATE ────────────────────────────────────────────────────────
+  // ★ FIX: theme?.primary fallback use karo taaki loader bhi theme color mein ho
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: theme?.background || "#f9fafb" }}>
+        <div className="text-center">
+          <FaSpinner className="animate-spin text-4xl mx-auto mb-3" style={{ color: theme?.primary || "#8A244B" }} />
+          <p className="text-gray-500 text-sm">Loading checkout...</p>
+        </div>
+      </div>
+    );
+  }
+
   // ─── EMPTY CART ───────────────────────────────────────────────────────────
   if (cart.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center p-4"
+        style={{ backgroundColor: theme?.background || "#f9fafb" }}>
         <div className="text-center">
-          <div className="text-6xl mb-4"><IoCartOutline className="w-16 h-16 mx-auto text-gray-300" /></div>
+          <IoCartOutline className="w-16 h-16 mx-auto mb-4 text-gray-300" />
           <p className="text-xl text-gray-600 mb-6 font-semibold">Cart khali hai</p>
           <button
             onClick={() => navigate(`/menu/${restaurantId}`)}
             className="px-8 py-3 rounded-xl font-bold border-2 transition-all hover:shadow-lg"
-            style={{ borderColor: theme.primary, color: theme.primary }}>
+            style={{ borderColor: theme?.primary || "#8A244B", color: theme?.primary || "#8A244B" }}>
             Menu pe wapas jao →
           </button>
         </div>
@@ -880,26 +890,25 @@ const getAvailableOrderTypes = () => {
   }
 
   // ─── CHECKOUT FORM ────────────────────────────────────────────────────────
-  const availableOrderTypes = getAvailableOrderTypes();
-
   return (
-    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 pb-24">
+    <div className="min-h-screen p-3 sm:p-4 pb-24"
+      style={{ backgroundColor: theme?.background || "#f9fafb" }}>
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-lg p-4 sm:p-6">
 
-        {/* Header */}
+        {/* ── Header ── */}
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => navigate(-1)}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <FaArrowLeft className="text-gray-600" />
           </button>
-          <h2 className="text-2xl font-bold" style={{ color: theme.primary }}>Checkout</h2>
+          <h2 className="text-2xl font-bold" style={{ color: theme?.primary || "#8A244B" }}>Checkout</h2>
 
           {subscription && auth.currentUser && (
             <div className="ml-auto flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold"
               style={{
-                backgroundColor: isPlanActive ? theme.primary + '15' : '#fee2e2',
-                color:           isPlanActive ? theme.primary : '#dc2626',
-                border: `1px solid ${isPlanActive ? theme.primary + '30' : '#fecaca'}`,
+                backgroundColor: isPlanActive ? (theme?.primary || "#8A244B") + '15' : '#fee2e2',
+                color:           isPlanActive ? (theme?.primary || "#8A244B") : '#dc2626',
+                border: `1px solid ${isPlanActive ? (theme?.primary || "#8A244B") + '30' : '#fecaca'}`,
               }}>
               <FaCrown size={12} />
               {subscription.planName || subscription.planId || 'Free'}
@@ -908,7 +917,7 @@ const getAvailableOrderTypes = () => {
           )}
         </div>
 
-        {/* Plan expired warning — only for logged-in users */}
+        {/* ── Plan expired warning ── */}
         {auth.currentUser && !isPlanActive && (
           <div className="mb-4 p-4 bg-amber-50 border-2 border-amber-200 rounded-xl flex items-start gap-3">
             <FaLock className="text-amber-600 mt-0.5 shrink-0" />
@@ -921,9 +930,12 @@ const getAvailableOrderTypes = () => {
           </div>
         )}
 
-        {/* Cart Summary */}
-        <div className="border-2 rounded-xl p-4 mb-5 bg-gray-50">
-          <h3 className="font-bold text-gray-700 mb-3"><IoReceiptOutline className="w-5 h-5" /> Order Summary</h3>
+        {/* ── Order Summary ── */}
+        <div className="rounded-xl p-4 mb-5 bg-gray-50"
+          style={{ border: `2px solid ${(theme?.primary || "#8A244B")}30` }}>
+          <h3 className="font-bold mb-3 flex items-center gap-2" style={{ color: theme?.primary || "#8A244B" }}>
+            <IoReceiptOutline className="w-5 h-5" /> Order Summary
+          </h3>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {getValidCart().map((item) => (
               <div key={item.id} className="flex justify-between py-2 border-b border-gray-200 last:border-0">
@@ -932,30 +944,28 @@ const getAvailableOrderTypes = () => {
                   <p className="text-xs text-gray-500">× {item.qty}</p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {item.dishTasteProfile !== "sweet" && item.spicePreference && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium">
-                        <IoFlame className="w-3 h-3 mr-0.5 text-orange-500" />
- {item.spicePreference}
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium flex items-center gap-0.5">
+                        <IoFlame className="w-3 h-3" /> {item.spicePreference}
                       </span>
                     )}
                     {item.dishTasteProfile === "sweet" && item.sweetLevel && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-pink-100 text-pink-700 font-medium">
-                        <IoStar className="w-3 h-3 mr-0.5 text-pink-500" /> {item.sweetLevel}
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-pink-100 text-pink-700 font-medium flex items-center gap-0.5">
+                        <IoStar className="w-3 h-3" /> {item.sweetLevel}
                       </span>
                     )}
                     {item.dishTasteProfile !== "sweet" && item.saltPreference && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
-                        <IoSnow className="w-3 h-3 mr-0.5 text-blue-500" /> {item.saltPreference}
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium flex items-center gap-0.5">
+                        <IoSnow className="w-3 h-3" /> {item.saltPreference}
                       </span>
                     )}
                     {item.salad?.qty > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">
-                        <IoLeaf className="w-3 h-3 mr-0.5 text-green-500" />
- Salad
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium flex items-center gap-0.5">
+                        <IoLeaf className="w-3 h-3" /> Salad
                       </span>
                     )}
                   </div>
                 </div>
-                <p className="font-bold text-sm flex-shrink-0 ml-3" style={{ color: theme.primary }}>
+                <p className="font-bold text-sm flex-shrink-0 ml-3" style={{ color: theme?.primary || "#8A244B" }}>
                   ₹{item.price * item.qty}
                 </p>
               </div>
@@ -963,8 +973,9 @@ const getAvailableOrderTypes = () => {
           </div>
         </div>
 
-        {/* Total */}
-        <div className="mb-6 p-4 bg-gray-100 rounded-xl space-y-2">
+        {/* ── Total ── */}
+        <div className="mb-6 p-4 rounded-xl space-y-2"
+          style={{ backgroundColor: (theme?.primary || "#8A244B") + "08", border: `2px solid ${(theme?.primary || "#8A244B")}20` }}>
           <div className="flex justify-between text-sm text-gray-600">
             <span>Subtotal</span>
             <span className="font-semibold">₹{total}</span>
@@ -978,68 +989,87 @@ const getAvailableOrderTypes = () => {
               </span>
             </div>
           )}
-          <div className="flex justify-between font-bold text-lg pt-2 border-t-2 border-gray-300">
-            <span>Total Payable</span>
-            <span style={{ color: theme.primary }}>₹{grandTotal}</span>
+          <div className="flex justify-between font-bold text-lg pt-2"
+            style={{ borderTop: `2px solid ${(theme?.primary || "#8A244B")}30` }}>
+            <span style={{ color: theme?.primary || "#8A244B" }}>Total Payable</span>
+            <span style={{ color: theme?.primary || "#8A244B" }}>₹{grandTotal}</span>
           </div>
         </div>
 
-        {/* Customer Form */}
+        {/* ── Customer Form ── */}
         <div className="space-y-4 mb-6">
-          <input placeholder=" Full Name *" value={customerName}
+          <input
+            placeholder="Full Name *"
+            value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
             className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
-            style={{ borderColor: customerName ? theme.primary : "#e5e7eb" }} />
+            style={{ borderColor: customerName ? (theme?.primary || "#8A244B") : (theme?.primary || "#8A244B") + "30" }}
+          />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input type="tel"
+            <input
+              type="tel"
               placeholder={isPhoneRequired ? "📱 Phone Number *" : "📱 Phone Number"}
-              value={customerPhone} maxLength={10}
+              value={customerPhone}
+              maxLength={10}
               onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
               className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
-              style={{ borderColor: customerPhone ? theme.primary : "#e5e7eb" }} />
-            <input type="email" placeholder=" Email (Optional)" value={customerEmail}
+              style={{ borderColor: customerPhone ? (theme?.primary || "#8A244B") : (theme?.primary || "#8A244B") + "30" }}
+            />
+            <input
+              type="email"
+              placeholder="Email (Optional)"
+              value={customerEmail}
               onChange={(e) => setCustomerEmail(e.target.value)}
               className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
-              style={{ borderColor: customerEmail ? theme.primary : "#e5e7eb" }} />
+              style={{ borderColor: customerEmail ? (theme?.primary || "#8A244B") : (theme?.primary || "#8A244B") + "30" }}
+            />
           </div>
           {orderType === "dine-in" && (
-            <input placeholder=" Table Number *" value={tableNumber}
+            <input
+              placeholder="Table Number *"
+              value={tableNumber}
               onChange={(e) => setTableNumber(e.target.value)}
               className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
-              style={{ borderColor: tableNumber ? theme.primary : "#e5e7eb" }} />
+              style={{ borderColor: tableNumber ? (theme?.primary || "#8A244B") : (theme?.primary || "#8A244B") + "30" }}
+            />
           )}
         </div>
 
-        {/* Order Type */}
-        <div className="border-2 rounded-xl p-4 mb-5">
-          <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
-            <FaUtensils />  Order Type
+        {/* ── Order Type ── */}
+        <div className="rounded-xl p-4 mb-5"
+          style={{ border: `2px solid ${(theme?.primary || "#8A244B")}30` }}>
+          <h3 className="font-bold mb-3 flex items-center gap-2" style={{ color: theme?.primary || "#8A244B" }}>
+            <FaUtensils color={theme?.primary || "#8A244B"} /> Order Type
           </h3>
-          <div className={`grid gap-2 ${
-            availableOrderTypes.length === 1 ? 'grid-cols-1' :
-            availableOrderTypes.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
-          }`}>
-            {availableOrderTypes.map((type) => (
-              <button key={type.id}
-                onClick={() => {
-                  setOrderType(type.id);
-                  if (type.id !== "delivery") {
-                    setSelectedZone(null); setDeliveryCharge(0);
-                    setDeliveryAddress(""); setGoogleMapsLink("");
-                    setDeliveryLandmark(""); setCoordinates(null);
-                  }
-                }}
-                className="p-3 rounded-xl border-2 font-semibold text-sm transition-all"
-                style={{
-                  borderColor:     orderType === type.id ? theme.primary : "#e5e7eb",
-                  backgroundColor: orderType === type.id ? theme.primary : "white",
-                  color:           orderType === type.id ? "white" : theme.primary,
-                  transform:       orderType === type.id ? "scale(1.02)" : "scale(1)",
-                }}>
-<div className="flex justify-center mb-1">{type.icon}</div>
-                <div className="text-xs sm:text-sm">{type.label}</div>
-              </button>
-            ))}
+          <div className="grid grid-cols-3 gap-2">
+            {ORDER_TYPES.map(({ id, label, Icon }) => {
+              const isActive = orderType === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => {
+                    setOrderType(id);
+                    if (id !== "delivery") {
+                      setSelectedZone(null); setDeliveryCharge(0);
+                      setDeliveryAddress(""); setGoogleMapsLink("");
+                      setDeliveryLandmark(""); setCoordinates(null);
+                    }
+                  }}
+                  className="p-3 rounded-xl border-2 font-semibold text-sm transition-all"
+                  style={{
+                    borderColor:     isActive ? (theme?.primary || "#8A244B") : (theme?.primary || "#8A244B") + "40",
+                    backgroundColor: isActive ? (theme?.primary || "#8A244B") : (theme?.primary || "#8A244B") + "08",
+                    color:           isActive ? "white" : (theme?.primary || "#8A244B"),
+                    transform:       isActive ? "scale(1.02)" : "scale(1)",
+                  }}
+                >
+                  <div className="flex justify-center mb-1">
+                    <Icon size={20} color={isActive ? "#ffffff" : (theme?.primary || "#8A244B")} />
+                  </div>
+                  <div className="text-xs sm:text-sm">{label}</div>
+                </button>
+              );
+            })}
           </div>
           {planFeatures.whatsappOrders && (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -1050,70 +1080,87 @@ const getAvailableOrderTypes = () => {
           )}
         </div>
 
-        {/* Delivery Section */}
+        {/* ── Delivery Section ── */}
         {orderType === "delivery" && (
           <DeliveryAddressSection
-            theme={theme} deliveryZones={deliveryZones}
-            selectedZone={selectedZone} setSelectedZone={setSelectedZone}
-            deliveryAddress={deliveryAddress} setDeliveryAddress={setDeliveryAddress}
-            deliveryLandmark={deliveryLandmark} setDeliveryLandmark={setDeliveryLandmark}
-            googleMapsLink={googleMapsLink} setGoogleMapsLink={setGoogleMapsLink}
+            theme={theme}
+            deliveryZones={deliveryZones}
+            selectedZone={selectedZone}
+            setSelectedZone={setSelectedZone}
+            deliveryAddress={deliveryAddress}
+            setDeliveryAddress={setDeliveryAddress}
+            deliveryLandmark={deliveryLandmark}
+            setDeliveryLandmark={setDeliveryLandmark}
+            googleMapsLink={googleMapsLink}
+            setGoogleMapsLink={setGoogleMapsLink}
             setDeliveryCharge={setDeliveryCharge}
-            coordinates={coordinates} setCoordinates={setCoordinates}
+            coordinates={coordinates}
+            setCoordinates={setCoordinates}
           />
         )}
 
-        {/* Special Instructions */}
+        {/* ── Special Instructions ── */}
         <div className="mb-6">
           <textarea
-            placeholder=" Special instructions (optional)..."
+            placeholder="Special instructions (optional)..."
             value={specialInstructions}
             onChange={(e) => setSpecialInstructions(e.target.value)}
             rows={2}
-            className="w-full border-2 border-gray-200 rounded-xl p-3.5 text-sm resize-none outline-none focus:border-gray-400 transition-all"
+            className="w-full border-2 rounded-xl p-3.5 text-sm resize-none outline-none transition-all"
+            style={{ borderColor: (theme?.primary || "#8A244B") + "30" }}
           />
         </div>
 
-        {/* Payment Info Box */}
-        <div className="border-2 rounded-xl p-4 mb-6"
-          style={{ borderColor: theme.primary + "30", backgroundColor: theme.primary + "05" }}>
-          <h3 className="font-bold text-gray-700 mb-2"><IoCardOutline className="w-5 h-5" /> Payment</h3>
+        {/* ── Payment Info ── */}
+        <div className="rounded-xl p-4 mb-6"
+          style={{ border: `2px solid ${(theme?.primary || "#8A244B")}30`, backgroundColor: (theme?.primary || "#8A244B") + "05" }}>
+          <h3 className="font-bold mb-2 flex items-center gap-2" style={{ color: theme?.primary || "#8A244B" }}>
+            <IoCardOutline className="w-5 h-5" /> Payment
+          </h3>
           {orderType === "delivery" ? (
-            <div className="flex items-center gap-3">
-             
-              <div>
-                <p className="font-bold text-gray-800">Cash on Delivery</p>
-                <p className="text-xs text-gray-500">Delivery boy aayega tab cash ya UPI se pay karna hoga</p>
-              </div>
+            <div>
+              <p className="font-bold text-gray-800">Cash on Delivery</p>
+              <p className="text-xs text-gray-500">Delivery boy aayega tab cash ya UPI se pay karna hoga</p>
             </div>
           ) : (
-            <div className="flex items-center gap-3">
-             
-              <div>
-                <p className="font-bold text-gray-800">Pay at Counter</p>
-                <p className="text-xs text-gray-500">Order place karo — counter pe aake cash ya UPI se pay karo</p>
-              </div>
+            <div>
+              <p className="font-bold text-gray-800">Pay at Counter</p>
+              <p className="text-xs text-gray-500">Order place karo — counter pe aake cash ya UPI se pay karo</p>
             </div>
           )}
         </div>
 
-        {/* CTA */}
+        {/* ── CTA ── */}
+        {/* ★ FIX: Explicit text-white aur hover states PublicMenu ki tarah */}
         <button
           onClick={handlePlaceOrder}
-          disabled={isLoading || isPlacing}
-          className="w-full py-4 rounded-xl font-bold text-lg text-white shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ backgroundColor: theme.primary }}>
-          {isLoading
-            ? <span className="flex items-center justify-center gap-2"><FaSpinner className="animate-spin" /> Loading...</span>
-            : isPlacing
-            ? <span className="flex items-center justify-center gap-2"><FaSpinner className="animate-spin" /> Order place ho raha hai...</span>
-            : ` Place Order • ₹${grandTotal}`}
+          disabled={isPlacing}
+          className="w-full py-4 rounded-xl font-bold text-lg shadow-lg transition-all hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ 
+            backgroundColor: theme?.primary || "#8A244B",
+            color: '#ffffff'
+          }}
+          onMouseEnter={(e) => {
+            if (!isPlacing) {
+              e.currentTarget.style.opacity = '0.9';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = '1';
+          }}
+        >
+          {isPlacing
+            ? <span className="flex items-center justify-center gap-2">
+                <FaSpinner className="animate-spin" /> Order place ho raha hai...
+              </span>
+            : `Place Order • ₹${grandTotal}`
+          }
         </button>
 
         <p className="text-center text-xs text-gray-400 mt-3">
           {orderType === "delivery"
-            ? " Payment delivery ke waqt hogi"
-            : " Counter pe payment karo — Cash ya UPI dono accepted"}
+            ? "Payment delivery ke waqt hogi"
+            : "Counter pe payment karo — Cash ya UPI dono accepted"}
         </p>
 
       </div>

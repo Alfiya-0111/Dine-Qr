@@ -313,17 +313,75 @@ function OrderCard({ order, onUpdateStatus, tick }) {
   const isCompleted = order.status === "completed";
   const isPending   = order.status === "pending";
   const items = getItemsArray(order.items);
+const statusConfig = {
+  pending:   { 
+    label: "Pending", 
+    next: "confirmed", 
+    nextColor: "#d97706",
+    nextLabel: <><FaCheckCircle style={{fontSize:12}}/> Confirm Order</> 
+  },
+  confirmed: { 
+    label: "Confirmed", 
+    next: "preparing", 
+    nextColor: MAROON,
+    nextLabel: <><FaFire style={{fontSize:12}}/> Start Cooking</> 
+  },
+  preparing: { 
+    label: "Preparing", 
+    next: "ready", 
+    nextColor: "#16a34a",
+    nextLabel: <><FaUtensils style={{fontSize:12}}/> Mark Ready</> 
+  },
+  ready:     { 
+    label: "Ready", 
+    next: "completed", 
+    nextColor: "#16a34a",
+    nextLabel: <><FaCheckCircle style={{fontSize:12}}/> Complete Order</> 
+  },
+  completed: { 
+    label: "Completed", 
+    next: null, 
+    nextColor: null,
+    nextLabel: null 
+  },
+  cancelled: { 
+    label: "Cancelled", 
+    next: null, 
+    nextColor: null,
+    nextLabel: null 
+  },
+  delivered: { 
+    label: "Delivered", 
+    next: null, 
+    nextColor: null,
+    nextLabel: null 
+  },
+  shipped: { 
+    label: "Shipped", 
+    next: null, 
+    nextColor: null,
+    nextLabel: null 
+  },
+  out_for_delivery: { 
+    label: "Out for Delivery", 
+    next: null, 
+    nextColor: null,
+    nextLabel: null 
+  },
+  picked_up: { 
+    label: "Picked Up", 
+    next: null, 
+    nextColor: null,
+    nextLabel: null 
+  },
+};
 
-  const statusConfig = {
-   pending:   { nextLabel: <><FaCheckCircle style={{fontSize:12}}/> Confirm Order</> },
-confirmed: { nextLabel: <><FaFire style={{fontSize:12}}/> Start Cooking</> },
-preparing: { nextLabel: <><FaUtensils style={{fontSize:12}}/> Mark Ready</> },
-ready:     { nextLabel: <><FaCheckCircle style={{fontSize:12}}/> Complete Order</> },
-    completed: { label: "Completed", color: "#9ca3af", next: null,         nextLabel: null },
-  };
-
-  const cfg = statusConfig[order.status] || statusConfig.pending;
-
+const cfg = statusConfig[order.status] || { 
+  label: order.status || "Unknown", 
+  next: null, 
+  nextColor: null,
+  nextLabel: null 
+};
   const cardBorder = isCompleted
     ? `1.5px solid #e5d8de`
     : isUrgent
@@ -401,20 +459,20 @@ ready:     { nextLabel: <><FaCheckCircle style={{fontSize:12}}/> Complete Order<
           }}>
             {formatElapsed(elapsed)}
           </div>
-          <span style={{
-            background: "rgba(255,255,255,0.18)",
-            border: "1px solid rgba(255,255,255,0.3)",
-            color: "#fff",
-            fontSize: 10,
-            fontWeight: 700,
-            padding: "2px 9px",
-            borderRadius: 20,
-            marginTop: 3,
-            display: "inline-block",
-            letterSpacing: "0.5px",
-          }}>
-            {cfg.label.toUpperCase()}
-          </span>
+         <span style={{
+  background: "rgba(255,255,255,0.18)",
+  border: "1px solid rgba(255,255,255,0.3)",
+  color: "#fff",
+  fontSize: 10,
+  fontWeight: 700,
+  padding: "2px 9px",
+  borderRadius: 20,
+  marginTop: 3,
+  display: "inline-block",
+  letterSpacing: "0.5px",
+}}>
+  {(cfg.label || "UNKNOWN").toUpperCase()}
+</span>
         </div>
       </div>
 
@@ -554,9 +612,12 @@ ready:     { nextLabel: <><FaCheckCircle style={{fontSize:12}}/> Complete Order<
               padding: "11px 12px",
               borderRadius: 13,
               border: "none",
-              background: cfg.nextColor === MAROON
-                ? `linear-gradient(135deg, ${MAROON} 0%, #5c1030 100%)`
-                : cfg.nextColor,
+             background: !cfg.nextColor 
+  ? MAROON
+  : cfg.nextColor === MAROON
+    ? `linear-gradient(135deg, ${MAROON} 0%, #5c1030 100%)`
+    : cfg.nextColor,
+
               color: "#fff",
               fontSize: 13,
               fontWeight: 800,

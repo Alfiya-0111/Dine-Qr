@@ -2606,13 +2606,15 @@ const handleOrderClick = (item, action = "order") => {
         <img src={restaurantSettings.logo} alt="logo" className="h-10 md:h-12 object-contain" />
       ) : (
         <span 
-          className="font-bold text-lg md:text-xl px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105"
+          className="font-bold  md:text-xl px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105"
           style={{ 
             color: theme.primary,
-            border: `2px solid ${theme.primary}`,
+            // border: `2px solid ${theme.primary}`,
             backgroundColor: 'rgba(255,255,255,0.15)',
             backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)'
+            WebkitBackdropFilter: 'blur(16px)',
+            fontSize:"30px"
+
           }}
         >
           {restaurantSettings?.name || restaurantName}
