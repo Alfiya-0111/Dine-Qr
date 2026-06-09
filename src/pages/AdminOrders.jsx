@@ -144,7 +144,81 @@ const [deliveryBoys, setDeliveryBoys] = useState([]);
       });
     }
   };
+// AdminOrders.js mein — WhatsApp orders listener ke saath ek debug useEffect add karo
 
+// ── DEBUG: WhatsApp Orders Raw Data ──
+// AdminOrders.jsx — DEBUG useEffect ko replace karo
+
+// ── DEBUG: WhatsApp Orders Raw Data ──
+useEffect(() => {
+  if (!restaurantId) return;
+  
+  const debugRef = ref(realtimeDB, `whatsappOrders/${restaurantId}`);
+  const unsub = onValue(debugRef, (snap) => {
+    const data = snap.val();
+    if (!data) return;
+    
+    console.log("🔍 === WHATSAPP ORDERS RAW DATA ===");
+    Object.entries(data).forEach(([id, order]) => {
+      console.log(`\n📦 Order: ${id}`);
+      
+      // 🔥 ALL fields check karo
+      console.log(`   ALL KEYS:`, Object.keys(order));
+      
+      // 🔥 Check common item field names
+      const possibleItemFields = ['items', 'orderItems', 'dishes', 'cart', 'products', 'foodItems', 'menuItems', 'selectedItems', 'order'];
+      possibleItemFields.forEach(field => {
+        if (order[field] !== undefined) {
+          console.log(`   ✅ FOUND FIELD "${field}":`, typeof order[field], Array.isArray(order[field]) ? 'ARRAY' : 'OBJECT');
+          const arr = Array.isArray(order[field]) ? order[field] : Object.values(order[field]);
+          arr.forEach((item, idx) => {
+            console.log(`      Item ${idx}:`, JSON.stringify(item, null, 2));
+          });
+        }
+      });
+      
+      // Agar koi items field nahi mila
+      if (!possibleItemFields.some(f => order[f] !== undefined)) {
+        console.log(`   ❌ NO ITEMS FIELD FOUND IN:`, Object.keys(order));
+      }
+    });
+  });
+  
+  return () => unsub();
+}, [restaurantId]);
+// AdminOrders.jsx mein ek aur debug useEffect add karo
+
+// ── DEBUG: Main Orders Raw Data ──
+useEffect(() => {
+  if (!restaurantId) return;
+  
+  const debugRef = ref(realtimeDB, `orders/${restaurantId}`);
+  const unsub = onValue(debugRef, (snap) => {
+    const data = snap.val();
+    if (!data) return;
+    
+    console.log("🔍 === MAIN ORDERS RAW DATA ===");
+    Object.entries(data).forEach(([id, order]) => {
+      // Sirf WhatsApp orders check karo
+      if (order.source === 'whatsapp' || order.type === 'whatsapp') {
+        console.log(`\n📦 Order: ${id}`);
+        console.log(`   ALL KEYS:`, Object.keys(order));
+        console.log(`   customerName:`, order.customerName);
+        console.log(`   total:`, order.total);
+        console.log(`   items:`, order.items ? 'EXISTS' : 'MISSING');
+        if (order.items) {
+          const arr = Array.isArray(order.items) ? order.items : Object.values(order.items);
+          console.log(`   items count:`, arr.length);
+          arr.forEach((item, idx) => {
+            console.log(`   Item ${idx}: name="${item.name || 'UNKNOWN'}"`, item);
+          });
+        }
+      }
+    });
+  });
+  
+  return () => unsub();
+}, [restaurantId]);
   useEffect(() => {
     if (paramId && !restaurantId) {
       setRestaurantId(paramId);
@@ -342,18 +416,35 @@ useEffect(() => {
   }, [autoCompleteEnabled, planFeatures.autoComplete]);
 
   // ── STATUS UPDATE ──
-  const updateStatus = async (id, status) => {
-    const order = ordersRefState.current.find(o => o.id === id);
-    const t = Date.now();
-    const updates = { status: status.toLowerCase(), updatedAt: t };
-    if (status === "preparing" || status === "ready") {
-      const prepTime = order?.prepTime || 5;
-      updates.prepStartedAt = t;
-      updates.prepEndsAt    = t + prepTime * 60 * 1000;
-    }
-    await update(ref(realtimeDB, `orders/${restaurantId}/${id}`), updates);
+ // AdminOrders.js - updateStatus function mein add karo
+const updateStatus = async (id, status) => {
+  const order = ordersRefState.current.find(o => o.id === id);
+  const t = Date.now();
+  const updates = { 
+    status: status.toLowerCase(), 
+    updatedAt: t 
   };
-
+  
+  if (status === "preparing" || status === "ready") {
+    const prepTime = order?.prepTime || 5;
+    updates.prepStartedAt = t;
+    updates.prepEndsAt = t + prepTime * 60 * 1000;
+  }
+  
+  // ✅ Main order update
+  await update(ref(realtimeDB, `orders/${restaurantId}/${id}`), updates);
+  
+  // ✅ Agar ye WhatsApp order hai, toh whatsappOrders bhi update karo
+  // taaki auto processor dubara na chale
+  if (order?.source === "whatsapp" || order?.type === "whatsapp") {
+    await update(ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`), {
+      whatsappStatus: "admin_confirmed",
+      status: status.toLowerCase(),
+      adminConfirmedAt: t,
+      updatedAt: t,
+    }).catch(() => {}); // Ignore error agar whatsappOrders mein na ho
+  }
+};
   const deleteOrder = async (id) => {
     if (!window.confirm("Delete this order permanently?")) return;
     await remove(ref(realtimeDB, `orders/${restaurantId}/${id}`));

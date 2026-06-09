@@ -16,10 +16,7 @@ const CLOUDINARY_CONFIG = {
   folder: "khaatogo",
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // VENUE TYPE CONFIG
-// Bar removed — alcohol is not permitted (haram)
-// ═══════════════════════════════════════════════════════════════════════════════
 const VENUE_CONFIGS = {
   restaurant: {
     label: "Restaurant",
@@ -38,10 +35,10 @@ const VENUE_CONFIGS = {
     categoryHints: ["Starters", "Main Course", "Breads", "Desserts", "Beverages"],
   },
   cafe: {
-    label: "Café",
+    label: "Cafe",
     emoji: <FaCoffee />,
     itemWord: "Item",
-    showVegNonVeg: false,
+    showVegNonVeg: true,
     showSpiceLevel: false,
     showSalad: false,
     showDishNature: false,
@@ -73,7 +70,7 @@ const VENUE_CONFIGS = {
     label: "Bakery",
     emoji: <MdCake />,
     itemWord: "Item",
-    showVegNonVeg: false,
+    showVegNonVeg: true,
     showSpiceLevel: false,
     showSalad: false,
     showDishNature: false,
@@ -103,9 +100,7 @@ const VENUE_CONFIGS = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
 // PLAN FEATURE MAP
-// ═══════════════════════════════════════════════════════════════════════════════
 const PLAN_FEATURES = {
   trial: {
     dishes: "Unlimited", qrMenu: true, whatsappOrders: true, kds: true,
@@ -145,7 +140,7 @@ growth:  { icon: <FaChartLine />, color: "#8A244B" },
 pro:     { icon: <FaInfinity />, color: "#FFD166" },
 };
 
-// ─── SPELLCHECK ───────────────────────────────────────────────────────────────
+// SPELLCHECK
 const SimpleSpellCheck = ({ value, onChange, onBlur, placeholder, className, isTextarea = false, customWords = [] }) => {
   const [suggestions, setSuggestions] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -196,7 +191,7 @@ const SimpleSpellCheck = ({ value, onChange, onBlur, placeholder, className, isT
     const cursorPos = e.target.selectionStart;
     onChange(e);
     const textBeforeCursor = newValue.substring(0, cursorPos);
-    const words = textBeforeCursor.split(/\s+/);
+    const words = textBeforeCursor.split(/\\s+/);
     const current = words[words.length - 1].replace(/[^a-zA-Z]/g, "");
     if (current.length > 3 && !commonWords.has(current.toLowerCase())) {
       const sugg = getSuggestions(current);
@@ -209,7 +204,7 @@ const SimpleSpellCheck = ({ value, onChange, onBlur, placeholder, className, isT
     const cursorPos = inputRef.current.selectionStart;
     const textBeforeCursor = value.substring(0, cursorPos);
     const textAfterCursor = value.substring(cursorPos);
-    const words = textBeforeCursor.split(/\s+/);
+    const words = textBeforeCursor.split(/\\s+/);
     words[words.length - 1] = sugg;
     const newValue = words.join(" ") + textAfterCursor;
     onChange({ target: { value: newValue } });
@@ -252,7 +247,7 @@ const SimpleSpellCheck = ({ value, onChange, onBlur, placeholder, className, isT
   );
 };
 
-// ─── GST RATES ────────────────────────────────────────────────────────────────
+// GST RATES
 const GST_PRESETS = [
   { label: "0%", value: 0 },
   { label: "5%", value: 5 },
@@ -261,7 +256,7 @@ const GST_PRESETS = [
   { label: "28%", value: 28 },
 ];
 
-// ─── UPGRADE BADGE ────────────────────────────────────────────────────────────
+// UPGRADE BADGE
 const UpgradeBadge = ({ requiredPlan, navigate, restaurantId }) => (
   <span
     onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)}
@@ -274,7 +269,7 @@ const UpgradeBadge = ({ requiredPlan, navigate, restaurantId }) => (
   </span>
 );
 
-// ─── LOCKED FEATURE CARD ───────────────────────────────────────────────────────
+// LOCKED FEATURE CARD
 const LockedFeatureCard = ({ icon, title, description, requiredPlan, onUpgrade }) => (
   <div className="bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 p-6 relative overflow-hidden">
     <div className="absolute inset-0 bg-gray-50/90 backdrop-blur-sm flex flex-col items-center justify-center z-10">
@@ -288,7 +283,7 @@ const LockedFeatureCard = ({ icon, title, description, requiredPlan, onUpgrade }
         {" "}plan mein available
       </p>
       <button onClick={onUpgrade} className="px-5 py-2 rounded-xl text-white text-sm font-bold shadow-md active:scale-95 transition-all bg-gradient-to-r from-[#8A244B] to-[#f18e49]">
-        Upgrade Karo →
+        Upgrade Karo
       </button>
     </div>
     <div className="blur-sm pointer-events-none select-none opacity-40">
@@ -300,7 +295,7 @@ const LockedFeatureCard = ({ icon, title, description, requiredPlan, onUpgrade }
   </div>
 );
 
-// ─── VENUE BADGE ──────────────────────────────────────────────────────────────
+// VENUE BADGE
 const VenueBadge = ({ venueType }) => {
   const cfg = VENUE_CONFIGS[venueType] || VENUE_CONFIGS.restaurant;
   return (
@@ -310,7 +305,7 @@ const VenueBadge = ({ venueType }) => {
   );
 };
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
+// MAIN COMPONENT
 export default function AddItem() {
   const { restaurantId } = useParams();
   const navigate = useNavigate();
@@ -327,18 +322,15 @@ export default function AddItem() {
   const [glbUploading, setGlbUploading] = useState(false);
   const [glbPreviewUrl, setGlbPreviewUrl] = useState("");
 
-  // ── Venue type from restaurant settings ──
   const [venueType, setVenueType] = useState("restaurant");
   const venueCfg = VENUE_CONFIGS[venueType] || VENUE_CONFIGS.restaurant;
 
-  // ── Subscription state ──
   const [subPlan, setSubPlan] = useState(null);
   const [planId, setPlanId] = useState("starter");
   const [planFeatures, setPlanFeatures] = useState(PLAN_FEATURES.starter);
   const [dishCount, setDishCount] = useState(0);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
 
-  // ── AI ──
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
 
@@ -347,7 +339,7 @@ export default function AddItem() {
     price: "",
     description: "",
     category: "",
-    spiceLevel: "medium",
+     spiceLevel: "",
     servingSize: "full",
     prepTime: 15,
     dishTasteProfile: "spicy",
@@ -366,6 +358,7 @@ export default function AddItem() {
     drinkSize: "",
     weightUnit: "piece",
     weightValue: "",
+    vegType: "",
   });
 
   const foodDictionary = [
@@ -381,19 +374,16 @@ export default function AddItem() {
     "Chocolate","Vanilla","Strawberry","Butterscotch","Caramel","Pistachio",
     "Cheesecake","Tiramisu","Brownie","Tart","Waffle","Pancake","Crepe",
     "Thali","Chhachh","Lassi","Kadhi","Khichdi","Halwa","Kheer","Rabdi",
-    // Café specific additions
     "Garlic","Bread","Sandwich","Wrap","Roll","Sub","Toast","Bagel",
     "Pasta","Penne","Fettuccine","Gnocchi","Ravioli","Linguine",
     "Focaccia","Ciabatta","Panini","Club","Grilled",
   ];
 
-  // ─── Load venue type from restaurant settings ──────────────────────────────
   useEffect(() => {
     if (!restaurantId) return;
     get(rtdbRef(realtimeDB, `restaurants/${restaurantId}/venueType`)).then((snap) => {
       if (snap.exists()) {
         const vt = snap.val();
-        // Safety: if somehow 'bar' was saved before, fall back to restaurant
         const safeVt = VENUE_CONFIGS[vt] ? vt : "restaurant";
         setVenueType(safeVt);
         const cfg = VENUE_CONFIGS[safeVt] || VENUE_CONFIGS.restaurant;
@@ -407,7 +397,6 @@ export default function AddItem() {
     }).catch(() => {});
   }, [restaurantId]);
 
-  // ─── Load subscription + dish count ───────────────────────────────────────
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) return;
@@ -459,6 +448,7 @@ export default function AddItem() {
         drinkSize: editData.drinkSize ?? "",
         weightUnit: editData.weightUnit ?? "piece",
         weightValue: editData.weightValue ?? "",
+        vegType: editData.vegType ?? "",
       }));
       setPreview(editData.imageUrl || "");
       if (editData.glbUrl) setGlbPreviewUrl(editData.glbUrl);
@@ -484,11 +474,6 @@ export default function AddItem() {
   }, []);
 
   useEffect(() => {
-    if (categories.length === 0) return;
-    setForm((prev) => ({ ...prev, category: prev.category || categories[0].name }));
-  }, [categories]);
-
-  useEffect(() => {
     if (!venueCfg.showDishNature) return;
     if (form.dishTasteProfile === "spicy") {
       setForm((prev) => ({ ...prev, saltLevelEnabled: true, saladRequired: true, saladConfig: { ...prev.saladConfig, enabled: true } }));
@@ -501,7 +486,6 @@ export default function AddItem() {
     (cat) => cat.name.toLowerCase() === "drinks" && form.categoryIds.includes(cat.id)
   );
 
-  // ─── Computed plan limits ──────────────────────────────────────────────────
   const maxDishes = planFeatures.dishes;
   const isUnlimited = maxDishes === "Unlimited" || maxDishes === "unlimited";
   const dishesUsed = editData ? Math.max(0, dishCount - 1) : dishCount;
@@ -510,13 +494,13 @@ export default function AddItem() {
   const canUseAR = planFeatures.arFoodView === true;
   const isPlanExpired = subscriptionStatus ? !subscriptionStatus.active : false;
 
- const getDishLimitInfo = () => {
+  const getDishLimitInfo = () => {
     if (!subPlan) return null;
-    if (isUnlimited) return { color: "#22c55e", bg: "#f0fdf4", border: "#bbf7d0", text: <><FaInfinity className="inline mr-1"/> Unlimited {venueCfg.itemWord.toLowerCase()}s — {PLAN_LABELS[planId] || planId} plan</> };
+    if (isUnlimited) return { color: "#22c55e", bg: "#f0fdf4", border: "#bbf7d0", text: <><FaInfinity className="inline mr-1"/> Unlimited {venueCfg.itemWord.toLowerCase()}s</> };
     const remaining = Math.max(0, maxDishes - dishesUsed);
-    if (remaining === 0) return { color: "#dc2626", bg: "#fef2f2", border: "#fecaca", text: <><FaBan className="inline mr-1"/> {venueCfg.itemWord} limit reached! ({dishesUsed}/{maxDishes}) — Upgrade karo</> };
-    if (remaining <= 5) return { color: "#f97316", bg: "#fff7ed", border: "#fed7aa", text: <><FaExclamationTriangle className="inline mr-1"/> Sirf {remaining} {venueCfg.itemWord.toLowerCase()}s baaki ({dishesUsed}/{maxDishes} used)</> };
-    return { color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe", text: <><FaBox className="inline mr-1"/> {dishesUsed}/{maxDishes} {venueCfg.itemWord.toLowerCase()}s used — {remaining} remaining</> };
+    if (remaining === 0) return { color: "#dc2626", bg: "#fef2f2", border: "#fecaca", text: <><FaBan className="inline mr-1"/> {venueCfg.itemWord} limit reached!</> };
+    if (remaining <= 5) return { color: "#f97316", bg: "#fff7ed", border: "#fed7aa", text: <><FaExclamationTriangle className="inline mr-1"/> Sirf {remaining} {venueCfg.itemWord.toLowerCase()}s baaki</> };
+    return { color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe", text: <><FaBox className="inline mr-1"/> {dishesUsed}/{maxDishes} {venueCfg.itemWord.toLowerCase()}s used</> };
   };
 
   const dishLimitInfo = getDishLimitInfo();
@@ -524,7 +508,6 @@ export default function AddItem() {
     ? (Number(form.price) * (1 + form.gstPercent / 100)).toFixed(2)
     : null;
 
-  // ─── GLB upload ────────────────────────────────────────────────────────────
   const uploadGlbToCloudinary = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -536,7 +519,6 @@ export default function AddItem() {
     return data.secure_url;
   };
 
-  // ─── AI Description ────────────────────────────────────────────────────────
   const generateAIDescription = async () => {
     if (!canUseAI) { navigate(`/dashboard/${restaurantId}/subscription`); return; }
     if (!form.name.trim()) { setAiError("Pehle naam likhein!"); setTimeout(() => setAiError(""), 3000); return; }
@@ -560,14 +542,13 @@ export default function AddItem() {
       else throw new Error(result.error || "Empty response");
     } catch (err) {
       console.error("AI Error:", err);
-      setAiError("AI description generate nahi ho saka. Dobara try karein.");
+      setAiError("AI description generate nahi ho saka.");
       setTimeout(() => setAiError(""), 4000);
     } finally {
       setAiLoading(false);
     }
   };
 
-  // ─── Image helpers ─────────────────────────────────────────────────────────
   const uploadToCloudinary = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -600,16 +581,16 @@ export default function AddItem() {
       reader.readAsDataURL(file);
     });
 
-  // ─── SAVE ─────────────────────────────────────────────────────────────────
-  const handleSave = async () => {
+ const handleSave = async () => {
     if (!subPlan) { alert("Please login first!"); navigate("/login"); return; }
-    if (isPlanExpired) { alert("Subscription expire ho gayi! Renew karo."); navigate(`/dashboard/${restaurantId}/subscription`); return; }
+    if (isPlanExpired) { alert("Subscription expire ho gayi!"); navigate(`/dashboard/${restaurantId}/subscription`); return; }
     if (!editData && dishLimitReached) {
-      alert(`${venueCfg.itemWord} limit reach ho gayi! (${dishesUsed}/${maxDishes})\n\nUpgrade karo.`);
+      alert(`${venueCfg.itemWord} limit reached!`);
       navigate(`/dashboard/${restaurantId}/subscription`);
       return;
     }
     if (!form.name || !form.price || !form.description) { alert("Please fill all required fields"); return; }
+    if (!form.vegType) { alert("Please select Veg or Non-Veg"); return; }
 
     let imageUrl = preview;
     if (image) {
@@ -619,7 +600,7 @@ export default function AddItem() {
         imageUrl = await uploadToCloudinary(compressedImage);
       } catch (error) {
         console.error("Upload error:", error);
-        alert("Image upload failed. Please try again.");
+        alert("Image upload failed.");
         setUploading(false);
         return;
       }
@@ -633,7 +614,7 @@ export default function AddItem() {
         glbFileUrl = await uploadGlbToCloudinary(glbFile);
       } catch (error) {
         console.error("GLB Upload error:", error);
-        alert("3D Model upload failed. Item bina AR ke save ho raha hai.");
+        alert("3D Model upload failed.");
       }
       setGlbUploading(false);
     }
@@ -644,7 +625,6 @@ export default function AddItem() {
       name: form.name,
       price: Number(form.price),
       description: form.description,
-      category: form.category,
       servingSize: form.servingSize,
       prepTime: form.prepTime,
       isHouseSpecial: form.isHouseSpecial,
@@ -662,12 +642,18 @@ export default function AddItem() {
       saladConfig: form.saladConfig,
     };
 
-    // Venue-specific fields
-    if (venueCfg.showVegNonVeg && !isDrinkSelected && form.vegType) payload.vegType = form.vegType;
-    if (venueCfg.showSpiceLevel && !isDrinkSelected && form.spiceLevel) payload.spiceLevel = form.spiceLevel;
+    if (!isDrinkSelected && form.vegType) payload.vegType = form.vegType;
+    
+    // Spice Level — always save if set (badge se bhi set ho sakta hai)
+        payload.spiceLevel = form.spiceLevel || "";
+
+    
+    // Sweetness / Dish Taste Profile — always save
+    if (form.dishTasteProfile) payload.dishTasteProfile = form.dishTasteProfile;
+    if (form.sugarLevelEnabled !== undefined) payload.sugarLevelEnabled = form.sugarLevelEnabled;
+    
+    // Salt & Salad — venue config ke hisaab se
     if (venueCfg.showDishNature) {
-      payload.dishTasteProfile = form.dishTasteProfile;
-      payload.sugarLevelEnabled = form.sugarLevelEnabled;
       payload.saltLevelEnabled = form.saltLevelEnabled;
       payload.saladRequired = form.saladRequired;
     }
@@ -692,11 +678,10 @@ export default function AddItem() {
       navigate(`/dashboard/${restaurantId}/menu`, { state: { reload: true } });
     } catch (error) {
       console.error("Error saving:", error);
-      alert("Error saving. Please try again.");
+      alert("Error saving.");
     }
   };
 
-  // ─── Header gradient per venue ─────────────────────────────────────────────
   const headerGradient =
     venueType === "cafe"          ? "linear-gradient(135deg, #6b3a2a, #c47c3c)"
     : venueType === "bakery"      ? "linear-gradient(135deg, #7c3aed, #a855f7)"
@@ -704,12 +689,10 @@ export default function AddItem() {
     : venueType === "cloud_kitchen" ? "linear-gradient(135deg, #0f766e, #0d9488)"
     : "linear-gradient(135deg, #8A244B, #B45253)";
 
-  // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 py-4 md:py-8 px-3 md:px-4">
       <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-lg overflow-hidden">
 
-        {/* ── Header ── */}
         <div className="px-4 md:px-6 py-4 md:py-6" style={{ background: headerGradient }}>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
@@ -737,79 +720,55 @@ export default function AddItem() {
               )}
             </div>
           </div>
-
-          {/* ── Venue Category Hints ── */}
-          {!editData && venueCfg.categoryHints?.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              <span className="text-white/60 text-xs mr-1">Suggested categories:</span>
-              {venueCfg.categoryHints.slice(0, 5).map((hint) => (
-                <span key={hint} className="text-xs px-2 py-0.5 rounded-full bg-white/20 text-white/80 border border-white/20">
-                  {hint}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="p-4 md:p-6 space-y-4 md:space-y-6">
 
-          {/* ── Subscription Expired Alert ── */}
           {isPlanExpired && (
             <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl">
-              <p className="text-red-700 font-bold text-sm"><FaExclamationTriangle className="inline mr-1 text-red-600"/> Your {PLAN_LABELS[planId]} plan has expired! Please renew.</p>
-              <button onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)} className="mt-2 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition">
+              <p className="text-red-700 font-bold text-sm"><FaExclamationTriangle className="inline mr-1 text-red-600"/> Plan expired!</p>
+              <button onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)} className="mt-2 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg">
                 <FaSyncAlt className="inline mr-1"/> Renew Now
               </button>
             </div>
           )}
 
-          {/* ── Dish Limit Banner ── */}
           {dishLimitInfo && (
             <div className="rounded-xl p-3 md:p-4 flex items-center justify-between gap-3" style={{ background: dishLimitInfo.bg, border: `1px solid ${dishLimitInfo.border}` }}>
               <p className="text-sm font-semibold" style={{ color: dishLimitInfo.color }}>{dishLimitInfo.text}</p>
               {dishLimitReached && (
                 <button onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)} className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg text-white" style={{ background: "#8A244B" }}>
-                  Upgrade →
+                  Upgrade
                 </button>
               )}
             </div>
           )}
 
-          {/* ── Plan Badge ── */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-gray-500">Current Plan:</span>
             <span className="px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1" style={{ background: planId === "pro" ? "linear-gradient(135deg,#8A244B,#f18e49)" : planId === "growth" ? "#8A244B" : planId === "trial" ? "#22c55e" : "#374151", color: "#fff" }}>
               {PLAN_BADGES[planId]?.icon} {PLAN_LABELS[planId] || planId}
             </span>
-            <button onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)} className="text-xs text-[#8A244B] font-medium hover:underline">Upgrade →</button>
+            <button onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)} className="text-xs text-[#8A244B] font-medium hover:underline">Upgrade</button>
           </div>
 
-          {/* ═══ ITEM NAME ═══ */}
+          {/* ITEM NAME */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">{venueCfg.itemWord} Name *</label>
             <SimpleSpellCheck
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value.replace(/\s+/g, " ") })}
-              onBlur={(e) => setForm({ ...form, name: e.target.value.trim().toLowerCase().replace(/\w/g, (c) => c.toUpperCase()) })}
-              placeholder={
-                venueType === "cafe"          ? "e.g. Caramel Latte, Garlic Bread, Club Sandwich" :
-                venueType === "bakery"        ? "e.g. Chocolate Truffle Cake, Almond Croissant" :
-                venueType === "dhaba"         ? "e.g. Dal Makhani, Mix Veg Thali" :
-                venueType === "cloud_kitchen" ? "e.g. Butter Chicken, Family Biryani Pack" :
-                "e.g. Paneer Tikka Masala, Chicken Biryani"
-              }
+              onChange={(e) => setForm({ ...form, name: e.target.value.replace(/\\s+/g, " ") })}
+              onBlur={(e) => setForm({ ...form, name: e.target.value.trim().toLowerCase().replace(/\\w/g, (c) => c.toUpperCase()) })}
+              placeholder="e.g. Paneer Tikka Masala"
               className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B45253] text-base"
               customWords={foodDictionary}
             />
-            <p className="text-xs text-gray-500">Type 3+ letters for spelling suggestions</p>
           </div>
 
-          {/* ═══ PRICE + PREP TIME ═══ */}
+          {/* PRICE + PREP TIME */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">
-                Price (₹) * <span className="text-gray-400 font-normal text-xs">({venueCfg.priceSuffix})</span>
-              </label>
+              <label className="block text-sm font-medium text-gray-700">Price (Rs) *</label>
               <input
                 type="number"
                 className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B45253] text-base"
@@ -830,13 +789,9 @@ export default function AddItem() {
             </div>
           </div>
 
-          {/* ═══ SERVING SIZE ═══ */}
+          {/* SERVING SIZE */}
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">
-              {venueType === "bakery" ? "Quantity / Unit" :
-               venueType === "cafe"   ? "Cup / Portion Size" :
-               "Serving Size"}
-            </label>
+            <label className="block text-sm font-medium text-gray-700">Serving Size</label>
             <div className="flex flex-wrap gap-2">
               {venueCfg.servingSizes.map((size) => (
                 <button
@@ -856,28 +811,18 @@ export default function AddItem() {
             </div>
           </div>
 
-          {/* ═══ BAKERY: Weight field ═══ */}
+          {/* BAKERY: Weight */}
           {venueCfg.showWeight && (
             <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3">
-              <p className="text-sm font-semibold text-purple-800"><FaBox className="mr-1"/> Weight / Quantity</p>
+              <p className="text-sm font-semibold text-purple-800"><FaBox className="mr-1"/> Weight</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Value</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 500, 1, 6"
-                    value={form.weightValue}
-                    onChange={(e) => setForm({ ...form, weightValue: e.target.value })}
-                    className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300 text-sm"
-                  />
+                  <input type="text" placeholder="e.g. 500" value={form.weightValue} onChange={(e) => setForm({ ...form, weightValue: e.target.value })} className="w-full border border-gray-300 p-3 rounded-xl text-sm" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1 block">Unit</label>
-                  <select
-                    value={form.weightUnit}
-                    onChange={(e) => setForm({ ...form, weightUnit: e.target.value })}
-                    className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-300 text-sm bg-white"
-                  >
+                  <select value={form.weightUnit} onChange={(e) => setForm({ ...form, weightUnit: e.target.value })} className="w-full border border-gray-300 p-3 rounded-xl text-sm bg-white">
                     <option value="piece">Piece</option>
                     <option value="slice">Slice</option>
                     <option value="grams">Grams</option>
@@ -890,249 +835,245 @@ export default function AddItem() {
             </div>
           )}
 
-          {/* ═══ CAFÉ: Drink / Cup Size ═══ */}
+          {/* CAFE: Drink Size */}
           {venueCfg.showDrinkSize && (
             <div className="border rounded-xl p-4 space-y-3" style={{ background: "#fef3c7", borderColor: "#fde68a" }}>
-              <p className="text-sm font-semibold" style={{ color: "#92400e" }}><FaCoffee className="mr-1"/> Cup / Drink Sizes</p>
+              <p className="text-sm font-semibold" style={{ color: "#92400e" }}><FaCoffee className="mr-1"/> Cup Sizes</p>
               <div className="flex flex-wrap gap-2">
                 {["S", "M", "L", "XL"].map((sz) => (
-                  <button
-                    key={sz}
-                    type="button"
-                    onClick={() => setForm({ ...form, drinkSize: form.drinkSize === sz ? "" : sz })}
-                    className="w-12 h-12 rounded-xl text-sm font-bold transition-all border-2"
-                    style={{
-                      borderColor: form.drinkSize === sz ? "#d97706" : "#fde68a",
-                      background: form.drinkSize === sz ? "#d97706" : "#fff",
-                      color: form.drinkSize === sz ? "#fff" : "#92400e",
-                    }}
-                  >
+                  <button key={sz} type="button" onClick={() => setForm({ ...form, drinkSize: form.drinkSize === sz ? "" : sz })} className="w-12 h-12 rounded-xl text-sm font-bold transition-all border-2" style={{ borderColor: form.drinkSize === sz ? "#d97706" : "#fde68a", background: form.drinkSize === sz ? "#d97706" : "#fff", color: form.drinkSize === sz ? "#fff" : "#92400e" }}>
                     {sz}
                   </button>
                 ))}
               </div>
-              <p className="text-xs" style={{ color: "#92400e" }}>S = Small, M = Medium, L = Large, XL = Extra Large</p>
             </div>
           )}
 
-          {/* ═══ GST ═══ */}
+          {/* GST */}
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <label className="block text-sm font-semibold text-amber-800">GST Rate</label>
               {priceWithGST && (
-                <span className="text-xs bg-amber-100 text-amber-700 font-medium px-2 py-1 rounded-full">
-                  Base ₹{form.price} → With GST: <strong>₹{priceWithGST}</strong>
-                </span>
+                <span className="text-xs bg-amber-100 text-amber-700 font-medium px-2 py-1 rounded-full">Base Rs{form.price} With GST: <strong>Rs{priceWithGST}</strong></span>
               )}
             </div>
             <div className="flex flex-wrap gap-2">
               {GST_PRESETS.map((preset) => (
-                <button
-                  key={preset.value}
-                  type="button"
-                  onClick={() => setForm({ ...form, gstPercent: preset.value })}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
-                    form.gstPercent === preset.value
-                      ? "bg-[#8A244B] text-white border-[#8A244B] shadow-sm"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-[#8A244B] hover:text-[#8A244B]"
-                  }`}
-                >
+                <button key={preset.value} type="button" onClick={() => setForm({ ...form, gstPercent: preset.value })} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${form.gstPercent === preset.value ? "bg-[#8A244B] text-white border-[#8A244B]" : "bg-white text-gray-600 border-gray-200"}`}>
                   {preset.label}
                 </button>
               ))}
               <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg px-2 py-1">
-                <input
-                  type="number" min="0" max="100" placeholder="Custom"
-                  value={GST_PRESETS.some((p) => p.value === form.gstPercent) ? "" : form.gstPercent}
-                  onChange={(e) => setForm({ ...form, gstPercent: Math.min(100, Math.max(0, Number(e.target.value))) })}
-                  className="w-16 text-sm outline-none text-center"
-                />
+                <input type="number" min="0" max="100" placeholder="Custom" value={GST_PRESETS.some((p) => p.value === form.gstPercent) ? "" : form.gstPercent} onChange={(e) => setForm({ ...form, gstPercent: Math.min(100, Math.max(0, Number(e.target.value))) })} className="w-16 text-sm outline-none text-center" />
                 <span className="text-gray-500 text-sm">%</span>
               </div>
             </div>
-            <p className="text-xs text-amber-700">
-              {venueType === "bakery" ? "Bakery items pe typically 0-5% GST. Branded items pe 12%."
-               : venueType === "cafe"  ? "Café items pe typically 5%. AC sit-down café pe 18%."
-               : "Typically 5% GST. AC/luxury restaurants ke liye 18%."}
-            </p>
           </div>
 
-          {/* ═══ DESCRIPTION + AI ═══ */}
+          {/* DESCRIPTION + AI */}
           <div className="space-y-1">
             <div className="flex items-center justify-between mb-1">
               <label className="block text-sm font-medium text-gray-700">Description *</label>
               {canUseAI ? (
-                <button
-                  type="button"
-                  onClick={generateAIDescription}
-                  disabled={aiLoading || !form.name.trim()}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    aiLoading ? "bg-purple-100 text-purple-400 cursor-not-allowed"
-                    : !form.name.trim() ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-gradient-to-r from-purple-600 to-[#8A244B] text-white hover:shadow-md active:scale-95"
-                  }`}
-                >
-                  {aiLoading ? <><FaSpinner className="animate-spin text-xs" /> Generating...</> : <><FaMagic className="text-xs" /> AI se Generate</>}
+                <button type="button" onClick={generateAIDescription} disabled={aiLoading || !form.name.trim()} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${aiLoading ? "bg-purple-100 text-purple-400" : !form.name.trim() ? "bg-gray-100 text-gray-400" : "bg-gradient-to-r from-purple-600 to-[#8A244B] text-white"}`}>
+                  {aiLoading ? <><FaSpinner className="animate-spin" /> Generating...</> : <><FaMagic /> AI Generate</>}
                 </button>
               ) : (
                 <div className="flex items-center gap-2">
-                  <button type="button" disabled className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-400 cursor-not-allowed">
-                    <FaMagic className="text-xs" /> AI se Generate
-                  </button>
+                  <button type="button" disabled className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-400 cursor-not-allowed"><FaMagic /> AI Generate</button>
                   <UpgradeBadge requiredPlan="Growth" navigate={navigate} restaurantId={restaurantId} />
                 </div>
               )}
             </div>
-            <SimpleSpellCheck
-              isTextarea={true}
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder={
-                venueType === "cafe"          ? "e.g. Crispy garlic bread with herb butter, served with marinara dip..." :
-                venueType === "bakery"        ? "e.g. Moist chocolate sponge layered with Belgian chocolate ganache..." :
-                venueType === "dhaba"         ? "e.g. Desi style dal makhani, slow cooked overnight on chulha..." :
-                "Describe your dish... ya upar AI button dabao ✨"
-              }
-              className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B45253] resize-none text-base min-h-[100px]"
-              customWords={foodDictionary}
-            />
-            {aiError && <p className="text-xs text-red-500 flex items-center gap-1 mt-1"><span>⚠️</span> {aiError}</p>}
+            <SimpleSpellCheck isTextarea={true} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe your dish..." className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B45253] resize-none text-base min-h-[100px]" customWords={foodDictionary} />
+            {aiError && <p className="text-xs text-red-500 mt-1">{aiError}</p>}
           </div>
 
-          {/* ═══ CATEGORIES ═══ */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Primary Category *</label>
-              <select
-                className="w-full border border-gray-300 p-3 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#B45253] text-base"
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-              >
-                {categories.length === 0
-                  ? <option>No categories found</option>
-                  : categories.map((cat) => <option key={cat.id} value={cat.name}>{cat.name}</option>)
-                }
-              </select>
-            </div>
-
-            {venueCfg.showVegNonVeg && (
-              <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Veg / Non-Veg</label>
-                <select
-                  className="w-full border border-gray-300 p-3 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#B45253] text-base"
-                  disabled={isDrinkSelected}
-                  value={form.vegType || ""}
-                  onChange={(e) => setForm({ ...form, vegType: e.target.value })}
+          {/* PRIMARY CATEGORY: VEG / NON-VEG - ALWAYS SHOWS FOR ALL VENUES */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Primary Category (Veg / Non-Veg) *</label>
+            <div className="flex gap-2">
+              {[
+                { value: "veg", label: "Veg", color: "#16a34a" },
+                { value: "non-veg", label: "Non-Veg", color: "#dc2626" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setForm({ ...form, vegType: opt.value })}
+                  className="flex-1 py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2"
+                  style={{
+                    border: `1.5px solid ${form.vegType === opt.value ? opt.color : "#e5e7eb"}`,
+                    background: form.vegType === opt.value ? opt.color : "#fff",
+                    color: form.vegType === opt.value ? "#fff" : "#374151",
+                  }}
                 >
-                  <option value="">Select Type</option>
-                  <option value="veg">🟢 Veg</option>
-                  <option value="non-veg">🔴 Non-Veg</option>
-                </select>
+                  <span style={{ 
+                    width: "10px", 
+                    height: "10px", 
+                    borderRadius: "50%", 
+                    backgroundColor: form.vegType === opt.value ? "#fff" : opt.color,
+                    display: "inline-block"
+                  }} />
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {!form.vegType && (
+              <p className="text-xs text-amber-600">Select Veg or Non-Veg</p>
+            )}
+          </div>
+          {/* DISH NATURE - Spicy or Sweet */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Dish Nature *</label>
+            <div className="flex gap-2">
+              {[
+                { value: "spicy", label: "Spicy", icon: <GiChiliPepper className="w-4 h-4" />, color: "#ea580c" },
+                { value: "sweet", label: "Sweet", icon: <MdCake className="w-4 h-4" />, color: "#ec4899" },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setForm({ ...form, dishTasteProfile: opt.value, spiceLevel: opt.value === "sweet" ? "" : form.spiceLevel })}
+                  className="flex-1 py-3 rounded-xl text-sm font-medium transition-all flex items-center justify-center gap-2"
+                  style={{
+                    border: `1.5px solid ${form.dishTasteProfile === opt.value ? opt.color : "#e5e7eb"}`,
+                    background: form.dishTasteProfile === opt.value ? opt.color : "#fff",
+                    color: form.dishTasteProfile === opt.value ? "#fff" : "#374151",
+                  }}
+                >
+                  {opt.icon}
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {!form.dishTasteProfile && (
+              <p className="text-xs text-amber-600">Select Spicy or Sweet</p>
+            )}
+          </div>
+        
+                  {/* SPICE BADGES - Sirf Spicy dish pe dikhe */}
+          {form.dishTasteProfile === "spicy" && (
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Spice Level</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, spiceLevel: form.spiceLevel === "spicy" ? "" : "spicy" })}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all border"
+                  style={{
+                    border: `1.5px solid ${form.spiceLevel === "spicy" ? "#ea580c" : "#e5e7eb"}`,
+                    background: form.spiceLevel === "spicy" ? "#ea580c" : "#fff",
+                    color: form.spiceLevel === "spicy" ? "#fff" : "#374151",
+                  }}
+                >
+                  <GiChiliPepper className="w-4 h-4" />
+                  Spicy
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, spiceLevel: form.spiceLevel === "medium" ? "" : "medium" })}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all border"
+                  style={{
+                    border: `1.5px solid ${form.spiceLevel === "medium" ? "#f97316" : "#e5e7eb"}`,
+                    background: form.spiceLevel === "medium" ? "#f97316" : "#fff",
+                    color: form.spiceLevel === "medium" ? "#fff" : "#374151",
+                  }}
+                >
+                  <FaFire className="w-3.5 h-3.5" />
+                  Medium
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, spiceLevel: form.spiceLevel === "mild" ? "" : "mild" })}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all border"
+                  style={{
+                    border: `1.5px solid ${form.spiceLevel === "mild" ? "#22c55e" : "#e5e7eb"}`,
+                    background: form.spiceLevel === "mild" ? "#22c55e" : "#fff",
+                    color: form.spiceLevel === "mild" ? "#fff" : "#374151",
+                  }}
+                >
+                  <FaLeaf className="w-3.5 h-3.5" />
+                  Mild
+                </button>
               </div>
+            </div>
+          )}
+
+          {/* SWEETNESS BADGE - Sirf Sweet dish pe dikhe */}
+          {form.dishTasteProfile === "sweet" && (
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Sweetness Level</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, sugarLevelEnabled: !form.sugarLevelEnabled })}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all border"
+                  style={{
+                    border: `1.5px solid ${form.sugarLevelEnabled ? "#ec4899" : "#e5e7eb"}`,
+                    background: form.sugarLevelEnabled ? "#ec4899" : "#fff",
+                    color: form.sugarLevelEnabled ? "#fff" : "#374151",
+                  }}
+                >
+                  <MdCake className="w-4 h-4" />
+                  Sugar Level {form.sugarLevelEnabled ? "On" : "Off"}
+                </button>
+              </div>
+            </div>
+          )}
+       
+
+          {/* ADDITIONAL CATEGORIES from Restaurant Settings */}
+          <div>
+            <p className="font-semibold text-sm text-gray-700 mb-1">Additional Categories</p>
+            <p className="text-xs text-gray-400 mb-2">Click to select from your restaurant settings</p>
+            <div className="flex flex-wrap gap-2">
+              {categories
+                .filter((cat) => !["veg", "non-veg", "nonveg"].includes(cat.name.toLowerCase()))
+                .map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      setForm((prev) => {
+                        const isSelected = prev.categoryIds.includes(cat.id);
+                        if (isSelected) {
+                          return { ...prev, categoryIds: prev.categoryIds.filter((id) => id !== cat.id) };
+                        } else {
+                          return { ...prev, categoryIds: [...prev.categoryIds, cat.id] };
+                        }
+                      });
+                    }}
+                    className="px-3 py-2 rounded-lg text-sm font-medium transition-all border"
+                    style={{
+                      border: `1.5px solid ${form.categoryIds.includes(cat.id) ? "#8A244B" : "#e5e7eb"}`,
+                      background: form.categoryIds.includes(cat.id) ? "#8A244B" : "#fff",
+                      color: form.categoryIds.includes(cat.id) ? "#fff" : "#374151",
+                    }}
+                  >
+                    {cat.name}
+                    {form.categoryIds.includes(cat.id) && <span className="ml-1 text-[10px]">✓</span>}
+                  </button>
+                ))}
+            </div>
+            {categories.length === 0 && (
+              <p className="text-xs text-gray-400 mt-2">No categories found. Add in Restaurant Settings.</p>
             )}
           </div>
 
-          {/* ═══ SPICE + DISH NATURE ═══ */}
-          {(venueCfg.showSpiceLevel || venueCfg.showDishNature) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {venueCfg.showSpiceLevel && (
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700">Spice Level</label>
-                  <select
-                    className="w-full border border-gray-300 p-3 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#B45253] text-base"
-                    disabled={isDrinkSelected}
-                    value={form.spiceLevel || ""}
-                    onChange={(e) => setForm({ ...form, spiceLevel: e.target.value })}
-                  >
-                    <option value="">Select Spice Level</option>
-                    <option value="mild"> Mild</option>
-                    <option value="medium"> Medium</option>
-                    <option value="spicy"> Spicy</option>
-                  </select>
-                </div>
-              )}
-              {venueCfg.showDishNature && (
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700">Dish Nature</label>
-                  <select
-                    className="w-full border border-gray-300 p-3 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-[#B45253] text-base"
-                    value={form.dishTasteProfile}
-                    onChange={(e) => setForm({ ...form, dishTasteProfile: e.target.value })}
-                  >
-                  <option value="spicy"><GiChiliPepper /> Spicy</option>
-<option value="salty"><GiSaltShaker /> Salty</option>
-<option value="sweet">  Sweet</option>
-                  </select>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ═══ TASTE CONTROLS ═══ */}
-          {venueCfg.showDishNature && (
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="font-semibold text-sm text-gray-700 mb-3">Taste Controls</p>
-              <div className="flex flex-wrap gap-4">
-                {form.dishTasteProfile === "sweet" && (
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={form.sugarLevelEnabled} onChange={(e) => setForm({ ...form, sugarLevelEnabled: e.target.checked })} className="w-5 h-5 accent-[#B45253]" />
-                    <span className="text-sm">Sugar Level Control</span>
-                  </label>
-                )}
-                {form.dishTasteProfile === "spicy" && (
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" checked readOnly className="w-5 h-5 accent-[#B45253]" />
-                    <span className="text-sm">Salt Level Control (Auto)</span>
-                  </label>
-                )}
-                {venueCfg.showSalad && (
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={form.saladRequired} onChange={(e) => setForm({ ...form, saladRequired: e.target.checked })} className="w-5 h-5 accent-[#B45253]" />
-                    <span className="text-sm">Salad Available</span>
-                  </label>
-                )}
-              </div>
-              {form.dishTasteProfile === "spicy" && venueCfg.showSalad && (
-                <p className="text-xs text-green-600 mt-2">Salad automatically enabled for spicy dishes</p>
-              )}
-            </div>
-          )}
-
-          {/* ═══ ADDITIONAL CATEGORIES ═══ */}
-          <div>
-            <p className="font-semibold text-sm text-gray-700 mb-2">Additional Categories</p>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((cat) => (
-                <label key={cat.id} className="flex items-center gap-2 cursor-pointer bg-gray-100 px-3 py-2 rounded-lg hover:bg-gray-200 transition">
-                  <input
-                    type="checkbox"
-                    checked={form.categoryIds.includes(cat.id)}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setForm((prev) => ({
-                        ...prev,
-                        categoryIds: checked ? [...prev.categoryIds, cat.id] : prev.categoryIds.filter((id) => id !== cat.id),
-                      }));
-                    }}
-                    className="w-4 h-4 accent-[#B45253]"
-                  />
-                  <span className="text-sm">{cat.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* ═══ ITEM OPTIONS ═══ */}
+          {/* ITEM OPTIONS */}
           <div className="bg-gray-50 rounded-xl p-4">
-            <p className="font-semibold text-sm text-gray-700 mb-3">{venueCfg.itemWord} Options</p>
+            <p className="font-semibold text-sm text-gray-700 mb-3">Options</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
-                { label: "House Special",  key: "isHouseSpecial" },
-                { label: "Chef Pick",      key: "isChefPick"     },
-                { label: "Dine-In",        key: "dineIn"         },
-                { label: "Delivery",       key: "delivery"       },
-                { label: "In Stock",       key: "inStock"        },
-                { label: "New Item",       key: "isNew"          },
+                { label: "House Special", key: "isHouseSpecial" },
+                { label: "Chef Pick", key: "isChefPick" },
+                { label: "Dine-In", key: "dineIn" },
+                { label: "Delivery", key: "delivery" },
+                { label: "In Stock", key: "inStock" },
+                { label: "New Item", key: "isNew" },
               ].map((opt) => (
                 <label key={opt.key} className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={form[opt.key]} onChange={(e) => setForm({ ...form, [opt.key]: e.target.checked })} className="w-4 h-4 accent-[#B45253]" />
@@ -1142,81 +1083,62 @@ export default function AddItem() {
             </div>
           </div>
 
-          {/* ═══ IMAGE UPLOAD ═══ */}
+          {/* IMAGE UPLOAD */}
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">{venueCfg.itemWord} Image</label>
+            <label className="block text-sm font-medium text-gray-700">Image</label>
             {preview && (
               <div className="relative">
                 <img src={preview} alt="preview" className="w-full h-48 md:h-64 object-cover rounded-xl" />
-                <button
-                  onClick={() => { setPreview(""); setImage(null); }}
-                  className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                <button onClick={() => { setPreview(""); setImage(null); }} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
             )}
-            <input
-              type="file" accept="image/*"
-              className="w-full p-3 border border-gray-300 rounded-xl file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#B45253] file:text-white hover:file:bg-[#8A244B] text-sm"
-             onChange={async (e) => {
-  const f = e.target.files[0];
-  if (f) {
-    if (f.size > 5 * 1024 * 1024) { alert("File size should be less than 5MB"); return; }
-    const compressed = await compressImage(f);
-    setImage(compressed);
-    setPreview(URL.createObjectURL(compressed));
-  }
-}}
-            />
-            <p className="text-xs text-gray-500">Max size: 5MB • Powered by Cloudinary</p>
+            <input type="file" accept="image/*" className="w-full p-3 border border-gray-300 rounded-xl file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#B45253] file:text-white hover:file:bg-[#8A244B] text-sm"
+              onChange={async (e) => {
+                const f = e.target.files[0];
+                if (f) {
+                  if (f.size > 5 * 1024 * 1024) { alert("File size < 5MB"); return; }
+                  const compressed = await compressImage(f);
+                  setImage(compressed);
+                  setPreview(URL.createObjectURL(compressed));
+                }
+              }} />
+            <p className="text-xs text-gray-500">Max: 5MB</p>
           </div>
-          {/* ═══ ACTION BUTTONS ═══ */}
+
+          {/* ACTION BUTTONS */}
           <div className="space-y-3 pt-4">
             <button
               onClick={handleSave}
               disabled={uploading || glbUploading || (!editData && dishLimitReached) || isPlanExpired}
-              className={`w-full py-3 md:py-4 rounded-xl text-white font-bold text-base md:text-lg transition-all ${
-                uploading || glbUploading || (!editData && dishLimitReached) || isPlanExpired
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : ""
-              }`}
+              className={`w-full py-3 md:py-4 rounded-xl text-white font-bold text-base md:text-lg transition-all ${uploading || glbUploading || (!editData && dishLimitReached) || isPlanExpired ? "bg-gray-400 cursor-not-allowed" : ""}`}
               style={{
-                background: uploading || glbUploading || (!editData && dishLimitReached) || isPlanExpired
-                  ? undefined
-                  : venueType === "cafe"          ? "linear-gradient(135deg, #6b3a2a, #c47c3c)"
-                  : venueType === "bakery"        ? "linear-gradient(135deg, #7c3aed, #a855f7)"
-                  : venueType === "dhaba"         ? "linear-gradient(135deg, #b45309, #d97706)"
+                background: uploading || glbUploading || (!editData && dishLimitReached) || isPlanExpired ? undefined
+                  : venueType === "cafe" ? "linear-gradient(135deg, #6b3a2a, #c47c3c)"
+                  : venueType === "bakery" ? "linear-gradient(135deg, #7c3aed, #a855f7)"
+                  : venueType === "dhaba" ? "linear-gradient(135deg, #b45309, #d97706)"
                   : venueType === "cloud_kitchen" ? "linear-gradient(135deg, #0f766e, #0d9488)"
                   : "linear-gradient(135deg, #B45253, #8A244B)",
               }}
             >
-             {uploading || glbUploading ? "Uploading..."
-  : isPlanExpired ? "Plan Expired — Renew to Save"
-  : !editData && dishLimitReached ? `${venueCfg.itemWord} Limit Reached (${dishesUsed}/${maxDishes})`
-  : editData ? `Update ${venueCfg.itemWord}`
-  : <> Add {venueCfg.itemWord}</>}
+              {uploading || glbUploading ? "Uploading..." : isPlanExpired ? "Plan Expired" : !editData && dishLimitReached ? "Limit Reached" : editData ? `Update ${venueCfg.itemWord}` : `Add ${venueCfg.itemWord}`}
             </button>
 
             {isPlanExpired && (
               <button onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)} className="w-full py-3 rounded-xl font-bold text-white transition" style={{ background: "linear-gradient(135deg, #8A244B, #f18e49)" }}>
-                <FaSyncAlt className="inline mr-1"/> Renew Plan →
+                <FaSyncAlt className="inline mr-1"/> Renew Plan
               </button>
             )}
 
             {!editData && dishLimitReached && !isPlanExpired && (
               <button onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)} className="w-full py-3 rounded-xl font-bold text-white transition" style={{ background: "linear-gradient(135deg, #8A244B, #f18e49)" }}>
-                Upgrade Plan → More {venueCfg.itemWord}s Unlock Karo
+                Upgrade Plan
               </button>
             )}
 
-            <button
-              onClick={() => navigate(`/dashboard/${restaurantId}/menu`)}
-              className="w-full py-3 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition border border-gray-300"
-            >
-              Cancel & Go Back
+            <button onClick={() => navigate(`/dashboard/${restaurantId}/menu`)} className="w-full py-3 rounded-xl text-gray-600 font-medium hover:bg-gray-100 transition border border-gray-300">
+              Cancel
             </button>
           </div>
 
