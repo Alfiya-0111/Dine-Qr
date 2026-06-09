@@ -1062,7 +1062,7 @@ if (order.orderDetails?.type === "delivery" &&
 📱 *Phone:* ${user?.phoneNumber || 'N/A'}
 
 *ITEM:*
-• ${item.name} - ₹${item.price}
+• ${item.name} - ₹${item.price}${item.vegType ? ` ${item.vegType === 'veg' ? '🟢' : '🔴'}` : ''}
 ⏱️ Prep Time: ${item.prepTime || 15} min
 📝 ${item.description || 'No description'}
 
@@ -1286,7 +1286,7 @@ Sent via DineQR
       const detailsText = details.length > 0 ? '\n   ' + details.join('\n   ') : '';
 
       return `
-${index + 1}. ${item.name} ${item.vegType === 'veg' ? '🟢' : '🔴'}
+${index + 1}. ${item.name}${item.vegType ? ` ${item.vegType === 'veg' ? '🟢' : '🔴'}` : ''}
    💰 ₹${item.price} × ${item.qty} = ₹${item.price * item.qty}${detailsText}${imageLine ? '\n   ' + imageLine : ''}`;
     }).join('\n');
 
@@ -1794,7 +1794,7 @@ if (auth.currentUser) {
 
 *ORDER ITEMS:*
 ${order.items?.map((item, idx) => {
-  let details = `${idx + 1}. ${item.name} ${item.vegType === 'veg' ? '🟢' : '🔴'}`;
+    let details = `${idx + 1}. ${item.name}${item.vegType ? ` ${item.vegType === 'veg' ? '🟢' : '🔴'}` : ''}`;
   details += `\n   💰 ₹${item.price} × ${item.qty || 1} = ₹${(item.price * (item.qty || 1)).toFixed(0)}`;
 
   if (item.spicePreference && item.dishTasteProfile !== 'sweet') {
@@ -3122,7 +3122,7 @@ const handleOrderClick = (item, action = "order") => {
                 <IoFilter className="w-4 h-4" /> Sort & Filter
               </button>
 
-              {activeCategory === "all" && <NewItemsSlider items={items} theme={theme} />}
+{activeCategory === "all" && <NewItemsSlider items={newItems} theme={theme} />}
 
               {loading ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6">
@@ -3195,17 +3195,23 @@ const handleOrderClick = (item, action = "order") => {
                         </div>
 
                         {/* Veg/Non-veg indicator */}
-                        {!isDrink ? (
+                                               {/* Veg/Non-veg indicator - only show if explicitly set */}
+                        {item.vegType === "veg" && (
                           <span 
-                            className={`absolute top-3 left-3 w-4 h-4 rounded-full border-2 border-white z-10 ${
-                              item.vegType === "veg" ? "bg-green-500" : "bg-red-500"
-                            }`} 
+                            className="absolute top-3 left-3 w-4 h-4 rounded-full border-2 border-white z-10 bg-green-500"
                           />
-                        ) : (
+                        )}
+                        {item.vegType === "non-veg" && (
+                          <span 
+                            className="absolute top-3 left-3 w-4 h-4 rounded-full border-2 border-white z-10 bg-red-500"
+                          />
+                        )}
+                        {isDrink && (
                           <span className="absolute top-3 left-3 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center border-2 border-white z-10">
                             <IoSnow className="text-white text-xs" />
                           </span>
                         )}
+                   
                       </div>
 
                       {/* Card Body */}
@@ -3221,6 +3227,30 @@ const handleOrderClick = (item, action = "order") => {
                             )}
                           </h3>
                           <p className="text-gray-800 font-bold text-base">₹{item.price}</p>
+                        </div>
+
+                                               {/* Taste Badges - Admin ne jo set kiya */}
+                        <div className="flex flex-wrap gap-1.5 mt-1 mb-1">
+                          {item.spiceLevel === "spicy" && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 flex items-center gap-1">
+                              <IoFlame className="w-3 h-3" /> Spicy
+                            </span>
+                          )}
+                          {item.spiceLevel === "medium" && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 flex items-center gap-1">
+                              <IoFlame className="w-3 h-3" /> Medium
+                            </span>
+                          )}
+                          {item.spiceLevel === "mild" && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-600 flex items-center gap-1">
+                              <IoLeaf className="w-3 h-3" /> Mild
+                            </span>
+                          )}
+                          {item.dishTasteProfile === "sweet" && item.sugarLevelEnabled && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-100 text-pink-600 flex items-center gap-1">
+                              <IoStar className="w-3 h-3" /> Sweet
+                            </span>
+                          )}
                         </div>
 
                         {/* Rating */}
@@ -3291,7 +3321,7 @@ const handleOrderClick = (item, action = "order") => {
                 </div>
 
               )}
-              {/* ===== TASTE MODAL — ROOT LEVEL ===== */}
+      {/* ===== TASTE MODAL — ROOT LEVEL ===== */}
 {tasteItem && (
   <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-black/50 p-4">
     <div className={`${glassStyles.modal} relative w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 animate-slideUp max-h-[90vh] overflow-y-auto`}>
@@ -3306,7 +3336,17 @@ const handleOrderClick = (item, action = "order") => {
       <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden" />
       <h3 className="text-lg font-bold mb-3 pr-8">{tasteItem.name}</h3>
 
-      {tasteItem.dishTasteProfile !== "sweet" && (
+      {/* Agar dish nature set nahi hai toh warning dikhao */}
+      {!tasteItem.dishTasteProfile && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+          <p className="text-sm text-amber-700 font-medium flex items-center gap-2">
+            <IoFlame className="w-4 h-4" />
+            This dish has no taste profile set. Please contact the restaurant.
+          </p>
+        </div>
+      )}
+
+      {tasteItem.dishTasteProfile === "spicy" && (
         <>
           <p className="text-xs font-semibold mb-2 flex items-center gap-1">
             <IoFlame className="w-4 h-4 text-orange-500" /> Spice Level
@@ -3341,14 +3381,13 @@ const handleOrderClick = (item, action = "order") => {
           </div>
         </>
       )}
-
-      {tasteItem.dishTasteProfile !== "sweet" && tasteItem.saltLevelEnabled && (
+      {tasteItem.dishTasteProfile === "spicy" && tasteItem.saltLevelEnabled && (
         <>
           <p className="text-xs font-semibold mb-2 flex items-center gap-1">
             <IoSnow className="w-4 h-4 text-blue-500" /> Salt Level
           </p>
           <div className="flex gap-2 mb-3">
-            {["less", "normal", "extra"].map(level => (
+            {["normal", "medium", "extra"].map(level => (
               <button
                 key={level}
                 onClick={() => setSaltSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
@@ -3377,6 +3416,42 @@ const handleOrderClick = (item, action = "order") => {
           </div>
         </>
       )}
+        {tasteItem.dishTasteProfile === "spicy" && tasteItem.saltLevelEnabled && (
+        <>
+          <p className="text-xs font-semibold mb-2 flex items-center gap-1">
+            <IoSnow className="w-4 h-4 text-blue-500" /> Salt Level
+          </p>
+          <div className="flex gap-2 mb-3">
+            {["normal", "medium", "extra"].map(level => (
+              <button
+                key={level}
+                onClick={() => setSaltSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
+                style={{ 
+                  border: `2px solid ${theme.primary}`,
+                  color: saltSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,
+                  backgroundColor: saltSelections[tasteItem.id] === level ? theme.primary : '#ffffff'
+                }}
+                onMouseEnter={(e) => {
+                  if (saltSelections[tasteItem.id] !== level) {
+                    e.currentTarget.style.backgroundColor = theme.primary;
+                    e.currentTarget.style.color = '#ffffff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (saltSelections[tasteItem.id] !== level) {
+                    e.currentTarget.style.backgroundColor = '#ffffff';
+                    e.currentTarget.style.color = theme.primary;
+                  }
+                }}
+                className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
+              >
+                {level}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
 
       {tasteItem.saladConfig?.enabled && (
         <div className="mb-3">
@@ -3462,12 +3537,13 @@ const handleOrderClick = (item, action = "order") => {
         vegType: tasteItem.vegType || "",
         description: tasteItem.description || "",
         specialInstructions: dishNotes[tasteItem.id] || "",
-        spicePreference: tasteItem.dishTasteProfile !== "sweet" 
+ spicePreference: tasteItem.dishTasteProfile === "spicy" 
           ? (spiceSelections[tasteItem.id] || "normal") : null,
         sweetLevel: tasteItem.dishTasteProfile === "sweet" 
           ? (sweetSelections[tasteItem.id] || "normal") : null,
-        saltPreference: tasteItem.dishTasteProfile === "sweet" 
-          ? null : (saltSelections[tasteItem.id] || "normal"),
+         saltPreference: tasteItem.dishTasteProfile === "spicy" && tasteItem.saltLevelEnabled
+          ? (saltSelections[tasteItem.id] || "normal") 
+          : null,
         salad: tasteItem.saladConfig?.enabled 
           ? { qty: saladSelections[tasteItem.id] ? 1 : 0, taste: saladTaste[tasteItem.id] || "normal" } 
           : { qty: 0, taste: "normal" }

@@ -1,18 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useCart } from '../context/CartContext';
 import { IoClose } from 'react-icons/io5';
 import { IoAdd, IoRemove } from 'react-icons/io5';
 import { FaWhatsapp } from "react-icons/fa";
 import { IoCartOutline } from "react-icons/io5";
 import { useNavigate } from 'react-router-dom';
-import { ref as rtdbRef, onValue } from "firebase/database";
+import { ref as rtdbRef, onValue, get, set, push } from "firebase/database";
 import { realtimeDB, auth } from "../firebaseConfig";
+import { toast } from "sonner";
 
 // ================= COUPON LOGIC =================
 function getBestCoupon(coupons, subtotal) {
   const now = Date.now();
   const valid = Object.values(coupons || {}).filter(c => {
-    if (!c.active && !c.isActive) return false;  // dono field names handle
+    if (!c.active && !c.isActive) return false;
     if (c.minOrder && subtotal < c.minOrder) return false;
     if (c.expiryDate && new Date(c.expiryDate).getTime() < now) return false;
     return true;
@@ -21,7 +22,6 @@ function getBestCoupon(coupons, subtotal) {
   return valid.sort((a, b) => calcDiscount(b, subtotal) - calcDiscount(a, subtotal))[0];
 }
 
-// Check if any active coupons exist (for showing/hiding coupon section)
 function hasActiveCoupons(coupons) {
   const now = Date.now();
   return Object.values(coupons || {}).some(c => {
@@ -52,7 +52,8 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
     tableNumber: '',
     specialInstructions: ''
   });
-
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  
   // ===== COUPON STATE =====
   const [allCoupons, setAllCoupons] = useState({});
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -61,12 +62,15 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
   const [couponSuccess, setCouponSuccess] = useState('');
   const [autoApplied, setAutoApplied] = useState(false);
 
+  // ===== DUPLICATE PREVENTION REF =====
+  const whatsAppCartInProgress = useRef(false);
+
   const navigate = useNavigate();
   const gst = total * 0.05;
   const discount = calcDiscount(appliedCoupon, total);
   const grandTotal = total + gst - discount;
 
-  // ===== BODY SCROLL LOCK — mobile pe background scroll rokna =====
+  // ===== BODY SCROLL LOCK =====
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -94,11 +98,9 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
   }, [restaurantId]);
 
   // ===== AUTO-APPLY COUPON =====
-  // Sirf tab chale jab koi active coupon ho aur cart open ho
   useEffect(() => {
     if (!open || total === 0) return;
     if (!hasActiveCoupons(allCoupons)) {
-      // Koi active coupon nahi hai, reset karo
       if (appliedCoupon) {
         setAppliedCoupon(null);
         setAutoApplied(false);
@@ -122,28 +124,26 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
       setCouponSuccess('');
     }
   }, [open, allCoupons, total]);
-// ===== EXPIRE HO GAYI COUPON AUTO-REMOVE =====
-// Ya agar admin ne saare coupons deactivate kar diye ho
-useEffect(() => {
-  if (!appliedCoupon) return;
 
-  // Agar koi active coupon hi nahi bacha, toh remove karo
-  if (!hasActiveCoupons(allCoupons)) {
-    setAppliedCoupon(null);
-    setAutoApplied(false);
-    setCouponSuccess('');
-    setCouponError('');
-    return;
-  }
+  // ===== EXPIRED COUPON AUTO-REMOVE =====
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    if (!hasActiveCoupons(allCoupons)) {
+      setAppliedCoupon(null);
+      setAutoApplied(false);
+      setCouponSuccess('');
+      setCouponError('');
+      return;
+    }
+    const now = Date.now();
+    if (appliedCoupon.expiryDate && new Date(appliedCoupon.expiryDate).getTime() < now) {
+      setAppliedCoupon(null);
+      setAutoApplied(false);
+      setCouponSuccess('');
+      setCouponError('Coupon expired, removed automatically');
+    }
+  }, [open, appliedCoupon, allCoupons]);
 
-  const now = Date.now();
-  if (appliedCoupon.expiryDate && new Date(appliedCoupon.expiryDate).getTime() < now) {
-    setAppliedCoupon(null);
-    setAutoApplied(false);
-    setCouponSuccess('');
-    setCouponError('Coupon expired, removed automatically');
-  }
-}, [open, appliedCoupon, allCoupons]);
   // ===== HANDLERS =====
   const handleApplyCoupon = () => {
     setCouponError('');
@@ -178,19 +178,15 @@ useEffect(() => {
     setCouponInput('');
   };
 
-const handleCheckout = () => {
-  if (cart.length === 0) return;
-  
-  const user = auth.currentUser;
-  if (!user) {
-    // User logged in nahi hai → LoginPage pe bhejo
-    // redirectUrl mein cart wapas khulne ka flag bhejo
-    navigate(`/logins/${restaurantId}?redirect=cart`);
-  } else {
-    // User logged in hai → CheckoutPage pe bhejo
-    navigate(`/checkout/${restaurantId}`);
-  }
-};
+  const handleCheckout = () => {
+    if (cart.length === 0) return;
+    const user = auth.currentUser;
+    if (!user) {
+      navigate(`/logins/${restaurantId}?redirect=cart`);
+    } else {
+      navigate(`/checkout/${restaurantId}`);
+    }
+  };
 
   const handleWhatsAppCheckout = () => {
     if (cart.length === 0) { alert('Cart empty!'); return; }
@@ -202,54 +198,223 @@ const handleCheckout = () => {
     setShowQuickWhatsAppCheckout(true);
   };
 
+  // ============================================
+  // ★ FIXED: placeWhatsAppOrder with duplicate prevention
+  // ============================================
   const placeWhatsAppOrder = async (isQuick = false) => {
+    // Validation
     if (!customerInfo.name || !customerInfo.phone) {
-      alert('Please enter name & phone');
+      toast.error('Please enter name & phone');
       return;
     }
 
-    const orderData = {
-      customerName: customerInfo.name,
-      customerPhone: customerInfo.phone,
-      tableNumber: customerInfo.tableNumber,
-      specialInstructions: customerInfo.specialInstructions,
-      couponCode: appliedCoupon?.code || null,
-      discount: parseFloat(discount.toFixed(2)),
-      subtotal: parseFloat(total.toFixed(2)),
-      gst: parseFloat(gst.toFixed(2)),
-      total: parseFloat(grandTotal.toFixed(2)),
-      originalTotal: parseFloat((total + gst).toFixed(2)),
-      items: cart.map(item => ({
-        id: item.id, name: item.name, qty: item.qty || 1, price: item.price,
-        image: item.image, prepTime: item.prepTime, spicePreference: item.spicePreference,
-        sweetLevel: item.sweetLevel, saltPreference: item.saltPreference, salad: item.salad
-      })),
-      isQuickWhatsApp: isQuick
-    };
+    const user = auth.currentUser;
+    if (!user) {
+      toast.error('Please login first');
+      navigate(`/logins/${restaurantId}?redirect=cart`);
+      return;
+    }
 
-    if (isQuick) {
-      const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
-      if (phone) {
+    // ★ Agar pehle se order ban raha hai, ruk jao
+    if (whatsAppCartInProgress.current) {
+      toast.error("Order already in progress! Please wait.");
+      return;
+    }
+    whatsAppCartInProgress.current = true;
+    setIsPlacingOrder(true);
+
+    try {
+      // Token refresh
+      try {
+        await user.getIdToken(true);
+      } catch (tokenError) {
+        toast.error("Session expired. Please login again.");
+        whatsAppCartInProgress.current = false;
+        setIsPlacingOrder(false);
+        navigate(`/logins/${restaurantId}?redirect=cart`);
+        return;
+      }
+
+      // ============================================
+      // ★ DUPLICATE CHECK 1: Last 60 sec mein same items?
+      // ============================================
+      let isDuplicate = false;
+      try {
+        const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
+        const existingSnap = await get(ordersRef);
+        const existingOrders = existingSnap.val() || {};
+        const now = Date.now();
+        
+        const itemIds = cart.map(i => i.id).sort().join(',');
+        isDuplicate = Object.values(existingOrders).some(o => {
+          if (o.userId !== user.uid) return false;
+          if (now - (o.createdAt || 0) > 60000) return false; // 60 sec window
+          const existingIds = (o.items || []).map(i => i.dishId || i.id).sort().join(',');
+          return existingIds === itemIds;
+        });
+      } catch (checkErr) {
+        console.log("Duplicate check error (non-critical):", checkErr.message);
+      }
+
+      if (isDuplicate) {
+        toast.error("This order was just placed! Please wait a moment.");
+        whatsAppCartInProgress.current = false;
+        setIsPlacingOrder(false);
+        return;
+      }
+
+      // ============================================
+      // ★ DUPLICATE CHECK 2: Same user ka active/pending order exist?
+      // ============================================
+      try {
+        const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
+        const existingSnap = await get(ordersRef);
+        const existingOrders = existingSnap.val() || {};
+        const now = Date.now();
+        
+        const hasPendingOrder = Object.values(existingOrders).some(o => {
+          if (o.userId !== user.uid) return false;
+          if (['completed', 'cancelled', 'rejected', 'delivered'].includes(o.status)) return false;
+          return now - (o.createdAt || 0) < 300000; // 5 min window
+        });
+        
+        if (hasPendingOrder) {
+          toast.info("You already have an active order! Please wait for it to complete.");
+          whatsAppCartInProgress.current = false;
+          setIsPlacingOrder(false);
+          return;
+        }
+      } catch (e) {
+        console.log("Pending check error:", e.message);
+      }
+
+      // ============================================
+      // ★ QUICK WHATSAPP: Direct message, NO database write
+      // ============================================
+      if (isQuick) {
+        const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
+        if (!phone) {
+          toast.error('WhatsApp number not available');
+          whatsAppCartInProgress.current = false;
+          setIsPlacingOrder(false);
+          return;
+        }
+
         const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
         const items = cart.map(i => `${i.name} x${i.qty || 1}`).join(', ');
         const couponLine = appliedCoupon ? ` Coupon: ${appliedCoupon.code} (-₹${discount.toFixed(0)}).` : '';
         const message = `Hi, I'm ${customerInfo.name} (${customerInfo.phone}). I want to order: ${items}.${couponLine} Total: ₹${grandTotal.toFixed(0)}. ${customerInfo.tableNumber ? `Table: ${customerInfo.tableNumber}. ` : ''}${customerInfo.specialInstructions || ''}`;
+        
         window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
+        
         setShowQuickWhatsAppCheckout(false);
         clearCart();
         onClose();
-      } else {
-        alert('WhatsApp number not available');
+        toast.success("WhatsApp opened with your order!");
+        whatsAppCartInProgress.current = false;
+        setIsPlacingOrder(false);
+        return;
       }
-    } else {
-      if (typeof onWhatsAppOrder === 'function') {
-        await onWhatsAppOrder(orderData);
-        setShowWhatsAppCheckout(false);
-        clearCart();
-        onClose();
-      } else {
-        alert('WhatsApp order not available');
+
+      // ============================================
+      // ★ SYNC WHATSAPP: Database write + WhatsApp
+      // ============================================
+      
+      // ★ EK HI orderRef banao
+      const orderRef = push(rtdbRef(realtimeDB, `orders/${restaurantId}`));
+      const orderId = orderRef.key;
+
+      const items = cart.map(item => ({
+        dishId: item.id,
+        name: item.name,
+        qty: item.qty || 1,
+        price: item.price,
+        image: item.image || item.imageUrl || "",
+        prepTime: item.prepTime || 15,
+        spicePreference: item.spicePreference || "normal",
+        sweetLevel: item.sweetLevel || null,
+        saltPreference: item.saltPreference || null,
+        salad: item.salad || { qty: 0, taste: "normal" },
+        dishTasteProfile: item.dishTasteProfile || "normal",
+        description: item.description || "",
+        vegType: item.vegType || ""
+      }));
+
+      const subtotal = total;
+      const gstAmt = gst;
+      const discountAmt = discount;
+      const finalTotal = grandTotal;
+
+      // ★ SIRF orders/ mein likho - NO whatsappOrders/ NO kitchenOrders/
+      const order = {
+        id: orderId,
+        userId: user.uid,
+        restaurantId: restaurantId,
+        customerName: customerInfo.name,
+        customerPhone: customerInfo.phone,
+        customerEmail: user.email || "",
+        tableNumber: customerInfo.tableNumber || "",
+        specialInstructions: customerInfo.specialInstructions || "",
+        items: items,
+        type: "whatsapp",
+        status: "pending",
+        subtotal: parseFloat(subtotal.toFixed(2)),
+        gst: parseFloat(gstAmt.toFixed(2)),
+        discount: parseFloat(discountAmt.toFixed(2)),
+        total: parseFloat(finalTotal.toFixed(2)),
+        originalTotal: parseFloat((subtotal + gstAmt).toFixed(2)),
+        couponCode: appliedCoupon?.code || null,
+        couponDiscount: parseFloat(discountAmt.toFixed(2)),
+        createdAt: Date.now(),
+        source: "whatsapp",
+        timestamp: Date.now(),
+        whatsappStatus: "new"
+      };
+
+      // ★ SIRF ek jagah write karo
+      await set(orderRef, order);
+
+      // WhatsApp message bhejo
+      const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
+      if (phone) {
+        const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
+        
+        const message = `🍽️ *NEW ORDER - ${restaurantSettings?.name || 'Restaurant'}* 🍽️\n\n` +
+          `👤 *Customer:* ${customerInfo.name}\n` +
+          `📱 *Phone:* ${customerInfo.phone}\n` +
+          (customerInfo.tableNumber ? `🪑 *Table:* ${customerInfo.tableNumber}\n` : '') +
+          `\n*Order Details:*\n` +
+          cart.map((item, i) => `• ${item.name} x${item.qty || 1} - ₹${item.price * (item.qty || 1)}`).join('\n') +
+          `\n\n💰 *Subtotal:* ₹${subtotal.toFixed(2)}\n` +
+          `📊 *GST (5%):* ₹${gstAmt.toFixed(2)}\n` +
+          (discountAmt > 0 ? `🏷️ *Discount:* −₹${discountAmt.toFixed(2)}\n` : '') +
+          `💵 *TOTAL: ₹${finalTotal.toFixed(2)}*\n` +
+          (customerInfo.specialInstructions ? `\n📝 *Note:* ${customerInfo.specialInstructions}\n` : '') +
+          `\n⏱️ *Prep Time:* ${Math.max(...cart.map(i => i.prepTime || 15))} mins`;
+
+        const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
       }
+
+      // Success cleanup
+      setShowWhatsAppCheckout(false);
+      clearCart();
+      onClose();
+      
+      const saveMsg = discountAmt > 0
+        ? `✅ Order placed! Coupon "${appliedCoupon.code}" applied — You saved ₹${discountAmt.toFixed(0)}!`
+        : "✅ Order placed! Waiting for restaurant confirmation...";
+      toast.success(saveMsg);
+
+    } catch (error) {
+      console.error("WhatsApp order error:", error);
+      toast.error("❌ Order failed: " + error.message);
+    } finally {
+      // 3 sec baad flag reset karo
+      setTimeout(() => {
+        whatsAppCartInProgress.current = false;
+        setIsPlacingOrder(false);
+      }, 3000);
     }
   };
 
@@ -265,38 +430,39 @@ const handleCheckout = () => {
   const displayItems = showAllItems ? cart : cart.slice(0, 2);
   const hasMoreItems = cart.length > 2;
 
-const now = Date.now();
-const availableCoupons = Object.values(allCoupons).filter(c =>
-  (c.active || c.isActive) &&
-  (!c.expiryDate || new Date(c.expiryDate).getTime() > now) &&
-  (!c.minOrder || total >= c.minOrder)
-).slice(0, 3);
+  const now = Date.now();
+  const availableCoupons = Object.values(allCoupons).filter(c =>
+    (c.active || c.isActive) &&
+    (!c.expiryDate || new Date(c.expiryDate).getTime() > now) &&
+    (!c.minOrder || total >= c.minOrder)
+  ).slice(0, 3);
 
-const BillSummary = ({ compact = false }) => (
-  <div className={`bg-white rounded-xl border border-gray-200 ${compact ? 'p-2 space-y-1' : 'p-3 space-y-2'}`}>
-    <div className="flex justify-between text-xs text-gray-600">
-      <span>Subtotal ({cartCount} items)</span>
-      <span>₹{total.toFixed(0)}</span>
-    </div>
-    <div className="flex justify-between text-xs text-gray-600">
-      <span>GST (5%)</span>
-      <span>₹{gst.toFixed(0)}</span>
-    </div>
-    {appliedCoupon && discount > 0 && (
-      <div className="flex justify-between text-xs text-green-600 font-medium">
-        <span>Discount ({appliedCoupon.code})</span>
-        <span>−₹{discount.toFixed(0)}</span>
+  const BillSummary = ({ compact = false }) => (
+    <div className={`bg-white rounded-xl border border-gray-200 ${compact ? 'p-2 space-y-1' : 'p-3 space-y-2'}`}>
+      <div className="flex justify-between text-xs text-gray-600">
+        <span>Subtotal ({cartCount} items)</span>
+        <span>₹{total.toFixed(0)}</span>
       </div>
-    )}
-    <div className="flex justify-between font-bold border-t pt-1 mt-1">
-      <span className="text-sm">Total</span>
-      <span className="text-lg" style={{ color: theme.primary }}>₹{grandTotal.toFixed(0)}</span>
+      <div className="flex justify-between text-xs text-gray-600">
+        <span>GST (5%)</span>
+        <span>₹{gst.toFixed(0)}</span>
+      </div>
+      {appliedCoupon && discount > 0 && (
+        <div className="flex justify-between text-xs text-green-600 font-medium">
+          <span>Discount ({appliedCoupon.code})</span>
+          <span>−₹{discount.toFixed(0)}</span>
+        </div>
+      )}
+      <div className="flex justify-between font-bold border-t pt-1 mt-1">
+        <span className="text-sm">Total</span>
+        <span className="text-lg" style={{ color: theme.primary }}>₹{grandTotal.toFixed(0)}</span>
+      </div>
     </div>
-  </div>
-);
+  );
+
   return (
     <>
-      {/* ===== BACKDROP — z-index [10000] so it's above BottomCart (z-[999]) ===== */}
+      {/* ===== BACKDROP ===== */}
       <div
         className="fixed inset-0 bg-black/60 z-[10000]"
         onClick={onClose}
@@ -309,7 +475,7 @@ const BillSummary = ({ compact = false }) => (
         style={{
           width: '100%',
           maxWidth: '400px',
-          height: '100dvh',          // dynamic viewport height — mobile browser bars ka hisaab rakhe
+          height: '100dvh',
           overscrollBehavior: 'contain',
         }}
       >
@@ -388,16 +554,15 @@ const BillSummary = ({ compact = false }) => (
                         </div>
 
                         <div className="flex flex-wrap gap-2 text-[10px] text-gray-500 mt-0.5">
-  {item.spicePreference && <span className="bg-orange-50 px-1.5 py-0.5 rounded">🌶️ {item.spicePreference}</span>}
-  {item.sweetLevel && <span className="bg-pink-50 px-1.5 py-0.5 rounded">🍰 {item.sweetLevel}</span>}
-  {item.saltPreference && <span className="bg-blue-50 px-1.5 py-0.5 rounded">🧂 {item.saltPreference}</span>}
-  {/* ✅ SALAD DISPLAY ADD KIYA */}
-  {item.salad?.qty > 0 && (
-    <span className="bg-green-50 px-1.5 py-0.5 rounded">
-      🥗 Salad: {item.salad.qty} plate{item.salad.taste && item.salad.taste !== 'normal' ? ` (${item.salad.taste})` : ''}
-    </span>
-  )}
-</div>
+                          {item.spicePreference && <span className="bg-orange-50 px-1.5 py-0.5 rounded">🌶️ {item.spicePreference}</span>}
+                          {item.sweetLevel && <span className="bg-pink-50 px-1.5 py-0.5 rounded">🍰 {item.sweetLevel}</span>}
+                          {item.saltPreference && <span className="bg-blue-50 px-1.5 py-0.5 rounded">🧂 {item.saltPreference}</span>}
+                          {item.salad?.qty > 0 && (
+                            <span className="bg-green-50 px-1.5 py-0.5 rounded">
+                              🥗 Salad: {item.salad.qty} plate{item.salad.taste && item.salad.taste !== 'normal' ? ` (${item.salad.taste})` : ''}
+                            </span>
+                          )}
+                        </div>
 
                         <div className="flex items-center justify-between mt-2">
                           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
@@ -429,7 +594,7 @@ const BillSummary = ({ compact = false }) => (
                 </div>
               </div>
 
-              {/* Coupon Section — sirf tab dikhaye jab koi active coupon ho */}
+              {/* Coupon Section */}
               {hasActiveCoupons(allCoupons) && (
                 <div className="bg-white rounded-xl border border-gray-200 p-3 shrink-0">
                   {appliedCoupon ? (
@@ -498,49 +663,52 @@ const BillSummary = ({ compact = false }) => (
 
               {/* Bill Summary */}
               <BillSummary compact />
-{(() => {
-  if (!promoData?.active || !promoData?.offers?.length) return null;
-  const now = new Date();
-  if (promoData.validTill) {
-    const expiry = new Date(promoData.validTill);
-    expiry.setHours(23, 59, 59, 999);
-    if (expiry < now) return null; // expired
-  }
-  return (
-    <div className="bg-white rounded-xl border-2 p-3 shrink-0" style={{ borderColor: theme.primary }}>
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-base">🎉</span>
-        <div>
-          <p className="font-bold text-xs" style={{ color: theme.primary }}>
-            {promoData.subtitle ? `✦ ${promoData.subtitle} ✦` : 'Special Offers'}
-          </p>
-          <p className="font-bold text-sm text-gray-800">{promoData.title}</p>
-        </div>
-      </div>
-      <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${promoData.offers.length}, 1fr)` }}>
-        {promoData.offers.map((o, i) => (
-          <div
-            key={i}
-            className="rounded-xl p-2 text-center border"
-            style={{
-              background: 'linear-gradient(145deg, #F5EDD8, #EAE0C8)',
-              borderColor: 'rgba(200,146,42,0.3)'
-            }}
-          >
-            <p className="font-bold text-base leading-none" style={{ color: theme.primary, fontFamily: 'serif' }}>
-              {o.pct}
-            </p>
-            <p className="text-[8px] font-bold text-amber-600 uppercase tracking-wide">OFF</p>
-            <p className="text-[9px] text-gray-600 leading-tight mt-0.5">{o.desc}</p>
-          </div>
-        ))}
-      </div>
-      {promoData.validTill && (
-        <p className="text-[10px] text-center text-gray-500 mt-2">📅 Valid till {promoData.validTill}</p>
-      )}
-    </div>
-  );
-})()}
+              
+              {/* Promo Section */}
+              {(() => {
+                if (!promoData?.active || !promoData?.offers?.length) return null;
+                const now = new Date();
+                if (promoData.validTill) {
+                  const expiry = new Date(promoData.validTill);
+                  expiry.setHours(23, 59, 59, 999);
+                  if (expiry < now) return null;
+                }
+                return (
+                  <div className="bg-white rounded-xl border-2 p-3 shrink-0" style={{ borderColor: theme.primary }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-base">🎉</span>
+                      <div>
+                        <p className="font-bold text-xs" style={{ color: theme.primary }}>
+                          {promoData.subtitle ? `✦ ${promoData.subtitle} ✦` : 'Special Offers'}
+                        </p>
+                        <p className="font-bold text-sm text-gray-800">{promoData.title}</p>
+                      </div>
+                    </div>
+                    <div className={`grid gap-2`} style={{ gridTemplateColumns: `repeat(${promoData.offers.length}, 1fr)` }}>
+                      {promoData.offers.map((o, i) => (
+                        <div
+                          key={i}
+                          className="rounded-xl p-2 text-center border"
+                          style={{
+                            background: 'linear-gradient(145deg, #F5EDD8, #EAE0C8)',
+                            borderColor: 'rgba(200,146,42,0.3)'
+                          }}
+                        >
+                          <p className="font-bold text-base leading-none" style={{ color: theme.primary, fontFamily: 'serif' }}>
+                            {o.pct}
+                          </p>
+                          <p className="text-[8px] font-bold text-amber-600 uppercase tracking-wide">OFF</p>
+                          <p className="text-[9px] text-gray-600 leading-tight mt-0.5">{o.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {promoData.validTill && (
+                      <p className="text-[10px] text-center text-gray-500 mt-2">📅 Valid till {promoData.validTill}</p>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Action Buttons */}
               <div className="space-y-2 pb-6 shrink-0">
                 <button
@@ -554,12 +722,23 @@ const BillSummary = ({ compact = false }) => (
 
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={handleWhatsAppCheckout}
-                    className="py-3 bg-green-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 active:scale-[0.98] transition shadow-md hover:bg-green-600"
+                    onClick={async () => {
+                      if (isPlacingOrder) return;
+                      setIsPlacingOrder(true);
+                      try {
+                        await handleWhatsAppCheckout();
+                      } finally {
+                        setIsPlacingOrder(false);
+                      }
+                    }}
+                    disabled={isPlacingOrder}
+                    className="py-3 bg-green-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 active:scale-[0.98] transition shadow-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <FaWhatsapp className="w-4 h-4" />
-                    <span>WhatsApp</span>
-                    <span className="bg-green-600 text-[8px] px-1.5 py-0.5 rounded">Sync</span>
+                    {isPlacingOrder ? (
+                      <>⏳ Sending...</>
+                    ) : (
+                      <><FaWhatsapp className="w-4 h-4" /><span>WhatsApp</span><span className="bg-green-600 text-[8px] px-1.5 py-0.5 rounded">Sync</span></>
+                    )}
                   </button>
                   <button
                     onClick={handleQuickWhatsAppCheckout}
@@ -635,7 +814,13 @@ const BillSummary = ({ compact = false }) => (
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowWhatsAppCheckout(false)} className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-bold text-sm active:scale-95 transition">Cancel</button>
-              <button onClick={() => placeWhatsAppOrder(false)} disabled={!customerInfo.name || !customerInfo.phone} className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold text-sm active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2"><FaWhatsapp /> Send Order</button>
+              <button 
+                onClick={() => placeWhatsAppOrder(false)} 
+                disabled={isPlacingOrder || !customerInfo.name || !customerInfo.phone} 
+                className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold text-sm active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isPlacingOrder ? '⏳ Sending...' : <><FaWhatsapp /> Send Order</>}
+              </button>
             </div>
           </div>
         </div>
@@ -655,7 +840,13 @@ const BillSummary = ({ compact = false }) => (
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowQuickWhatsAppCheckout(false)} className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-bold text-sm active:scale-95 transition">Cancel</button>
-              <button onClick={() => placeWhatsAppOrder(true)} disabled={!customerInfo.name || !customerInfo.phone} className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold text-sm active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2"><FaWhatsapp /> Open WhatsApp</button>
+              <button 
+                onClick={() => placeWhatsAppOrder(true)} 
+                disabled={isPlacingOrder || !customerInfo.name || !customerInfo.phone} 
+                className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold text-sm active:scale-95 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isPlacingOrder ? '⏳ Sending...' : <><FaWhatsapp /> Open WhatsApp</>}
+              </button>
             </div>
           </div>
         </div>
