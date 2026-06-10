@@ -257,16 +257,16 @@ const DishProgressBar = ({ item, theme, orderId, restaurantId, onDishReady, orde
       localPrepStartedRef.current = true;
       autoStartAttemptedRef.current = true;
 
-      const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g,'_')}`;
-const itemRef = rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}/items/${itemKey}`);
-      update(itemRef, {
-        prepStartedAt: now,
-        prepTime: item.prepTime || 15,
-        itemStatus: "preparing"
-      }).catch(err => {
-        console.log("Prep already started or error:", err.message);
-      });
-    }
+     const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g,'_')}`;
+const statusRef = rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}/itemStatuses/${itemKey}`);
+update(statusRef, {
+  prepStartedAt: now,
+  prepTime: item.prepTime || 15,
+  itemStatus: "preparing"
+}).catch(err => {
+  console.log("Prep status update error:", err.message);
+});
+}
   }, [orderStatus, item.prepStartedAt, item.dishId, item.id, orderId, item.name, item.prepTime, item.itemStatus, item.itemReadyAt]);
 
   useEffect(() => {
@@ -309,11 +309,11 @@ const itemRef = rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}/items/${i
         }
 
 const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g,'_')}`;
-const itemRef = rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}/items/${itemKey}`);
-        update(itemRef, {
-          itemStatus: "ready",
-          itemReadyAt: Date.now()
-        }).catch(() => {});
+const statusRef = rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}/itemStatuses/${itemKey}`);
+update(statusRef, {
+  itemStatus: "ready",
+  itemReadyAt: Date.now()
+}).catch(() => {});
 
         setTimeout(() => setShowEnjoyMessage(false), 5000);
       }
@@ -420,12 +420,14 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
   const status = statusConfig[order.status] || statusConfig.pending;
   const isCompleted = order.status === 'completed';
 
-  const getItemsArray = (items) => {
-    if (!items) return [];
-    if (Array.isArray(items)) return items;
-    if (typeof items === 'object') return Object.values(items);
-    return [];
-  };
+ const getItemsArray = (items) => {
+  if (!items) return [];
+  if (Array.isArray(items)) 
+    return items.filter(item => item && item.name);
+  if (typeof items === 'object') 
+    return Object.values(items).filter(item => item && item.name);
+  return [];
+};
 
   const orderItems = getItemsArray(order.items);
   const allItemsReady = orderItems.length > 0 && orderItems.every(item =>
@@ -433,9 +435,16 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
   );
 
   // Show bill buttons when: items ready OR order ready/completed AND bill not yet opened
-  const shouldShowBillButtons =
-    !localBillOpened &&
-    (allItemsReady || order.status === 'ready' || isCompleted);
+  const isWhatsAppOrder = order.source === "whatsapp" || order.type === "whatsapp";
+
+const shouldShowBillButtons =
+  !localBillOpened &&
+  (
+    allItemsReady || 
+    order.status === 'ready' || 
+    isCompleted ||
+    (isWhatsAppOrder && ['confirmed', 'preparing'].includes(order.status))
+  );
 
   // After bill opened — show compact bill actions + close button
   const showPostBillActions = localBillOpened;
@@ -482,18 +491,22 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
             </div>
 
             {!isCompleted && !localBillOpened && order.status !== 'pending' && (
-              <div className="mt-2 pt-2 border-t border-gray-200/50">
-               <DishProgressBar
-  key={`${order.id}-${item.dishId || item.id}`}
-  item={item}
-  theme={theme}
-  orderId={order.id}
-  restaurantId={order.restaurantId}
-  orderStatus={order.status}
-  onDishReady={onDishReady}
-/>
-              </div>
-            )}
+  <div className="mt-2 pt-2 border-t border-gray-200/50">
+    <DishProgressBar
+      key={`${order.id}-${item.dishId || item.id}`}
+      item={{
+        ...item,
+        // itemStatuses se override karo agar available hai
+        ...(order.itemStatuses?.[item.dishId || item.id] || {})
+      }}
+      theme={theme}
+      orderId={order.id}
+      restaurantId={order.restaurantId}
+      orderStatus={order.status}
+      onDishReady={onDishReady}
+    />
+  </div>
+)}
           </div>
         ))}
       </div>
@@ -1149,7 +1162,9 @@ Sent via DineQR
         specialInstructions: customerData?.specialInstructions || "",
         items: [enrichedItem],
         type: "whatsapp",
-        status: "pending",
+        status: "confirmed",
+  confirmedAt: Date.now(),
+  autoConfirmed: true,
         subtotal,
         gst,
         total,
@@ -1179,37 +1194,6 @@ Sent via DineQR
         console.error("whatsappOrders write failed:", whatsappError);
         toast.error("Order created but auto-confirm may not work");
       }
-
-      try {
-        const kitchenOrderData = {
-          id: orderId,
-          userId: user.uid,
-          restaurantId: String(restaurantId),
-          customerName: order.customerName,
-          customerPhone: order.customerPhone,
-          customerEmail: order.customerEmail,
-          tableNumber: order.tableNumber,
-          specialInstructions: order.specialInstructions,
-          items: [enrichedItem],
-          type: "whatsapp",
-          status: "pending",
-          kitchenStatus: "pending",
-          subtotal,
-          gst,
-          total,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          source: "whatsapp",
-          whatsappStatus: "new"
-        };
-
-        const kitchenRef = rtdbRef(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`);
-        await set(kitchenRef, kitchenOrderData);
-      } catch (kitchenErr) {
-        console.error("Kitchen order creation failed:", kitchenErr);
-        toast.warning("Order placed but kitchen display may not update.");
-      }
-
       const message = `🍽️ *New Order #${orderId.slice(-6)}*\n\n` +
         `👤 *Customer:* ${order.customerName}\n` +
         `📱 *Phone:* ${order.customerPhone || 'N/A'}\n` +
@@ -1380,7 +1364,9 @@ ${'━'.repeat(30)}
         specialInstructions: orderData.specialInstructions || "",
         items: detailedItems,
         type: "whatsapp",
-        status: "pending",
+        status: "confirmed",
+        confirmedAt: Date.now(),
+  autoConfirmed: true,
         subtotal: parseFloat(subtotal.toFixed(2)),
         gst: parseFloat(gst.toFixed(2)),
         discount: parseFloat(discount.toFixed(2)),
@@ -1397,9 +1383,7 @@ ${'━'.repeat(30)}
       await set(rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
         ...order, whatsappStatus: "new", userId: user.uid, restaurantId: restaurantId
       });
-      await set(rtdbRef(realtimeDB, `kitchenOrders/${restaurantId}/${orderId}`), {
-        ...order, kitchenStatus: "new", type: "whatsapp", userId: user.uid, restaurantId: restaurantId, createdAt: Date.now()
-      });
+    
 
       const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
       if (phone) {
@@ -3381,7 +3365,7 @@ const handleOrderClick = (item, action = "order") => {
           </div>
         </>
       )}
-      {tasteItem.dishTasteProfile === "spicy" && tasteItem.saltLevelEnabled && (
+      {/* {tasteItem.dishTasteProfile === "spicy" && tasteItem.saltLevelEnabled && (
         <>
           <p className="text-xs font-semibold mb-2 flex items-center gap-1">
             <IoSnow className="w-4 h-4 text-blue-500" /> Salt Level
@@ -3415,7 +3399,7 @@ const handleOrderClick = (item, action = "order") => {
             ))}
           </div>
         </>
-      )}
+      )} */}
         {tasteItem.dishTasteProfile === "spicy" && tasteItem.saltLevelEnabled && (
         <>
           <p className="text-xs font-semibold mb-2 flex items-center gap-1">

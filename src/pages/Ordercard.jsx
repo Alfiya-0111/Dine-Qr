@@ -34,11 +34,15 @@ const GOLD    = "#FFD166";
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const getItemsArray = (items) => {
   if (!items) return [];
-  if (Array.isArray(items)) return items;
+  if (Array.isArray(items)) 
+    return items.filter(item => item && item.name && item.price !== undefined);
   if (typeof items === "object")
-    return Object.entries(items).map(([key, value]) => ({ ...value, _key: key }));
+    return Object.entries(items)
+      .map(([key, value]) => ({ ...value, _key: key }))
+      .filter(item => item && item.name && item.price !== undefined);
   return [];
 };
+
 
 // ─── TASTE BADGE ─────────────────────────────────────────────────────────────
 const TasteBadge = ({ type, level }) => {
