@@ -20,14 +20,18 @@ import {
   FaMoneyBillWave,
   FaCreditCard,
   FaPlayCircle,
+  FaDownload,
+  FaPrint,
+  FaEye,
 } from "react-icons/fa";
 import { MdOutlineRestaurantMenu } from "react-icons/md";
 import { BiDish } from "react-icons/bi";
 import { ref, update } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { useState } from "react";
-import { Phone } from "lucide-react";
+import { Phone, User } from "lucide-react";
 import { Bike, MapPin, Home, AlertTriangle, Map, CheckCircle } from "lucide-react";
+
 const PRIMARY = "#8A244B";
 const GOLD    = "#FFD166";
 
@@ -42,7 +46,6 @@ const getItemsArray = (items) => {
       .filter(item => item && item.name && item.price !== undefined);
   return [];
 };
-
 
 // ─── TASTE BADGE ─────────────────────────────────────────────────────────────
 const TasteBadge = ({ type, level }) => {
@@ -144,6 +147,7 @@ const SectionLabel = ({ icon, children }) => (
     {children}
   </div>
 );
+
 function DeliveryAssignSection({ order, restaurantId, deliveryBoys }) {
   const [selectedBoy, setSelectedBoy] = useState(
     order.deliveryInfo?.deliveryBoyId || ""
@@ -181,7 +185,6 @@ function DeliveryAssignSection({ order, restaurantId, deliveryBoys }) {
     }}>
       <p style={{ fontSize: 12, fontWeight: 700, color: "#166534", marginBottom: 8 }}>
         <Bike size={12} /> Delivery Assignment
-
       </p>
 
       {order.deliveryInfo?.zone && (
@@ -204,7 +207,7 @@ function DeliveryAssignSection({ order, restaurantId, deliveryBoys }) {
           padding: "8px 12px", marginBottom: 8,
         }}>
           <p style={{ fontSize: 12, fontWeight: 700, color: "#166534" }}>
-           <CheckCircle size={12} color="#166534" /> Assigned: {order.deliveryInfo.deliveryBoyName}
+            <CheckCircle size={12} color="#166534" /> Assigned: {order.deliveryInfo.deliveryBoyName}
           </p>
           <p style={{ fontSize: 11, color: "#4b5563" }}>
             <Phone size={11} /> {order.deliveryInfo.deliveryBoyPhone}
@@ -260,7 +263,6 @@ function DeliveryAssignSection({ order, restaurantId, deliveryBoys }) {
       )}
 
       {order.deliveryInfo?.googleMapsLink && (
-        
         <a  href={order.deliveryInfo.googleMapsLink}
           target="_blank"
           rel="noopener noreferrer"
@@ -275,11 +277,12 @@ function DeliveryAssignSection({ order, restaurantId, deliveryBoys }) {
     </div>
   );
 }
+
 // ─── ORDER CARD ───────────────────────────────────────────────────────────────
 export function Ordercard({
   order, now, isActive, onDelete, onUpdateStatus,
-  onUpdatePayment, onGenerateBill, autoCompleteEnabled,
-  theme, canSeeWhatsApp, isGuest,
+  onUpdatePayment, onGenerateBill, onShareWhatsApp,       // ✅ NEW props
+  autoCompleteEnabled, theme, canSeeWhatsApp, isGuest,
   deliveryBoys, restaurantId,   
 }) {
   const isWhatsApp        = order.source === "whatsapp" || order.type === "whatsapp" || !!order.whatsappStatus;
@@ -341,6 +344,15 @@ export function Ordercard({
   const cardBg = isActive
     ? order.status === "ready" ? "#f0fdf4" : "#fffbeb"
     : "#fff";
+
+  // ✅ NEW: Bill button handlers
+  const handleGenerateBill = () => {
+    if (onGenerateBill) onGenerateBill(order);
+  };
+
+  const handleShareWhatsApp = () => {
+    if (onShareWhatsApp) onShareWhatsApp(order);
+  };
 
   return (
     <div style={{
@@ -445,21 +457,21 @@ export function Ordercard({
 
           {/* Name & Phone — responsive grid */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-        <div style={{ fontSize: 12, color: "#374151" }}>
-  <span style={{ color: "#9ca3af" }}>Name </span>
-  <strong>{order.customerInfo?.name || order.customerName || "N/A"}</strong>
-  {isGuest && (
-    <span style={{
-      fontSize: 10, fontWeight: 700,
-      background: "#f3f4f6", color: "#6b7280",
-      border: "1px solid #e5e7eb",
-      borderRadius: 6, padding: "1px 6px",
-      marginLeft: 6,
-    }}>
-      <User size={10} /> Guest
-    </span>
-  )}
-</div>
+            <div style={{ fontSize: 12, color: "#374151" }}>
+              <span style={{ color: "#9ca3af" }}>Name </span>
+              <strong>{order.customerInfo?.name || order.customerName || "N/A"}</strong>
+              {isGuest && (
+                <span style={{
+                  fontSize: 10, fontWeight: 700,
+                  background: "#f3f4f6", color: "#6b7280",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 6, padding: "1px 6px",
+                  marginLeft: 6,
+                }}>
+                  <User size={10} /> Guest
+                </span>
+              )}
+            </div>
             <div style={{ fontSize: 12, color: "#374151" }}>
               <span style={{ color: "#9ca3af" }}>Phone </span>
               <strong>{order.customerInfo?.phone || order.customerPhone || "N/A"}</strong>
@@ -549,32 +561,32 @@ export function Ordercard({
 
                     {/* Taste tags */}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
-                {(() => {
-  const isSweetDish = item.dishTasteProfile === "sweet";
-  const spice = item.spicePreference || item.spicinessLevel;
-  const sweet = item.sweetLevel || item.sweetnessLevel;
-  const salt = item.saltPreference || item.saltLevel;
-  
-  return (
-    <>
-      {/* 🌶️ SPICE - Only for non-sweet dishes */}
-      {!isSweetDish && spice && spice !== "normal" && (
-        <TasteBadge type="spiciness" level={spice} />
-      )}
-      
-      {/* 🍰 SWEETNESS - Only for sweet dishes */}
-      {isSweetDish && sweet && sweet !== "normal" && (
-        <TasteBadge type="sweetness" level={sweet} />
-      )}
-      
-      {/* 🧂 SALT - Only for non-sweet dishes (same as cart) */}
-      {!isSweetDish && salt && salt !== "normal" && (
-        <TasteBadge type="salt" level={salt} />
-      )}
-    </>
-  );
-})()}
-<SaladBadge include={item.salad?.qty > 0 || item.includeSalad === true} />
+                      {(() => {
+                        const isSweetDish = item.dishTasteProfile === "sweet";
+                        const spice = item.spicePreference || item.spicinessLevel;
+                        const sweet = item.sweetLevel || item.sweetnessLevel;
+                        const salt = item.saltPreference || item.saltLevel;
+                        
+                        return (
+                          <>
+                            {/* 🌶️ SPICE - Only for non-sweet dishes */}
+                            {!isSweetDish && spice && spice !== "normal" && (
+                              <TasteBadge type="spiciness" level={spice} />
+                            )}
+                            
+                            {/* 🍰 SWEETNESS - Only for sweet dishes */}
+                            {isSweetDish && sweet && sweet !== "normal" && (
+                              <TasteBadge type="sweetness" level={sweet} />
+                            )}
+                            
+                            {/* 🧂 SALT - Only for non-sweet dishes */}
+                            {!isSweetDish && salt && salt !== "normal" && (
+                              <TasteBadge type="salt" level={salt} />
+                            )}
+                          </>
+                        );
+                      })()}
+                      <SaladBadge include={item.salad?.qty > 0 || item.includeSalad === true} />
                     </div>
 
                     {/* Item special instructions */}
@@ -623,13 +635,16 @@ export function Ordercard({
             })
           )}
         </div>
-{order.orderDetails?.type === "delivery" && (
-  <DeliveryAssignSection
-    order={order}
-    restaurantId={restaurantId}
-    deliveryBoys={deliveryBoys}
-  />
-)}
+
+        {/* Delivery Section */}
+        {order.orderDetails?.type === "delivery" && (
+          <DeliveryAssignSection
+            order={order}
+            restaurantId={restaurantId}
+            deliveryBoys={deliveryBoys}
+          />
+        )}
+
         {/* ── FOOTER ── */}
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -680,19 +695,42 @@ export function Ordercard({
               </ActionBtn>
             )}
 
+            {/* ✅ BILL BUTTONS - NEW SECTION */}
+            {/* Completed order ke liye bill generate */}
             {!isActive && order.status === "completed" && !order.bill && (
-              <ActionBtn bg="#7c3aed" icon={<FaFileInvoice size={12} />} onClick={() => onGenerateBill(order)}>
+              <ActionBtn bg="#7c3aed" icon={<FaFileInvoice size={12} />} onClick={handleGenerateBill}>
                 Generate Bill
               </ActionBtn>
             )}
+
+            {/* Bill already generated - Open/Print/Download */}
             {order.bill && (
-              <span style={{
-                display: "inline-flex", alignItems: "center", gap: 5,
-                padding: "7px 12px", background: "#dcfce7", color: "#166534",
-                borderRadius: 8, fontSize: 12, fontWeight: 700,
-              }}>
-                <FaCheckCircle size={12} /> Bill Ready
-              </span>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "7px 12px", background: "#dcfce7", color: "#166534",
+                  borderRadius: 8, fontSize: 12, fontWeight: 700,
+                }}>
+                  <FaCheckCircle size={12} /> Bill Ready
+                </span>
+                
+                {/* Open/Print button */}
+                <ActionBtn bg="#2563eb" icon={<FaEye size={12} />} onClick={handleGenerateBill}>
+                  Open
+                </ActionBtn>
+                
+                {/* WhatsApp Share button */}
+                <ActionBtn bg="#25D366" icon={<FaWhatsapp size={12} />} onClick={handleShareWhatsApp}>
+                  Share
+                </ActionBtn>
+              </div>
+            )}
+
+            {/* Active order mein bhi bill generate kar sakte hain (ready/completed) */}
+            {isActive && (order.status === "ready" || order.status === "completed") && !order.bill && (
+              <ActionBtn bg="#7c3aed" icon={<FaFileInvoice size={12} />} onClick={handleGenerateBill}>
+                Generate Bill
+              </ActionBtn>
             )}
 
             {/* Delete — always last */}

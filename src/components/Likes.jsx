@@ -51,10 +51,10 @@ export default function Likes({ restaurantId, dishId }) {
       {likedByMe ? (
         <AiFillHeart className="text-red-500 text-lg" />
       ) : (
-        <AiOutlineHeart className="text-gray-500 text-lg" />
+        <AiOutlineHeart className="text-white text-lg" />
       )}
 
-      <span className="text-gray-700">{likesCount}</span>
+      <span className="text-white">{likesCount}</span>
     </button>
   );
 }

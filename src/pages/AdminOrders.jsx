@@ -10,6 +10,8 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { Gift, Rocket, TrendingUp, Infinity, RefreshCw, ArrowUpCircle, Crown } from "lucide-react";
 import { UtensilsCrossed, Circle, CheckCircle, AlertTriangle, Bell, IndianRupee } from "lucide-react";
+import jsPDF from "jspdf"; // ✅ ADDED: jsPDF import
+
 const PRIMARY  = "#8A244B";
 const GOLD     = "#FFD166";
 
@@ -20,7 +22,7 @@ const PLAN_CONFIG = {
     textColor: "#166534", borderColor: "#bbf7d0", desc: "30 din unlimited",
   },
   starter: {
-label: "STARTER", color: "#3b82f6", bgColor: "#dbeafe",
+    label: "STARTER", color: "#3b82f6", bgColor: "#dbeafe",
     textColor: "#1e40af", borderColor: "#bfdbfe", desc: "35 dishes",
   },
   growth: {
@@ -48,7 +50,7 @@ const UpgradeBanner = ({ onUpgrade }) => (
     padding: "12px 16px", marginBottom: 16, gap: 10, flexWrap: "wrap",
   }}>
     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-<ArrowUpCircle size={20} color="#9a3412" />
+      <ArrowUpCircle size={20} color="#9a3412" />
       <div>
         <div style={{ fontSize: 13, fontWeight: 800, color: "#9a3412", fontFamily: "'Sora', sans-serif" }}>
           Growth plan mein upgrade karo
@@ -95,7 +97,7 @@ export default function AdminOrders() {
   const [planFeatures, setPlanFeatures]               = useState(PLAN_FEATURES.trial);
   const [trialStatus, setTrialStatus]                 = useState(null);
   const [planLoading, setPlanLoading]                 = useState(true);
-const [deliveryBoys, setDeliveryBoys] = useState([]);
+  const [deliveryBoys, setDeliveryBoys] = useState([]);
   const previousOrdersRef    = useRef([]);
   const announcedOrdersRef   = useRef(new Set());
   const ordersRefState       = useRef([]);
@@ -134,7 +136,7 @@ const [deliveryBoys, setDeliveryBoys] = useState([]);
   const showBrowserNotification = (order, isWhatsApp) => {
     if (!("Notification" in window)) return;
     if (Notification.permission === "granted") {
-      new Notification(isWhatsApp ? "📱 New WhatsApp Order!" : "<UtensilsCrossed size={20} /> New Order!", {
+      new Notification(isWhatsApp ? "📱 New WhatsApp Order!" : "🍽️ New Order!", {
         body: `Order #${order.id?.slice(-6)} — ₹${order.total || 0}\n${order.customerInfo?.name || "Customer"}`,
         icon: "/logo192.png", tag: order.id, requireInteraction: true,
       });
@@ -144,81 +146,72 @@ const [deliveryBoys, setDeliveryBoys] = useState([]);
       });
     }
   };
-// AdminOrders.js mein — WhatsApp orders listener ke saath ek debug useEffect add karo
 
-// ── DEBUG: WhatsApp Orders Raw Data ──
-// AdminOrders.jsx — DEBUG useEffect ko replace karo
-
-// ── DEBUG: WhatsApp Orders Raw Data ──
-useEffect(() => {
-  if (!restaurantId) return;
-  
-  const debugRef = ref(realtimeDB, `whatsappOrders/${restaurantId}`);
-  const unsub = onValue(debugRef, (snap) => {
-    const data = snap.val();
-    if (!data) return;
+  // ── DEBUG: WhatsApp Orders Raw Data ──
+  useEffect(() => {
+    if (!restaurantId) return;
     
-    console.log("🔍 === WHATSAPP ORDERS RAW DATA ===");
-    Object.entries(data).forEach(([id, order]) => {
-      console.log(`\n📦 Order: ${id}`);
+    const debugRef = ref(realtimeDB, `whatsappOrders/${restaurantId}`);
+    const unsub = onValue(debugRef, (snap) => {
+      const data = snap.val();
+      if (!data) return;
       
-      // 🔥 ALL fields check karo
-      console.log(`   ALL KEYS:`, Object.keys(order));
-      
-      // 🔥 Check common item field names
-      const possibleItemFields = ['items', 'orderItems', 'dishes', 'cart', 'products', 'foodItems', 'menuItems', 'selectedItems', 'order'];
-      possibleItemFields.forEach(field => {
-        if (order[field] !== undefined) {
-          console.log(`   ✅ FOUND FIELD "${field}":`, typeof order[field], Array.isArray(order[field]) ? 'ARRAY' : 'OBJECT');
-          const arr = Array.isArray(order[field]) ? order[field] : Object.values(order[field]);
-          arr.forEach((item, idx) => {
-            console.log(`      Item ${idx}:`, JSON.stringify(item, null, 2));
-          });
-        }
-      });
-      
-      // Agar koi items field nahi mila
-      if (!possibleItemFields.some(f => order[f] !== undefined)) {
-        console.log(`   ❌ NO ITEMS FIELD FOUND IN:`, Object.keys(order));
-      }
-    });
-  });
-  
-  return () => unsub();
-}, [restaurantId]);
-// AdminOrders.jsx mein ek aur debug useEffect add karo
-
-// ── DEBUG: Main Orders Raw Data ──
-useEffect(() => {
-  if (!restaurantId) return;
-  
-  const debugRef = ref(realtimeDB, `orders/${restaurantId}`);
-  const unsub = onValue(debugRef, (snap) => {
-    const data = snap.val();
-    if (!data) return;
-    
-    console.log("🔍 === MAIN ORDERS RAW DATA ===");
-    Object.entries(data).forEach(([id, order]) => {
-      // Sirf WhatsApp orders check karo
-      if (order.source === 'whatsapp' || order.type === 'whatsapp') {
+      console.log("🔍 === WHATSAPP ORDERS RAW DATA ===");
+      Object.entries(data).forEach(([id, order]) => {
         console.log(`\n📦 Order: ${id}`);
         console.log(`   ALL KEYS:`, Object.keys(order));
-        console.log(`   customerName:`, order.customerName);
-        console.log(`   total:`, order.total);
-        console.log(`   items:`, order.items ? 'EXISTS' : 'MISSING');
-        if (order.items) {
-          const arr = Array.isArray(order.items) ? order.items : Object.values(order.items);
-          console.log(`   items count:`, arr.length);
-          arr.forEach((item, idx) => {
-            console.log(`   Item ${idx}: name="${item.name || 'UNKNOWN'}"`, item);
-          });
+        
+        const possibleItemFields = ['items', 'orderItems', 'dishes', 'cart', 'products', 'foodItems', 'menuItems', 'selectedItems', 'order'];
+        possibleItemFields.forEach(field => {
+          if (order[field] !== undefined) {
+            console.log(`   ✅ FOUND FIELD "${field}":`, typeof order[field], Array.isArray(order[field]) ? 'ARRAY' : 'OBJECT');
+            const arr = Array.isArray(order[field]) ? order[field] : Object.values(order[field]);
+            arr.forEach((item, idx) => {
+              console.log(`      Item ${idx}:`, JSON.stringify(item, null, 2));
+            });
+          }
+        });
+        
+        if (!possibleItemFields.some(f => order[f] !== undefined)) {
+          console.log(`   ❌ NO ITEMS FIELD FOUND IN:`, Object.keys(order));
         }
-      }
+      });
     });
-  });
-  
-  return () => unsub();
-}, [restaurantId]);
+    
+    return () => unsub();
+  }, [restaurantId]);
+
+  // ── DEBUG: Main Orders Raw Data ──
+  useEffect(() => {
+    if (!restaurantId) return;
+    
+    const debugRef = ref(realtimeDB, `orders/${restaurantId}`);
+    const unsub = onValue(debugRef, (snap) => {
+      const data = snap.val();
+      if (!data) return;
+      
+      console.log("🔍 === MAIN ORDERS RAW DATA ===");
+      Object.entries(data).forEach(([id, order]) => {
+        if (order.source === 'whatsapp' || order.type === 'whatsapp') {
+          console.log(`\n📦 Order: ${id}`);
+          console.log(`   ALL KEYS:`, Object.keys(order));
+          console.log(`   customerName:`, order.customerName);
+          console.log(`   total:`, order.total);
+          console.log(`   items:`, order.items ? 'EXISTS' : 'MISSING');
+          if (order.items) {
+            const arr = Array.isArray(order.items) ? order.items : Object.values(order.items);
+            console.log(`   items count:`, arr.length);
+            arr.forEach((item, idx) => {
+              console.log(`   Item ${idx}: name="${item.name || 'UNKNOWN'}"`, item);
+            });
+          }
+        }
+      });
+    });
+    
+    return () => unsub();
+  }, [restaurantId]);
+
   useEffect(() => {
     if (paramId && !restaurantId) {
       setRestaurantId(paramId);
@@ -311,14 +304,16 @@ useEffect(() => {
     });
     return () => unsub();
   }, [restaurantId, planFeatures.waiterCalls]);
-useEffect(() => {
-  if (!restaurantId) return;
-  const boysRef = collection(db, "restaurants", restaurantId, "deliveryBoys");
-  const unsub = onSnapshot(boysRef, (snap) => {
-    setDeliveryBoys(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  });
-  return () => unsub();
-}, [restaurantId]);
+
+  useEffect(() => {
+    if (!restaurantId) return;
+    const boysRef = collection(db, "restaurants", restaurantId, "deliveryBoys");
+    const unsub = onSnapshot(boysRef, (snap) => {
+      setDeliveryBoys(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, [restaurantId]);
+
   const dismissWaiterCall = async (callId) => {
     await update(ref(realtimeDB, `waiterCalls/${restaurantId}/${callId}`), {
       status: "attended",
@@ -416,57 +411,254 @@ useEffect(() => {
   }, [autoCompleteEnabled, planFeatures.autoComplete]);
 
   // ── STATUS UPDATE ──
- // AdminOrders.js - updateStatus function mein add karo
-const updateStatus = async (id, status) => {
-  const order = ordersRefState.current.find(o => o.id === id);
-  const t = Date.now();
-  const updates = { 
-    status: status.toLowerCase(), 
-    updatedAt: t 
+  const updateStatus = async (id, status) => {
+    const order = ordersRefState.current.find(o => o.id === id);
+    const t = Date.now();
+    const updates = { 
+      status: status.toLowerCase(), 
+      updatedAt: t 
+    };
+    
+    if (status === "preparing" || status === "ready") {
+      const prepTime = order?.prepTime || 5;
+      updates.prepStartedAt = t;
+      updates.prepEndsAt = t + prepTime * 60 * 1000;
+    }
+    
+    // ✅ Main order update
+    await update(ref(realtimeDB, `orders/${restaurantId}/${id}`), updates);
+    
+    // ✅ Agar ye WhatsApp order hai, toh whatsappOrders bhi update karo
+    if (order?.source === "whatsapp" || order?.type === "whatsapp") {
+      await update(ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`), {
+        whatsappStatus: "admin_confirmed",
+        status: status.toLowerCase(),
+        adminConfirmedAt: t,
+        updatedAt: t,
+      }).catch(() => {});
+    }
   };
-  
-  if (status === "preparing" || status === "ready") {
-    const prepTime = order?.prepTime || 5;
-    updates.prepStartedAt = t;
-    updates.prepEndsAt = t + prepTime * 60 * 1000;
-  }
-  
-  // ✅ Main order update
-  await update(ref(realtimeDB, `orders/${restaurantId}/${id}`), updates);
-  
-  // ✅ Agar ye WhatsApp order hai, toh whatsappOrders bhi update karo
-  // taaki auto processor dubara na chale
-  if (order?.source === "whatsapp" || order?.type === "whatsapp") {
-    await update(ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`), {
-      whatsappStatus: "admin_confirmed",
-      status: status.toLowerCase(),
-      adminConfirmedAt: t,
-      updatedAt: t,
-    }).catch(() => {}); // Ignore error agar whatsappOrders mein na ho
-  }
-};
+
   const deleteOrder = async (id) => {
     if (!window.confirm("Delete this order permanently?")) return;
     await remove(ref(realtimeDB, `orders/${restaurantId}/${id}`));
     await remove(ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`)).catch(() => {});
   };
 
+  // ✅ UPDATED: generateBill now creates PDF and opens it
   const generateBill = async (order) => {
-    if (order.bill) { alert("Bill already generated!"); return; }
+    if (order.bill) { 
+      // Agar bill pehle se hai, toh wahi PDF dobara open karo
+      openBillPDF(order);
+      return; 
+    }
+    
     const billData = {
       orderId: order.id,
-      customerName: order.customerInfo?.name,
+      customerName: order.customerInfo?.name || order.customerName || "Customer",
+      hotelName: restaurantSettings?.name || "Restaurant",
       total: order.total,
       items: order.items,
       generatedAt: Date.now(),
       generatedBy: "admin",
       status: "ready_for_customer",
+      subtotal: order.subtotal || 0,
+      gst: order.gst || 0,
+      discount: order.discount || 0,
+      couponCode: order.couponCode || null,
     };
+    
     await update(ref(realtimeDB, `orders/${restaurantId}/${order.id}`), {
       bill: billData,
       billGeneratedAt: Date.now(),
     });
-    alert("✅ Bill Generated!");
+    
+    // PDF generate aur open karo
+    openBillPDF({ ...order, bill: billData });
+  };
+
+  // ✅ NEW: PDF generate, open, print, download function
+  const openBillPDF = (order) => {
+    if (!order || !order.bill) return;
+    
+    const bill = order.bill;
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let y = 15;
+
+    const safeText = (text, x, y, options = {}) => {
+      const str = String(text || "");
+      if (str.trim() === "") return;
+      doc.text(str, x, y, options);
+    };
+
+    // Logo
+    if (restaurantSettings?.logo && typeof restaurantSettings.logo === 'string') {
+      try {
+        doc.addImage(restaurantSettings.logo, "PNG", 10, y, 30, 12);
+      } catch (e) {
+        console.log("Logo add failed:", e);
+      }
+    }
+
+    // Restaurant Name
+    doc.setFontSize(18);
+    doc.setFont(undefined, "bold");
+    safeText(restaurantSettings?.name || bill.hotelName || "Restaurant", pageWidth / 2, y + 8, { align: "center" });
+    y += 20;
+
+    // Line
+    doc.setLineWidth(0.5);
+    doc.line(10, y, pageWidth - 10, y);
+    y += 10;
+
+    // Order Info
+    doc.setFontSize(11);
+    doc.setFont(undefined, "normal");
+    safeText(`Order ID: ${bill.orderId}`, 10, y);
+    safeText(`Date: ${new Date(bill.generatedAt || Date.now()).toLocaleString()}`, pageWidth - 10, y, { align: "right" });
+    y += 6;
+    safeText(`Customer: ${bill.customerName}`, 10, y);
+    y += 10;
+
+    // Table Header
+    doc.setFont(undefined, "bold");
+    safeText("Item", 10, y);
+    safeText("Qty", 110, y);
+    safeText("Price", 140, y);
+    safeText("Total", pageWidth - 10, y, { align: "right" });
+    y += 4;
+    doc.line(10, y, pageWidth - 10, y);
+    y += 6;
+
+    // Items
+    doc.setFont(undefined, "normal");
+    doc.setFontSize(10);
+
+    const items = getItemsArray(bill.items);
+    if (items.length === 0) {
+      safeText("No items", 10, y);
+      y += 6;
+    } else {
+      items.forEach((item) => {
+        if (!item || typeof item !== 'object') return;
+
+        const itemName = String(item.name || "Unknown Item").substring(0, 35);
+        const qty = Number(item.qty) || 0;
+        const price = Number(item.price) || 0;
+        const itemTotal = qty * price;
+
+        if (y > pageHeight - 30) {
+          doc.addPage();
+          y = 20;
+        }
+
+        safeText(itemName, 10, y);
+        safeText(String(qty), 110, y);
+        safeText(`₹${price.toFixed(2)}`, 140, y);
+        safeText(`₹${itemTotal.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
+        y += 6;
+      });
+    }
+
+    y += 2;
+    doc.line(10, y, pageWidth - 10, y);
+    y += 10;
+
+    // Totals
+    const subtotal = Number(bill.subtotal) || 0;
+    const gst = Number(bill.gst) || 0;
+    const discount = Number(bill.discount) || 0;
+    const total = Number(bill.total) || (subtotal + gst - discount);
+
+    doc.setFontSize(11);
+    doc.setFont(undefined, "bold");
+    safeText("Subtotal:", 120, y);
+    safeText(`₹${subtotal.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
+    y += 6;
+    
+    safeText("GST (5%):", 120, y);
+    safeText(`₹${gst.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
+    y += 6;
+
+    if (discount > 0) {
+      doc.setTextColor(34, 197, 94);
+      safeText(`Discount (${bill.couponCode || 'COUPON'}):`, 120, y);
+      safeText(`−₹${discount.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+      y += 6;
+    }
+
+    y += 1;
+    doc.setFontSize(13);
+    safeText("Grand Total:", 120, y);
+    safeText(`₹${total.toFixed(2)}`, pageWidth - 10, y, { align: "right" });
+    y += 12;
+
+    // Footer
+    doc.setFontSize(10);
+    doc.setFont(undefined, "normal");
+    safeText("Thank you for dining with us", pageWidth / 2, y, { align: "center" });
+    safeText("This is a computer-generated receipt", pageWidth / 2, y + 5, { align: "center" });
+
+    // Open in new tab for print/download
+    try {
+      const pdfBlob = doc.output('blob');
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const newWindow = window.open(pdfUrl, '_blank');
+
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        // Fallback: direct download
+        doc.save(`Bill-${String(bill.orderId).slice(-6)}.pdf`);
+      }
+
+      setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
+    } catch (pdfError) {
+      console.error("PDF output error:", pdfError);
+      doc.save(`Bill-${Date.now()}.pdf`);
+    }
+  };
+
+  // ✅ NEW: Share bill on WhatsApp
+  const shareBillOnWhatsApp = (order) => {
+    if (!order) return;
+
+    const items = getItemsArray(order.items);
+    
+    const message = `
+🧾 *ORDER BILL - ${restaurantSettings?.name || 'Restaurant'}*
+
+👤 *Customer:* ${order.customerInfo?.name || order.customerName || 'Customer'}
+🆔 *Order ID:* #${order.id.slice(-6).toUpperCase()}
+📅 *Date:* ${new Date(order.createdAt || Date.now()).toLocaleString()}
+
+*ORDER ITEMS:*
+${items.map((item, idx) => {
+  if (!item || !item.name) return '';
+  let details = `${idx + 1}. ${item.name}${item.vegType ? ` ${item.vegType === 'veg' ? '🟢' : '🔴'}` : ''}`;
+  details += `\n   💰 ₹${item.price || 0} × ${item.qty || 1} = ₹${((item.price || 0) * (item.qty || 1)).toFixed(0)}`;
+  return details;
+}).filter(Boolean).join('\n\n') || 'No items'}
+
+━━━━━━━━━━━━━━
+💵 *BILL SUMMARY:*
+ Subtotal: ₹${order.subtotal || 0}
+   GST (5%): ₹${order.gst || 0}${(order.discount > 0) ? `
+   🏷️ Discount (${order.couponCode}): −₹${order.discount}` : ''}
+   ${'─'.repeat(15)}
+   *TOTAL: ₹${order.total || 0}* 💰${(order.discount > 0) ? `
+   🎉 *You saved ₹${order.discount}!*` : ''}
+━━━━━━━━━━━━━━
+
+🙏 Thank you for dining with us!
+🍽️ Enjoy your meal!
+
+Sent via Khaatogo
+  `.trim();
+
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, "_blank");
   };
 
   const updatePaymentStatus = async (orderId, status) => {
@@ -595,7 +787,7 @@ const updateStatus = async (id, status) => {
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
                 }}>
-{planId === "trial" ? <Gift size={24} /> : planId === "starter" ? <Rocket size={24} /> : planId === "growth" ? <TrendingUp size={24} /> : <Infinity size={24} />}
+                  {planId === "trial" ? <Gift size={24} /> : planId === "starter" ? <Rocket size={24} /> : planId === "growth" ? <TrendingUp size={24} /> : <Infinity size={24} />}
                 </div>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -646,7 +838,7 @@ const updateStatus = async (id, status) => {
                     border: "none", borderRadius: 12, fontWeight: 800, fontSize: 13,
                     cursor: "pointer", fontFamily: "'Sora', sans-serif",
                   }}><RefreshCw size={14} /> Renew Now
-</button>
+                  </button>
                 )}
                 {!isPlanExpired() && planId !== "pro" && (
                   <button onClick={goToSubscription} style={{
@@ -661,8 +853,7 @@ const updateStatus = async (id, status) => {
                     padding: "9px 18px", background: PRIMARY,
                     color: "#fff", borderRadius: 12, fontWeight: 800, fontSize: 13,
                   }}>
-                  <Crown size={14} color={GOLD} /> Best Plan
-
+                    <Crown size={14} color={GOLD} /> Best Plan
                   </span>
                 )}
               </div>
@@ -696,7 +887,7 @@ const updateStatus = async (id, status) => {
             margin: 0, fontSize: 22, fontWeight: 800,
             color: "#111827", fontFamily: "'Sora', sans-serif",
           }}>
-           <UtensilsCrossed size={20} /> Orders Dashboard
+            <UtensilsCrossed size={20} /> Orders Dashboard
           </h2>
         </div>
 
@@ -756,7 +947,7 @@ const updateStatus = async (id, status) => {
               {activeOrders.length}
             </div>
             <div style={{ fontSize: 12, fontWeight: 600, color: "#b45309", marginTop: 6 }}>
-             <Circle size={12} fill="#fbbf24" color="#fbbf24" /> Active Orders
+              <Circle size={12} fill="#fbbf24" color="#fbbf24" /> Active Orders
             </div>
           </div>
           <div style={{
@@ -970,7 +1161,6 @@ const updateStatus = async (id, status) => {
         }}>
           <span style={{ fontSize: 16, fontWeight: 800, color: "#111827" }}>
             <Circle size={14} fill="#fbbf24" color="#fbbf24" /> Active Orders
-
           </span>
           <span style={{
             padding: "2px 10px", borderRadius: 20, fontSize: 12,
@@ -994,12 +1184,13 @@ const updateStatus = async (id, status) => {
             order={o}
             now={now}
             isActive={true}
-             deliveryBoys={deliveryBoys}        
-  restaurantId={effectiveRestaurantId}
+            deliveryBoys={deliveryBoys}        
+            restaurantId={effectiveRestaurantId}
             onDelete={deleteOrder}
             onUpdateStatus={updateStatus}
             onUpdatePayment={updatePaymentStatus}
-            onGenerateBill={generateBill}
+            onGenerateBill={generateBill}      // ✅ PASS: Bill PDF generate
+            onShareWhatsApp={shareBillOnWhatsApp} // ✅ PASS: WhatsApp share
             autoCompleteEnabled={autoCompleteEnabled && planFeatures.autoComplete}
             theme={restaurantSettings?.theme}
             canSeeWhatsApp={planFeatures.whatsappOrders}
@@ -1012,7 +1203,7 @@ const updateStatus = async (id, status) => {
           margin: "20px 0 12px", fontFamily: "'Sora', sans-serif",
         }}>
           <span style={{ fontSize: 16, fontWeight: 800, color: "#111827" }}>
-           <CheckCircle size={16} color="#22c55e" /> Completed Orders
+            <CheckCircle size={16} color="#22c55e" /> Completed Orders
           </span>
           <span style={{
             padding: "2px 10px", borderRadius: 20, fontSize: 12,
@@ -1036,12 +1227,13 @@ const updateStatus = async (id, status) => {
             order={o}
             now={now}
             isActive={false}
-             deliveryBoys={deliveryBoys}        
-  restaurantId={effectiveRestaurantId} 
+            deliveryBoys={deliveryBoys}        
+            restaurantId={effectiveRestaurantId} 
             onDelete={deleteOrder}
             onUpdateStatus={updateStatus}
             onUpdatePayment={updatePaymentStatus}
-            onGenerateBill={generateBill}
+            onGenerateBill={generateBill}      // ✅ PASS: Bill PDF generate
+            onShareWhatsApp={shareBillOnWhatsApp} // ✅ PASS: WhatsApp share
             canSeeWhatsApp={planFeatures.whatsappOrders}
           />
         ))}
