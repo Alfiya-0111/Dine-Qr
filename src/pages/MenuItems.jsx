@@ -440,7 +440,16 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
                 </button>
               </div>
             </div>
-
+ {/* DESKTOP — Add Button */}
+            {canAddMoreDishes() && (
+              <div className=" md:flex justify-end mt-6 mb-6">
+                <Link to={`/dashboard/${userId}/add-item`}>
+                  <button className="px-6 py-3 bg-[#B45253] text-white rounded-lg font-semibold hover:opacity-90 transition shadow-md">
+                    + Add New Dish
+                  </button>
+                </Link>
+              </div>
+            )}
             <Qrmodal
               open={showQR}
               onClose={() => setShowQR(false)}
@@ -630,16 +639,7 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
               </div>
             )}
 
-            {/* DESKTOP — Add Button */}
-            {canAddMoreDishes() && (
-              <div className="hidden md:flex justify-end mt-6">
-                <Link to={`/dashboard/${userId}/add-item`}>
-                  <button className="px-6 py-3 bg-[#B45253] text-white rounded-lg font-semibold hover:opacity-90 transition shadow-md">
-                    + Add New Dish
-                  </button>
-                </Link>
-              </div>
-            )}
+           
 
             {/* DESKTOP — Limit Reached */}
             {!canAddMoreDishes() && (
