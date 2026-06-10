@@ -201,222 +201,199 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
   // ============================================
   // ★ FIXED: placeWhatsAppOrder with duplicate prevention
   // ============================================
-  const placeWhatsAppOrder = async (isQuick = false) => {
-    // Validation
-    if (!customerInfo.name || !customerInfo.phone) {
-      toast.error('Please enter name & phone');
-      return;
-    }
+ const placeWhatsAppOrder = async (isQuick = false) => {
+  // Validation
+  if (!customerInfo.name || !customerInfo.phone) {
+    toast.error('Please enter name & phone');
+    return;
+  }
 
-    const user = auth.currentUser;
-    if (!user) {
-      toast.error('Please login first');
+  const user = auth.currentUser;
+  if (!user) {
+    toast.error('Please login first');
+    navigate(`/logins/${restaurantId}?redirect=cart`);
+    return;
+  }
+
+  // ★ Agar pehle se order ban raha hai, ruk jao
+  if (whatsAppCartInProgress.current) {
+    toast.error("Order already in progress! Please wait.");
+    return;
+  }
+  whatsAppCartInProgress.current = true;
+  setIsPlacingOrder(true);
+
+  try {
+    // Token refresh
+    try {
+      await user.getIdToken(true);
+    } catch (tokenError) {
+      toast.error("Session expired. Please login again.");
+      whatsAppCartInProgress.current = false;
+      setIsPlacingOrder(false);
       navigate(`/logins/${restaurantId}?redirect=cart`);
       return;
     }
 
-    // ★ Agar pehle se order ban raha hai, ruk jao
-    if (whatsAppCartInProgress.current) {
-      toast.error("Order already in progress! Please wait.");
+    // ============================================
+    // ★ DUPLICATE CHECK 1: Last 60 sec mein same items?
+    // ============================================
+    let isDuplicate = false;
+    try {
+      const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
+      const existingSnap = await get(ordersRef);
+      const existingOrders = existingSnap.val() || {};
+      const now = Date.now();
+      
+      const itemIds = cart.map(i => i.id).sort().join(',');
+      isDuplicate = Object.values(existingOrders).some(o => {
+        if (o.userId !== user.uid) return false;
+        if (now - (o.createdAt || 0) > 60000) return false; // 60 sec window
+        const existingIds = (o.items || []).map(i => i.dishId || i.id).sort().join(',');
+        return existingIds === itemIds;
+      });
+    } catch (checkErr) {
+      console.log("Duplicate check error (non-critical):", checkErr.message);
+    }
+
+    if (isDuplicate) {
+      toast.error("This order was just placed! Please wait a moment.");
+      whatsAppCartInProgress.current = false;
+      setIsPlacingOrder(false);
       return;
     }
-    whatsAppCartInProgress.current = true;
-    setIsPlacingOrder(true);
 
-    try {
-      // Token refresh
-      try {
-        await user.getIdToken(true);
-      } catch (tokenError) {
-        toast.error("Session expired. Please login again.");
-        whatsAppCartInProgress.current = false;
-        setIsPlacingOrder(false);
-        navigate(`/logins/${restaurantId}?redirect=cart`);
-        return;
-      }
-
-      // ============================================
-      // ★ DUPLICATE CHECK 1: Last 60 sec mein same items?
-      // ============================================
-      let isDuplicate = false;
-      try {
-        const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
-        const existingSnap = await get(ordersRef);
-        const existingOrders = existingSnap.val() || {};
-        const now = Date.now();
-        
-        const itemIds = cart.map(i => i.id).sort().join(',');
-        isDuplicate = Object.values(existingOrders).some(o => {
-          if (o.userId !== user.uid) return false;
-          if (now - (o.createdAt || 0) > 60000) return false; // 60 sec window
-          const existingIds = (o.items || []).map(i => i.dishId || i.id).sort().join(',');
-          return existingIds === itemIds;
-        });
-      } catch (checkErr) {
-        console.log("Duplicate check error (non-critical):", checkErr.message);
-      }
-
-      if (isDuplicate) {
-        toast.error("This order was just placed! Please wait a moment.");
-        whatsAppCartInProgress.current = false;
-        setIsPlacingOrder(false);
-        return;
-      }
-
-      // ============================================
-      // ★ DUPLICATE CHECK 2: Same user ka active/pending order exist?
-      // ============================================
-      try {
-        const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
-        const existingSnap = await get(ordersRef);
-        const existingOrders = existingSnap.val() || {};
-        const now = Date.now();
-        
-        const hasPendingOrder = Object.values(existingOrders).some(o => {
-          if (o.userId !== user.uid) return false;
-          if (['completed', 'cancelled', 'rejected', 'delivered'].includes(o.status)) return false;
-          return now - (o.createdAt || 0) < 300000; // 5 min window
-        });
-        
-        if (hasPendingOrder) {
-          toast.info("You already have an active order! Please wait for it to complete.");
-          whatsAppCartInProgress.current = false;
-          setIsPlacingOrder(false);
-          return;
-        }
-      } catch (e) {
-        console.log("Pending check error:", e.message);
-      }
-
-      // ============================================
-      // ★ QUICK WHATSAPP: Direct message, NO database write
-      // ============================================
-      if (isQuick) {
-        const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
-        if (!phone) {
-          toast.error('WhatsApp number not available');
-          whatsAppCartInProgress.current = false;
-          setIsPlacingOrder(false);
-          return;
-        }
-
-        const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
-        const items = cart.map(i => `${i.name} x${i.qty || 1}`).join(', ');
-        const couponLine = appliedCoupon ? ` Coupon: ${appliedCoupon.code} (-₹${discount.toFixed(0)}).` : '';
-        const message = `Hi, I'm ${customerInfo.name} (${customerInfo.phone}). I want to order: ${items}.${couponLine} Total: ₹${grandTotal.toFixed(0)}. ${customerInfo.tableNumber ? `Table: ${customerInfo.tableNumber}. ` : ''}${customerInfo.specialInstructions || ''}`;
-        
-        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
-        
-        setShowQuickWhatsAppCheckout(false);
-        clearCart();
-        onClose();
-        toast.success("WhatsApp opened with your order!");
-        whatsAppCartInProgress.current = false;
-        setIsPlacingOrder(false);
-        return;
-      }
-
-      // ============================================
-      // ★ SYNC WHATSAPP: Database write + WhatsApp
-      // ============================================
-      
-      // ★ EK HI orderRef banao
-      const orderRef = push(rtdbRef(realtimeDB, `orders/${restaurantId}`));
-      const orderId = orderRef.key;
-
-      const items = cart.map(item => ({
-        dishId: item.id,
-        name: item.name,
-        qty: item.qty || 1,
-        price: item.price,
-        image: item.image || item.imageUrl || "",
-        prepTime: item.prepTime || 15,
-        spicePreference: item.spicePreference || "normal",
-        sweetLevel: item.sweetLevel || null,
-        saltPreference: item.saltPreference || null,
-        salad: item.salad || { qty: 0, taste: "normal" },
-        dishTasteProfile: item.dishTasteProfile || "normal",
-        description: item.description || "",
-        vegType: item.vegType || ""
-      }));
-
-      const subtotal = total;
-      const gstAmt = gst;
-      const discountAmt = discount;
-      const finalTotal = grandTotal;
-
-      // ★ SIRF orders/ mein likho - NO whatsappOrders/ NO kitchenOrders/
-      const order = {
-        id: orderId,
-        userId: user.uid,
-        restaurantId: restaurantId,
-        customerName: customerInfo.name,
-        customerPhone: customerInfo.phone,
-        customerEmail: user.email || "",
-        tableNumber: customerInfo.tableNumber || "",
-        specialInstructions: customerInfo.specialInstructions || "",
-        items: items,
-        type: "whatsapp",
-        status: "pending",
-        subtotal: parseFloat(subtotal.toFixed(2)),
-        gst: parseFloat(gstAmt.toFixed(2)),
-        discount: parseFloat(discountAmt.toFixed(2)),
-        total: parseFloat(finalTotal.toFixed(2)),
-        originalTotal: parseFloat((subtotal + gstAmt).toFixed(2)),
-        couponCode: appliedCoupon?.code || null,
-        couponDiscount: parseFloat(discountAmt.toFixed(2)),
-        createdAt: Date.now(),
-        source: "whatsapp",
-        timestamp: Date.now(),
-        whatsappStatus: "new"
-      };
-
-      // ★ SIRF ek jagah write karo
-      await set(orderRef, order);
-
-      // WhatsApp message bhejo
+    // ============================================
+    // ★ QUICK WHATSAPP: Direct message, NO database write
+    // ============================================
+    if (isQuick) {
       const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
-      if (phone) {
-        const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
-        
-        const message = `🍽️ *NEW ORDER - ${restaurantSettings?.name || 'Restaurant'}* 🍽️\n\n` +
-          `👤 *Customer:* ${customerInfo.name}\n` +
-          `📱 *Phone:* ${customerInfo.phone}\n` +
-          (customerInfo.tableNumber ? `🪑 *Table:* ${customerInfo.tableNumber}\n` : '') +
-          `\n*Order Details:*\n` +
-          cart.map((item, i) => `• ${item.name} x${item.qty || 1} - ₹${item.price * (item.qty || 1)}`).join('\n') +
-          `\n\n💰 *Subtotal:* ₹${subtotal.toFixed(2)}\n` +
-          `📊 *GST (5%):* ₹${gstAmt.toFixed(2)}\n` +
-          (discountAmt > 0 ? `🏷️ *Discount:* −₹${discountAmt.toFixed(2)}\n` : '') +
-          `💵 *TOTAL: ₹${finalTotal.toFixed(2)}*\n` +
-          (customerInfo.specialInstructions ? `\n📝 *Note:* ${customerInfo.specialInstructions}\n` : '') +
-          `\n⏱️ *Prep Time:* ${Math.max(...cart.map(i => i.prepTime || 15))} mins`;
-
-        const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-        window.open(whatsappUrl, '_blank');
+      if (!phone) {
+        toast.error('WhatsApp number not available');
+        whatsAppCartInProgress.current = false;
+        setIsPlacingOrder(false);
+        return;
       }
 
-      // Success cleanup
-      setShowWhatsAppCheckout(false);
+      const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
+      const items = cart.map(i => `${i.name} x${i.qty || 1}`).join(', ');
+      const couponLine = appliedCoupon ? ` Coupon: ${appliedCoupon.code} (-₹${discount.toFixed(0)}).` : '';
+      const message = `Hi, I'm ${customerInfo.name} (${customerInfo.phone}). I want to order: ${items}.${couponLine} Total: ₹${grandTotal.toFixed(0)}. ${customerInfo.tableNumber ? `Table: ${customerInfo.tableNumber}. ` : ''}${customerInfo.specialInstructions || ''}`;
+      
+      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
+      
+      setShowQuickWhatsAppCheckout(false);
       clearCart();
       onClose();
-      
-      const saveMsg = discountAmt > 0
-        ? `✅ Order placed! Coupon "${appliedCoupon.code}" applied — You saved ₹${discountAmt.toFixed(0)}!`
-        : "✅ Order placed! Waiting for restaurant confirmation...";
-      toast.success(saveMsg);
-
-    } catch (error) {
-      console.error("WhatsApp order error:", error);
-      toast.error("❌ Order failed: " + error.message);
-    } finally {
-      // 3 sec baad flag reset karo
-      setTimeout(() => {
-        whatsAppCartInProgress.current = false;
-        setIsPlacingOrder(false);
-      }, 3000);
+      toast.success("WhatsApp opened with your order!");
+      whatsAppCartInProgress.current = false;
+      setIsPlacingOrder(false);
+      return;
     }
-  };
+
+    // ============================================
+    // ★ SYNC WHATSAPP: Database write + WhatsApp
+    // ============================================
+    
+    // ★ EK HI orderRef banao
+    const orderRef = push(rtdbRef(realtimeDB, `orders/${restaurantId}`));
+    const orderId = orderRef.key;
+
+    const items = cart.map(item => ({
+      dishId: item.id,
+      name: item.name,
+      qty: item.qty || 1,
+      price: item.price,
+      image: item.image || item.imageUrl || "",
+      prepTime: item.prepTime || 15,
+      spicePreference: item.spicePreference || "normal",
+      sweetLevel: item.sweetLevel || null,
+      saltPreference: item.saltPreference || null,
+      salad: item.salad || { qty: 0, taste: "normal" },
+      dishTasteProfile: item.dishTasteProfile || "normal",
+      description: item.description || "",
+      vegType: item.vegType || ""
+    }));
+
+    const subtotal = total;
+    const gstAmt = gst;
+    const discountAmt = discount;
+    const finalTotal = grandTotal;
+
+    // ★ FIXED: Auto-confirm order immediately
+    const order = {
+      id: orderId,
+      userId: user.uid,
+      restaurantId: restaurantId,
+      customerName: customerInfo.name,
+      customerPhone: customerInfo.phone,
+      customerEmail: user.email || "",
+      tableNumber: customerInfo.tableNumber || "",
+      specialInstructions: customerInfo.specialInstructions || "",
+      items: items,
+      type: "whatsapp",
+      status: "confirmed",           // ← CHANGED: "pending" → "confirmed"
+      confirmedAt: Date.now(),       // ← ADDED
+      autoConfirmed: true,           // ← ADDED
+      subtotal: parseFloat(subtotal.toFixed(2)),
+      gst: parseFloat(gstAmt.toFixed(2)),
+      discount: parseFloat(discountAmt.toFixed(2)),
+      total: parseFloat(finalTotal.toFixed(2)),
+      originalTotal: parseFloat((subtotal + gstAmt).toFixed(2)),
+      couponCode: appliedCoupon?.code || null,
+      couponDiscount: parseFloat(discountAmt.toFixed(2)),
+      createdAt: Date.now(),
+      source: "whatsapp",
+      timestamp: Date.now(),
+      whatsappStatus: "new"
+    };
+
+    // ★ SIRF ek jagah write karo
+    await set(orderRef, order);
+
+    // WhatsApp message bhejo
+    const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
+    if (phone) {
+      const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
+      
+      const message = `🍽️ *NEW ORDER - ${restaurantSettings?.name || 'Restaurant'}* 🍽️\n\n` +
+        `👤 *Customer:* ${customerInfo.name}\n` +
+        `📱 *Phone:* ${customerInfo.phone}\n` +
+        (customerInfo.tableNumber ? `🪑 *Table:* ${customerInfo.tableNumber}\n` : '') +
+        `\n*Order Details:*\n` +
+        cart.map((item, i) => `• ${item.name} x${item.qty || 1} - ₹${item.price * (item.qty || 1)}`).join('\n') +
+        `\n\n💰 *Subtotal:* ₹${subtotal.toFixed(2)}\n` +
+        `📊 *GST (5%):* ₹${gstAmt.toFixed(2)}\n` +
+        (discountAmt > 0 ? `🏷️ *Discount:* −₹${discountAmt.toFixed(2)}\n` : '') +
+        `💵 *TOTAL: ₹${finalTotal.toFixed(2)}*\n` +
+        (customerInfo.specialInstructions ? `\n📝 *Note:* ${customerInfo.specialInstructions}\n` : '') +
+        `\n⏱️ *Prep Time:* ${Math.max(...cart.map(i => i.prepTime || 15))} mins`;
+
+      const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank');
+    }
+
+    // Success cleanup
+    setShowWhatsAppCheckout(false);
+    clearCart();
+    onClose();
+    
+    const saveMsg = discountAmt > 0
+      ? `✅ Order placed! Coupon "${appliedCoupon.code}" applied — You saved ₹${discountAmt.toFixed(0)}!`
+      : "✅ Order placed! Waiting for restaurant confirmation...";
+    toast.success(saveMsg);
+
+  } catch (error) {
+    console.error("WhatsApp order error:", error);
+    toast.error("❌ Order failed: " + error.message);
+  } finally {
+    // 3 sec baad flag reset karo
+    setTimeout(() => {
+      whatsAppCartInProgress.current = false;
+      setIsPlacingOrder(false);
+    }, 3000);
+  }
+};
 
   const placeOrder = async () => {
     clearCart();

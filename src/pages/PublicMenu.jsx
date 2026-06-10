@@ -417,37 +417,51 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
     completed: { color: 'bg-gray-100 text-gray-800',     icon: <IoStar className="w-4 h-4" />,             label: 'Completed' }
   };
 
-  const status = statusConfig[order.status] || statusConfig.pending;
-  const isCompleted = order.status === 'completed';
+  const status = statusConfig[order.status?.toLowerCase()] || statusConfig.pending;
+  const isCompleted = order.status?.toLowerCase() === 'completed';
 
- const getItemsArray = (items) => {
-  if (!items) return [];
-  if (Array.isArray(items)) 
-    return items.filter(item => item && item.name);
-  if (typeof items === 'object') 
-    return Object.values(items).filter(item => item && item.name);
-  return [];
-};
+  const getItemsArray = (items) => {
+    if (!items) return [];
+    if (Array.isArray(items)) 
+      return items.filter(item => item && item.name);
+    if (typeof items === 'object') 
+      return Object.values(items).filter(item => item && item.name);
+    return [];
+  };
 
   const orderItems = getItemsArray(order.items);
-  const allItemsReady = orderItems.length > 0 && orderItems.every(item =>
-    item.itemStatus === "ready" || item.itemReadyAt
-  );
+  
+  // ★ FIX: Check both order.items and order.itemStatuses for ready state
+  const allItemsReady = orderItems.length > 0 && orderItems.every(item => {
+    const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g,'_')}`;
+    const itemStatusData = order.itemStatuses?.[itemKey];
+    const isReady = (
+      item.itemStatus === "ready" || 
+      item.itemReadyAt ||
+      itemStatusData?.itemStatus === "ready" ||
+      itemStatusData?.itemReadyAt
+    );
+    return isReady;
+  });
 
-  // Show bill buttons when: items ready OR order ready/completed AND bill not yet opened
-  const isWhatsAppOrder = order.source === "whatsapp" || order.type === "whatsapp";
+  // ★ FIX: More robust condition for showing bill buttons
+  const orderStatus = order.status?.toLowerCase() || '';
+  const shouldShowBillButtons =
+    !localBillOpened &&
+    !order.billOpened &&
+    (
+      allItemsReady || 
+      orderStatus === 'ready' || 
+      orderStatus === 'completed' ||
+      order.source === 'whatsapp' ||
+      order.type === 'whatsapp' ||
+      order.source === 'cart' ||
+      order.autoConfirmed === true
+    );
 
-const shouldShowBillButtons =
-  !localBillOpened &&
-  (
-    allItemsReady || 
-    order.status === 'ready' || 
-    isCompleted ||
-    (isWhatsAppOrder && ['confirmed', 'preparing'].includes(order.status))
-  );
+  const showPostBillActions = localBillOpened || order.billOpened;
 
-  // After bill opened — show compact bill actions + close button
-  const showPostBillActions = localBillOpened;
+  
 
   return (
     <div id={`order-${order.id}`} className={`${glassStyles.card} rounded-2xl p-4 mb-4`}>
@@ -676,6 +690,25 @@ const shouldShowBillButtons =
     </div>
   );
 };
+const ShowMoreText = ({ text, maxLength = 80 }) => {
+  const [expanded, setExpanded] = useState(false);
+  if (!text) return null;
+  const isLong = text.length > maxLength;
+  return (
+    <p className="text-sm text-gray-500 mt-1">
+      {expanded || !isLong ? text : `${text.slice(0, maxLength)}...`}
+      {isLong && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+          className="ml-1 text-xs font-semibold"
+          style={{ color: '#8A244B' }}
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </p>
+  );
+};
 // ================= MAIN PUBLIC MENU COMPONENT =================
 export default function PublicMenu() {
 const { cart, addToCart, clearCart, initCartForRestaurant } = useCart();
@@ -753,7 +786,8 @@ useEffect(() => {
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [activeTab, setActiveTab] = useState("menu");
-  const [trendingDishIds, setTrendingDishIds] = useState([]);
+const [trendingDishData, setTrendingDishData] = useState({}); // { dishId: orderCount }
+const [mostLikedDishData, setMostLikedDishData] = useState({}); 
   const [search, setSearch] = useState("");
   const [listening, setListening] = useState(false);
   const [showSort, setShowSort] = useState(false);
@@ -779,7 +813,8 @@ useEffect(() => {
   const prevOrdersRef = useRef({});
   const viewedOrdersRef = useRef(new Set());
   const [viewedOrders, setViewedOrders] = useState(new Set());
-  const [readyDishes, setReadyDishes] = useState([]);
+ const [readyDishes, setReadyDishes] = useState([]);
+const [dishLikesMap, setDishLikesMap] = useState({});
   const playedSoundsRef = useRef(new Set());
 
   const categoryCounts = {};
@@ -1128,7 +1163,7 @@ Sent via DineQR
     }
 
     try {
-      const orderRef = push(rtdbRef(realtimeDB, 'orders'));
+     const orderRef = push(rtdbRef(realtimeDB, `orders/${restaurantId}`));
       const orderId = orderRef.key;
 
       const enrichedItem = {
@@ -1151,30 +1186,30 @@ Sent via DineQR
       const gst = subtotal * 0.05;
       const total = subtotal + gst;
 
-      const order = {
-        id: orderId,
-        userId: user.uid,
-        restaurantId: String(restaurantId),
-       customerName: customerData?.name || user.displayName || "Customer",
-        customerPhone: customerData?.phone || user.phoneNumber || "",
-        customerEmail: user.email || "",
-        tableNumber: customerData?.tableNumber || "",
-        specialInstructions: customerData?.specialInstructions || "",
-        items: [enrichedItem],
-        type: "whatsapp",
-        status: "confirmed",
+     const order = {
+  id: orderId,
+  userId: user.uid,
+  restaurantId: String(restaurantId),
+  customerName: customerData?.name || user.displayName || "Customer",
+  customerPhone: customerData?.phone || user.phoneNumber || "",
+  customerEmail: user.email || "",
+  tableNumber: customerData?.tableNumber || "",
+  specialInstructions: customerData?.specialInstructions || "",
+  items: [enrichedItem],
+  type: "whatsapp",
+  status: "confirmed",
   confirmedAt: Date.now(),
   autoConfirmed: true,
-        subtotal,
-        gst,
-        total,
-        createdAt: Date.now(),
-        source: "whatsapp",
-        timestamp: Date.now(),
-        whatsappStatus: "new",
-        whatsappNumber: cleanPhone
-      };
-
+  subtotal,
+  gst,
+  total,
+  createdAt: Date.now(),
+  source: "whatsapp",
+  timestamp: Date.now(),
+  whatsappStatus: "new",
+  whatsappNumber: cleanPhone,
+  billOpened: false
+};
       await set(orderRef, order);
 
       try {
@@ -1212,15 +1247,9 @@ Sent via DineQR
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
 
-      await update(orderRef, { 
-        whatsappUrl,
-        whatsappSentAt: Date.now(),
-        whatsappStatus: 'initiated'
-      });
+     window.open(whatsappUrl, '_blank');
 
-      window.open(whatsappUrl, '_blank');
-
-      toast.success('Order sent to WhatsApp!', {
+toast.success('Order sent to WhatsApp!', {
         description: 'Restaurant will confirm shortly',
         duration: 5000
       });
@@ -2221,40 +2250,110 @@ useEffect(() => {
     });
     return () => unsubscribe();
   }, [restaurantId]);
+// Dish likes listener
+// PublicMenu.js mein, AI Pick useEffect:
+useEffect(() => {
+  if (!restaurantId) return;
+  const likesRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}/menu`);
+  
+  const unsubscribe = onValue(likesRef, (snap) => {
+    const data = snap.val();
+    if (!data) {
+      setMostLikedDishData({});
+      setMostLikedDishId(null);
+      return;
+    }
 
-  // Fixed Trending Dishes UseEffect
-  useEffect(() => {
-    const ordersRef = rtdbRef(realtimeDB, "orders");
-    const unsubscribe = onValue(ordersRef, (snap) => {
-      const data = snap.val();
-      if (!data) return;
+    const countMap = {};
+    let maxLikes = -1;
+    let topDishId = null;
 
-      const last24h = Date.now() - 24 * 60 * 60 * 1000;
-      const countMap = {};
+    // Har dish ke likes count karo
+    Object.entries(data).forEach(([dishId, dishData]) => {
+      const likesObj = dishData?.likes || {};
+      const count = Object.keys(likesObj).length;
+      countMap[dishId] = count;
+      if (count > maxLikes) {
+        maxLikes = count;
+        topDishId = dishId;
+      }
+    });
 
-      Object.values(data).forEach((order) => {
-        if (order.createdAt >= last24h) {
-          const items = order.items ? 
-            (Array.isArray(order.items) ? order.items : Object.values(order.items)) 
-            : [];
+    setMostLikedDishData(countMap);
+    setMostLikedDishId(topDishId);
+  });
 
-          items.forEach(item => {
-            if (item && item.dishId) {
-              countMap[item.dishId] = (countMap[item.dishId] || 0) + 1;
-            }
-          });
+  return () => unsubscribe();
+}, [restaurantId]);
+// Replace trending useEffect:
+useEffect(() => {
+  if (!restaurantId) return;
+  
+  const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
+  const unsubscribe = onValue(ordersRef, (snap) => {
+    const data = snap.val();
+    if (!data) {
+      setTrendingDishData({});
+      return;
+    }
+
+    const countMap = {};
+    
+    Object.values(data).forEach((order) => {
+      const items = order.items ? 
+        (Array.isArray(order.items) ? order.items : Object.values(order.items)) 
+        : [];
+
+      items.forEach(item => {
+        if (item && item.dishId) {
+          countMap[item.dishId] = (countMap[item.dishId] || 0) + (item.qty || 1);
         }
       });
-
-      const sorted = Object.entries(countMap)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([dishId]) => dishId);
-
-      setTrendingDishIds(sorted);
     });
-    return () => unsubscribe();
-  }, []);
+
+    setTrendingDishData(countMap);
+    
+    // Top dish for badge
+
+  });
+  
+  return () => unsubscribe();
+}, [restaurantId]);
+
+  // ================= AI PICK: Sabse zyada likes wala dish =================
+  const [mostLikedDishId, setMostLikedDishId] = useState(null);
+// Replace most liked useEffect:
+useEffect(() => {
+  if (!restaurantId) return;
+  
+  const likesRef = rtdbRef(realtimeDB, `likes/${restaurantId}`);
+  const unsubscribe = onValue(likesRef, (snap) => {
+    const data = snap.val();
+    if (!data) {
+      setMostLikedDishData({});
+      setMostLikedDishId(null);
+      return;
+    }
+
+    const countMap = {};
+    let maxLikes = -1;
+    let topDishId = null;
+
+    Object.entries(data).forEach(([dishId, likesObj]) => {
+      const count = Object.keys(likesObj || {}).length;
+      countMap[dishId] = count;
+      if (count > maxLikes) {
+        maxLikes = count;
+        topDishId = dishId;
+      }
+    });
+
+    setMostLikedDishData(countMap);
+    setMostLikedDishId(topDishId);
+  });
+
+  return () => unsubscribe();
+}, [restaurantId]);
 
   const startVoiceSearch = () => {
     if (!("webkitSpeechRecognition" in window)) {
@@ -2296,10 +2395,7 @@ const handleOrderClick = (item, action = "order") => {
     );
   }
 
-  const aiRecommended = [...items]
-    .filter((i) => (i.avgRating || 0) >= 4)
-    .sort((a, b) => (b.avgRating || 0) - (a.avgRating || 0))
-    .slice(0, 3);
+
 
   if (filter === "veg") filteredItems = filteredItems.filter((i) => i.vegType === "veg");
   if (filter === "nonveg") filteredItems = filteredItems.filter((i) => i.vegType === "non-veg");
@@ -3141,30 +3237,45 @@ const handleOrderClick = (item, action = "order") => {
                           }}
                         />
 
-                        {/* TRENDING Badge - top right */}
-                        {trendingDishIds.includes(item.id) && (
-                          <span className="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow z-10 flex items-center gap-1">
-                            <IoFlame className="w-3 h-3" /> TRENDING
-                          </span>
-                        )}
+                                            {/* ===== BADGES ===== */}
+                        
+                     {/* AI PICK — Most likes */}
+{String(mostLikedDishId) === String(item.id) && mostLikedDishData[item.id] > 0 && (
+  <span 
+    className="absolute top-3 right-3 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg z-10 flex items-center gap-1.5 backdrop-blur-sm"
+    style={{ backgroundColor: theme.primary }}
+  >
+    <IoStar className="w-3.5 h-3.5" /> 
+    AI Pick  ({mostLikedDishData[item.id]} likes)
+  </span>
+)}
 
-                        {/* Most ordered badge - top left */}
-                        {aiRecommended.some((d) => d.id === item.id) && (
-                          <span 
-                            className="absolute top-3 left-3 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow z-10 flex items-center gap-1"
-                            style={{ backgroundColor: theme.border }}
-                          >
-                            <IoStar className="w-3 h-3" /> Most ordered
+{/* MOST ORDERED */}
+{Object.keys(trendingDishData).includes(item.id) && trendingDishData[item.id] > 0 && (
+  <span 
+    className="absolute top-3 right-3  text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg z-10 flex items-center gap-1.5 backdrop-blur-sm"
+     style={{ backgroundColor: theme.primary }}
+  >
+    <IoFlame className="w-3.5 h-3.5" /> 
+    Most Ordered  ({trendingDishData[item.id]} orders)
+  </span>
+)}
+                      
+                    
+
+                        {/* Drink badge */}
+                        {isDrink && (
+                          <span className="absolute top-3 left-3 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center border-2 border-white z-10 shadow">
+                            <IoSnow className="text-white text-xs" />
                           </span>
                         )}
 
                         {/* Out of Stock overlay */}
                         {item.inStock === false && (
-                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg z-20">
+                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg z-20 backdrop-blur-sm">
                             <IoClose className="w-6 h-6 mr-2" /> Out of Stock
                           </div>
                         )}
-
                         {/* Bottom overlay bar */}
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 flex items-end justify-between z-10">
                           {/* Like button - bottom left */}
@@ -3236,16 +3347,14 @@ const handleOrderClick = (item, action = "order") => {
                             </span>
                           )}
                         </div>
-
+{/* 
                         {/* Rating */}
-                        {(item.avgRating > 0) && (
-                          <div className="mb-1">
-                            <Rating restaurantId={item.restaurantId} dishId={item.id} compact />
-                          </div>
-                        )}
+                       {/* <div className="mb-1">
+  <Rating restaurantId={item.restaurantId} dishId={item.id} compact />
+</div> */} 
 
                         {/* Description */}
-                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.description}</p>
+<ShowMoreText text={item.description} />
 
                         {/* Action Buttons Row */}
                         <div className="flex items-center gap-2 mt-4">
@@ -3255,7 +3364,7 @@ const handleOrderClick = (item, action = "order") => {
                             className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                             style={{ backgroundColor: theme.primary }}
                           >
-                            <IoFlash className="w-4 h-4" />
+                           
                             Order Now
                           </button>
 
@@ -3270,13 +3379,13 @@ const handleOrderClick = (item, action = "order") => {
                           </button>
 
                           {/* WhatsApp icon button */}
-                          {/* <button
+                         <button
                             onClick={() => handleOrderClick(item, "whatsapp")}
                             className="w-10 h-10 rounded-xl border-2 border-green-500 text-green-500 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] hover:bg-green-500 hover:text-white"
                             title="Order via WhatsApp"
                           >
-                            <FaWhatsapp className="w-5 h-5" /> */}
-                          {/* </button> */}
+                            <FaWhatsapp className="w-5 h-5" /> 
+                           </button> 
 
                           {/* Reviews/Chat icon button */}
                           <button
@@ -3616,7 +3725,7 @@ const handleOrderClick = (item, action = "order") => {
                     </div>
                   )}
                   <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center mt-30">
                       <p className="text-gray-600 text-sm sm:text-base leading-relaxed mb-6">{aboutUs.description}</p>
                       {aboutUs.sectionImage && <img src={aboutUs.sectionImage} alt="About Section" className="w-full h-64 sm:h-72 lg:h-[350px] object-cover rounded-2xl shadow-lg" />}
                     </div>
@@ -3765,114 +3874,106 @@ const handleOrderClick = (item, action = "order") => {
             </>
           )}
 
-          {showWhatsAppCustomerModal && whatsAppPayload && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-              <div className={`${glassStyles.modal} w-full max-w-md rounded-2xl p-6 max-h-[90vh] overflow-y-auto animate-slideUp`}>
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-bold flex items-center gap-2">
-                    <FaWhatsapp className="text-green-500 w-6 h-6"/> WhatsApp Order
-                  </h3>
-                  <button 
-                    onClick={() => {
-                      setShowWhatsAppCustomerModal(false);
-                      setWhatsAppPayload(null);
-                    }}
-                    className="p-2 hover:bg-gray-100 rounded-full"
-                  >
-                    <IoClose className="text-xl" />
-                  </button>
-                </div>
+        {showWhatsAppCustomerModal && whatsAppPayload && (
+  <div className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+    <div className="bg-white w-full max-w-sm rounded-2xl p-4 shadow-2xl">
 
-                <div className="bg-green-50/80 backdrop-blur-sm p-3 rounded-xl mb-4 border border-green-200/50">
-                  <p className="font-medium text-sm mb-2">Item: {whatsAppPayload.name}</p>
-                  <div className="flex justify-between font-bold">
-                    <span>Total</span>
-                    <span className="text-green-600">₹{whatsAppPayload.price}</span>
-                  </div>
-                </div>
+      {/* Header */}
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-lg font-bold flex items-center gap-2">
+          <FaWhatsapp className="text-green-500" /> WhatsApp Order
+        </h3>
+        <button
+          onClick={() => { setShowWhatsAppCustomerModal(false); setWhatsAppPayload(null); }}
+          className="p-2 hover:bg-gray-100 rounded-full active:scale-95 transition"
+        >
+          <IoClose className="text-xl" />
+        </button>
+      </div>
 
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium mb-1 flex items-center gap-1">
-                      <IoPersonOutline className="w-4 h-4" /> Your Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={whatsAppCustomerInfo.name}
-                      onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, name: e.target.value})}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none backdrop-blur-sm bg-white/70"
-                      placeholder="Enter your name"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1 flex items-center gap-1">
-                      <IoCallOutline className="w-4 h-4" /> Phone Number *
-                    </label>
-                    <input
-                      type="tel"
-                      value={whatsAppCustomerInfo.phone}
-                      onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, phone: e.target.value})}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none backdrop-blur-sm bg-white/70"
-                      placeholder="+91 9876543210"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1 flex items-center gap-1">
-                      <IoCubeOutline className="w-4 h-4" /> Table Number (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={whatsAppCustomerInfo.tableNumber}
-                      onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, tableNumber: e.target.value})}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none backdrop-blur-sm bg-white/70"
-                      placeholder="If dining in restaurant"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1 flex items-center gap-1">
-                      <IoChatbubbleEllipsesOutline className="w-4 h-4" /> Special Instructions
-                    </label>
-                    <textarea
-                      value={whatsAppCustomerInfo.specialInstructions}
-                      onChange={(e) => setWhatsAppCustomerInfo({...whatsAppCustomerInfo, specialInstructions: e.target.value})}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none backdrop-blur-sm bg-white/70"
-                      rows="2"
-                      placeholder="Any allergies or special requests..."
-                    />
-                  </div>
-                </div>
+      {/* Bill Summary */}
+      <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2 mb-4">
+        <div className="flex justify-between text-xs text-gray-600">
+          <span>Item</span>
+          <span className="font-medium text-right max-w-[60%] truncate">{whatsAppPayload.name}</span>
+        </div>
+        <div className="flex justify-between text-xs text-gray-600">
+          <span>Price</span>
+          <span>₹{whatsAppPayload.price}</span>
+        </div>
+        <div className="flex justify-between text-xs text-gray-600">
+          <span>GST (5%)</span>
+          <span>₹{(whatsAppPayload.price * 0.05).toFixed(0)}</span>
+        </div>
+        <div className="flex justify-between font-bold border-t pt-2 mt-1">
+          <span className="text-sm">Total</span>
+          <span className="text-lg" style={{ color: theme.primary }}>
+            ₹{(whatsAppPayload.price * 1.05).toFixed(0)}
+          </span>
+        </div>
+      </div>
 
-                <div className="flex gap-3 mt-6">
-                  <button
-                    onClick={() => {
-                      setShowWhatsAppCustomerModal(false);
-                      setWhatsAppPayload(null);
-                    }}
-                    className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-bold hover:bg-gray-50 transition flex items-center justify-center gap-2"
-                  >
-                    <IoClose className="w-4 h-4" /> Cancel
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone) {
-                        alert('Please fill in your name and phone number');
-                        return;
-                      }
-                      handleDirectWhatsApp(whatsAppPayload, whatsAppCustomerInfo);
-                      setShowWhatsAppCustomerModal(false);
-                      setWhatsAppPayload(null);
-                      setWhatsAppCustomerInfo({ name: '', phone: '', tableNumber: '', specialInstructions: '' });
-                    }}
-                    disabled={!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone}
-                    className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold transition hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    <FaWhatsapp className="w-4 h-4" /> Open WhatsApp
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+      {/* Form */}
+      <div className="space-y-3">
+        <input
+          type="text"
+          placeholder="Name *"
+          value={whatsAppCustomerInfo.name}
+          onChange={(e) => setWhatsAppCustomerInfo({ ...whatsAppCustomerInfo, name: e.target.value })}
+          className="w-full p-3 border rounded-xl text-sm outline-none focus:border-gray-400 transition"
+        />
+        <input
+          type="tel"
+          placeholder="Phone *"
+          value={whatsAppCustomerInfo.phone}
+          onChange={(e) => setWhatsAppCustomerInfo({ ...whatsAppCustomerInfo, phone: e.target.value })}
+          className="w-full p-3 border rounded-xl text-sm outline-none focus:border-gray-400 transition"
+        />
+        <input
+          type="text"
+          placeholder="Table Number (Optional)"
+          value={whatsAppCustomerInfo.tableNumber}
+          onChange={(e) => setWhatsAppCustomerInfo({ ...whatsAppCustomerInfo, tableNumber: e.target.value })}
+          className="w-full p-3 border rounded-xl text-sm outline-none focus:border-gray-400 transition"
+        />
+        <textarea
+          placeholder="Special Instructions (Optional)"
+          value={whatsAppCustomerInfo.specialInstructions}
+          onChange={(e) => setWhatsAppCustomerInfo({ ...whatsAppCustomerInfo, specialInstructions: e.target.value })}
+          className="w-full p-3 border rounded-xl text-sm outline-none focus:border-gray-400 transition resize-none"
+          rows="2"
+        />
+      </div>
 
+      {/* Buttons */}
+      <div className="flex gap-3 mt-6">
+        <button
+          onClick={() => { setShowWhatsAppCustomerModal(false); setWhatsAppPayload(null); }}
+          className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-bold text-sm active:scale-95 transition"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={() => {
+            if (!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone) {
+              toast.error('Please enter name & phone');
+              return;
+            }
+            handleDirectWhatsApp(whatsAppPayload, whatsAppCustomerInfo);
+            setShowWhatsAppCustomerModal(false);
+            setWhatsAppPayload(null);
+            setWhatsAppCustomerInfo({ name: '', phone: '', tableNumber: '', specialInstructions: '' });
+          }}
+          disabled={!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone}
+          className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold text-sm active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <FaWhatsapp /> Send Order
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
           {arItem && (
             <RealisticARViewer 
               item={arItem} 

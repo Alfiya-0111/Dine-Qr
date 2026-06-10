@@ -749,15 +749,17 @@ export default function Checkout() {
     const userId      = auth.currentUser.uid;
     const paymentStatus = orderType === "delivery" ? "cod_pending" : "pay_at_counter";
 
-    const orderPayload = {
-      restaurantId,
-      userId,
-      customerInfo: {
-        name:  customerName.trim(),
-        phone: customerPhone.trim() || null,
-        email: customerEmail.trim() || null,
-      },
-      orderDetails: {
+ const orderPayload = {
+  restaurantId,
+  userId,
+  source: "cart",        
+  autoConfirmed: true,   
+  customerInfo: {
+    name:  customerName.trim(),
+    phone: customerPhone.trim() || null,
+    email: customerEmail.trim() || null,
+  },
+  orderDetails: {
         type:                orderType,
         tableNumber:         orderType === "dine-in" ? tableNumber.trim() : null,
         numberOfGuests:      parseInt(numberOfGuests) || 1,
