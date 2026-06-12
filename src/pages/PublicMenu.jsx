@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { IoLogoInstagram, IoNavigate } from "react-icons/io5";
 import { ref as rtdbRef, onValue, update, remove, push, set } from "firebase/database";
-import { 
-  IoCartOutline, 
-  IoSearchOutline, 
-  IoClose, 
+import {
+  IoCartOutline,
+  IoSearchOutline,
+  IoClose,
   IoCheckmarkCircle,
   IoTimeOutline,
   IoRestaurantOutline,
@@ -42,11 +42,11 @@ import {
   IoTimerOutline,
   IoEye,
   IoPersonOutline,
-   IoFlash ,
-   IoPricetagOutline,
+  IoFlash,
+  IoPricetagOutline,
 } from "react-icons/io5";
-import { 
-  FaWhatsapp, 
+import {
+  FaWhatsapp,
   FaUtensils,
   FaFire,
   FaLeaf,
@@ -82,10 +82,10 @@ import {
   FaRedo,
   FaHamburger
 } from "react-icons/fa";
-import { 
-  BsCart3, 
-  BsStarFill, 
-  BsStarHalf, 
+import {
+  BsCart3,
+  BsStarFill,
+  BsStarHalf,
   BsStar,
   BsFire,
   BsLightningCharge,
@@ -121,7 +121,7 @@ import {
   BsArrowRepeat,
   BsCupHot
 } from "react-icons/bs";
-import { 
+import {
   MdOutlineRestaurantMenu,
   MdOutlineLocalFireDepartment,
   MdOutlineDeliveryDining,
@@ -165,7 +165,7 @@ import readySound from "../assets/ready.mp3";
 import jsPDF from "jspdf";
 import { Helmet } from "react-helmet-async";
 import { toast } from "sonner";
-import TableBookingModal from "../components/TableBookingModal"; 
+import TableBookingModal from "../components/TableBookingModal";
 import MyBookings from "../components/MyBookings";
 import PromoPopup from './PromoPopup';
 import CouponBanner from "../components/CouponBanner";
@@ -216,11 +216,11 @@ const speakText = (text, lang = 'en-IN', rate = 0.9) => {
     utterance.volume = 1;
 
     const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v => v.name.includes('Google US English')) || 
-                          voices.find(v => v.name.includes('Samantha')) ||
-                          voices.find(v => v.lang === 'en-US') ||
-                          voices.find(v => v.lang === 'en-IN') ||
-                          voices[0];
+    const preferredVoice = voices.find(v => v.name.includes('Google US English')) ||
+      voices.find(v => v.name.includes('Samantha')) ||
+      voices.find(v => v.lang === 'en-US') ||
+      voices.find(v => v.lang === 'en-IN') ||
+      voices[0];
 
     if (preferredVoice) utterance.voice = preferredVoice;
 
@@ -246,9 +246,9 @@ const DishProgressBar = ({ item, theme, orderId, restaurantId, onDishReady, orde
       return;
     }
 
-    const shouldAutoStart = 
-      (orderStatus === 'confirmed' || orderStatus === 'preparing') && 
-      !item.prepStartedAt && 
+    const shouldAutoStart =
+      (orderStatus === 'confirmed' || orderStatus === 'preparing') &&
+      !item.prepStartedAt &&
       !localPrepStartedRef.current &&
       !autoStartAttemptedRef.current;
 
@@ -257,16 +257,16 @@ const DishProgressBar = ({ item, theme, orderId, restaurantId, onDishReady, orde
       localPrepStartedRef.current = true;
       autoStartAttemptedRef.current = true;
 
-     const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g,'_')}`;
-const statusRef = rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}/itemStatuses/${itemKey}`);
-update(statusRef, {
-  prepStartedAt: now,
-  prepTime: item.prepTime || 15,
-  itemStatus: "preparing"
-}).catch(err => {
-  console.log("Prep status update error:", err.message);
-});
-}
+      const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g, '_')}`;
+      const statusRef = rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}/itemStatuses/${itemKey}`);
+      update(statusRef, {
+        prepStartedAt: now,
+        prepTime: item.prepTime || 15,
+        itemStatus: "preparing"
+      }).catch(err => {
+        console.log("Prep status update error:", err.message);
+      });
+    }
   }, [orderStatus, item.prepStartedAt, item.dishId, item.id, orderId, item.name, item.prepTime, item.itemStatus, item.itemReadyAt]);
 
   useEffect(() => {
@@ -308,12 +308,12 @@ update(statusRef, {
           onDishReady(item.name, orderId);
         }
 
-const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g,'_')}`;
-const statusRef = rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}/itemStatuses/${itemKey}`);
-update(statusRef, {
-  itemStatus: "ready",
-  itemReadyAt: Date.now()
-}).catch(() => {});
+        const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g, '_')}`;
+        const statusRef = rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}/itemStatuses/${itemKey}`);
+        update(statusRef, {
+          itemStatus: "ready",
+          itemReadyAt: Date.now()
+        }).catch(() => { });
 
         setTimeout(() => setShowEnjoyMessage(false), 5000);
       }
@@ -331,7 +331,7 @@ update(statusRef, {
           <IoCheckmarkCircle className="w-4 h-4" />
           <span>Ready</span>
           <span className="text-[10px] text-gray-400 ml-1">
-            ({new Date(item.itemReadyAt || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})})
+            ({new Date(item.itemReadyAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
           </span>
         </div>
         {showEnjoyMessage && (
@@ -346,18 +346,18 @@ update(statusRef, {
 
   if (!item.prepStartedAt && !localPrepStartedRef.current) {
     return (
-     <div className="w-full mt-1 sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200/50 px-2 py-1">
-  <div className="flex items-center gap-1 text-blue-600 text-xs mb-1">
-    <IoFlame className="w-3 h-3 animate-pulse" />
-    <span>Starting preparation...</span>
-  </div>
-  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-    <div 
-      className="h-full bg-blue-400 rounded-full animate-pulse"
-      style={{ width: '5%' }}
-    />
-  </div>
-</div>
+      <div className="w-full mt-1 sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200/50 px-2 py-1">
+        <div className="flex items-center gap-1 text-blue-600 text-xs mb-1">
+          <IoFlame className="w-3 h-3 animate-pulse" />
+          <span>Starting preparation...</span>
+        </div>
+        <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-blue-400 rounded-full animate-pulse"
+            style={{ width: '5%' }}
+          />
+        </div>
+      </div>
     );
   }
 
@@ -375,9 +375,9 @@ update(statusRef, {
       </div>
 
       <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
-        <div 
+        <div
           className="h-full transition-all duration-1000 ease-linear rounded-full relative"
-          style={{ 
+          style={{
             width: `${progress}%`,
             backgroundColor: theme?.primary || "#8A244B",
             boxShadow: '0 0 8px rgba(138, 36, 75, 0.3)'
@@ -410,11 +410,11 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
   );
 
   const statusConfig = {
-    pending:   { color: 'bg-yellow-100 text-yellow-800', icon: <IoTimeOutline className="w-4 h-4" />,      label: 'Pending' },
-    confirmed: { color: 'bg-green-100 text-green-800',   icon: <IoCheckmarkCircle className="w-4 h-4" />,  label: 'Confirmed' },
-    preparing: { color: 'bg-blue-100 text-blue-800',     icon: <IoRestaurantOutline className="w-4 h-4" />,label: 'Preparing' },
-    ready:     { color: 'bg-purple-100 text-purple-800', icon: <IoFastFoodOutline className="w-4 h-4" />,  label: 'Ready' },
-    completed: { color: 'bg-gray-100 text-gray-800',     icon: <IoStar className="w-4 h-4" />,             label: 'Completed' }
+    pending: { color: 'bg-yellow-100 text-yellow-800', icon: <IoTimeOutline className="w-4 h-4" />, label: 'Pending' },
+    confirmed: { color: 'bg-green-100 text-green-800', icon: <IoCheckmarkCircle className="w-4 h-4" />, label: 'Confirmed' },
+    preparing: { color: 'bg-blue-100 text-blue-800', icon: <IoRestaurantOutline className="w-4 h-4" />, label: 'Preparing' },
+    ready: { color: 'bg-purple-100 text-purple-800', icon: <IoFastFoodOutline className="w-4 h-4" />, label: 'Ready' },
+    completed: { color: 'bg-gray-100 text-gray-800', icon: <IoStar className="w-4 h-4" />, label: 'Completed' }
   };
 
   const status = statusConfig[order.status?.toLowerCase()] || statusConfig.pending;
@@ -422,21 +422,21 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
 
   const getItemsArray = (items) => {
     if (!items) return [];
-    if (Array.isArray(items)) 
+    if (Array.isArray(items))
       return items.filter(item => item && item.name);
-    if (typeof items === 'object') 
+    if (typeof items === 'object')
       return Object.values(items).filter(item => item && item.name);
     return [];
   };
 
   const orderItems = getItemsArray(order.items);
-  
+
   // ★ FIX: Check both order.items and order.itemStatuses for ready state
   const allItemsReady = orderItems.length > 0 && orderItems.every(item => {
-    const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g,'_')}`;
+    const itemKey = item.dishId || item.id || `item_${item.name?.replace(/\s/g, '_')}`;
     const itemStatusData = order.itemStatuses?.[itemKey];
     const isReady = (
-      item.itemStatus === "ready" || 
+      item.itemStatus === "ready" ||
       item.itemReadyAt ||
       itemStatusData?.itemStatus === "ready" ||
       itemStatusData?.itemReadyAt
@@ -450,8 +450,8 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
     !localBillOpened &&
     !order.billOpened &&
     (
-      allItemsReady || 
-      orderStatus === 'ready' || 
+      allItemsReady ||
+      orderStatus === 'ready' ||
       orderStatus === 'completed' ||
       order.source === 'whatsapp' ||
       order.type === 'whatsapp' ||
@@ -461,7 +461,7 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
 
   const showPostBillActions = localBillOpened || order.billOpened;
 
-  
+
 
   return (
     <div id={`order-${order.id}`} className={`${glassStyles.card} rounded-2xl p-4 mb-4`}>
@@ -475,6 +475,7 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
           {status.icon}{status.label}
         </span>
       </div>
+
 
       {/* Items */}
       <div className="space-y-3 mb-3">
@@ -505,22 +506,22 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
             </div>
 
             {!isCompleted && !localBillOpened && order.status !== 'pending' && (
-  <div className="mt-2 pt-2 border-t border-gray-200/50">
-    <DishProgressBar
-      key={`${order.id}-${item.dishId || item.id}`}
-      item={{
-        ...item,
-        // itemStatuses se override karo agar available hai
-        ...(order.itemStatuses?.[item.dishId || item.id] || {})
-      }}
-      theme={theme}
-      orderId={order.id}
-      restaurantId={order.restaurantId}
-      orderStatus={order.status}
-      onDishReady={onDishReady}
-    />
-  </div>
-)}
+              <div className="mt-2 pt-2 border-t border-gray-200/50">
+                <DishProgressBar
+                  key={`${order.id}-${item.dishId || item.id}`}
+                  item={{
+                    ...item,
+                    // itemStatuses se override karo agar available hai
+                    ...(order.itemStatuses?.[item.dishId || item.id] || {})
+                  }}
+                  theme={theme}
+                  orderId={order.id}
+                  restaurantId={order.restaurantId}
+                  orderStatus={order.status}
+                  onDishReady={onDishReady}
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -672,21 +673,21 @@ const ActiveOrderCard = ({ order, theme, onMarkViewed, onGenerateBill, onShareWh
         </button>
       )}
       {/* Delivery order track button */}
-{order.orderDetails?.type === "delivery" && 
- !["delivered", "completed", "cancelled"].includes(order.status) && (
-  <button
-    onClick={() => {
-      const rid = order.restaurantId;
-      window.location.href = `/track/${rid}/${order.id}`;
-    }}
-    className="w-full mt-2 py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2"
-    style={{ backgroundColor: "#f97316" }}
-  >
-    <MdOutlineDeliveryDining className="w-5 h-5" /> {["shipped","out_for_delivery","picked_up"].includes(order.status) 
-        ? "Live Track Karo — Out for Delivery!" 
-        : "Track Your Delivery"}
-  </button>
-)}
+      {order.orderDetails?.type === "delivery" &&
+        !["delivered", "completed", "cancelled"].includes(order.status) && (
+          <button
+            onClick={() => {
+              const rid = order.restaurantId;
+              window.location.href = `/track/${rid}/${order.id}`;
+            }}
+            className="w-full mt-2 py-3 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2"
+            style={{ backgroundColor: "#f97316" }}
+          >
+            <MdOutlineDeliveryDining className="w-5 h-5" /> {["shipped", "out_for_delivery", "picked_up"].includes(order.status)
+              ? "Live Track Karo — Out for Delivery!"
+              : "Track Your Delivery"}
+          </button>
+        )}
     </div>
   );
 };
@@ -711,7 +712,7 @@ const ShowMoreText = ({ text, maxLength = 80 }) => {
 };
 // ================= MAIN PUBLIC MENU COMPONENT =================
 export default function PublicMenu() {
-const { cart, addToCart, clearCart, initCartForRestaurant } = useCart();
+  const { cart, addToCart, clearCart, initCartForRestaurant } = useCart();
   const [aboutUs, setAboutUs] = useState(null);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
   const [spiceSelections, setSpiceSelections] = useState({});
@@ -721,7 +722,7 @@ const { cart, addToCart, clearCart, initCartForRestaurant } = useCart();
   const [saladTaste, setSaladTaste] = useState({});
   const [saltSelections, setSaltSelections] = useState({});
   const [tasteItem, setTasteItem] = useState(null);
-  const [tasteAction, setTasteAction] = useState(null); 
+  const [tasteAction, setTasteAction] = useState(null);
   const [readyNotifications, setReadyNotifications] = useState([]);
   const [showTableBooking, setShowTableBooking] = useState(false);
   const [showMyBookings, setShowMyBookings] = useState(false);
@@ -738,44 +739,44 @@ const { cart, addToCart, clearCart, initCartForRestaurant } = useCart();
   const [arItem, setArItem] = useState(null);
   const [showLiveKitchenBanner, setShowLiveKitchenBanner] = useState(false);
   const [dismissedKitchenNotif, setDismissedKitchenNotif] = useState(false);
-const [scrolled, setScrolled] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const theme = restaurantSettings?.theme || {
     primary: "#8A244B",
     border: "#8A244B",
     background: "#ffffff"
   };
 
- const { slug } = useParams();
-const [restaurantId, setRestaurantId] = useState(null);
-const handlePublicLogout = async () => {
-  await auth.signOut();
-  clearCart();
-  setUserId(null);
-  setActiveTab("menu");
-};
-useEffect(() => {
-  const onScroll = () => setScrolled(window.scrollY > 60);
-  window.addEventListener('scroll', onScroll);
-  return () => window.removeEventListener('scroll', onScroll);
-}, []);
-useEffect(() => {
-  if (!slug) return;
-  const fetchId = async () => {
-    // Pehle slug se try karo
-    const q = query(collection(db, "restaurants"), where("slug", "==", slug));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      const id = snap.docs[0].id;
-      setRestaurantId(id);
-      initCartForRestaurant(id);
-    } else {
-      // Fallback: slug hi restaurantId hai (direct ID URL)
-      setRestaurantId(slug);
-      initCartForRestaurant(slug);
-    }
+  const { slug } = useParams();
+  const [restaurantId, setRestaurantId] = useState(null);
+  const handlePublicLogout = async () => {
+    await auth.signOut();
+    clearCart();
+    setUserId(null);
+    setActiveTab("menu");
   };
-  fetchId();
-}, [slug]);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 60);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  useEffect(() => {
+    if (!slug) return;
+    const fetchId = async () => {
+      // Pehle slug se try karo
+      const q = query(collection(db, "restaurants"), where("slug", "==", slug));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const id = snap.docs[0].id;
+        setRestaurantId(id);
+        initCartForRestaurant(id);
+      } else {
+        // Fallback: slug hi restaurantId hai (direct ID URL)
+        setRestaurantId(slug);
+        initCartForRestaurant(slug);
+      }
+    };
+    fetchId();
+  }, [slug]);
   const navigate = useNavigate();
 
   const requireLogin = useRequireLogin();
@@ -786,8 +787,8 @@ useEffect(() => {
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [activeTab, setActiveTab] = useState("menu");
-const [trendingDishData, setTrendingDishData] = useState({}); // { dishId: orderCount }
-const [mostLikedDishData, setMostLikedDishData] = useState({}); 
+  const [trendingDishData, setTrendingDishData] = useState({}); // { dishId: orderCount }
+  const [mostLikedDishData, setMostLikedDishData] = useState({});
   const [search, setSearch] = useState("");
   const [listening, setListening] = useState(false);
   const [showSort, setShowSort] = useState(false);
@@ -813,8 +814,8 @@ const [mostLikedDishData, setMostLikedDishData] = useState({});
   const prevOrdersRef = useRef({});
   const viewedOrdersRef = useRef(new Set());
   const [viewedOrders, setViewedOrders] = useState(new Set());
- const [readyDishes, setReadyDishes] = useState([]);
-const [dishLikesMap, setDishLikesMap] = useState({});
+  const [readyDishes, setReadyDishes] = useState([]);
+  const [dishLikesMap, setDishLikesMap] = useState({});
   const playedSoundsRef = useRef(new Set());
 
   const categoryCounts = {};
@@ -854,8 +855,8 @@ const [dishLikesMap, setDishLikesMap] = useState({});
     return () => unsubscribe();
   }, [restaurantId]);
 
-  const playReadySound = useCallback((dishName, orderId) => {  
-    const timeBucket = Math.floor(Date.now() / 10000); 
+  const playReadySound = useCallback((dishName, orderId) => {
+    const timeBucket = Math.floor(Date.now() / 10000);
     const soundId = `${orderId}-${dishName}-${timeBucket}`;
 
     if (playedSoundsRef.current.has(soundId)) return;
@@ -869,7 +870,7 @@ const [dishLikesMap, setDishLikesMap] = useState({});
     if (AudioContext) {
       const audioCtx = new AudioContext();
       if (audioCtx.state === 'suspended') {
-        audioCtx.resume().catch(() => {});
+        audioCtx.resume().catch(() => { });
       }
     }
 
@@ -961,7 +962,7 @@ const [dishLikesMap, setDishLikesMap] = useState({});
     audio.play().catch(err => {
       console.log('Audio autoplay blocked:', err);
       const playOnClick = () => {
-        audio.play().catch(() => {});
+        audio.play().catch(() => { });
         window.removeEventListener('click', playOnClick);
       };
       window.addEventListener('click', playOnClick, { once: true });
@@ -977,9 +978,9 @@ const [dishLikesMap, setDishLikesMap] = useState({});
       utterance.volume = 1;
 
       const voices = window.speechSynthesis.getVoices();
-      const preferredVoice = voices.find(v => v.name.includes('Google US English')) || 
-                            voices.find(v => v.name.includes('Samantha')) ||
-                            voices.find(v => v.lang === 'en-US');
+      const preferredVoice = voices.find(v => v.name.includes('Google US English')) ||
+        voices.find(v => v.name.includes('Samantha')) ||
+        voices.find(v => v.lang === 'en-US');
 
       if (preferredVoice) {
         utterance.voice = preferredVoice;
@@ -1052,37 +1053,37 @@ const [dishLikesMap, setDishLikesMap] = useState({});
     }
   }, []);
 
-const updateActiveOrders = useCallback((data) => {
-  const TWO_MINUTES = 2 * 60 * 1000;
-  const now = Date.now();
+  const updateActiveOrders = useCallback((data) => {
+    const TWO_MINUTES = 2 * 60 * 1000;
+    const now = Date.now();
 
-  const myOrders = Object.entries(data)
-    .filter(([id, order]) => {
-    
-const currentUserId = userId;
-    if (order.userId !== currentUserId) return false;
-if (order.billOpened) return false;
-if (order.orderDetails?.type === "delivery" && 
-    ["delivered", "completed"].includes(order.status)) return false;
-      if (order.status === 'completed') {
-        const completedAt = order.completedAt || order.updatedAt || order.createdAt;
-        if (now - completedAt > TWO_MINUTES) return false;
-      }
-      return ['pending','confirmed','preparing','ready','completed'].includes(order.status);
-    })
-    .map(([id, order]) => ({
-      id,
-      ...order,
-      total: Number(order.total) || 0
-    }))
-    .sort((a, b) => b.createdAt - a.createdAt);
+    const myOrders = Object.entries(data)
+      .filter(([id, order]) => {
 
-  setActiveOrder(prev => {
-    // ★ ADD: Filter out any viewed orders from previous state
-    const viewed = new Set(viewedOrdersRef.current);
-    return myOrders.filter(order => !viewed.has(order.id));
-  });
-}, [userId, restaurantId]);
+        const currentUserId = userId;
+        if (order.userId !== currentUserId) return false;
+        if (order.billOpened) return false;
+        if (order.orderDetails?.type === "delivery" &&
+          ["delivered", "completed"].includes(order.status)) return false;
+        if (order.status === 'completed') {
+          const completedAt = order.completedAt || order.updatedAt || order.createdAt;
+          if (now - completedAt > TWO_MINUTES) return false;
+        }
+        return ['pending', 'confirmed', 'preparing', 'ready', 'completed'].includes(order.status);
+      })
+      .map(([id, order]) => ({
+        id,
+        ...order,
+        total: Number(order.total) || 0
+      }))
+      .sort((a, b) => b.createdAt - a.createdAt);
+
+    setActiveOrder(prev => {
+      // ★ ADD: Filter out any viewed orders from previous state
+      const viewed = new Set(viewedOrdersRef.current);
+      return myOrders.filter(order => !viewed.has(order.id));
+    });
+  }, [userId, restaurantId]);
 
   const handleCategorySelect = (catId) => {
     if (catId === 'all') {
@@ -1163,7 +1164,7 @@ Sent via DineQR
     }
 
     try {
-     const orderRef = push(rtdbRef(realtimeDB, `orders/${restaurantId}`));
+      const orderRef = push(rtdbRef(realtimeDB, `orders/${restaurantId}`));
       const orderId = orderRef.key;
 
       const enrichedItem = {
@@ -1186,30 +1187,30 @@ Sent via DineQR
       const gst = subtotal * 0.05;
       const total = subtotal + gst;
 
-     const order = {
-  id: orderId,
-  userId: user.uid,
-  restaurantId: String(restaurantId),
-  customerName: customerData?.name || user.displayName || "Customer",
-  customerPhone: customerData?.phone || user.phoneNumber || "",
-  customerEmail: user.email || "",
-  tableNumber: customerData?.tableNumber || "",
-  specialInstructions: customerData?.specialInstructions || "",
-  items: [enrichedItem],
-  type: "whatsapp",
-  status: "confirmed",
-  confirmedAt: Date.now(),
-  autoConfirmed: true,
-  subtotal,
-  gst,
-  total,
-  createdAt: Date.now(),
-  source: "whatsapp",
-  timestamp: Date.now(),
-  whatsappStatus: "new",
-  whatsappNumber: cleanPhone,
-  billOpened: false
-};
+      const order = {
+        id: orderId,
+        userId: user.uid,
+        restaurantId: String(restaurantId),
+        customerName: customerData?.name || user.displayName || "Customer",
+        customerPhone: customerData?.phone || user.phoneNumber || "",
+        customerEmail: user.email || "",
+        tableNumber: customerData?.tableNumber || "",
+        specialInstructions: customerData?.specialInstructions || "",
+        items: [enrichedItem],
+        type: "whatsapp",
+        status: "confirmed",
+        confirmedAt: Date.now(),
+        autoConfirmed: true,
+        subtotal,
+        gst,
+        total,
+        createdAt: Date.now(),
+        source: "whatsapp",
+        timestamp: Date.now(),
+        whatsappStatus: "new",
+        whatsappNumber: cleanPhone,
+        billOpened: false
+      };
       await set(orderRef, order);
 
       try {
@@ -1247,9 +1248,9 @@ Sent via DineQR
       const encodedMessage = encodeURIComponent(message);
       const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
 
-     window.open(whatsappUrl, '_blank');
+      window.open(whatsappUrl, '_blank');
 
-toast.success('Order sent to WhatsApp!', {
+      toast.success('Order sent to WhatsApp!', {
         description: 'Restaurant will confirm shortly',
         duration: 5000
       });
@@ -1386,7 +1387,7 @@ ${'━'.repeat(30)}
         id: orderId,
         userId: user.uid,
         restaurantId: restaurantId,
-     customerName: orderData.customerName || user.displayName || "Customer",
+        customerName: orderData.customerName || user.displayName || "Customer",
         customerPhone: orderData.customerPhone || user.phoneNumber || "",
         customerEmail: user.email || "",
         tableNumber: orderData.tableNumber || "",
@@ -1395,7 +1396,7 @@ ${'━'.repeat(30)}
         type: "whatsapp",
         status: "confirmed",
         confirmedAt: Date.now(),
-  autoConfirmed: true,
+        autoConfirmed: true,
         subtotal: parseFloat(subtotal.toFixed(2)),
         gst: parseFloat(gst.toFixed(2)),
         discount: parseFloat(discount.toFixed(2)),
@@ -1412,7 +1413,7 @@ ${'━'.repeat(30)}
       await set(rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
         ...order, whatsappStatus: "new", userId: user.uid, restaurantId: restaurantId
       });
-    
+
 
       const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
       if (phone) {
@@ -1482,29 +1483,29 @@ ${'━'.repeat(30)}
     setReadyNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-const markOrderAsViewed = (orderId) => {
-  // 1. Ref update
-  viewedOrdersRef.current.add(orderId);
-  setViewedOrders(new Set(viewedOrdersRef.current));
+  const markOrderAsViewed = (orderId) => {
+    // 1. Ref update
+    viewedOrdersRef.current.add(orderId);
+    setViewedOrders(new Set(viewedOrdersRef.current));
 
-  // 2. localStorage save
-  const saved = JSON.parse(localStorage.getItem('viewedOrders') || '[]');
-  if (!saved.includes(orderId)) {
-    saved.push(orderId);
-    localStorage.setItem('viewedOrders', JSON.stringify(saved));
-  }
+    // 2. localStorage save
+    const saved = JSON.parse(localStorage.getItem('viewedOrders') || '[]');
+    if (!saved.includes(orderId)) {
+      saved.push(orderId);
+      localStorage.setItem('viewedOrders', JSON.stringify(saved));
+    }
 
-  // 3. ★ CRITICAL: Remove from activeOrder state immediately so UI updates
-  setActiveOrder(prev => prev.filter(order => order.id !== orderId));
+    // 3. ★ CRITICAL: Remove from activeOrder state immediately so UI updates
+    setActiveOrder(prev => prev.filter(order => order.id !== orderId));
 
-  // 4. Optional: Mark in Firebase too
-  if (restaurantId) {
-    update(rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}`), {
-      viewedByCustomer: true,
-      viewedAt: Date.now()
-    }).catch(() => {});
-  }
-};
+    // 4. Optional: Mark in Firebase too
+    if (restaurantId) {
+      update(rtdbRef(realtimeDB, `orders/${restaurantId}/${orderId}`), {
+        viewedByCustomer: true,
+        viewedAt: Date.now()
+      }).catch(() => { });
+    }
+  };
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -1522,7 +1523,7 @@ const markOrderAsViewed = (orderId) => {
       if (AudioContext) {
         const ctx = new AudioContext();
         if (ctx.state === 'suspended') {
-          ctx.resume().catch(() => {});
+          ctx.resume().catch(() => { });
         }
       }
     }, 30000);
@@ -1533,7 +1534,7 @@ const markOrderAsViewed = (orderId) => {
         if (AudioContext) {
           const ctx = new AudioContext();
           if (ctx.state === 'suspended') {
-            ctx.resume().catch(() => {});
+            ctx.resume().catch(() => { });
           }
         }
       }
@@ -1604,8 +1605,8 @@ const markOrderAsViewed = (orderId) => {
 
     try {
       if (!order.bill) {
-        const orderItems = order.items ? 
-          (Array.isArray(order.items) ? order.items : Object.values(order.items)) 
+        const orderItems = order.items ?
+          (Array.isArray(order.items) ? order.items : Object.values(order.items))
           : [];
 
         const validItems = orderItems.filter(i => i && typeof i === 'object' && i.name);
@@ -1626,7 +1627,7 @@ const markOrderAsViewed = (orderId) => {
 
         const bill = {
           orderId: String(order.id),
-       customerName: String(order.customerName || order.customerInfo?.name || "Customer"),
+          customerName: String(order.customerName || order.customerInfo?.name || "Customer"),
           hotelName: String(restaurantName || "Restaurant"),
           orderDate: Date.now(),
           items: billItems,
@@ -1635,10 +1636,10 @@ const markOrderAsViewed = (orderId) => {
           total: Number(total),
           generatedAt: Date.now(),
           discount: Number(order.discount || 0),
-          couponCode: order.couponCode || null, 
+          couponCode: order.couponCode || null,
         };
 
-       await update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), { bill });
+        await update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), { bill });
         order.bill = bill;
       }
 
@@ -1781,13 +1782,13 @@ const markOrderAsViewed = (orderId) => {
       console.error("Error generating bill:", err);
       alert("Bill generate karne mein error aaya: " + err.message);
     }
-if (auth.currentUser) {
-    await update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
-      status: "completed",
-      completedAt: Date.now(),
-      billOpened: true
-    });
-  }
+    if (auth.currentUser) {
+      await update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
+        status: "completed",
+        completedAt: Date.now(),
+        billOpened: true
+      });
+    }
 
   };
 
@@ -1807,21 +1808,21 @@ if (auth.currentUser) {
 
 *ORDER ITEMS:*
 ${order.items?.map((item, idx) => {
-    let details = `${idx + 1}. ${item.name}${item.vegType ? ` ${item.vegType === 'veg' ? '🟢' : '🔴'}` : ''}`;
-  details += `\n   💰 ₹${item.price} × ${item.qty || 1} = ₹${(item.price * (item.qty || 1)).toFixed(0)}`;
+      let details = `${idx + 1}. ${item.name}${item.vegType ? ` ${item.vegType === 'veg' ? '🟢' : '🔴'}` : ''}`;
+      details += `\n   💰 ₹${item.price} × ${item.qty || 1} = ₹${(item.price * (item.qty || 1)).toFixed(0)}`;
 
-  if (item.spicePreference && item.dishTasteProfile !== 'sweet') {
-    details += `\n   🌶️ Spice: ${item.spicePreference}`;
-  }
-  if (item.sweetLevel && item.dishTasteProfile === 'sweet') {
-    details += `\n   🍰 Sweetness: ${item.sweetLevel}`;
-  }
-  if (item.saltPreference && item.saltPreference !== 'normal') {
-    details += `\n   🧂 Salt: ${item.saltPreference}`;
-  }
+      if (item.spicePreference && item.dishTasteProfile !== 'sweet') {
+        details += `\n   🌶️ Spice: ${item.spicePreference}`;
+      }
+      if (item.sweetLevel && item.dishTasteProfile === 'sweet') {
+        details += `\n   🍰 Sweetness: ${item.sweetLevel}`;
+      }
+      if (item.saltPreference && item.saltPreference !== 'normal') {
+        details += `\n   🧂 Salt: ${item.saltPreference}`;
+      }
 
-  return details;
-}).join('\n\n') || 'No items'}
+      return details;
+    }).join('\n\n') || 'No items'}
 
 ━━━━━━━━━━━━━━
 💵 *BILL SUMMARY:*
@@ -1845,18 +1846,18 @@ Sent via DineQR
     // Voice notification for bill share
     speakText(`Thank you for coming in ${restaurantName || 'our restaurant'}. We hope to see you again!`);
 
-   if (auth.currentUser) {
-    update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
-      status: "completed",
-      completedAt: Date.now(),
-      billOpened: true
-    });
-  }
+    if (auth.currentUser) {
+      update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
+        status: "completed",
+        completedAt: Date.now(),
+        billOpened: true
+      });
+    }
   };
 
   const generateBillText = (order) => {
-    const items = order.items ? 
-      (Array.isArray(order.items) ? order.items : Object.values(order.items)) 
+    const items = order.items ?
+      (Array.isArray(order.items) ? order.items : Object.values(order.items))
       : [];
 
     const subtotal = items.reduce((sum, i) => sum + ((i.price || 0) * (i.qty || 1)), 0);
@@ -1864,7 +1865,7 @@ Sent via DineQR
     const total = subtotal + gst;
 
     return {
-     customerName: order.customerName || order.customerInfo?.name || 'Customer',
+      customerName: order.customerName || order.customerInfo?.name || 'Customer',
       orderId: order.id,
       items: items.map(i => ({
         name: i.name,
@@ -1881,7 +1882,7 @@ Sent via DineQR
   const visibleCategories = categories.filter(cat => categoryCounts[cat.id] > 0);
 
   // Call Waiter Function with Voice
-   // Call Waiter Function with Voice
+  // Call Waiter Function with Voice
   const callWaiter = async () => {
     if (waiterCooldown || !userId) return;
 
@@ -1890,7 +1891,7 @@ Sent via DineQR
 
     // Get table number from the most recent active order, or prompt user
     let tableNumber = activeOrder?.[0]?.tableNumber || "";
-    
+
     // If no table number in order, try to get from localStorage or prompt
     if (!tableNumber) {
       const savedTable = localStorage.getItem(`tableNumber_${restaurantId}`);
@@ -1911,7 +1912,7 @@ Sent via DineQR
       const waiterRef = push(rtdbRef(realtimeDB, `waiterCalls/${restaurantId}`));
       await set(waiterRef, {
         userId,
-     customerName: auth.currentUser?.displayName || "Customer",
+        customerName: auth.currentUser?.displayName || "Customer",
         customerEmail: auth.currentUser?.email || "",
         tableNumber: tableNumber || "Unknown",
         calledAt: Date.now(),
@@ -1997,7 +1998,7 @@ Sent via DineQR
       return;
     }
 
-const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
+    const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
     const unsubscribe = onValue(ordersRef, (snap) => {
       const data = snap.val();
       if (!data) return;
@@ -2076,7 +2077,7 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
             audioRef.current.currentTime = 0;
             console.log('Audio ref unlocked');
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     };
 
@@ -2101,42 +2102,42 @@ const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
     if (!activeOrder?.length) return;
 
     activeOrder.forEach(order => {
-      const items = order.items ? 
-        (Array.isArray(order.items) ? order.items : Object.values(order.items)) 
+      const items = order.items ?
+        (Array.isArray(order.items) ? order.items : Object.values(order.items))
         : [];
 
       items.forEach(item => {
         const wasReady = prevOrdersRef.current[`${order.id}-${item.dishId}`];
-        const isNowReady = item.itemStatus === "ready" || 
+        const isNowReady = item.itemStatus === "ready" ||
           (item.prepStartedAt && (Date.now() - item.prepStartedAt) >= (item.prepTime * 60 * 1000));
 
         if (isNowReady && !wasReady) {
           prevOrdersRef.current[`${order.id}-${item.dishId}`] = true;
-          handleDishReady(item.name, order.id);  
+          handleDishReady(item.name, order.id);
         }
       });
     });
   }, [activeOrder, handleDishReady]);
 
-useEffect(() => {
-  const unsub = auth.onAuthStateChanged((user) => {
-    if (user) {
-      setUserId(user.uid);
-    } else {
-      setUserId(null);
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setUserId(user.uid);
+      } else {
+        setUserId(null);
+      }
+    });
+    return () => unsub();
+  }, []);
+  // Login modal auto-open from checkout redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("openLogin") === "true") {
+      requireLogin();
+      // URL clean karo
+      window.history.replaceState({}, "", window.location.pathname);
     }
-  });
-  return () => unsub();
-}, []);
-// Login modal auto-open from checkout redirect
-useEffect(() => {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("openLogin") === "true") {
-    requireLogin();
-    // URL clean karo
-    window.history.replaceState({}, "", window.location.pathname);
-  }
-}, [restaurantId]);
+  }, [restaurantId]);
   useEffect(() => {
     const unlockAudio = () => {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -2152,7 +2153,7 @@ useEffect(() => {
       audio.play().then(() => {
         audio.pause();
         audio.currentTime = 0;
-      }).catch(() => {});
+      }).catch(() => { });
 
       window.removeEventListener("click", unlockAudio);
       window.removeEventListener("touchstart", unlockAudio);
@@ -2180,7 +2181,7 @@ useEffect(() => {
       }
 
       // Get current user ID (logged in or guest)
-       const currentUserId = userId;
+      const currentUserId = userId;
 
       Object.entries(data).forEach(([orderId, order]) => {
         if (order.userId !== currentUserId) return;
@@ -2250,110 +2251,110 @@ useEffect(() => {
     });
     return () => unsubscribe();
   }, [restaurantId]);
-// Dish likes listener
-// PublicMenu.js mein, AI Pick useEffect:
-useEffect(() => {
-  if (!restaurantId) return;
-  const likesRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}/menu`);
-  
-  const unsubscribe = onValue(likesRef, (snap) => {
-    const data = snap.val();
-    if (!data) {
-      setMostLikedDishData({});
-      setMostLikedDishId(null);
-      return;
-    }
+  // Dish likes listener
+  // PublicMenu.js mein, AI Pick useEffect:
+  useEffect(() => {
+    if (!restaurantId) return;
+    const likesRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}/menu`);
 
-    const countMap = {};
-    let maxLikes = -1;
-    let topDishId = null;
-
-    // Har dish ke likes count karo
-    Object.entries(data).forEach(([dishId, dishData]) => {
-      const likesObj = dishData?.likes || {};
-      const count = Object.keys(likesObj).length;
-      countMap[dishId] = count;
-      if (count > maxLikes) {
-        maxLikes = count;
-        topDishId = dishId;
+    const unsubscribe = onValue(likesRef, (snap) => {
+      const data = snap.val();
+      if (!data) {
+        setMostLikedDishData({});
+        setMostLikedDishId(null);
+        return;
       }
-    });
 
-    setMostLikedDishData(countMap);
-    setMostLikedDishId(topDishId);
-  });
+      const countMap = {};
+      let maxLikes = -1;
+      let topDishId = null;
 
-  return () => unsubscribe();
-}, [restaurantId]);
-// Replace trending useEffect:
-useEffect(() => {
-  if (!restaurantId) return;
-  
-  const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
-  const unsubscribe = onValue(ordersRef, (snap) => {
-    const data = snap.val();
-    if (!data) {
-      setTrendingDishData({});
-      return;
-    }
-
-    const countMap = {};
-    
-    Object.values(data).forEach((order) => {
-      const items = order.items ? 
-        (Array.isArray(order.items) ? order.items : Object.values(order.items)) 
-        : [];
-
-      items.forEach(item => {
-        if (item && item.dishId) {
-          countMap[item.dishId] = (countMap[item.dishId] || 0) + (item.qty || 1);
+      // Har dish ke likes count karo
+      Object.entries(data).forEach(([dishId, dishData]) => {
+        const likesObj = dishData?.likes || {};
+        const count = Object.keys(likesObj).length;
+        countMap[dishId] = count;
+        if (count > maxLikes) {
+          maxLikes = count;
+          topDishId = dishId;
         }
       });
+
+      setMostLikedDishData(countMap);
+      setMostLikedDishId(topDishId);
     });
 
-    setTrendingDishData(countMap);
-    
-    // Top dish for badge
+    return () => unsubscribe();
+  }, [restaurantId]);
+  // Replace trending useEffect:
+  useEffect(() => {
+    if (!restaurantId) return;
 
-  });
-  
-  return () => unsubscribe();
-}, [restaurantId]);
+    const ordersRef = rtdbRef(realtimeDB, `orders/${restaurantId}`);
+    const unsubscribe = onValue(ordersRef, (snap) => {
+      const data = snap.val();
+      if (!data) {
+        setTrendingDishData({});
+        return;
+      }
+
+      const countMap = {};
+
+      Object.values(data).forEach((order) => {
+        const items = order.items ?
+          (Array.isArray(order.items) ? order.items : Object.values(order.items))
+          : [];
+
+        items.forEach(item => {
+          if (item && item.dishId) {
+            countMap[item.dishId] = (countMap[item.dishId] || 0) + (item.qty || 1);
+          }
+        });
+      });
+
+      setTrendingDishData(countMap);
+
+      // Top dish for badge
+
+    });
+
+    return () => unsubscribe();
+  }, [restaurantId]);
 
   // ================= AI PICK: Sabse zyada likes wala dish =================
   const [mostLikedDishId, setMostLikedDishId] = useState(null);
-// Replace most liked useEffect:
-useEffect(() => {
-  if (!restaurantId) return;
-  
-  const likesRef = rtdbRef(realtimeDB, `likes/${restaurantId}`);
-  const unsubscribe = onValue(likesRef, (snap) => {
-    const data = snap.val();
-    if (!data) {
-      setMostLikedDishData({});
-      setMostLikedDishId(null);
-      return;
-    }
+  // Replace most liked useEffect:
+  useEffect(() => {
+    if (!restaurantId) return;
 
-    const countMap = {};
-    let maxLikes = -1;
-    let topDishId = null;
-
-    Object.entries(data).forEach(([dishId, likesObj]) => {
-      const count = Object.keys(likesObj || {}).length;
-      countMap[dishId] = count;
-      if (count > maxLikes) {
-        maxLikes = count;
-        topDishId = dishId;
+    const likesRef = rtdbRef(realtimeDB, `likes/${restaurantId}`);
+    const unsubscribe = onValue(likesRef, (snap) => {
+      const data = snap.val();
+      if (!data) {
+        setMostLikedDishData({});
+        setMostLikedDishId(null);
+        return;
       }
+
+      const countMap = {};
+      let maxLikes = -1;
+      let topDishId = null;
+
+      Object.entries(data).forEach(([dishId, likesObj]) => {
+        const count = Object.keys(likesObj || {}).length;
+        countMap[dishId] = count;
+        if (count > maxLikes) {
+          maxLikes = count;
+          topDishId = dishId;
+        }
+      });
+
+      setMostLikedDishData(countMap);
+      setMostLikedDishId(topDishId);
     });
 
-    setMostLikedDishData(countMap);
-    setMostLikedDishId(topDishId);
-  });
-
-  return () => unsubscribe();
-}, [restaurantId]);
+    return () => unsubscribe();
+  }, [restaurantId]);
 
   const startVoiceSearch = () => {
     if (!("webkitSpeechRecognition" in window)) {
@@ -2371,21 +2372,21 @@ useEffect(() => {
     recognition.start();
   };
 
-const handleOrderClick = (item, action = "order") => {
-  if (!item || !item.id) {
-    console.error("Invalid item passed to handleOrderClick:", item);
-    return;
-  }
-  
-  // ★ ADD: Ensure restaurantId is available
-  if (!restaurantId && !slug) {
-    toast.error("Restaurant ID not found. Please refresh.");
-    return;
-  }
-  
-  setTasteItem(item);
-  setTasteAction(action);
-};
+  const handleOrderClick = (item, action = "order") => {
+    if (!item || !item.id) {
+      console.error("Invalid item passed to handleOrderClick:", item);
+      return;
+    }
+
+    // ★ ADD: Ensure restaurantId is available
+    if (!restaurantId && !slug) {
+      toast.error("Restaurant ID not found. Please refresh.");
+      return;
+    }
+
+    setTasteItem(item);
+    setTasteAction(action);
+  };
 
   let filteredItems = [...items];
   if (search.trim()) {
@@ -2430,8 +2431,8 @@ const handleOrderClick = (item, action = "order") => {
       </Helmet>
 
       <PromoPopup
-        restaurantId={restaurantId} 
-        restaurantSettings={restaurantSettings} 
+        restaurantId={restaurantId}
+        restaurantSettings={restaurantSettings}
       />
 
       {/* Live Kitchen Banner */}
@@ -2442,7 +2443,7 @@ const handleOrderClick = (item, action = "order") => {
               key={idx}
               className={`${glassStyles.modal} pointer-events-auto rounded-2xl shadow-2xl p-4 flex items-center gap-3 animate-slideUp mx-auto w-full max-w-md`}
             >
-              <div 
+              <div
                 className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
                 style={{ backgroundColor: `${theme.primary}15` }}
               >
@@ -2538,17 +2539,17 @@ const handleOrderClick = (item, action = "order") => {
         </div>
       )}
 
-      <TableBookingModal 
-        isOpen={showTableBooking} 
-        onClose={() => setShowTableBooking(false)} 
-        restaurantId={restaurantId} 
-        theme={{ primary: "#8A244B" }} 
-        userId={userId} 
+      <TableBookingModal
+        isOpen={showTableBooking}
+        onClose={() => setShowTableBooking(false)}
+        restaurantId={restaurantId}
+        theme={{ primary: "#8A244B" }}
+        userId={userId}
       />
 
       {/* Ready Notifications Overlay */}
       {readyNotifications.map(notification => (
-        <ReadyNotification 
+        <ReadyNotification
           key={notification.id}
           dishName={notification.dishName}
           onClose={() => removeNotification(notification.id)}
@@ -2560,217 +2561,156 @@ const handleOrderClick = (item, action = "order") => {
 
         <div className="w-full" style={{ backgroundColor: theme.background }}>
 
-{/* ===== FIXED TRANSPARENT HEADER ===== */}
+          {/* ===== FIXED TRANSPARENT HEADER ===== */}
 
-<div 
-  className="fixed top-0 left-0 right-0 z-[100]"
- style={{
-    background: scrolled 
-      ? 'rgba(255, 255, 255, 0.95)'
-      : 'rgba(255, 255, 255, 0.08)',
-    backdropFilter: 'blur(24px)',
-    WebkitBackdropFilter: 'blur(24px)',
-    borderBottom: scrolled 
-      ? `1px solid ${theme?.primary || '#8A244B'}20`
-      : '1px solid rgba(255, 255, 255, 0.15)',
-    boxShadow: scrolled 
-      ? '0 4px 30px rgba(0, 0, 0, 0.1)'
-      : '0 4px 30px rgba(0, 0, 0, 0.05)',
-    transition: 'all 0.3s ease'
-  }}
->
-  
-    {/* Category Scroll */}
-    {!scrolled && (
-    <div className="flex gap-3 overflow-x-auto pb-1 snap-x scrollbar-hide w-full md:w-auto px-4 pt-2 pb-1">
-      {/* All button */}
-      <button
-        onClick={() => setActiveCategory("all")}
-        className="flex flex-col items-center gap-1 flex-shrink-0 snap-start"
-      >
-        <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl border-2 transition-all duration-300"
-          style={{
-            borderColor: activeCategory === "all" ? theme.primary : "rgba(255,255,255,0.2)",
-            backgroundColor: activeCategory === "all" ? `${theme.primary}15` : "rgba(255,255,255,0.08)",
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)'
-          }}
-        >
-          <img src={all_img} alt="all" width={26} height={26} />
-        </div>
-        <span
-          className="text-[10px] font-medium whitespace-nowrap"
-          style={{ color: activeCategory === "all" ? theme.primary : "#6b7280" }}
-        >
-          All
-        </span>
-      </button>
-
-      {visibleCategories.map((c) => (
-        <button
-          key={c.id}
-          onClick={() => setActiveCategory(c.id)}
-          className="flex flex-col items-center gap-1 flex-shrink-0 snap-start"
-        >
           <div
-            className="w-12 h-12 rounded-xl overflow-hidden border-2 transition-all duration-300"
+            className="fixed top-0 left-0 right-0 z-[100]"
             style={{
-              borderColor: activeCategory === c.id ? theme.primary : "rgba(255,255,255,0.2)",
-              backgroundColor: "rgba(255,255,255,0.08)",
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)'
+              background: scrolled
+                ? 'rgba(255, 255, 255, 0.95)'
+                : 'rgba(255, 255, 255, 0.08)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              borderBottom: scrolled
+                ? `1px solid ${theme?.primary || '#8A244B'}20`
+                : '1px solid rgba(255, 255, 255, 0.15)',
+              boxShadow: scrolled
+                ? '0 4px 30px rgba(0, 0, 0, 0.1)'
+                : '0 4px 30px rgba(0, 0, 0, 0.05)',
+              transition: 'all 0.3s ease'
             }}
           >
-            {c.image ? (
-              <img src={c.image} alt={c.name} className="w-full h-full object-cover" />
-            ) : (
-              <div
-                className="w-full h-full flex items-center justify-center"
-                style={{
-                  backgroundColor: activeCategory === c.id ? `${theme.primary}15` : "rgba(255,255,255,0.08)",
-                  backdropFilter: 'blur(12px)'
-                }}
-              >
-                <IoRestaurantOutline className="w-5 h-5" style={{ color: theme.primary }} />
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-3 px-4 max-w-7xl mx-auto">
+
+              {/* Logo / Name */}
+              <div className="hidden md:flex items-center gap-3">
+                {restaurantSettings?.logo ? (
+                  <img src={restaurantSettings.logo} alt="logo" className="h-10 md:h-12 object-contain" />
+                ) : (
+                  <span
+                    className="font-bold  md:text-xl px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105"
+                    style={{
+                      color: theme.primary,
+                      // border: `2px solid ${theme.primary}`,
+                      // backgroundColor: 'rgba(255,255,255,0.15)',
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)',
+                      fontSize: "30px"
+
+                    }}
+                  >
+                    {restaurantSettings?.name || restaurantName}
+                  </span>
+                )}
               </div>
-            )}
-          </div>
-          <span
-            className="text-[10px] font-medium whitespace-nowrap max-w-[56px] truncate"
-            style={{ color: activeCategory === c.id ? theme.primary : "#6b7280" }}
-          >
-            {c.name}
-          </span>
-        </button>
-      ))}
-      {/* Desktop My Bookings */}
+
+              {/* Desktop Right Side */}
+              <div className="hidden md:flex items-center gap-3">
+
+                {/* Cart Button - Transparent QR Style */}
+                <button
+                  onClick={() => setOpenCart(true)}
+                  className="relative p-2.5 rounded-xl transition-all duration-300 hover:scale-110"
+                  style={{
+                    border: `2px solid ${theme.primary}`,
+                    color: theme.primary,
+                    backgroundColor: 'rgba(255,255,255,0.1)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = theme.primary;
+                    e.currentTarget.style.color = '#ffffff';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                    e.currentTarget.style.color = theme.primary;
+                  }}
+                >
+                  <IoCartOutline className="w-5 h-5" />
+                  {cart.length > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold animate-bounce">
+                      {cart.length}
+                    </span>
+                  )}
+                </button>
+                {/* Tabs - Desktop */}
+                {["menu", "about", "contact"].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 hover:scale-105 uppercase tracking-wide"
+                    style={{
+                      border: `2px solid ${activeTab === tab ? theme.primary : 'rgba(255,255,255,0.3)'}`,
+                      color: activeTab === tab ? '#ffffff' : theme.primary,
+                      backgroundColor: activeTab === tab
+                        ? theme.primary
+                        : 'rgba(255,255,255,0.1)',
+                      backdropFilter: 'blur(12px)',
+                      WebkitBackdropFilter: 'blur(12px)'
+                    }}
+                  >
+                    {tab === 'menu' && <IoRestaurantOutline className="w-4 h-4" />}
+                    {tab === 'about' && <IoBookOutline className="w-4 h-4" />}
+                    {tab === 'contact' && <IoCallOutline className="w-4 h-4" />}
+                    {tab}
+                  </button>
+                ))}
+                {/* Open/Closed Badge */}
+                {restaurantSettings?.isOpen !== undefined && (
+                  <span
+                    className="text-[10px] font-bold px-3 py-1.5 rounded-xl"
+                    style={{
+                      border: `2px solid ${restaurantSettings.isOpen ? '#22c55e' : '#dc2626'}`,
+                      color: restaurantSettings.isOpen ? '#15803d' : '#dc2626',
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                      backdropFilter: 'blur(12px)',
+                      WebkitBackdropFilter: 'blur(12px)'
+                    }}
+                  >
+                    {restaurantSettings.isOpen ? '● Open' : '● Closed'}
+                  </span>
+                )}
+                <button
+                  onClick={() => navigate(`/menu/${restaurantId}/my-orders`)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 hover:scale-105"
+                  style={{
+                    border: `2px solid ${theme.primary}`,
+                    color: theme.primary,
+                    backgroundColor: 'rgba(255,255,255,0.1)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = theme.primary; e.currentTarget.style.color = '#ffffff'; }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = theme.primary; }}
+                >
+                  <IoReceiptOutline className="w-4 h-4" /> My Orders
+                </button>
+               {/* Auth */}
+{auth.currentUser ? (
+  <div className="flex items-center gap-1.5">
    
-    </div>
-    )}
-  {/* My Bookings Bar — scroll pe hide hoti hai */}
-{!scrolled && (
-  <div className="flex justify-end items-center gap-2 px-4 pt-2 pb-1 ">
+    <span
+      className="text-[10px] font-medium px-2 py-1 rounded-lg max-w-[120px] truncate"
+      style={{ color: theme.primary, backgroundColor: `${theme.primary}15` }}
+    >
+      {auth.currentUser.email}
+    </span>
     <button
-      onClick={() => userId ? setShowMyBookings(!showMyBookings) : requireLogin()}
-      className="px-3 py-1.5 rounded-full text-xs font-medium border-2 transition-all flex items-center gap-1"
-      style={{ 
-        borderColor: theme.primary, 
-        color: showMyBookings ? '#fff' : theme.primary,
-        backgroundColor: showMyBookings ? theme.primary : 'transparent'
+      onClick={handlePublicLogout}
+      className="p-2 rounded-xl transition-all"
+      style={{
+        border: '2px solid #dc2626',
+        color: '#dc2626',
+        backgroundColor: 'rgba(255,255,255,0.05)',
       }}
     >
-      <IoBookOutline className="w-3.5 h-3.5" /> My Bookings
-    </button>
-    <button
-      onClick={() => userId ? setShowTableBooking(true) : requireLogin()}
-      className="px-3 py-1.5 rounded-full text-xs font-medium text-white transition-all flex items-center gap-1"
-      style={{ backgroundColor: theme.primary }}
-    >
-      <IoCalendarOutline className="w-3.5 h-3.5" /> Book Table
+      <IoLogOutOutline className="w-5 h-5" />
     </button>
   </div>
-)}
-
-{/* MyBookings panel — scroll pe hide */}
-{!scrolled && showMyBookings && userId && (
-  <div className="px-4 pb-2 ">
-    <MyBookings userId={userId} restaurantId={restaurantId} theme={theme} />
-  </div>
-)}
-  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 py-3 px-4 max-w-7xl mx-auto">
-
-    {/* Logo / Name */}
-  <div className="hidden md:flex items-center gap-3">
-      {restaurantSettings?.logo ? (
-        <img src={restaurantSettings.logo} alt="logo" className="h-10 md:h-12 object-contain" />
-      ) : (
-        <span 
-          className="font-bold  md:text-xl px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105"
-          style={{ 
-            color: theme.primary,
-            // border: `2px solid ${theme.primary}`,
-            backgroundColor: 'rgba(255,255,255,0.15)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            fontSize:"30px"
-
-          }}
-        >
-          {restaurantSettings?.name || restaurantName}
-        </span>
-      )}
-    </div>
-
-    {/* Desktop Right Side */}
-    <div className="hidden md:flex items-center gap-3">
-
-      {/* Cart Button - Transparent QR Style */}
-      <button
-        onClick={() => setOpenCart(true)}
-        className="relative p-2.5 rounded-xl transition-all duration-300 hover:scale-110"
-        style={{ 
-          border: `2px solid ${theme.primary}`,
-          color: theme.primary,
-          backgroundColor: 'rgba(255,255,255,0.1)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = theme.primary;
-          e.currentTarget.style.color = '#ffffff';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
-          e.currentTarget.style.color = theme.primary;
-        }}
-      >
-        <IoCartOutline className="w-5 h-5" />
-        {cart.length > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold animate-bounce">
-            {cart.length}
-          </span>
-        )}
-      </button>
-{/* Tabs - Desktop */}
-{["menu", "about", "contact"].map((tab) => (
-  <button
-    key={tab}
-    onClick={() => setActiveTab(tab)}
-    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 hover:scale-105 uppercase tracking-wide"
-    style={{
-      border: `2px solid ${activeTab === tab ? theme.primary : 'rgba(255,255,255,0.3)'}`,
-      color: activeTab === tab ? '#ffffff' : theme.primary,
-      backgroundColor: activeTab === tab 
-        ? theme.primary 
-        : 'rgba(255,255,255,0.1)',
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)'
-    }}
-  >
-    {tab === 'menu' && <IoRestaurantOutline className="w-4 h-4" />}
-    {tab === 'about' && <IoBookOutline className="w-4 h-4" />}
-    {tab === 'contact' && <IoCallOutline className="w-4 h-4" />}
-    {tab}
-  </button>
-))}
-      {/* Open/Closed Badge */}
-      {restaurantSettings?.isOpen !== undefined && (
-        <span 
-          className="text-[10px] font-bold px-3 py-1.5 rounded-xl"
-          style={{
-            border: `2px solid ${restaurantSettings.isOpen ? '#22c55e' : '#dc2626'}`,
-            color: restaurantSettings.isOpen ? '#15803d' : '#dc2626',
-            backgroundColor: 'rgba(255,255,255,0.1)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)'
-          }}
-        >
-          {restaurantSettings.isOpen ? '● Open' : '● Closed'}
-        </span>
-      )}
-<button
-  onClick={() => navigate(`/menu/${restaurantId}/my-orders`)}
+) : (
+               <button
+  onClick={() => navigate(`/logins/${restaurantId}`)}
   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 hover:scale-105"
   style={{
     border: `2px solid ${theme.primary}`,
@@ -2779,164 +2719,170 @@ const handleOrderClick = (item, action = "order") => {
     backdropFilter: 'blur(12px)',
     WebkitBackdropFilter: 'blur(12px)'
   }}
-  onMouseEnter={e => { e.currentTarget.style.backgroundColor = theme.primary; e.currentTarget.style.color = '#ffffff'; }}
-  onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = theme.primary; }}
+  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.primary; e.currentTarget.style.color = '#ffffff'; }}
+  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = theme.primary; }}
 >
-  <IoReceiptOutline className="w-4 h-4" /> My Orders
+  <IoLogInOutline className="w-4 h-4" /> Login
 </button>
-      {/* User Email */}
-      {auth.currentUser && (
-        <span className="text-xs text-gray-500 px-2">
-          {auth.currentUser.email.split("@")[0]}
-        </span>
-      )}
-
-      {/* Auth Buttons */}
-      {auth.currentUser ? (
-        <button
-         onClick={handlePublicLogout}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 hover:scale-105"
-          style={{
-            border: '2px solid #dc2626',
-            color: '#dc2626',
-            backgroundColor: 'rgba(255,255,255,0.1)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#dc2626';
-            e.currentTarget.style.color = '#ffffff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
-            e.currentTarget.style.color = '#dc2626';
-          }}
-        >
-          <IoLogOutOutline className="w-4 h-4" /> Logout
-        </button>
-      ) : (
-        <button
-          onClick={() => requireLogin()}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 hover:scale-105"
-          style={{
-            border: `2px solid ${theme.primary}`,
-            color: theme.primary,
-            backgroundColor: 'rgba(255,255,255,0.1)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = theme.primary;
-            e.currentTarget.style.color = '#ffffff';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
-            e.currentTarget.style.color = theme.primary;
-          }}
-        >
-          <IoLogInOutline className="w-4 h-4" /> Login
-        </button>
-      )}
-    </div>
+                )}
+              </div>
 
 
-    {/* Mobile Tabs */}
-   {/* Mobile: Row 1 - Logo + Auth */}
-<div className="flex justify-between items-center md:hidden">
-  <div className="flex items-center gap-2">
-    {restaurantSettings?.logo ? (
-      <img src={restaurantSettings.logo} alt="logo" className="h-9 object-contain" />
-    ) : (
-      <span 
-        className="font-bold text-base px-3 py-1.5 rounded-xl"
-        style={{ 
-          color: theme.primary,
-          border: `2px solid ${theme.primary}`,
-          backgroundColor: 'rgba(255,255,255,0.15)',
-        }}
-      >
-        {restaurantSettings?.name || restaurantName}
-      </span>
-    )}
-  </div>
+              {/* Mobile Tabs */}
+              {/* Mobile: Row 1 - Logo + Auth */}
+              <div className="flex justify-between items-center md:hidden">
+                <div className="flex items-center gap-2">
+                  {restaurantSettings?.logo ? (
+                    <img src={restaurantSettings.logo} alt="logo" className="h-9 object-contain" />
+                  ) : (
+                    <span
+                      className="font-bold text-base px-3 py-1.5 rounded-xl"
+                      style={{
+                        color: theme.primary,
+                        // border: `2px solid ${theme.primary}`,
+                        // backgroundColor: 'rgba(255,255,255,0.15)',
+                      }}
+                    >
+                      {restaurantSettings?.name || restaurantName}
+                    </span>
+                  )}
+                </div>
 
-  <div className="flex items-center gap-2">
-    {/* Cart */}
+                <div className="flex items-center gap-2">
+                  {/* Cart */}
+                  <button
+                    onClick={() => setOpenCart(true)}
+                    className="relative p-2 rounded-xl transition-all"
+                    style={{
+                      border: `2px solid ${theme.primary}`,
+                      color: theme.primary,
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    <IoCartOutline className="w-5 h-5" />
+                    {cart.length > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold animate-bounce">
+                        {cart.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Auth */}
+{auth.currentUser ? (
+  <div className="flex items-center gap-1.5">
+    {/* ✅ EMAIL SHOW — Desktop pe bhi full email */}
+    <span className="text-xs font-medium px-2 py-1 rounded-lg max-w-[150px] truncate"
+      style={{ color: theme.primary, backgroundColor: `${theme.primary}10` }}
+    >
+      {auth.currentUser.email}
+    </span>
     <button
-      onClick={() => setOpenCart(true)}
-      className="relative p-2 rounded-xl transition-all"
-      style={{ 
-        border: `2px solid ${theme.primary}`,
-        color: theme.primary,
-        backgroundColor: 'rgba(255,255,255,0.1)',
+      onClick={handlePublicLogout}
+      className="p-2 rounded-xl transition-all"
+      style={{
+        border: '2px solid #dc2626',
+        color: '#dc2626',
+        backgroundColor: 'rgba(255,255,255,0.05)',
       }}
     >
-      <IoCartOutline className="w-5 h-5" />
-      {cart.length > 0 && (
-        <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold animate-bounce">
-          {cart.length}
-        </span>
-      )}
+      <IoLogOutOutline className="w-5 h-5" />
     </button>
-
-    {/* Auth */}
-    {auth.currentUser ? (
-      <button
-        onClick={handlePublicLogout}
-        className="p-2 rounded-xl transition-all"
-        style={{
-          border: '2px solid #dc2626',
-          color: '#dc2626',
-          backgroundColor: 'rgba(255,255,255,0.05)',
-        }}
-      >
-        <IoLogOutOutline className="w-5 h-5" />
-      </button>
-    ) : (
-      <button
-        onClick={() => requireLogin()}
-        className="p-2 rounded-xl transition-all"
-        style={{
-          border: `2px solid ${theme.primary}`,
-          color: theme.primary,
-          backgroundColor: 'rgba(255,255,255,0.05)',
-        }}
-      >
-        <IoLogInOutline className="w-5 h-5" />
-      </button>
-    )}
   </div>
-</div>
+) : (
+                 <button
+  onClick={() => navigate(`/logins/${restaurantId}`)}
+  className="p-2 rounded-xl transition-all"
+  style={{
+    border: `2px solid ${theme.primary}`,
+    color: theme.primary,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  }}
+>
+  <IoLogInOutline className="w-5 h-5" />
+</button>
+                  )}
+                </div>
+              </div>
 
-{/* Mobile: Row 2 - Tabs */}
-<div className="flex gap-2 md:hidden">
-  {["menu", "about", "contact"].map((tab) => (
-    <button
-      key={tab}
-      onClick={() => setActiveTab(tab)}
-      className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all"
-      style={{ 
-        color: activeTab === tab ? '#ffffff' : theme.primary,
-        border: `2px solid ${activeTab === tab ? theme.primary : 'rgba(255,255,255,0.2)'}`,
-        backgroundColor: activeTab === tab ? theme.primary : 'rgba(255,255,255,0.05)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)'
-      }}
-    >
-      {tab === 'menu' && <IoRestaurantOutline className="w-3.5 h-3.5" />}
-      {tab === 'about' && <IoBookOutline className="w-3.5 h-3.5" />}
-      {tab === 'contact' && <IoCallOutline className="w-3.5 h-3.5" />}
-      {tab}
-    </button>
-  ))}
-</div>
-  </div>
-</div>
+              {/* Mobile: Row 2 - Tabs */}
+              <div className="flex gap-2 md:hidden">
+                {["menu", "about", "contact"].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-semibold uppercase tracking-wide transition-all"
+                    style={{
+                      color: activeTab === tab ? '#ffffff' : theme.primary,
+                      border: `2px solid ${activeTab === tab ? theme.primary : 'rgba(255,255,255,0.2)'}`,
+                      backgroundColor: activeTab === tab ? theme.primary : 'rgba(255,255,255,0.05)',
+                      backdropFilter: 'blur(12px)',
+                      WebkitBackdropFilter: 'blur(12px)'
+                    }}
+                  >
+                    {tab === 'menu' && <IoRestaurantOutline className="w-3.5 h-3.5" />}
+                    {tab === 'about' && <IoBookOutline className="w-3.5 h-3.5" />}
+                    {tab === 'contact' && <IoCallOutline className="w-3.5 h-3.5" />}
+                    {tab}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          {/* ===== STICKY CATEGORY BAR — always visible ===== */}
+<div
+  className="fixed z-[99] left-0 right-0 bg-white/90 backdrop-blur-xl border-b border-gray-200/50 shadow-sm top-[80px] md:top-[82px]"
+  style={{ 
+    top: window.innerWidth < 768 ? '107px' : (scrolled ? '82px' : '80px'),
+    transition: 'top 0.3s ease' 
+  }}
+>
+            <div className="flex gap-3 overflow-x-auto pb-2 pt-3 snap-x scrollbar-hide px-4">
+              <button
+                onClick={() => setActiveCategory("all")}
+                className="flex flex-col items-center gap-1 flex-shrink-0 snap-start"
+              >
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all"
+                  style={{
+                    borderColor: activeCategory === "all" ? theme.primary : "#e5e7eb",
+                    backgroundColor: activeCategory === "all" ? `${theme.primary}15` : "#f9fafb",
+                  }}
+                >
+                  <img src={all_img} alt="all" width={22} height={22} />
+                </div>
+                <span className="text-[10px] font-medium" style={{ color: activeCategory === "all" ? theme.primary : "#6b7280" }}>
+                  All
+                </span>
+              </button>
 
+              {visibleCategories.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setActiveCategory(c.id)}
+                  className="flex flex-col items-center gap-1 flex-shrink-0 snap-start"
+                >
+                  <div
+                    className="w-10 h-10 rounded-xl overflow-hidden border-2 transition-all flex items-center justify-center bg-gray-50"
+                    style={{
+                      borderColor: activeCategory === c.id ? theme.primary : "#e5e7eb",
+                    }}
+                  >
+                    <IoRestaurantOutline className="w-5 h-5" style={{ color: theme.primary }} />
+                  </div>
+                  <span
+                    className="text-[10px] font-medium whitespace-nowrap max-w-[48px] truncate"
+                    style={{ color: activeCategory === c.id ? theme.primary : "#6b7280" }}
+                  >
+                    {c.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
 
         </div>
 
-  <div className="w-full mx-auto max-w-7xl px-4 pt-[230px] md:pt-[172px]">
+       <div className="w-full logomaiin mx-auto max-w-7xl px-4 pt-[165px] md:pt-[180px]">
 
 
           {activeTab === "menu" && (
@@ -2944,157 +2890,170 @@ const handleOrderClick = (item, action = "order") => {
 
               <div className="text-center my-8">
 
-<h2 className="text-4xl font-bold" style={{ color: theme.primary }}>
-  {restaurantSettings?.name || restaurantName}
-</h2>
-{restaurantSettings?.tagline ? (
-  <p className="text-gray-500 mt-1 italic">{restaurantSettings.tagline}</p>
-) : (
-  <p className="text-gray-500 flex items-center justify-center gap-1">
-    <IoStar className="w-4 h-4" /> Fresh & highly rated dishes
-  </p>
-)}
+                <h2 className="text-4xl font-bold" style={{ color: theme.primary }}>
+                  {restaurantSettings?.name || restaurantName}
+                </h2>
+                {restaurantSettings?.tagline ? (
+                  <p className="text-gray-500 mt-1 italic">{restaurantSettings.tagline}</p>
+                ) : (
+                  <p className="text-gray-500 flex items-center justify-center gap-1">
+                    <IoStar className="w-4 h-4" /> Fresh & highly rated dishes
+                  </p>
+                )}
               </div>
 
-          {showSort && (
-  <div className="fixed inset-0 z-50 bg-black/50 flex items-end" onClick={() => setShowSort(false)}>
+           {showSort && (
+  <div 
+    className="fixed inset-0 z-[1001] bg-black/50 backdrop-blur-sm transition-opacity duration-300" 
+    onClick={() => setShowSort(false)}
+  >
     <div
-      className="relative w-full rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto"
-     style={{
-        background: 'rgba(255,255,255,0.92)',  // ← FIXED, scrolled remove karo
+      className="absolute bottom-0 left-0 right-0 w-full rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto animate-slideUp"
+      style={{
+        background: 'rgba(255,255,255,0.98)',
         backdropFilter: 'blur(24px)',
         WebkitBackdropFilter: 'blur(24px)',
         borderTop: '1px solid rgba(255,255,255,0.5)',
-        boxShadow: '0 -8px 48px rgba(0,0,0,0.15)',
+        boxShadow: '0 -8px 48px rgba(0,0,0,0.2)',
       }}
       onClick={e => e.stopPropagation()}
     >
-      {/* Drag Pill */}
-      <div className="w-10 h-1.5 bg-gray-300 rounded-full mx-auto mb-5" />
+      {/* Drag Handle */}
+      <div className="flex justify-center mb-4">
+        <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+      </div>
 
       {/* Header */}
-      <div className="flex justify-between items-center mb-5">
-        <h3 className="text-lg font-semibold flex items-center gap-2" style={{ color: '#111' }}>
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: '#111' }}>
           <IoFilter className="w-5 h-5" style={{ color: theme.primary }} />
-          Sort &amp; Filter
+          Sort & Filter
           {filter && (
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: theme.primary }}>1</span>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: theme.primary }}>
+              1
+            </span>
           )}
         </h3>
         <button
           onClick={() => setShowSort(false)}
-          className="w-8 h-8 rounded-full flex items-center justify-center bg-black/5 hover:bg-black/10 transition text-gray-600"
+          className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition active:scale-95"
         >
-          <IoClose className="w-5 h-5" />
+          <IoClose className="w-5 h-5 text-gray-600" />
         </button>
       </div>
 
       {/* Sort Section */}
-      <p className="text-[11px] font-semibold tracking-widest uppercase mb-3 opacity-60" style={{ color: theme.primary }}>
-        Sort by
-      </p>
-      <div className="flex gap-2 mb-5">
-        {[
-          { label: 'Top Rated', icon: <IoStar className="w-4 h-4" />, val: 'rating' },
-          { label: 'Low → High', icon: <IoArrowDown className="w-4 h-4" />, val: 'priceLow' },
-          { label: 'High → Low', icon: <IoArrowUp className="w-4 h-4" />, val: 'priceHigh' },
-        ].map(s => (
-          <button
-            key={s.val}
-            onClick={() => setSort(s.val)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-2xl text-xs font-medium transition-all duration-200"
-            style={{
-              border: `1.5px solid ${sort === s.val ? theme.primary : 'rgba(138,36,75,0.2)'}`,
-              background: sort === s.val ? theme.primary : 'rgba(255,255,255,0.7)',
-              color: sort === s.val ? '#fff' : '#555',
-              backdropFilter: 'blur(8px)',
-              boxShadow: sort === s.val ? `0 4px 14px rgba(138,36,75,0.25)` : 'none',
-            }}
-          >
-            {s.icon} {s.label}
-          </button>
-        ))}
+      <div className="mb-6">
+        <p className="text-xs font-bold tracking-widest uppercase mb-3" style={{ color: theme.primary }}>
+          Sort by
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: 'Top Rated', icon: <IoStar className="w-4 h-4" />, val: 'rating' },
+            { label: 'Low → High', icon: <IoArrowDown className="w-4 h-4" />, val: 'priceLow' },
+            { label: 'High → Low', icon: <IoArrowUp className="w-4 h-4" />, val: 'priceHigh' },
+          ].map(s => (
+            <button
+              key={s.val}
+              onClick={() => setSort(s.val)}
+              className="flex flex-col items-center gap-1.5 py-3 rounded-2xl text-xs font-medium transition-all duration-200 active:scale-95"
+              style={{
+                border: `2px solid ${sort === s.val ? theme.primary : '#e5e7eb'}`,
+                background: sort === s.val ? theme.primary : '#f9fafb',
+                color: sort === s.val ? '#fff' : '#6b7280',
+                boxShadow: sort === s.val ? `0 4px 14px ${theme.primary}40` : 'none',
+              }}
+            >
+              {s.icon}
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Diet & Type */}
-      <p className="text-[11px] font-semibold tracking-widest uppercase mb-3 opacity-60" style={{ color: theme.primary }}>
-        Diet &amp; Type
-      </p>
-      <div className="flex flex-wrap gap-2 mb-5">
-        {[
-          { label: 'Veg', icon: <IoLeaf className="w-4 h-4" />, val: 'veg', accent: '#16a34a' },
-          { label: 'Non-Veg', icon: <IoFlame className="w-4 h-4" />, val: 'nonveg', accent: '#dc2626' },
-          { label: 'Spicy', icon: <IoFlame className="w-4 h-4" />, val: 'spicy', accent: '#ea580c' },
-        ].map(f => (
-          <button
-            key={f.val}
-            onClick={() => setFilter(filter === f.val ? '' : f.val)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 active:scale-95"
-            style={{
-              border: `1.5px solid ${filter === f.val ? f.accent : 'rgba(138,36,75,0.2)'}`,
-              background: filter === f.val ? f.accent : 'rgba(255,255,255,0.7)',
-              color: filter === f.val ? '#fff' : '#555',
-              backdropFilter: 'blur(8px)',
-              boxShadow: filter === f.val ? `0 4px 14px ${f.accent}40` : 'none',
-            }}
-          >
-            {f.icon} {f.label}
-          </button>
-        ))}
+      <div className="mb-6">
+        <p className="text-xs font-bold tracking-widest uppercase mb-3" style={{ color: theme.primary }}>
+          Diet & Type
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: 'Veg', icon: <IoLeaf className="w-4 h-4" />, val: 'veg', accent: '#16a34a' },
+            { label: 'Non-Veg', icon: <IoFlame className="w-4 h-4" />, val: 'nonveg', accent: '#dc2626' },
+            // { label: 'Spicy', icon: <IoFlame className="w-4 h-4" />, val: 'spicy', accent: '#ea580c' },
+          ].map(f => (
+            <button
+              key={f.val}
+              onClick={() => setFilter(filter === f.val ? '' : f.val)}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-200 active:scale-95"
+              style={{
+                border: `2px solid ${filter === f.val ? f.accent : '#e5e7eb'}`,
+                background: filter === f.val ? f.accent : '#f9fafb',
+                color: filter === f.val ? '#fff' : '#6b7280',
+                boxShadow: filter === f.val ? `0 4px 14px ${f.accent}40` : 'none',
+              }}
+            >
+              {f.icon} {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Special Filters */}
-      <p className="text-[11px] font-semibold tracking-widest uppercase mb-3 opacity-60" style={{ color: theme.primary }}>
-        Special
-      </p>
-      <div className="flex flex-wrap gap-2 mb-5">
-        {[
-          { label: 'Chef Pick', icon: <IoRestaurantOutline className="w-4 h-4" />, val: 'chef' },
-          { label: 'House Special', icon: <IoStar className="w-4 h-4" />, val: 'special' },
-          { label: 'Delivery', icon: <IoCubeOutline className="w-4 h-4" />, val: 'delivery' },
-          { label: 'Quick <15 min', icon: <IoTimerOutline className="w-4 h-4" />, val: 'quick' },
-          { label: 'Under ₹100', icon: <IoPricetagOutline className="w-4 h-4" />, val: 'under100' },
-          { label: 'In Stock', icon: <IoCheckmarkCircle className="w-4 h-4" />, val: 'instock' },
-        ].map(f => (
-          <button
-            key={f.val}
-            onClick={() => setFilter(filter === f.val ? '' : f.val)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 active:scale-95"
-            style={{
-              border: `1.5px solid ${filter === f.val ? theme.primary : 'rgba(138,36,75,0.2)'}`,
-              background: filter === f.val ? theme.primary : 'rgba(255,255,255,0.7)',
-              color: filter === f.val ? '#fff' : '#555',
-              backdropFilter: 'blur(8px)',
-              boxShadow: filter === f.val ? `0 4px 14px rgba(138,36,75,0.25)` : 'none',
-            }}
-          >
-            {f.icon} {f.label}
-          </button>
-        ))}
+      <div className="mb-6">
+        <p className="text-xs font-bold tracking-widest uppercase mb-3" style={{ color: theme.primary }}>
+          Special
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { label: 'Chef Pick', icon: <IoRestaurantOutline className="w-4 h-4" />, val: 'chef' },
+            { label: 'House Special', icon: <IoStar className="w-4 h-4" />, val: 'special' },
+            { label: 'Delivery', icon: <IoCubeOutline className="w-4 h-4" />, val: 'delivery' },
+            { label: 'Quick <15 min', icon: <IoTimerOutline className="w-4 h-4" />, val: 'quick' },
+            { label: 'Under ₹100', icon: <IoPricetagOutline className="w-4 h-4" />, val: 'under100' },
+            { label: 'In Stock', icon: <IoCheckmarkCircle className="w-4 h-4" />, val: 'instock' },
+          ].map(f => (
+            <button
+              key={f.val}
+              onClick={() => setFilter(filter === f.val ? '' : f.val)}
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 active:scale-95"
+              style={{
+                border: `2px solid ${filter === f.val ? theme.primary : '#e5e7eb'}`,
+                background: filter === f.val ? theme.primary : '#f9fafb',
+                color: filter === f.val ? '#fff' : '#6b7280',
+                boxShadow: filter === f.val ? `0 4px 14px ${theme.primary}40` : 'none',
+              }}
+            >
+              {f.icon} {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Buttons */}
-      <button
-        onClick={() => { setSort("rating"); setFilter(""); }}
-        className="w-full py-3 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-200 mb-2"
-        style={{
-          border: '1.5px solid rgba(220,38,38,0.25)',
-          background: 'rgba(254,242,242,0.8)',
-          color: '#dc2626',
-        }}
-      >
-        <IoReload className="w-4 h-4" /> Clear All
-      </button>
-      <button
-        onClick={() => setShowSort(false)}
-        className="w-full py-3.5 rounded-2xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all duration-200"
-        style={{
-          background: theme.primary,
-          boxShadow: `0 4px 20px rgba(138,36,75,0.35)`,
-        }}
-      >
-        <IoCheckmarkCircle className="w-5 h-5" /> Apply Filters
-      </button>
+      {/* Action Buttons */}
+      <div className="flex gap-3 mt-4 sticky bottom-0 bg-white/95 backdrop-blur-sm py-3 -mx-6 px-6 border-t border-gray-100">
+        <button
+          onClick={() => { setSort("rating"); setFilter(""); }}
+          className="flex-1 py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all duration-200 active:scale-95"
+          style={{
+            border: '2px solid #dc2626',
+            color: '#dc2626',
+            background: '#fef2f2',
+          }}
+        >
+          <IoReload className="w-4 h-4" /> Reset
+        </button>
+        <button
+          onClick={() => setShowSort(false)}
+          className="flex-1 py-3.5 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 transition-all duration-200 active:scale-95"
+          style={{
+            background: theme.primary,
+            boxShadow: `0 4px 20px ${theme.primary}50`,
+          }}
+        >
+          <IoCheckmarkCircle className="w-5 h-5" /> Apply
+        </button>
+      </div>
     </div>
   </div>
 )}
@@ -3122,7 +3081,32 @@ const handleOrderClick = (item, action = "order") => {
               </div>
 
               <CouponBanner restaurantId={restaurantId} theme={theme} />
-
+              {/* UPAR ye add karo: */}
+             <div className="flex gap-2 mb-4 justify-end">
+  <button
+    onClick={() => userId ? setShowMyBookings(!showMyBookings) : requireLogin()}
+    className="px-4 py-2 rounded-full text-xs font-medium border-2 transition-all flex items-center gap-1.5"
+    style={{
+      borderColor: theme.primary,
+      color: showMyBookings ? '#fff' : theme.primary,
+      backgroundColor: showMyBookings ? theme.primary : 'transparent'
+    }}
+  >
+    <IoBookOutline className="w-3.5 h-3.5" /> My Bookings
+  </button>
+  <button
+    onClick={() => userId ? setShowTableBooking(true) : requireLogin()}
+    className="px-4 py-2 rounded-full text-xs font-medium text-white transition-all flex items-center gap-1.5"
+    style={{ backgroundColor: theme.primary }}
+  >
+    <IoCalendarOutline className="w-3.5 h-3.5" /> Book Table
+  </button>
+</div>
+              {showMyBookings && userId && (
+                <div className="mb-4">
+                  <MyBookings userId={userId} restaurantId={restaurantId} theme={theme} />
+                </div>
+              )}
               {/* Active Orders Section */}
               {activeOrder?.length > 0 && (
                 <div className={`${glassStyles.card} rounded-2xl p-4 mb-4`}>
@@ -3138,9 +3122,9 @@ const handleOrderClick = (item, action = "order") => {
                       <div>
                         <p className="font-bold text-blue-800 text-sm">Queue mein aapki position</p>
                         <p className="text-xs text-blue-600">
-{queuePosition === 1
-  ? <><IoCheckmarkCircle className="w-3.5 h-3.5 inline mr-1 text-green-500" /> Aap next hain! Thoda wait karo</>
-  : `${queuePosition - 1} order${queuePosition - 1 > 1 ? 's' : ''} aapse pehle hain`}
+                          {queuePosition === 1
+                            ? <><IoCheckmarkCircle className="w-3.5 h-3.5 inline mr-1 text-green-500" /> Aap next hain! Thoda wait karo</>
+                            : `${queuePosition - 1} order${queuePosition - 1 > 1 ? 's' : ''} aapse pehle hain`}
                         </p>
                       </div>
                     </div>
@@ -3170,7 +3154,7 @@ const handleOrderClick = (item, action = "order") => {
                   )}
 
                   {activeOrder.map((order) => (
-                    <ActiveOrderCard 
+                    <ActiveOrderCard
                       key={order.id}
                       order={order}
                       theme={theme}
@@ -3185,7 +3169,7 @@ const handleOrderClick = (item, action = "order") => {
                 </div>
               )}
 
-                          {showReadyBanner && (
+              {showReadyBanner && (
                 <div className="bg-green-50/80 backdrop-blur-sm border border-green-500/50 rounded-xl p-3 mt-2 text-center animate-bounce">
                   <p className="font-bold text-green-600 text-lg flex items-center justify-center gap-2">
                     <IoFastFoodOutline className="w-5 h-5" /> Your Dish is Ready!
@@ -3202,7 +3186,7 @@ const handleOrderClick = (item, action = "order") => {
                 <IoFilter className="w-4 h-4" /> Sort & Filter
               </button>
 
-{activeCategory === "all" && <NewItemsSlider items={newItems} theme={theme} />}
+              {activeCategory === "all" && <NewItemsSlider items={newItems} theme={theme} />}
 
               {loading ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6">
@@ -3221,260 +3205,260 @@ const handleOrderClick = (item, action = "order") => {
                   {filteredItems.map((item) => {
                     const isDrink = item.category?.toLowerCase() === "drinks";
                     return (
-                    <div
-                      id={`dish-${item.id}`}
-                      key={item.id}
-                      className={`${glassStyles.card} rounded-3xl overflow-hidden group`}
-                    >
-                      {/* Image Container */}
-                      <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100 rounded-t-3xl">
-                        <img 
-                          src={item.imageUrl} 
-                          alt={item.name} 
-                          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                          onError={(e) => {
-                            e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
-                          }}
-                        />
+                      <div
+                        id={`dish-${item.id}`}
+                        key={item.id}
+                        className={`${glassStyles.card} rounded-3xl overflow-hidden group`}
+                      >
+                        {/* Image Container */}
+                        <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100 rounded-t-3xl">
+                          <img
+                            src={item.imageUrl}
+                            alt={item.name}
+                            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+                            }}
+                          />
 
-                                            {/* ===== BADGES ===== */}
-                        
-                     {/* AI PICK — Most likes */}
-{String(mostLikedDishId) === String(item.id) && mostLikedDishData[item.id] > 0 && (
-  <span 
-    className="absolute top-3 right-3 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg z-10 flex items-center gap-1.5 backdrop-blur-sm"
-    style={{ backgroundColor: theme.primary }}
-  >
-    <IoStar className="w-3.5 h-3.5" /> 
-    AI Pick  ({mostLikedDishData[item.id]} likes)
-  </span>
-)}
+                          {/* ===== BADGES ===== */}
 
-{/* MOST ORDERED */}
-{Object.keys(trendingDishData).includes(item.id) && trendingDishData[item.id] > 0 && (
-  <span 
-    className="absolute top-3 right-3  text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg z-10 flex items-center gap-1.5 backdrop-blur-sm"
-     style={{ backgroundColor: theme.primary }}
-  >
-    <IoFlame className="w-3.5 h-3.5" /> 
-    Most Ordered  ({trendingDishData[item.id]} orders)
-  </span>
-)}
-                      
-                    
+                          {/* AI PICK — Most likes */}
+                          {String(mostLikedDishId) === String(item.id) && mostLikedDishData[item.id] > 0 && (
+                            <span
+                              className="absolute top-3 right-3 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg z-10 flex items-center gap-1.5 backdrop-blur-sm"
+                              style={{ backgroundColor: theme.primary }}
+                            >
+                              <IoStar className="w-3.5 h-3.5" />
+                              AI Pick  ({mostLikedDishData[item.id]} likes)
+                            </span>
+                          )}
 
-                        {/* Drink badge */}
-                        {isDrink && (
-                          <span className="absolute top-3 left-3 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center border-2 border-white z-10 shadow">
-                            <IoSnow className="text-white text-xs" />
-                          </span>
-                        )}
+                          {/* MOST ORDERED */}
+                          {Object.keys(trendingDishData).includes(item.id) && trendingDishData[item.id] > 0 && (
+                            <span
+                              className="absolute top-3 right-3  text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg z-10 flex items-center gap-1.5 backdrop-blur-sm"
+                              style={{ backgroundColor: theme.primary }}
+                            >
+                              <IoFlame className="w-3.5 h-3.5" />
+                              Most Ordered  ({trendingDishData[item.id]} orders)
+                            </span>
+                          )}
 
-                        {/* Out of Stock overlay */}
-                        {item.inStock === false && (
-                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg z-20 backdrop-blur-sm">
-                            <IoClose className="w-6 h-6 mr-2" /> Out of Stock
+
+
+                          {/* Drink badge */}
+                          {isDrink && (
+                            <span className="absolute top-3 left-3 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center border-2 border-white z-10 shadow">
+                              <IoSnow className="text-white text-xs" />
+                            </span>
+                          )}
+
+                          {/* Out of Stock overlay */}
+                          {item.inStock === false && (
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg z-20 backdrop-blur-sm">
+                              <IoClose className="w-6 h-6 mr-2" /> Out of Stock
+                            </div>
+                          )}
+                          {/* Bottom overlay bar */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 flex items-end justify-between z-10">
+                            {/* Like button - bottom left */}
+                            <div className="flex items-center">
+                              <Likes restaurantId={item.restaurantId} dishId={item.id} compact />
+                            </div>
+
+                            {/* Timer - bottom right */}
+                            <p className="text-xs text-white font-medium flex items-center gap-1 bg-black/40 px-2 py-1 rounded-full">
+                              <IoTimeOutline className="w-3 h-3" /> {Number(item.prepTime ?? 15)} min
+                            </p>
                           </div>
-                        )}
-                        {/* Bottom overlay bar */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 flex items-end justify-between z-10">
-                          {/* Like button - bottom left */}
-                          <div className="flex items-center">
-                            <Likes restaurantId={item.restaurantId} dishId={item.id} compact />
-                          </div>
 
-                          {/* Timer - bottom right */}
-                          <p className="text-xs text-white font-medium flex items-center gap-1 bg-black/40 px-2 py-1 rounded-full">
-                            <IoTimeOutline className="w-3 h-3" /> {Number(item.prepTime ?? 15)} min
-                          </p>
+                          {/* Veg/Non-veg indicator */}
+                          {/* Veg/Non-veg indicator - only show if explicitly set */}
+                          {item.vegType === "veg" && (
+                            <span
+                              className="absolute top-3 left-3 w-4 h-4 rounded-full border-2 border-white z-10 bg-green-500"
+                            />
+                          )}
+                          {item.vegType === "non-veg" && (
+                            <span
+                              className="absolute top-3 left-3 w-4 h-4 rounded-full border-2 border-white z-10 bg-red-500"
+                            />
+                          )}
+                          {isDrink && (
+                            <span className="absolute top-3 left-3 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center border-2 border-white z-10">
+                              <IoSnow className="text-white text-xs" />
+                            </span>
+                          )}
+
                         </div>
 
-                        {/* Veg/Non-veg indicator */}
-                                               {/* Veg/Non-veg indicator - only show if explicitly set */}
-                        {item.vegType === "veg" && (
-                          <span 
-                            className="absolute top-3 left-3 w-4 h-4 rounded-full border-2 border-white z-10 bg-green-500"
-                          />
-                        )}
-                        {item.vegType === "non-veg" && (
-                          <span 
-                            className="absolute top-3 left-3 w-4 h-4 rounded-full border-2 border-white z-10 bg-red-500"
-                          />
-                        )}
-                        {isDrink && (
-                          <span className="absolute top-3 left-3 w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center border-2 border-white z-10">
-                            <IoSnow className="text-white text-xs" />
-                          </span>
-                        )}
-                   
-                      </div>
+                        {/* Card Body */}
+                        <div className="p-4">
+                          {/* Title & Price Row */}
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className="font-bold text-base truncate flex items-center gap-2">
+                              {item.name}
+                              {item.dishTasteProfile === "salty" && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 flex items-center gap-1">
+                                  <IoSnow className="w-3 h-3" /> Salty
+                                </span>
+                              )}
+                            </h3>
+                            <p className="text-gray-800 font-bold text-base">₹{item.price}</p>
+                          </div>
 
-                      {/* Card Body */}
-                      <div className="p-4">
-                        {/* Title & Price Row */}
-                        <div className="flex items-center justify-between mb-1">
-                          <h3 className="font-bold text-base truncate flex items-center gap-2">
-                            {item.name}
-                            {item.dishTasteProfile === "salty" && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 flex items-center gap-1">
-                                <IoSnow className="w-3 h-3" /> Salty
+                          {/* Taste Badges - Admin ne jo set kiya */}
+                          <div className="flex flex-wrap gap-1.5 mt-1 mb-1">
+                            {item.spiceLevel === "spicy" && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 flex items-center gap-1">
+                                <IoFlame className="w-3 h-3" /> Spicy
                               </span>
                             )}
-                          </h3>
-                          <p className="text-gray-800 font-bold text-base">₹{item.price}</p>
-                        </div>
-
-                                               {/* Taste Badges - Admin ne jo set kiya */}
-                        <div className="flex flex-wrap gap-1.5 mt-1 mb-1">
-                          {item.spiceLevel === "spicy" && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 flex items-center gap-1">
-                              <IoFlame className="w-3 h-3" /> Spicy
-                            </span>
-                          )}
-                          {item.spiceLevel === "medium" && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 flex items-center gap-1">
-                              <IoFlame className="w-3 h-3" /> Medium
-                            </span>
-                          )}
-                          {item.spiceLevel === "mild" && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-600 flex items-center gap-1">
-                              <IoLeaf className="w-3 h-3" /> Mild
-                            </span>
-                          )}
-                          {item.dishTasteProfile === "sweet" && item.sugarLevelEnabled && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-100 text-pink-600 flex items-center gap-1">
-                              <IoStar className="w-3 h-3" /> Sweet
-                            </span>
-                          )}
-                        </div>
-{/* 
+                            {item.spiceLevel === "medium" && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-600 flex items-center gap-1">
+                                <IoFlame className="w-3 h-3" /> Medium
+                              </span>
+                            )}
+                            {item.spiceLevel === "mild" && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-600 flex items-center gap-1">
+                                <IoLeaf className="w-3 h-3" /> Mild
+                              </span>
+                            )}
+                            {item.dishTasteProfile === "sweet" && item.sugarLevelEnabled && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-100 text-pink-600 flex items-center gap-1">
+                                <IoStar className="w-3 h-3" /> Sweet
+                              </span>
+                            )}
+                          </div>
+                          {/* 
                         {/* Rating */}
-                       {/* <div className="mb-1">
+                          {/* <div className="mb-1">
   <Rating restaurantId={item.restaurantId} dishId={item.id} compact />
-</div> */} 
+</div> */}
 
-                        {/* Description */}
-<ShowMoreText text={item.description} />
+                          {/* Description */}
+                          <ShowMoreText text={item.description} />
 
-                        {/* Action Buttons Row */}
-                        <div className="flex items-center gap-2 mt-4">
-                          {/* Order Now - filled dark button */}
-                          <button
-                            onClick={() => handleOrderClick(item, "order")}
-                            className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-                            style={{ backgroundColor: theme.primary }}
-                          >
-                           
-                            Order Now
-                          </button>
+                          {/* Action Buttons Row */}
+                          <div className="flex items-center gap-2 mt-4">
+                            {/* Order Now - filled dark button */}
+                            <button
+                              onClick={() => handleOrderClick(item, "order")}
+                              className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                              style={{ backgroundColor: theme.primary }}
+                            >
 
-                          {/* Cart icon button */}
-                          <button
-                            onClick={() => handleOrderClick(item, "cart")}
-                            className="w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95]"
-                            style={{ borderColor: theme.primary, color: theme.primary }}
-                            title="Add to Cart"
-                          >
-                            <IoCartOutline className="w-5 h-5" />
-                          </button>
+                              Order Now
+                            </button>
 
-                          {/* WhatsApp icon button */}
-                         <button
-                            onClick={() => handleOrderClick(item, "whatsapp")}
-                            className="w-10 h-10 rounded-xl border-2 border-green-500 text-green-500 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] hover:bg-green-500 hover:text-white"
-                            title="Order via WhatsApp"
-                          >
-                            <FaWhatsapp className="w-5 h-5" /> 
-                           </button> 
+                            {/* Cart icon button */}
+                            <button
+                              onClick={() => handleOrderClick(item, "cart")}
+                              className="w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95]"
+                              style={{ borderColor: theme.primary, color: theme.primary }}
+                              title="Add to Cart"
+                            >
+                              <IoCartOutline className="w-5 h-5" />
+                            </button>
 
-                          {/* Reviews/Chat icon button */}
-                          <button
-                            onClick={() => {
-                              const detailsEl = document.getElementById(`reviews-${item.id}`);
-                              if (detailsEl) detailsEl.open = !detailsEl.open;
-                            }}
-                            className="w-10 h-10 rounded-xl border-2 border-gray-300 text-gray-500 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] hover:bg-gray-100"
-                            title="View Reviews"
-                          >
-                            <IoChatbubbleEllipsesOutline className="w-5 h-5" />
-                          </button>
+                            {/* WhatsApp icon button */}
+                            <button
+                              onClick={() => handleOrderClick(item, "whatsapp")}
+                              className="w-10 h-10 rounded-xl border-2 border-green-500 text-green-500 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] hover:bg-green-500 hover:text-white"
+                              title="Order via WhatsApp"
+                            >
+                              <FaWhatsapp className="w-5 h-5" />
+                            </button>
+
+                            {/* Reviews/Chat icon button */}
+                            <button
+                              onClick={() => {
+                                const detailsEl = document.getElementById(`reviews-${item.id}`);
+                                if (detailsEl) detailsEl.open = !detailsEl.open;
+                              }}
+                              className="w-10 h-10 rounded-xl border-2 border-gray-300 text-gray-500 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] hover:bg-gray-100"
+                              title="View Reviews"
+                            >
+                              <IoChatbubbleEllipsesOutline className="w-5 h-5" />
+                            </button>
+                          </div>
+
+                          {/* Reviews Section */}
+                          <details id={`reviews-${item.id}`} className="mt-3">
+                            <summary className="cursor-pointer text-sm text-gray-500 hidden">View reviews</summary>
+                            <Comments dishId={item.id} theme={theme} />
+                          </details>
                         </div>
 
-                        {/* Reviews Section */}
-                        <details id={`reviews-${item.id}`} className="mt-3">
-                          <summary className="cursor-pointer text-sm text-gray-500 hidden">View reviews</summary>
-                          <Comments dishId={item.id} theme={theme} />
-                        </details>
-                      </div>
 
-                     
-                    </div>
+                      </div>
                     );
                   })}
                 </div>
 
               )}
-      {/* ===== TASTE MODAL — ROOT LEVEL ===== */}
-{tasteItem && (
-  <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-black/50 p-4">
-    <div className={`${glassStyles.modal} relative w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 animate-slideUp max-h-[90vh] overflow-y-auto`}>
-      <button 
-        onClick={() => { setTasteItem(null); setTasteAction(null); }} 
-        className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-black transition-colors z-10"
-        aria-label="Close"
-      >
-        <IoClose className="w-5 h-5" />
-      </button>
+              {/* ===== TASTE MODAL — ROOT LEVEL ===== */}
+              {tasteItem && (
+                <div className="fixed inset-0 z-[999] flex items-end sm:items-center justify-center bg-black/50 p-4">
+                  <div className={`${glassStyles.modal} relative w-full max-w-md rounded-t-3xl sm:rounded-2xl p-5 animate-slideUp max-h-[90vh] overflow-y-auto`}>
+                    <button
+                      onClick={() => { setTasteItem(null); setTasteAction(null); }}
+                      className="absolute right-4 top-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-black transition-colors z-10"
+                      aria-label="Close"
+                    >
+                      <IoClose className="w-5 h-5" />
+                    </button>
 
-      <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden" />
-      <h3 className="text-lg font-bold mb-3 pr-8">{tasteItem.name}</h3>
+                    <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden" />
+                    <h3 className="text-lg font-bold mb-3 pr-8">{tasteItem.name}</h3>
 
-      {/* Agar dish nature set nahi hai toh warning dikhao */}
-      {!tasteItem.dishTasteProfile && (
-        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-          <p className="text-sm text-amber-700 font-medium flex items-center gap-2">
-            <IoFlame className="w-4 h-4" />
-            This dish has no taste profile set. Please contact the restaurant.
-          </p>
-        </div>
-      )}
+                    {/* Agar dish nature set nahi hai toh warning dikhao */}
+                    {!tasteItem.dishTasteProfile && (
+                      <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                        <p className="text-sm text-amber-700 font-medium flex items-center gap-2">
+                          <IoFlame className="w-4 h-4" />
+                          This dish has no taste profile set. Please contact the restaurant.
+                        </p>
+                      </div>
+                    )}
 
-      {tasteItem.dishTasteProfile === "spicy" && (
-        <>
-          <p className="text-xs font-semibold mb-2 flex items-center gap-1">
-            <IoFlame className="w-4 h-4 text-orange-500" /> Spice Level
-          </p>
-          <div className="flex gap-2 mb-3">
-            {["normal", "medium", "spicy"].map(level => (
-              <button
-                key={level}
-                onClick={() => setSpiceSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
-                style={{ 
-                  border: `2px solid ${theme.primary}`,
-                  color: spiceSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,
-                  backgroundColor: spiceSelections[tasteItem.id] === level ? theme.primary : '#ffffff'
-                }}
-                onMouseEnter={(e) => {
-                  if (spiceSelections[tasteItem.id] !== level) {
-                    e.currentTarget.style.backgroundColor = theme.primary;
-                    e.currentTarget.style.color = '#ffffff';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (spiceSelections[tasteItem.id] !== level) {
-                    e.currentTarget.style.backgroundColor = '#ffffff';
-                    e.currentTarget.style.color = theme.primary;
-                  }
-                }}
-                className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
-              >
-                {level}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-      {/* {tasteItem.dishTasteProfile === "spicy" && tasteItem.saltLevelEnabled && (
+                    {tasteItem.dishTasteProfile === "spicy" && (
+                      <>
+                        <p className="text-xs font-semibold mb-2 flex items-center gap-1">
+                          <IoFlame className="w-4 h-4 text-orange-500" /> Spice Level
+                        </p>
+                        <div className="flex gap-2 mb-3">
+                          {["normal", "medium", "spicy"].map(level => (
+                            <button
+                              key={level}
+                              onClick={() => setSpiceSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
+                              style={{
+                                border: `2px solid ${theme.primary}`,
+                                color: spiceSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,
+                                backgroundColor: spiceSelections[tasteItem.id] === level ? theme.primary : '#ffffff'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (spiceSelections[tasteItem.id] !== level) {
+                                  e.currentTarget.style.backgroundColor = theme.primary;
+                                  e.currentTarget.style.color = '#ffffff';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (spiceSelections[tasteItem.id] !== level) {
+                                  e.currentTarget.style.backgroundColor = '#ffffff';
+                                  e.currentTarget.style.color = theme.primary;
+                                }
+                              }}
+                              className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
+                            >
+                              {level}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                    {/* {tasteItem.dishTasteProfile === "spicy" && tasteItem.saltLevelEnabled && (
         <>
           <p className="text-xs font-semibold mb-2 flex items-center gap-1">
             <IoSnow className="w-4 h-4 text-blue-500" /> Salt Level
@@ -3509,204 +3493,204 @@ const handleOrderClick = (item, action = "order") => {
           </div>
         </>
       )} */}
-        {tasteItem.dishTasteProfile === "spicy" && tasteItem.saltLevelEnabled && (
-        <>
-          <p className="text-xs font-semibold mb-2 flex items-center gap-1">
-            <IoSnow className="w-4 h-4 text-blue-500" /> Salt Level
-          </p>
-          <div className="flex gap-2 mb-3">
-            {["normal", "medium", "extra"].map(level => (
-              <button
-                key={level}
-                onClick={() => setSaltSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
-                style={{ 
-                  border: `2px solid ${theme.primary}`,
-                  color: saltSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,
-                  backgroundColor: saltSelections[tasteItem.id] === level ? theme.primary : '#ffffff'
-                }}
-                onMouseEnter={(e) => {
-                  if (saltSelections[tasteItem.id] !== level) {
-                    e.currentTarget.style.backgroundColor = theme.primary;
-                    e.currentTarget.style.color = '#ffffff';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (saltSelections[tasteItem.id] !== level) {
-                    e.currentTarget.style.backgroundColor = '#ffffff';
-                    e.currentTarget.style.color = theme.primary;
-                  }
-                }}
-                className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
-              >
-                {level}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+                    {tasteItem.dishTasteProfile === "spicy" && tasteItem.saltLevelEnabled && (
+                      <>
+                        <p className="text-xs font-semibold mb-2 flex items-center gap-1">
+                          <IoSnow className="w-4 h-4 text-blue-500" /> Salt Level
+                        </p>
+                        <div className="flex gap-2 mb-3">
+                          {["normal", "medium", "extra"].map(level => (
+                            <button
+                              key={level}
+                              onClick={() => setSaltSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
+                              style={{
+                                border: `2px solid ${theme.primary}`,
+                                color: saltSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,
+                                backgroundColor: saltSelections[tasteItem.id] === level ? theme.primary : '#ffffff'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (saltSelections[tasteItem.id] !== level) {
+                                  e.currentTarget.style.backgroundColor = theme.primary;
+                                  e.currentTarget.style.color = '#ffffff';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (saltSelections[tasteItem.id] !== level) {
+                                  e.currentTarget.style.backgroundColor = '#ffffff';
+                                  e.currentTarget.style.color = theme.primary;
+                                }
+                              }}
+                              className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
+                            >
+                              {level}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
 
 
-      {tasteItem.saladConfig?.enabled && (
-        <div className="mb-3">
-          <label className="flex items-center gap-2 cursor-pointer p-3 bg-gray-50/50 backdrop-blur-sm rounded-lg border border-white/30">
-            <input
-              type="checkbox"
-              checked={!!saladSelections[tasteItem.id]}
-              onChange={(e) => setSaladSelections(prev => ({ ...prev, [tasteItem.id]: e.target.checked }))}
-              className="w-5 h-5 rounded"
-              style={{ accentColor: theme.primary }}
-            />
-            <span className="font-medium flex items-center gap-1">
-              <IoLeaf className="w-4 h-4 text-green-500" /> Add Salad
-            </span>
-          </label>
-        </div>
-      )}
+                    {tasteItem.saladConfig?.enabled && (
+                      <div className="mb-3">
+                        <label className="flex items-center gap-2 cursor-pointer p-3 bg-gray-50/50 backdrop-blur-sm rounded-lg border border-white/30">
+                          <input
+                            type="checkbox"
+                            checked={!!saladSelections[tasteItem.id]}
+                            onChange={(e) => setSaladSelections(prev => ({ ...prev, [tasteItem.id]: e.target.checked }))}
+                            className="w-5 h-5 rounded"
+                            style={{ accentColor: theme.primary }}
+                          />
+                          <span className="font-medium flex items-center gap-1">
+                            <IoLeaf className="w-4 h-4 text-green-500" /> Add Salad
+                          </span>
+                        </label>
+                      </div>
+                    )}
 
-      {tasteItem.dishTasteProfile === "sweet" && tasteItem.sugarLevelEnabled && (
-        <>
-          <p className="text-xs font-semibold mb-2 flex items-center gap-1">
-            <IoStar className="w-4 h-4 text-pink-500" /> Sweetness
-          </p>
-          <div className="flex gap-2 mb-3">
-            {["less", "normal", "extra"].map(level => (
-              <button
-                key={level}
-                onClick={() => setSweetSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
-                style={{ 
-                  border: `2px solid ${theme.primary}`,
-                  color: sweetSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,
-                  backgroundColor: sweetSelections[tasteItem.id] === level ? theme.primary : '#ffffff'
-                }}
-                onMouseEnter={(e) => {
-                  if (sweetSelections[tasteItem.id] !== level) {
-                    e.currentTarget.style.backgroundColor = theme.primary;
-                    e.currentTarget.style.color = '#ffffff';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (sweetSelections[tasteItem.id] !== level) {
-                    e.currentTarget.style.backgroundColor = '#ffffff';
-                    e.currentTarget.style.color = theme.primary;
-                  }
-                }}
-                className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
-              >
-                {level}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+                    {tasteItem.dishTasteProfile === "sweet" && tasteItem.sugarLevelEnabled && (
+                      <>
+                        <p className="text-xs font-semibold mb-2 flex items-center gap-1">
+                          <IoStar className="w-4 h-4 text-pink-500" /> Sweetness
+                        </p>
+                        <div className="flex gap-2 mb-3">
+                          {["less", "normal", "extra"].map(level => (
+                            <button
+                              key={level}
+                              onClick={() => setSweetSelections(prev => ({ ...prev, [tasteItem.id]: level }))}
+                              style={{
+                                border: `2px solid ${theme.primary}`,
+                                color: sweetSelections[tasteItem.id] === level ? '#ffffff' : theme.primary,
+                                backgroundColor: sweetSelections[tasteItem.id] === level ? theme.primary : '#ffffff'
+                              }}
+                              onMouseEnter={(e) => {
+                                if (sweetSelections[tasteItem.id] !== level) {
+                                  e.currentTarget.style.backgroundColor = theme.primary;
+                                  e.currentTarget.style.color = '#ffffff';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (sweetSelections[tasteItem.id] !== level) {
+                                  e.currentTarget.style.backgroundColor = '#ffffff';
+                                  e.currentTarget.style.color = theme.primary;
+                                }
+                              }}
+                              className="flex-1 py-2 rounded-lg font-medium transition-all duration-300 text-sm capitalize"
+                            >
+                              {level}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
 
-      <div className="mb-3">
-        <p className="text-xs font-semibold mb-2 flex items-center gap-1">
-          <IoChatbubbleEllipsesOutline className="w-4 h-4" /> Special Instructions (Optional)
-        </p>
-        <textarea
-          value={dishNotes[tasteItem?.id] || ''}
-          onChange={(e) => setDishNotes(prev => ({ ...prev, [tasteItem.id]: e.target.value }))}
-          placeholder="e.g. Less oil, no onion, extra cheese..."
-          rows={2}
-          className="w-full p-3 border-2 rounded-lg text-sm outline-none resize-none backdrop-blur-sm bg-white/70"
-          style={{ borderColor: theme.primary }}
-          maxLength={150}
-        />
-        <p className="text-[10px] text-gray-400 text-right mt-0.5">
-          {(dishNotes[tasteItem?.id] || '').length}/150
-        </p>
-      </div>
+                    <div className="mb-3">
+                      <p className="text-xs font-semibold mb-2 flex items-center gap-1">
+                        <IoChatbubbleEllipsesOutline className="w-4 h-4" /> Special Instructions (Optional)
+                      </p>
+                      <textarea
+                        value={dishNotes[tasteItem?.id] || ''}
+                        onChange={(e) => setDishNotes(prev => ({ ...prev, [tasteItem.id]: e.target.value }))}
+                        placeholder="e.g. Less oil, no onion, extra cheese..."
+                        rows={2}
+                        className="w-full p-3 border-2 rounded-lg text-sm outline-none resize-none backdrop-blur-sm bg-white/70"
+                        style={{ borderColor: theme.primary }}
+                        maxLength={150}
+                      />
+                      <p className="text-[10px] text-gray-400 text-right mt-0.5">
+                        {(dishNotes[tasteItem?.id] || '').length}/150
+                      </p>
+                    </div>
 
-   <div className="flex gap-3 mt-4">
-  <button
-    onClick={() => {
-      const payload = {
-        id: tasteItem.id,
-        name: tasteItem.name || "Unnamed Item",
-        price: Number(tasteItem.price) || 0,
-        image: tasteItem.imageUrl || tasteItem.image || "",
-        prepTime: Number(tasteItem.prepTime ?? 15),
-        dishTasteProfile: tasteItem.dishTasteProfile,
-        vegType: tasteItem.vegType || "",
-        description: tasteItem.description || "",
-        specialInstructions: dishNotes[tasteItem.id] || "",
- spicePreference: tasteItem.dishTasteProfile === "spicy" 
-          ? (spiceSelections[tasteItem.id] || "normal") : null,
-        sweetLevel: tasteItem.dishTasteProfile === "sweet" 
-          ? (sweetSelections[tasteItem.id] || "normal") : null,
-         saltPreference: tasteItem.dishTasteProfile === "spicy" && tasteItem.saltLevelEnabled
-          ? (saltSelections[tasteItem.id] || "normal") 
-          : null,
-        salad: tasteItem.saladConfig?.enabled 
-          ? { qty: saladSelections[tasteItem.id] ? 1 : 0, taste: saladTaste[tasteItem.id] || "normal" } 
-          : { qty: 0, taste: "normal" }
-      };
+                    <div className="flex gap-3 mt-4">
+                      <button
+                        onClick={() => {
+                          const payload = {
+                            id: tasteItem.id,
+                            name: tasteItem.name || "Unnamed Item",
+                            price: Number(tasteItem.price) || 0,
+                            image: tasteItem.imageUrl || tasteItem.image || "",
+                            prepTime: Number(tasteItem.prepTime ?? 15),
+                            dishTasteProfile: tasteItem.dishTasteProfile,
+                            vegType: tasteItem.vegType || "",
+                            description: tasteItem.description || "",
+                            specialInstructions: dishNotes[tasteItem.id] || "",
+                            spicePreference: tasteItem.dishTasteProfile === "spicy"
+                              ? (spiceSelections[tasteItem.id] || "normal") : null,
+                            sweetLevel: tasteItem.dishTasteProfile === "sweet"
+                              ? (sweetSelections[tasteItem.id] || "normal") : null,
+                            saltPreference: tasteItem.dishTasteProfile === "spicy" && tasteItem.saltLevelEnabled
+                              ? (saltSelections[tasteItem.id] || "normal")
+                              : null,
+                            salad: tasteItem.saladConfig?.enabled
+                              ? { qty: saladSelections[tasteItem.id] ? 1 : 0, taste: saladTaste[tasteItem.id] || "normal" }
+                              : { qty: 0, taste: "normal" }
+                          };
 
-      if (tasteAction === "whatsapp") {
-        setWhatsAppPayload(payload);
-        setTasteItem(null);
-        setTasteAction(null);
-        setShowWhatsAppCustomerModal(true);
-      } else if (tasteAction === "order") {
-        // ★ ORDER NOW: Add to cart AND navigate to checkout with restaurantId
-        addToCart(payload);
-        
-        const rid = restaurantId || slug;
-        if (rid) {
-          navigate(`/checkout/${rid}`, { 
-            state: { 
-              cartItems: [payload],
-              restaurantId: rid,
-              restaurantName: restaurantName || restaurantSettings?.name,
-              fromDirectOrder: true
-            } 
-          });
-        } else {
-          toast.error("Restaurant ID missing. Cannot checkout.");
-        }
-        
-        setTasteItem(null);
-        setTasteAction(null);
-      } else {
-        // ★ ADD TO CART: Just add to cart, don't navigate
-        addToCart(payload);
-        setTasteItem(null);
-        setTasteAction(null);
-      }
-    }}
-    style={{
-      backgroundColor: '#ffffff',
-      border: `2px solid ${tasteAction === "whatsapp" ? "#25D366" : theme.primary}`,
-      color: tasteAction === "whatsapp" ? "#25D366" : theme.primary,
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.backgroundColor = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
-      e.currentTarget.style.color = '#ffffff';
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.backgroundColor = '#ffffff';
-      e.currentTarget.style.color = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
-    }}
-    className="flex-1 py-3 rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
-  >
-    {tasteAction === "order" ? (
-      <span className="flex items-center justify-center gap-2">
-        <IoFlash className="w-4 h-4" /> Confirm Order
-      </span>
-    ) : tasteAction === "cart" ? (
-      <span className="flex items-center justify-center gap-2">
-        <IoCartOutline className="w-4 h-4" /> Add To Cart
-      </span>
-    ) : (
-      <span className="flex items-center justify-center gap-2">
-        <FaWhatsapp className="w-4 h-4" /> Order via WhatsApp
-      </span>
-    )}
-  </button>
-</div>
-    </div>
-  </div>
-)}
+                          if (tasteAction === "whatsapp") {
+                            setWhatsAppPayload(payload);
+                            setTasteItem(null);
+                            setTasteAction(null);
+                            setShowWhatsAppCustomerModal(true);
+                          } else if (tasteAction === "order") {
+                            // ★ ORDER NOW: Add to cart AND navigate to checkout with restaurantId
+                            addToCart(payload);
+
+                            const rid = restaurantId || slug;
+                            if (rid) {
+                              navigate(`/checkout/${rid}`, {
+                                state: {
+                                  cartItems: [payload],
+                                  restaurantId: rid,
+                                  restaurantName: restaurantName || restaurantSettings?.name,
+                                  fromDirectOrder: true
+                                }
+                              });
+                            } else {
+                              toast.error("Restaurant ID missing. Cannot checkout.");
+                            }
+
+                            setTasteItem(null);
+                            setTasteAction(null);
+                          } else {
+                            // ★ ADD TO CART: Just add to cart, don't navigate
+                            addToCart(payload);
+                            setTasteItem(null);
+                            setTasteAction(null);
+                          }
+                        }}
+                        style={{
+                          backgroundColor: '#ffffff',
+                          border: `2px solid ${tasteAction === "whatsapp" ? "#25D366" : theme.primary}`,
+                          color: tasteAction === "whatsapp" ? "#25D366" : theme.primary,
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
+                          e.currentTarget.style.color = '#ffffff';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#ffffff';
+                          e.currentTarget.style.color = tasteAction === "whatsapp" ? "#25D366" : theme.primary;
+                        }}
+                        className="flex-1 py-3 rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        {tasteAction === "order" ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <IoFlash className="w-4 h-4" /> Confirm Order
+                          </span>
+                        ) : tasteAction === "cart" ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <IoCartOutline className="w-4 h-4" /> Add To Cart
+                          </span>
+                        ) : (
+                          <span className="flex items-center justify-center gap-2">
+                            <FaWhatsapp className="w-4 h-4" /> Order via WhatsApp
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -3759,226 +3743,225 @@ const handleOrderClick = (item, action = "order") => {
             </div>
           )}
 
-      {activeTab === "contact" && (
-  <div className="max-w-md mx-auto text-center mt-10 space-y-4">
-    <h3 className="text-2xl font-bold mb-4 flex items-center justify-center gap-2">
-      <IoCallOutline className="w-6 h-6" /> Contact Us
-    </h3>
+          {activeTab === "contact" && (
+            <div className="max-w-md mx-auto text-center mt-10 space-y-4">
+              <h3 className="text-2xl font-bold mb-4 flex items-center justify-center gap-2">
+                <IoCallOutline className="w-6 h-6" /> Contact Us
+              </h3>
 
-    <div className={`${glassStyles.card} rounded-xl p-4 flex items-center gap-3`}>
-      <IoCallOutline className="w-5 h-5" style={{ color: theme.primary }} />
-      <p>{restaurantSettings?.contact?.phone}</p>
-    </div>
+              <div className={`${glassStyles.card} rounded-xl p-4 flex items-center gap-3`}>
+                <IoCallOutline className="w-5 h-5" style={{ color: theme.primary }} />
+                <p>{restaurantSettings?.contact?.phone}</p>
+              </div>
 
-    <div className={`${glassStyles.card} rounded-xl p-4 flex items-center gap-3`}>
-      <IoMailOutline className="w-5 h-5" style={{ color: theme.primary }} />
-      <p>{restaurantSettings?.contact?.email}</p>
-    </div>
+              <div className={`${glassStyles.card} rounded-xl p-4 flex items-center gap-3`}>
+                <IoMailOutline className="w-5 h-5" style={{ color: theme.primary }} />
+                <p>{restaurantSettings?.contact?.email}</p>
+              </div>
 
-    <div className={`${glassStyles.card} rounded-xl p-4 flex items-center gap-3`}>
-      <IoLocationOutline className="w-5 h-5" style={{ color: theme.primary }} />
-      <div className="text-left">
-        <p>{restaurantSettings?.contact?.address}</p>
-        {(restaurantSettings?.contact?.city || restaurantSettings?.contact?.pincode) && (
-          <p className="text-sm text-gray-500 mt-0.5">
-            {restaurantSettings?.contact?.city}
-            {restaurantSettings?.contact?.pincode && ` – ${restaurantSettings?.contact?.pincode}`}
-          </p>
-        )}
-      </div>
-    </div>
+              <div className={`${glassStyles.card} rounded-xl p-4 flex items-center gap-3`}>
+                <IoLocationOutline className="w-5 h-5" style={{ color: theme.primary }} />
+                <div className="text-left">
+                  <p>{restaurantSettings?.contact?.address}</p>
+                  {(restaurantSettings?.contact?.city || restaurantSettings?.contact?.pincode) && (
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      {restaurantSettings?.contact?.city}
+                      {restaurantSettings?.contact?.pincode && ` – ${restaurantSettings?.contact?.pincode}`}
+                    </p>
+                  )}
+                </div>
+              </div>
 
-    {restaurantSettings?.hours && (
-      <div className={`${glassStyles.card} rounded-xl p-4 text-left`}>
-        <p className="font-semibold text-sm mb-3 flex items-center gap-2">
-          <IoTimeOutline className="w-4 h-4" style={{ color: theme.primary }} /> Operating Hours
-        </p>
-        <div className="space-y-1.5 text-sm text-gray-600">
-          <div className="flex justify-between">
-            <span>Mon – Fri</span>
-            <span>{restaurantSettings.hours.weekday?.open} – {restaurantSettings.hours.weekday?.close}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Saturday</span>
-            <span>{restaurantSettings.hours.saturday?.open} – {restaurantSettings.hours.saturday?.close}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Sunday</span>
-            <span>{restaurantSettings.hours.sunday?.open} – {restaurantSettings.hours.sunday?.close}</span>
-          </div>
-        </div>
-        <div className="mt-3 pt-3 border-t border-gray-100">
-          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-            restaurantSettings?.isOpen
-              ? "bg-green-100 text-green-700"
-              : "bg-red-100 text-red-600"
-          }`}>
-            {restaurantSettings?.isOpen ? "● Open Now" : "● Closed"}
-          </span>
-        </div>
-      </div>
-    )}
+              {restaurantSettings?.hours && (
+                <div className={`${glassStyles.card} rounded-xl p-4 text-left`}>
+                  <p className="font-semibold text-sm mb-3 flex items-center gap-2">
+                    <IoTimeOutline className="w-4 h-4" style={{ color: theme.primary }} /> Operating Hours
+                  </p>
+                  <div className="space-y-1.5 text-sm text-gray-600">
+                    <div className="flex justify-between">
+                      <span>Mon – Fri</span>
+                      <span>{restaurantSettings.hours.weekday?.open} – {restaurantSettings.hours.weekday?.close}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Saturday</span>
+                      <span>{restaurantSettings.hours.saturday?.open} – {restaurantSettings.hours.saturday?.close}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Sunday</span>
+                      <span>{restaurantSettings.hours.sunday?.open} – {restaurantSettings.hours.sunday?.close}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${restaurantSettings?.isOpen
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-600"
+                      }`}>
+                      {restaurantSettings?.isOpen ? "● Open Now" : "● Closed"}
+                    </span>
+                  </div>
+                </div>
+              )}
 
-    {(restaurantSettings?.social?.instagram || restaurantSettings?.social?.googleMap) && (
-      <div className={`${glassStyles.card} rounded-xl p-4 flex flex-col gap-2`}>
-        {restaurantSettings?.social?.instagram && (
-          <a
-            href={restaurantSettings.social.instagram}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 text-sm text-pink-600 hover:underline"
-          >
-            <IoLogoInstagram className="w-5 h-5 text-pink-600" /> Instagram
+              {(restaurantSettings?.social?.instagram || restaurantSettings?.social?.googleMap) && (
+                <div className={`${glassStyles.card} rounded-xl p-4 flex flex-col gap-2`}>
+                  {restaurantSettings?.social?.instagram && (
+                    <a
+                      href={restaurantSettings.social.instagram}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 text-sm text-pink-600 hover:underline"
+                    >
+                      <IoLogoInstagram className="w-5 h-5 text-pink-600" /> Instagram
 
-          </a>
-        )}
-        {restaurantSettings?.social?.googleMap && (
-          <a
-            href={restaurantSettings.social.googleMap}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 text-sm text-blue-600 hover:underline"
-          >
-               <IoNavigate className="w-5 h-5 text-blue-600" /> Google Maps pe dekho
-          </a>
-        )}
-      </div>
-    )}
-  </div>
-)}
+                    </a>
+                  )}
+                  {restaurantSettings?.social?.googleMap && (
+                    <a
+                      href={restaurantSettings.social.googleMap}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 text-sm text-blue-600 hover:underline"
+                    >
+                      <IoNavigate className="w-5 h-5 text-blue-600" /> Google Maps pe dekho
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {activeTab === "menu" && (
             <>
-           
+
               {/* Mobile Bottom Cart */}
               {cart.length > 0 && (
-                <BottomCart 
+                <BottomCart
                   onOpen={() => {
                     console.log('Opening cart...');
                     setOpenCart(true);
-                  }} 
-                  theme={theme} 
+                  }}
+                  theme={theme}
                 />
               )}
 
               {/* CartSidebar */}
-              <CartSidebar 
-                open={openCart} 
-                onClose={() => setOpenCart(false)} 
-                theme={theme} 
+              <CartSidebar
+                open={openCart}
+                onClose={() => setOpenCart(false)}
+                theme={theme}
                 restaurantId={restaurantId}
-                restaurantSettings={restaurantSettings}  
+                restaurantSettings={restaurantSettings}
                 onWhatsAppOrder={handleWhatsAppOrderFromCart}
-                promoData={restaurantSettings?.promo}  
+                promoData={restaurantSettings?.promo}
               />
             </>
           )}
 
-        {showWhatsAppCustomerModal && whatsAppPayload && (
-  <div className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-    <div className="bg-white w-full max-w-sm rounded-2xl p-4 shadow-2xl">
+          {showWhatsAppCustomerModal && whatsAppPayload && (
+            <div className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+              <div className="bg-white w-full max-w-sm rounded-2xl p-4 shadow-2xl">
 
-      {/* Header */}
-      <div className="flex justify-between items-center mb-3">
-        <h3 className="text-lg font-bold flex items-center gap-2">
-          <FaWhatsapp className="text-green-500" /> WhatsApp Order
-        </h3>
-        <button
-          onClick={() => { setShowWhatsAppCustomerModal(false); setWhatsAppPayload(null); }}
-          className="p-2 hover:bg-gray-100 rounded-full active:scale-95 transition"
-        >
-          <IoClose className="text-xl" />
-        </button>
-      </div>
+                {/* Header */}
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <FaWhatsapp className="text-green-500" /> WhatsApp Order
+                  </h3>
+                  <button
+                    onClick={() => { setShowWhatsAppCustomerModal(false); setWhatsAppPayload(null); }}
+                    className="p-2 hover:bg-gray-100 rounded-full active:scale-95 transition"
+                  >
+                    <IoClose className="text-xl" />
+                  </button>
+                </div>
 
-      {/* Bill Summary */}
-      <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2 mb-4">
-        <div className="flex justify-between text-xs text-gray-600">
-          <span>Item</span>
-          <span className="font-medium text-right max-w-[60%] truncate">{whatsAppPayload.name}</span>
-        </div>
-        <div className="flex justify-between text-xs text-gray-600">
-          <span>Price</span>
-          <span>₹{whatsAppPayload.price}</span>
-        </div>
-        <div className="flex justify-between text-xs text-gray-600">
-          <span>GST (5%)</span>
-          <span>₹{(whatsAppPayload.price * 0.05).toFixed(0)}</span>
-        </div>
-        <div className="flex justify-between font-bold border-t pt-2 mt-1">
-          <span className="text-sm">Total</span>
-          <span className="text-lg" style={{ color: theme.primary }}>
-            ₹{(whatsAppPayload.price * 1.05).toFixed(0)}
-          </span>
-        </div>
-      </div>
+                {/* Bill Summary */}
+                <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2 mb-4">
+                  <div className="flex justify-between text-xs text-gray-600">
+                    <span>Item</span>
+                    <span className="font-medium text-right max-w-[60%] truncate">{whatsAppPayload.name}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-600">
+                    <span>Price</span>
+                    <span>₹{whatsAppPayload.price}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-600">
+                    <span>GST (5%)</span>
+                    <span>₹{(whatsAppPayload.price * 0.05).toFixed(0)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold border-t pt-2 mt-1">
+                    <span className="text-sm">Total</span>
+                    <span className="text-lg" style={{ color: theme.primary }}>
+                      ₹{(whatsAppPayload.price * 1.05).toFixed(0)}
+                    </span>
+                  </div>
+                </div>
 
-      {/* Form */}
-      <div className="space-y-3">
-        <input
-          type="text"
-          placeholder="Name *"
-          value={whatsAppCustomerInfo.name}
-          onChange={(e) => setWhatsAppCustomerInfo({ ...whatsAppCustomerInfo, name: e.target.value })}
-          className="w-full p-3 border rounded-xl text-sm outline-none focus:border-gray-400 transition"
-        />
-        <input
-          type="tel"
-          placeholder="Phone *"
-          value={whatsAppCustomerInfo.phone}
-          onChange={(e) => setWhatsAppCustomerInfo({ ...whatsAppCustomerInfo, phone: e.target.value })}
-          className="w-full p-3 border rounded-xl text-sm outline-none focus:border-gray-400 transition"
-        />
-        <input
-          type="text"
-          placeholder="Table Number (Optional)"
-          value={whatsAppCustomerInfo.tableNumber}
-          onChange={(e) => setWhatsAppCustomerInfo({ ...whatsAppCustomerInfo, tableNumber: e.target.value })}
-          className="w-full p-3 border rounded-xl text-sm outline-none focus:border-gray-400 transition"
-        />
-        <textarea
-          placeholder="Special Instructions (Optional)"
-          value={whatsAppCustomerInfo.specialInstructions}
-          onChange={(e) => setWhatsAppCustomerInfo({ ...whatsAppCustomerInfo, specialInstructions: e.target.value })}
-          className="w-full p-3 border rounded-xl text-sm outline-none focus:border-gray-400 transition resize-none"
-          rows="2"
-        />
-      </div>
+                {/* Form */}
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Name *"
+                    value={whatsAppCustomerInfo.name}
+                    onChange={(e) => setWhatsAppCustomerInfo({ ...whatsAppCustomerInfo, name: e.target.value })}
+                    className="w-full p-3 border rounded-xl text-sm outline-none focus:border-gray-400 transition"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Phone *"
+                    value={whatsAppCustomerInfo.phone}
+                    onChange={(e) => setWhatsAppCustomerInfo({ ...whatsAppCustomerInfo, phone: e.target.value })}
+                    className="w-full p-3 border rounded-xl text-sm outline-none focus:border-gray-400 transition"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Table Number (Optional)"
+                    value={whatsAppCustomerInfo.tableNumber}
+                    onChange={(e) => setWhatsAppCustomerInfo({ ...whatsAppCustomerInfo, tableNumber: e.target.value })}
+                    className="w-full p-3 border rounded-xl text-sm outline-none focus:border-gray-400 transition"
+                  />
+                  <textarea
+                    placeholder="Special Instructions (Optional)"
+                    value={whatsAppCustomerInfo.specialInstructions}
+                    onChange={(e) => setWhatsAppCustomerInfo({ ...whatsAppCustomerInfo, specialInstructions: e.target.value })}
+                    className="w-full p-3 border rounded-xl text-sm outline-none focus:border-gray-400 transition resize-none"
+                    rows="2"
+                  />
+                </div>
 
-      {/* Buttons */}
-      <div className="flex gap-3 mt-6">
-        <button
-          onClick={() => { setShowWhatsAppCustomerModal(false); setWhatsAppPayload(null); }}
-          className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-bold text-sm active:scale-95 transition"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={() => {
-            if (!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone) {
-              toast.error('Please enter name & phone');
-              return;
-            }
-            handleDirectWhatsApp(whatsAppPayload, whatsAppCustomerInfo);
-            setShowWhatsAppCustomerModal(false);
-            setWhatsAppPayload(null);
-            setWhatsAppCustomerInfo({ name: '', phone: '', tableNumber: '', specialInstructions: '' });
-          }}
-          disabled={!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone}
-          className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold text-sm active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        >
-          <FaWhatsapp /> Send Order
-        </button>
-      </div>
+                {/* Buttons */}
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => { setShowWhatsAppCustomerModal(false); setWhatsAppPayload(null); }}
+                    className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-bold text-sm active:scale-95 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone) {
+                        toast.error('Please enter name & phone');
+                        return;
+                      }
+                      handleDirectWhatsApp(whatsAppPayload, whatsAppCustomerInfo);
+                      setShowWhatsAppCustomerModal(false);
+                      setWhatsAppPayload(null);
+                      setWhatsAppCustomerInfo({ name: '', phone: '', tableNumber: '', specialInstructions: '' });
+                    }}
+                    disabled={!whatsAppCustomerInfo.name || !whatsAppCustomerInfo.phone}
+                    className="flex-1 py-3 bg-green-500 text-white rounded-xl font-bold text-sm active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <FaWhatsapp /> Send Order
+                  </button>
+                </div>
 
-    </div>
-  </div>
-)}
+              </div>
+            </div>
+          )}
           {arItem && (
-            <RealisticARViewer 
-              item={arItem} 
-              onClose={() => setArItem(null)} 
-              theme={theme} 
+            <RealisticARViewer
+              item={arItem}
+              onClose={() => setArItem(null)}
+              theme={theme}
             />
           )}
 

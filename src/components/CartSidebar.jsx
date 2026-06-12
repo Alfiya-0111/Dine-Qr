@@ -1,14 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useCart } from '../context/CartContext';
-import { IoClose } from 'react-icons/io5';
-import { IoAdd, IoRemove } from 'react-icons/io5';
+import { 
+  IoClose, 
+  IoAdd, 
+  IoRemove, 
+  IoCartOutline,
+  IoFlame,
+  IoStar,
+  IoSnow,
+  IoLeaf,
+  IoRestaurantOutline,
+  IoTrashOutline,
+  IoPhonePortraitOutline,
+  IoCalendarOutline,
+  IoCheckmarkCircle
+} from 'react-icons/io5';
 import { FaWhatsapp } from "react-icons/fa";
-import { IoCartOutline } from "react-icons/io5";
+
 import { useNavigate } from 'react-router-dom';
 import { ref as rtdbRef, onValue, get, set, push } from "firebase/database";
 import { realtimeDB, auth } from "../firebaseConfig";
 import { toast } from "sonner";
-
+import { 
+  MdOutlineDeliveryDining,
+  MdOutlineDiscount,
+  MdOutlineTimer
+} from "react-icons/md";
+import { BsTag, BsCalendar2Check } from "react-icons/bs";
+import { RiCoupon3Line } from "react-icons/ri";
 // ================= COUPON LOGIC =================
 function getBestCoupon(coupons, subtotal) {
   const now = Date.now();
@@ -531,12 +550,11 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
                         </div>
 
                         <div className="flex flex-wrap gap-2 text-[10px] text-gray-500 mt-0.5">
-                          {item.spicePreference && <span className="bg-orange-50 px-1.5 py-0.5 rounded">🌶️ {item.spicePreference}</span>}
-                          {item.sweetLevel && <span className="bg-pink-50 px-1.5 py-0.5 rounded">🍰 {item.sweetLevel}</span>}
-                          {item.saltPreference && <span className="bg-blue-50 px-1.5 py-0.5 rounded">🧂 {item.saltPreference}</span>}
+                         <span className="bg-orange-50 px-1.5 py-0.5 rounded flex items-center gap-0.5"><IoFlame className="w-3 h-3 text-orange-500" /> {item.spicePreference}</span>
+<span className="bg-pink-50 px-1.5 py-0.5 rounded flex items-center gap-0.5"><IoStar className="w-3 h-3 text-pink-500" /> {item.sweetLevel}</span>
+<span className="bg-blue-50 px-1.5 py-0.5 rounded flex items-center gap-0.5"><IoSnow className="w-3 h-3 text-blue-500" /> {item.saltPreference}</span>
                           {item.salad?.qty > 0 && (
-                            <span className="bg-green-50 px-1.5 py-0.5 rounded">
-                              🥗 Salad: {item.salad.qty} plate{item.salad.taste && item.salad.taste !== 'normal' ? ` (${item.salad.taste})` : ''}
+                           <span className="bg-green-50 px-1.5 py-0.5 rounded flex items-center gap-0.5"><IoLeaf className="w-3 h-3 text-green-500" /> Salad:... {item.salad.qty} plate{item.salad.taste && item.salad.taste !== 'normal' ? ` (${item.salad.taste})` : ''}
                             </span>
                           )}
                         </div>
@@ -577,7 +595,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
                   {appliedCoupon ? (
                     <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">🏷️</span>
+                       <BsTag className="w-4 h-4 text-green-600 flex-shrink-0" />
                         <div>
                           <p className="text-green-700 font-bold text-sm">{appliedCoupon.code}</p>
                           <p className="text-green-600 text-xs">
@@ -653,7 +671,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
                 return (
                   <div className="bg-white rounded-xl border-2 p-3 shrink-0" style={{ borderColor: theme.primary }}>
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-base">🎉</span>
+                     <MdOutlineDiscount className="w-5 h-5 flex-shrink-0" style={{ color: theme.primary }} />
                       <div>
                         <p className="font-bold text-xs" style={{ color: theme.primary }}>
                           {promoData.subtitle ? `✦ ${promoData.subtitle} ✦` : 'Special Offers'}
@@ -680,7 +698,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
                       ))}
                     </div>
                     {promoData.validTill && (
-                      <p className="text-[10px] text-center text-gray-500 mt-2">📅 Valid till {promoData.validTill}</p>
+                      <p className="text-[10px] text-center text-gray-500 mt-2"><BsCalendar2Check className="w-3 h-3 inline mr-1" /> Valid till {promoData.validTill}</p>
                     )}
                   </div>
                 );
@@ -693,7 +711,8 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
                   className="w-full py-3.5 rounded-xl font-bold text-white text-sm shadow-lg active:scale-[0.98] transition flex items-center justify-center gap-2"
                   style={{ backgroundColor: theme.primary }}
                 >
-                  🍽️ Place Order
+                  <IoRestaurantOutline className="w-4 h-4" /> Place Order
+
                   <span className="bg-white/20 px-2 py-0.5 rounded-lg">₹{grandTotal.toFixed(0)}</span>
                 </button>
 
@@ -712,7 +731,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
                     className="py-3 bg-green-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 active:scale-[0.98] transition shadow-md hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isPlacingOrder ? (
-                      <>⏳ Sending...</>
+                      <><MdOutlineTimer className="w-4 h-4 animate-spin" /> Sending...</>
                     ) : (
                       <><FaWhatsapp className="w-4 h-4" /><span>WhatsApp</span><span className="bg-green-600 text-[8px] px-1.5 py-0.5 rounded">Sync</span></>
                     )}
@@ -721,7 +740,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
                     onClick={handleQuickWhatsAppCheckout}
                     className="py-3 border-2 border-green-500 text-green-600 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 active:scale-[0.98] transition bg-white hover:bg-green-50"
                   >
-                    📱 Quick
+                   <IoPhonePortraitOutline className="w-4 h-4" /> Quick
                     <span className="text-green-400 text-[8px]">No Sync</span>
                   </button>
                 </div>
@@ -730,7 +749,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
                   onClick={() => { if (confirm('Clear all items from cart?')) clearCart(); }}
                   className="w-full py-2.5 text-red-500 text-xs font-medium hover:bg-red-50 rounded-xl active:scale-95 transition"
                 >
-                  🗑️ Clear Cart
+                 <IoTrashOutline className="w-4 h-4" /> Clear Cart
                 </button>
               </div>
             </>
@@ -743,7 +762,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
         <div className="fixed inset-0 z-[10002] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="bg-white w-full max-w-sm rounded-2xl p-4 max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center mb-3">
-              <h3 className="text-lg font-bold">🍽️ Checkout</h3>
+              <h3 className="text-lg font-bold"><IoRestaurantOutline className="w-5 h-5" style={{ color: theme.primary }} /> Checkout</h3>
               <button onClick={() => setShowCheckout(false)} className="p-2 hover:bg-gray-100 rounded-full active:scale-95 transition">
                 <IoClose className="text-xl" />
               </button>
