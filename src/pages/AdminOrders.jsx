@@ -156,24 +156,23 @@ export default function AdminOrders() {
       const data = snap.val();
       if (!data) return;
       
-      console.log("🔍 === WHATSAPP ORDERS RAW DATA ===");
+     
       Object.entries(data).forEach(([id, order]) => {
-        console.log(`\n📦 Order: ${id}`);
-        console.log(`   ALL KEYS:`, Object.keys(order));
+        
         
         const possibleItemFields = ['items', 'orderItems', 'dishes', 'cart', 'products', 'foodItems', 'menuItems', 'selectedItems', 'order'];
         possibleItemFields.forEach(field => {
           if (order[field] !== undefined) {
-            console.log(`   ✅ FOUND FIELD "${field}":`, typeof order[field], Array.isArray(order[field]) ? 'ARRAY' : 'OBJECT');
+           
             const arr = Array.isArray(order[field]) ? order[field] : Object.values(order[field]);
             arr.forEach((item, idx) => {
-              console.log(`      Item ${idx}:`, JSON.stringify(item, null, 2));
+             
             });
           }
         });
         
         if (!possibleItemFields.some(f => order[f] !== undefined)) {
-          console.log(`   ❌ NO ITEMS FIELD FOUND IN:`, Object.keys(order));
+         
         }
       });
     });
@@ -190,19 +189,15 @@ export default function AdminOrders() {
       const data = snap.val();
       if (!data) return;
       
-      console.log("🔍 === MAIN ORDERS RAW DATA ===");
+     
       Object.entries(data).forEach(([id, order]) => {
         if (order.source === 'whatsapp' || order.type === 'whatsapp') {
-          console.log(`\n📦 Order: ${id}`);
-          console.log(`   ALL KEYS:`, Object.keys(order));
-          console.log(`   customerName:`, order.customerName);
-          console.log(`   total:`, order.total);
-          console.log(`   items:`, order.items ? 'EXISTS' : 'MISSING');
+         
           if (order.items) {
             const arr = Array.isArray(order.items) ? order.items : Object.values(order.items);
-            console.log(`   items count:`, arr.length);
+          
             arr.forEach((item, idx) => {
-              console.log(`   Item ${idx}: name="${item.name || 'UNKNOWN'}"`, item);
+            
             });
           }
         }
@@ -498,7 +493,7 @@ export default function AdminOrders() {
       try {
         doc.addImage(restaurantSettings.logo, "PNG", 10, y, 30, 12);
       } catch (e) {
-        console.log("Logo add failed:", e);
+       
       }
     }
 

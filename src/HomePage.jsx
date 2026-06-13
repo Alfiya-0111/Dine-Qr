@@ -10,7 +10,7 @@ import { Pagination, Autoplay, Navigation } from 'swiper/modules';
 import { ref, onValue, push, set, serverTimestamp } from 'firebase/database';
 import { realtimeDB as db } from './firebaseConfig';
 import khaatogologo from '../src/assets/khaatogo_logo.png';
-import { reviewWithAI } from '../src/hooks/useAIReview';
+import { reviewWithAI } from './hooks/useAIReview';
 import {
   QrCode, MessageSquare, Calendar, TrendingUp, Utensils, Palette,
   Star, CheckCircle2, ArrowRight, ShoppingBag, Play, Users, Zap,
@@ -1449,8 +1449,14 @@ const HomePage = () => {
 
   const theme = isDark ? 'dark' : 'light';
 
-  const navLinks = [['#features','Features'],['#how-it-works','How It Works'],['#pricing','Pricing'],['#demo','Live Demo'],['#testimonials','Reviews']];
-
+  const navLinks = [
+  ['#features','Features'],
+  ['#how-it-works','How It Works'],
+  ['#pricing','Pricing'],
+  ['#demo','Live Demo'],
+  ['#testimonials','Reviews'],
+  ['/discover','Discover Restaurants'], 
+];
   return (
     <>
       <Helmet>
@@ -1532,14 +1538,45 @@ const HomePage = () => {
             </div>
 
             {/* Desktop nav links */}
-            <div className="nav-desktop-links">
-              {navLinks.map(([href, label]) => (
-                <a key={href} href={href} style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 500, color: 'var(--text2)', textDecoration: 'none', letterSpacing: 0.2 }}
-                  onMouseEnter={e => e.target.style.color = 'var(--maroon)'}
-                  onMouseLeave={e => e.target.style.color = 'var(--text2)'}
-                >{label}</a>
-              ))}
-            </div>
+<div className="nav-desktop-links">
+  {navLinks.map(([href, label]) => (
+    href.startsWith('/') ? (
+      <Link 
+        key={href} 
+        to={href} 
+        style={{ 
+          fontFamily: 'var(--font-display)', 
+          fontSize: 13, 
+          fontWeight: 500, 
+          color: 'var(--text2)', 
+          textDecoration: 'none', 
+          letterSpacing: 0.2 
+        }}
+        onMouseEnter={e => e.target.style.color = 'var(--maroon)'}
+        onMouseLeave={e => e.target.style.color = 'var(--text2)'}
+      >
+        {label}
+      </Link>
+    ) : (
+      <a 
+        key={href} 
+        href={href} 
+        style={{ 
+          fontFamily: 'var(--font-display)', 
+          fontSize: 13, 
+          fontWeight: 500, 
+          color: 'var(--text2)', 
+          textDecoration: 'none', 
+          letterSpacing: 0.2 
+        }}
+        onMouseEnter={e => e.target.style.color = 'var(--maroon)'}
+        onMouseLeave={e => e.target.style.color = 'var(--text2)'}
+      >
+        {label}
+      </a>
+    )
+  ))}
+</div>
 
             {/* Right controls */}
 {/* Right controls */}
@@ -1590,11 +1627,27 @@ const HomePage = () => {
           {/* Mobile menu */}
           {menuOpen && (
             <div className="mobile-menu">
-              {navLinks.map(([href, label]) => (
-                <a key={href} href={href} onClick={() => setMenuOpen(false)} style={{ display: 'block', padding: '12px 0', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--text2)', textDecoration: 'none', borderBottom: '1px solid var(--glass-border)' }}>
-                  {label}
-                </a>
-              ))}
+{navLinks.map(([href, label]) => (
+  href.startsWith('/') ? (
+    <Link 
+      key={href} 
+      to={href} 
+      onClick={() => setMenuOpen(false)} 
+      style={{ display: 'block', padding: '12px 0', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--text2)', textDecoration: 'none', borderBottom: '1px solid var(--glass-border)' }}
+    >
+      {label}
+    </Link>
+  ) : (
+    <a 
+      key={href} 
+      href={href} 
+      onClick={() => setMenuOpen(false)} 
+      style={{ display: 'block', padding: '12px 0', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15, color: 'var(--text2)', textDecoration: 'none', borderBottom: '1px solid var(--glass-border)' }}
+    >
+      {label}
+    </a>
+  )
+))}
               <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                 <button onClick={() => { setMenuOpen(false); navigate('/login'); }} style={{ flex: 1, padding: '12px', background: 'var(--toggle-bg)', border: '1px solid var(--glass-border)', borderRadius: 10, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13 }}>
                   Login
@@ -1605,6 +1658,7 @@ const HomePage = () => {
                 <button onClick={() => { setMenuOpen(false); navigate('/signup'); }} style={{ flex: 2, padding: '14px', background: 'linear-gradient(135deg, var(--maroon), var(--maroon2))', color: '#fff', border: 'none', borderRadius: 10, fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
                   Start Free Trial →
                 </button>
+                
               </div>
             </div>
           )}
@@ -1639,32 +1693,31 @@ const HomePage = () => {
                   <span style={{ color: 'var(--maroon)', fontWeight: 600 }}>Zero commission.</span>
                 </p>
 
-                <div className="hero-cta-row">
-                  <button onClick={() => navigate('/signup')} style={{
-                    background: 'linear-gradient(135deg, var(--maroon), var(--maroon2))',
-                    color: '#fff', border: 'none', padding: isMobile ? '14px 24px' : '16px 32px', borderRadius: 100,
-                    fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: isMobile ? 14 : 16, cursor: 'pointer',
-                    boxShadow: '0 8px 32px rgba(138,36,75,0.4)',
-                    display: 'flex', alignItems: 'center', gap: 10,
-                  }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05) translateY(-2px)'; e.currentTarget.style.boxShadow = '0 16px 48px rgba(138,36,75,0.6)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(138,36,75,0.4)'; }}
-                  >
-                    Start 30-Day Free Trial <ArrowRight style={{ width: 18, height: 18 }} />
-                  </button>
-                  <button onClick={() => setShowVideo(true)} style={{
-                    background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(138,36,75,0.06)', color: 'var(--text1)',
-                    border: '1px solid var(--glass-border)', padding: isMobile ? '14px 20px' : '16px 28px', borderRadius: 100,
-                    fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isMobile ? 14 : 16, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 10, backdropFilter: 'blur(8px)',
-                  }}>
-                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(138,36,75,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Play style={{ width: 12, height: 12, fill: 'var(--maroon)', color: 'var(--maroon)', marginLeft: 2 }} />
-                    </div>
-                    Watch Demo
-                  </button>
-                </div>
-
+          <div className="hero-cta-row">
+  <button onClick={() => navigate('/signup')} style={{
+    background: 'linear-gradient(135deg, var(--maroon), var(--maroon2))',
+    color: '#fff', border: 'none', padding: isMobile ? '14px 24px' : '16px 32px', borderRadius: 100,
+    fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: isMobile ? 14 : 16, cursor: 'pointer',
+    boxShadow: '0 8px 32px rgba(138,36,75,0.4)',
+    display: 'flex', alignItems: 'center', gap: 10,
+  }}
+    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05) translateY(-2px)'; e.currentTarget.style.boxShadow = '0 16px 48px rgba(138,36,75,0.6)'; }}
+    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(138,36,75,0.4)'; }}
+  >
+    Start 30-Day Free Trial <ArrowRight style={{ width: 18, height: 18 }} />
+  </button>
+  <button onClick={() => setShowVideo(true)} style={{
+    background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(138,36,75,0.06)', color: 'var(--text1)',
+    border: '1px solid var(--glass-border)', padding: isMobile ? '14px 20px' : '16px 28px', borderRadius: 100,
+    fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: isMobile ? 14 : 16, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: 10, backdropFilter: 'blur(8px)',
+  }}>
+    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(138,36,75,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <Play style={{ width: 12, height: 12, fill: 'var(--maroon)', color: 'var(--maroon)', marginLeft: 2 }} />
+    </div>
+    Watch Demo
+  </button>
+</div>
                 {/* Social proof */}
                 <div className="hero-social-proof">
                   <div style={{ display: 'flex', alignItems: 'center' }}>
