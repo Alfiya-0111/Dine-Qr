@@ -1,7 +1,7 @@
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay } from "swiper/modules";
 import "swiper/css";
-import Platewithspoons from "../assets/Platewithspoons.png";
+
 
 export default function NewItemsSlider({ items, theme }) {
   if (!items?.length) return null;
@@ -74,10 +74,7 @@ export default function NewItemsSlider({ items, theme }) {
         Newly Added Dishes
       </h2>
 
-      {/* DECOR */}
-      <div className="flex justify-center mb-6">
-        <img src={Platewithspoons} alt="plate" className="h-10" />
-      </div>
+     
 
     </div>
   );

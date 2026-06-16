@@ -29,7 +29,7 @@ import { BiDish } from "react-icons/bi";
 import { ref, update } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { useState } from "react";
-import { Phone, User } from "lucide-react";
+import { Phone, User, Building2 } from "lucide-react";
 import { Bike, MapPin, Home, AlertTriangle, Map, CheckCircle } from "lucide-react";
 
 const PRIMARY = "#8A244B";
@@ -443,11 +443,11 @@ export function Ordercard({
             <Pill bg="#f3e8ff" color="#6b21a8" icon={orderTypeIcon[order.orderDetails?.type] || <FaUtensils size={10} />}>
               {order.orderDetails?.type || "Dine-in"}
             </Pill>
-            {order.orderDetails?.tableNumber && (
-              <Pill bg="#fff7ed" color="#c2410c" icon={<FaChair size={10} />}>
-                Table #{order.orderDetails.tableNumber}
-              </Pill>
-            )}
+            {(order.tableName || order.tableNumber || order.orderDetails?.tableName || order.orderDetails?.tableNumber) && (
+  <Pill bg="#fff7ed" color="#c2410c" icon={<Building2 size={10} />}>
+    {order.floor || order.orderDetails?.floor || "Ground Floor"} · Table {order.tableName || order.tableNumber || order.orderDetails?.tableName || order.orderDetails?.tableNumber}
+  </Pill>
+)}
             {order.orderDetails?.numberOfGuests > 0 && (
               <Pill bg="#eff6ff" color="#1e40af" icon={<FaUsers size={10} />}>
                 {order.orderDetails.numberOfGuests} Guests

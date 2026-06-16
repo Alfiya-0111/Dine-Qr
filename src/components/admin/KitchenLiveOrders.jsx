@@ -138,10 +138,17 @@ export default function KitchenLiveOrders() {
                   <span className="font-bold text-lg">#{order.id.slice(-6).toUpperCase()}</span>
                   <span className="text-sm font-medium capitalize">{order.status}</span>
                 </div>
-                <div className="text-sm mt-1">
-                  {order.type === 'dine-in' ? `🪑 Table ${order.tableNumber}` : 
-                   order.type === 'whatsapp' ? `💬 WhatsApp` : '📦 Delivery'}
-                </div>
+              <div className="text-sm mt-1">
+  {order.type === 'dine-in' || order.tableName ? (
+    <span>
+      🪑 {order.floor ? `${order.floor} · ` : ''}Table {order.tableName || order.tableNumber || 'N/A'}
+    </span>
+  ) : order.type === 'whatsapp' ? (
+    `💬 WhatsApp`
+  ) : (
+    '📦 Delivery'
+  )}
+</div>
               </div>
 
               {/* Items */}

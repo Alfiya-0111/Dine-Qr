@@ -740,6 +740,8 @@ export default function PublicMenu() {
   const [showLiveKitchenBanner, setShowLiveKitchenBanner] = useState(false);
   const [dismissedKitchenNotif, setDismissedKitchenNotif] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [showWaiterModal, setShowWaiterModal] = useState(false);
+  const [waiterTableInput, setWaiterTableInput] = useState("");
   const theme = restaurantSettings?.theme || {
     primary: "#8A244B",
     border: "#8A244B",
@@ -1886,13 +1888,9 @@ Sent via DineQR
   const callWaiter = async () => {
     if (waiterCooldown || !userId) return;
 
-    setWaiterCalled(true);
-    setWaiterCooldown(true);
-
-    // Get table number from the most recent active order, or prompt user
+    // Pehle check karo kahi table number already saved hai ya order mein hai
     let tableNumber = activeOrder?.[0]?.tableNumber || "";
-
-    // If no table number in order, try to get from localStorage or prompt
+    
     if (!tableNumber) {
       const savedTable = localStorage.getItem(`tableNumber_${restaurantId}`);
       if (savedTable) {
@@ -1900,13 +1898,19 @@ Sent via DineQR
       }
     }
 
-    // If still no table number, show a simple prompt
-    if (!tableNumber) {
-      tableNumber = window.prompt("🪑 Apka table number kya hai? (Waiter ko bhejne ke liye zaroori)") || "Unknown";
-      if (tableNumber && tableNumber !== "Unknown") {
-        localStorage.setItem(`tableNumber_${restaurantId}`, tableNumber);
-      }
+    // Agar table number mil gaya toh direct call kar do
+    if (tableNumber) {
+      await sendWaiterCall(tableNumber);
+    } else {
+      // Nahi mila toh modal khol do
+      setWaiterTableInput("");
+      setShowWaiterModal(true);
     }
+  };
+
+  const sendWaiterCall = async (tableNumber) => {
+    setWaiterCalled(true);
+    setWaiterCooldown(true);
 
     try {
       const waiterRef = push(rtdbRef(realtimeDB, `waiterCalls/${restaurantId}`));
@@ -1938,6 +1942,17 @@ Sent via DineQR
       setWaiterCooldown(false);
       setWaiterCalled(false);
     }, 60000);
+  };
+
+  const handleWaiterModalSubmit = async () => {
+    if (!waiterTableInput.trim()) {
+      toast.error("Please enter table number");
+      return;
+    }
+    
+    localStorage.setItem(`tableNumber_${restaurantId}`, waiterTableInput.trim());
+    setShowWaiterModal(false);
+    await sendWaiterCall(waiterTableInput.trim());
   };
   // Table-Side Reorder
   const reorderItems = (order) => {
@@ -2241,7 +2256,7 @@ Sent via DineQR
     loadRestaurantInfo();
     loadMenu();
 
-    const settingsRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}`);
+       const settingsRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}`);
     const unsubscribe = onValue(settingsRef, (snap) => {
       if (snap.exists()) {
         const data = snap.val();
@@ -2249,7 +2264,26 @@ Sent via DineQR
         setAboutUs(data.about || null);
       }
     });
-    return () => unsubscribe();
+
+    // ── Fetch restaurant plan status ──
+    const planRef = rtdbRef(realtimeDB, `subscriptions/${restaurantId}`);
+    const planUnsub = onValue(planRef, (snap) => {
+      if (snap.exists()) {
+        const planData = snap.val();
+        const now = Date.now();
+        const isActive = planData.status === 'active' && (!planData.expiresAt || planData.expiresAt > now);
+        setRestaurantPlan({ ...planData, isActive });
+      } else {
+        // No plan = inactive
+        setRestaurantPlan({ isActive: false, planId: null });
+      }
+      setPlanLoading(false);
+    });
+
+    return () => {
+      unsubscribe();
+      planUnsub();
+    };
   }, [restaurantId]);
   // Dish likes listener
   // PublicMenu.js mein, AI Pick useEffect:
@@ -2323,6 +2357,8 @@ Sent via DineQR
 
   // ================= AI PICK: Sabse zyada likes wala dish =================
   const [mostLikedDishId, setMostLikedDishId] = useState(null);
+  const [restaurantPlan, setRestaurantPlan] = useState(null);
+const [planLoading, setPlanLoading] = useState(true);
   // Replace most liked useEffect:
   useEffect(() => {
     if (!restaurantId) return;
@@ -2371,10 +2407,19 @@ Sent via DineQR
     recognition.onerror = recognition.onend = () => setListening(false);
     recognition.start();
   };
-
-  const handleOrderClick = (item, action = "order") => {
+const isPlanActive = () => {
+  if (planLoading) return false; // Loading mein safe side pe false
+  return restaurantPlan?.isActive === true;
+};
+   const handleOrderClick = (item, action = "order") => {
     if (!item || !item.id) {
       console.error("Invalid item passed to handleOrderClick:", item);
+      return;
+    }
+
+    // ★ ADD: Block if out of stock
+    if (item.inStock === false) {
+      toast.error(`${item.name} is currently out of stock`);
       return;
     }
 
@@ -3082,26 +3127,28 @@ Sent via DineQR
 
               <CouponBanner restaurantId={restaurantId} theme={theme} />
               {/* UPAR ye add karo: */}
-             <div className="flex gap-2 mb-4 justify-end">
-  <button
-    onClick={() => userId ? setShowMyBookings(!showMyBookings) : requireLogin()}
-    className="px-4 py-2 rounded-full text-xs font-medium border-2 transition-all flex items-center gap-1.5"
-    style={{
-      borderColor: theme.primary,
-      color: showMyBookings ? '#fff' : theme.primary,
-      backgroundColor: showMyBookings ? theme.primary : 'transparent'
-    }}
-  >
-    <IoBookOutline className="w-3.5 h-3.5" /> My Bookings
-  </button>
-  <button
-    onClick={() => userId ? setShowTableBooking(true) : requireLogin()}
-    className="px-4 py-2 rounded-full text-xs font-medium text-white transition-all flex items-center gap-1.5"
-    style={{ backgroundColor: theme.primary }}
-  >
-    <IoCalendarOutline className="w-3.5 h-3.5" /> Book Table
-  </button>
-</div>
+                      {isPlanActive() && (
+               <div className="flex gap-2 mb-4 justify-end">
+                <button
+                  onClick={() => userId ? setShowMyBookings(!showMyBookings) : requireLogin()}
+                  className="px-4 py-2 rounded-full text-xs font-medium border-2 transition-all flex items-center gap-1.5"
+                  style={{
+                    borderColor: theme.primary,
+                    color: showMyBookings ? '#fff' : theme.primary,
+                    backgroundColor: showMyBookings ? theme.primary : 'transparent'
+                  }}
+                >
+                  <IoBookOutline className="w-3.5 h-3.5" /> My Bookings
+                </button>
+                <button
+                  onClick={() => userId ? setShowTableBooking(true) : requireLogin()}
+                  className="px-4 py-2 rounded-full text-xs font-medium text-white transition-all flex items-center gap-1.5"
+                  style={{ backgroundColor: theme.primary }}
+                >
+                  <IoCalendarOutline className="w-3.5 h-3.5" /> Book Table
+                </button>
+              </div>
+             )}
               {showMyBookings && userId && (
                 <div className="mb-4">
                   <MyBookings userId={userId} restaurantId={restaurantId} theme={theme} />
@@ -3131,7 +3178,7 @@ Sent via DineQR
                   )}
 
                   {/* Call Waiter Button */}
-                  {activeOrder.length > 0 && userId && (
+                {activeOrder.length > 0 && userId && isPlanActive() && (
                     <button
                       onClick={callWaiter}
                       disabled={waiterCooldown}
@@ -3253,11 +3300,11 @@ Sent via DineQR
                               <IoSnow className="text-white text-xs" />
                             </span>
                           )}
-
-                          {/* Out of Stock overlay */}
+  {/* Out of Stock overlay - FULL CARD DISABLE */}
                           {item.inStock === false && (
-                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white font-bold text-lg z-20 backdrop-blur-sm">
-                              <IoClose className="w-6 h-6 mr-2" /> Out of Stock
+                            <div className="absolute inset-0 bg-gray-200/90 flex flex-col items-center justify-center z-20 backdrop-blur-[2px]">
+                              <IoClose className="w-10 h-10 text-gray-400 mb-2" />
+                              <span className="text-gray-500 font-bold text-sm uppercase tracking-wider">Out of Stock</span>
                             </div>
                           )}
                           {/* Bottom overlay bar */}
@@ -3294,7 +3341,10 @@ Sent via DineQR
                         </div>
 
                         {/* Card Body */}
-                        <div className="p-4">
+                       <div className="p-4 relative">
+                          {item.inStock === false && (
+                            <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 rounded-b-3xl cursor-not-allowed" />
+                          )}
                           {/* Title & Price Row */}
                           <div className="flex items-center justify-between mb-1">
                             <h3 className="font-bold text-base truncate flex items-center gap-2">
@@ -3340,38 +3390,47 @@ Sent via DineQR
                           {/* Description */}
                           <ShowMoreText text={item.description} />
 
-                          {/* Action Buttons Row */}
+                                                  {/* Action Buttons Row */}
                           <div className="flex items-center gap-2 mt-4">
-                            {/* Order Now - filled dark button */}
-                            <button
-                              onClick={() => handleOrderClick(item, "order")}
-                              className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-                              style={{ backgroundColor: theme.primary }}
-                            >
+                            {isPlanActive() ? (
+                              <>
+                                {/* Order Now - filled dark button */}
+                                <button
+                                  onClick={() => handleOrderClick(item, "order")}
+                                  className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                                  style={{ backgroundColor: theme.primary }}
+                                >
+                                  Order Now
+                                </button>
 
-                              Order Now
-                            </button>
+                                {/* Cart icon button */}
+                                <button
+                                  onClick={() => handleOrderClick(item, "cart")}
+                                  className="w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95]"
+                                  style={{ borderColor: theme.primary, color: theme.primary }}
+                                  title="Add to Cart"
+                                >
+                                  <IoCartOutline className="w-5 h-5" />
+                                </button>
 
-                            {/* Cart icon button */}
-                            <button
-                              onClick={() => handleOrderClick(item, "cart")}
-                              className="w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95]"
-                              style={{ borderColor: theme.primary, color: theme.primary }}
-                              title="Add to Cart"
-                            >
-                              <IoCartOutline className="w-5 h-5" />
-                            </button>
+                                {/* WhatsApp icon button */}
+                                <button
+                                  onClick={() => handleOrderClick(item, "whatsapp")}
+                                  className="w-10 h-10 rounded-xl border-2 border-green-500 text-green-500 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] hover:bg-green-500 hover:text-white"
+                                  title="Order via WhatsApp"
+                                >
+                                  <FaWhatsapp className="w-5 h-5" />
+                                </button>
+                              </>
+                            ) : (
+                              /* Plan inactive - Show "Menu Only" badge */
+                              <div className="flex-1 py-2.5 px-4 rounded-xl bg-gray-100 border-2 border-gray-200 flex items-center justify-center gap-2">
+                                <IoRestaurantOutline className="w-4 h-4 text-gray-400" />
+                                <span className="text-sm font-medium text-gray-400">Menu View Only</span>
+                              </div>
+                            )}
 
-                            {/* WhatsApp icon button */}
-                            <button
-                              onClick={() => handleOrderClick(item, "whatsapp")}
-                              className="w-10 h-10 rounded-xl border-2 border-green-500 text-green-500 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] hover:bg-green-500 hover:text-white"
-                              title="Order via WhatsApp"
-                            >
-                              <FaWhatsapp className="w-5 h-5" />
-                            </button>
-
-                            {/* Reviews/Chat icon button */}
+                            {/* Reviews/Chat icon button - Always visible */}
                             <button
                               onClick={() => {
                                 const detailsEl = document.getElementById(`reviews-${item.id}`);
@@ -3834,7 +3893,7 @@ Sent via DineQR
             <>
 
               {/* Mobile Bottom Cart */}
-              {cart.length > 0 && (
+  {cart.length > 0 && isPlanActive() && (
                 <BottomCart
                   onOpen={() => {
                     console.log('Opening cart...');
@@ -3845,6 +3904,7 @@ Sent via DineQR
               )}
 
               {/* CartSidebar */}
+               {isPlanActive() && (
               <CartSidebar
                 open={openCart}
                 onClose={() => setOpenCart(false)}
@@ -3854,7 +3914,9 @@ Sent via DineQR
                 onWhatsAppOrder={handleWhatsAppOrderFromCart}
                 promoData={restaurantSettings?.promo}
               />
+              )}
             </>
+              
           )}
 
           {showWhatsAppCustomerModal && whatsAppPayload && (
@@ -3957,13 +4019,65 @@ Sent via DineQR
               </div>
             </div>
           )}
-          {arItem && (
+                    {/* Waiter Table Number Modal */}
+          {showWaiterModal && (
+            <div className="fixed inset-0 z-[10003] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+              <div className="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl animate-slideUp">
+                
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: theme.primary }}>
+                    <IoNotificationsOutline className="w-5 h-5" /> Call Waiter
+                  </h3>
+                  <button
+                    onClick={() => setShowWaiterModal(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full active:scale-95 transition"
+                  >
+                    <IoClose className="text-xl text-gray-500" />
+                  </button>
+                </div>
+
+                <p className="text-sm text-gray-600 mb-4">
+                  🪑 Apna table number daaliye taaki waiter aapke paas aa sake
+                </p>
+
+                <input
+                  type="text"
+                  placeholder="Table Number (e.g. 5, A-12)"
+                  value={waiterTableInput}
+                  onChange={(e) => setWaiterTableInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleWaiterModalSubmit()}
+                  className="w-full p-3.5 border-2 rounded-xl text-sm outline-none transition focus:border-gray-400 mb-4"
+                  style={{ borderColor: theme.primary }}
+                  autoFocus
+                />
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowWaiterModal(false)}
+                    className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-bold text-sm text-gray-600 active:scale-95 transition hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleWaiterModalSubmit}
+                    disabled={!waiterTableInput.trim()}
+                    className="flex-1 py-3 rounded-xl font-bold text-sm text-white active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    style={{ backgroundColor: theme.primary }}
+                  >
+                    <IoNotificationsOutline className="w-4 h-4" /> Call Waiter
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          )}
+          {/* {arItem && (
             <RealisticARViewer
               item={arItem}
               onClose={() => setArItem(null)}
               theme={theme}
             />
-          )}
+          )} */}
 
           {selectedItem && <OrderModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
           {/* <LoginModal /> */}

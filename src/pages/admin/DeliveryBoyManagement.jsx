@@ -34,7 +34,7 @@ const PLAN_CONFIG = {
     bgColor: "#dcfce7",
     textColor: "#166534",
     borderColor: "#bbf7d0",
-    desc: "30 din unlimited",
+    desc: "15 din unlimited",
     features: {
       dishes: "Unlimited",
       qrMenu: true,

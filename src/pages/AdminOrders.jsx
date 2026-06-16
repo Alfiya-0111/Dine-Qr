@@ -19,15 +19,15 @@ const GOLD     = "#FFD166";
 const PLAN_CONFIG = {
   trial: {
     label: "FREE TRIAL", color: "#22c55e", bgColor: "#dcfce7",
-    textColor: "#166534", borderColor: "#bbf7d0", desc: "30 din unlimited",
+    textColor: "#166534", borderColor: "#bbf7d0", desc: "15 din unlimited",
   },
   starter: {
     label: "STARTER", color: "#3b82f6", bgColor: "#dbeafe",
-    textColor: "#1e40af", borderColor: "#bfdbfe", desc: "35 dishes",
+    textColor: "#1e40af", borderColor: "#bfdbfe", desc: "60 dishes",
   },
-  growth: {
+   growth: {
     label: "GROWTH", color: "#f97316", bgColor: "#ffedd5",
-    textColor: "#9a3412", borderColor: "#fed7aa", desc: "50 dishes",
+    textColor: "#9a3412", borderColor: "#fed7aa", desc: "90 dishes",
   },
   pro: {
     label: "PRO", color: "#FFD166", bgColor: "#fef9c3",
@@ -249,8 +249,8 @@ export default function AdminOrders() {
             });
           }
         } else {
-          setPlanId("starter");
-          setUserPlan({ planId: "starter", planName: "Starter", maxDishes: 35, status: "active" });
+               setPlanId("starter");
+          setUserPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "active" });
           setPlanFeatures(PLAN_FEATURES.starter);
         }
       } catch (e) {

@@ -97,12 +97,12 @@ export default function Footer() {
                 <img src={khaatogologo} alt="Khaatogo" style={{ height: "auto", width: "auto" }} />
               </div>
 
-              <p className="text-gray-400 text-sm leading-relaxed mb-6 max-w-sm">
+              <p className="text-white text-sm leading-relaxed mb-6 max-w-sm">
                 India's #1 QR Menu & Restaurant Management Platform. Dhaba se 5-star, sabke liye.
               </p>
 
               {/* Contact Info */}
-              <div className="space-y-2.5 text-sm text-gray-400 mb-6">
+              <div className="space-y-2.5 text-sm text-white mb-6">
                 {footerData.phone && (
                   <a href={`tel:${footerData.phone}`} className="flex items-center gap-2 hover:text-[#FCB53B] transition">
                     <IoCallOutline className="w-4 h-4 shrink-0" />
@@ -135,7 +135,7 @@ export default function Footer() {
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center text-gray-400 ${getSocialColor(name)} transition hover:bg-gray-700`}
+                        className={`w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center text-white ${getSocialColor(name)} transition hover:bg-gray-700`}
                       >
                         <Icon className="text-base" />
                       </a>
@@ -158,7 +158,7 @@ export default function Footer() {
                         <li key={`${colName}-${linkName}`}>
                           <Link
                             to={`/${slug}`}
-                            className="text-sm text-gray-400 hover:text-[#FCB53B] transition"
+                            className="text-sm text-white hover:text-[#FCB53B] transition"
                           >
                             {linkName}
                           </Link>
@@ -180,8 +180,8 @@ export default function Footer() {
                 { icon: <IoShieldCheckmarkOutline className="w-4 h-4" />, label: 'ISO 27001'     },
                 { icon: <IoStar className="w-4 h-4" />,                   label: '#1 Rated'      },
               ].map((badge, i) => (
-                <div key={i} className="flex items-center gap-2 text-gray-500 text-xs">
-                  <span className="text-gray-400">{badge.icon}</span>
+                <div key={i} className="flex items-center gap-2 text-white text-xs">
+                  <span className="text-white">{badge.icon}</span>
                   <span>{badge.label}</span>
                 </div>
               ))}
@@ -189,7 +189,7 @@ export default function Footer() {
 
             {/* Bottom Bar */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-3 pt-4 border-t border-gray-800">
-              <p className="text-gray-500 text-xs">© {currentYear} Khaatogo. All rights reserved.</p>
+              <p className="text-white text-xs">© {currentYear} Khaatogo. All rights reserved.</p>
 
               {/* Dynamic Legal Links from Firebase */}
               {columns["Legal"] && columns["Legal"].links && (
@@ -201,7 +201,7 @@ export default function Footer() {
                       <Link
                         key={linkName}
                         to={`/${slug}`}
-                        className="text-gray-500 text-xs hover:text-[#FCB53B] transition"
+                        className="text-white text-xs hover:text-[#FCB53B] transition"
                       >
                         {linkName}
                       </Link>
@@ -210,7 +210,7 @@ export default function Footer() {
                 </div>
               )}
 
-              <div className="flex items-center gap-4 text-xs text-gray-500">
+              <div className="flex items-center gap-4 text-xs text-white">
                 <span className="flex items-center gap-1">
                   <Shield className="w-3.5 h-3.5" /> SSL Secured
                 </span>

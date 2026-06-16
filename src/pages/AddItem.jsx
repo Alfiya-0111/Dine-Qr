@@ -103,35 +103,30 @@ const VENUE_CONFIGS = {
 // PLAN FEATURE MAP
 const PLAN_FEATURES = {
   trial: {
-    dishes: "Unlimited", qrMenu: true, whatsappOrders: true, kds: true,
-    tableBooking: true, adminOrder: true, menuItems: true, customerFeedback: true,
+    dishes: "30", qrMenu: true, whatsappOrders: true, kds: true,
+    tableBooking: true, adminOrder: true, restaurantSettings: true, menuItems: true, customerFeedback: true,
     deliveryBoys: true, paymentStatus: true, revenueDashboard: true,
-    adminCoupons: true, analytics: "Full", support: "Email",
-    aiDescriptions: true, arFoodView: true,
+    adminCoupons: true, multiBranch: true, analytics: "Full", support: "WhatsApp",
   },
   starter: {
-    dishes: 35, qrMenu: true, whatsappOrders: false, kds: false,
-    tableBooking: false, adminOrder: true, menuItems: true, customerFeedback: false,
+    dishes: 60, qrMenu: true, whatsappOrders: true, kds: false,
+    tableBooking: false, adminOrder: true, restaurantSettings: true, menuItems: true, customerFeedback: false,
     deliveryBoys: false, paymentStatus: true, revenueDashboard: false,
-    adminCoupons: false, analytics: "Basic", support: "Email",
-    aiDescriptions: false, arFoodView: false,
+    adminCoupons: false, multiBranch: false, analytics: "Basic", support: "Email",
   },
-  growth: {
-    dishes: 50, qrMenu: true, whatsappOrders: true, kds: true,
-    tableBooking: true, adminOrder: true, menuItems: true, customerFeedback: true,
+ growth: {
+    dishes: 90, qrMenu: true, whatsappOrders: true, kds: true,
+    tableBooking: true, adminOrder: true, restaurantSettings: true, menuItems: true, customerFeedback: true,
     deliveryBoys: false, paymentStatus: true, revenueDashboard: true,
-    adminCoupons: true, analytics: "Full", support: "Email + Chat",
-    aiDescriptions: true, arFoodView: false,
+    adminCoupons: true, multiBranch: false, analytics: "Full", support: "Email + Chat",
   },
   pro: {
     dishes: "Unlimited", qrMenu: true, whatsappOrders: true, kds: true,
-    tableBooking: true, adminOrder: true, menuItems: true, customerFeedback: true,
+    tableBooking: true, adminOrder: true, restaurantSettings: true, menuItems: true, customerFeedback: true,
     deliveryBoys: true, paymentStatus: true, revenueDashboard: true,
-    adminCoupons: true, analytics: "Full + Reports", support: "Priority + Call",
-    aiDescriptions: true, arFoodView: true,
+    adminCoupons: true, multiBranch: true, analytics: "Full + Reports", support: "Priority + Call",
   },
 };
-
 const PLAN_LABELS = { trial: "Free Trial", starter: "Starter", growth: "Growth", pro: "Pro" };
 const PLAN_BADGES = {
 trial:   { icon: <FaGift />,     color: "#22c55e" },
@@ -416,14 +411,14 @@ export default function AddItem() {
             isTrial: data.isTrial || false,
           });
         } else {
-          setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 35, status: "active" });
+          setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "active" });
           setPlanId("starter");
           setPlanFeatures(PLAN_FEATURES.starter);
           setSubscriptionStatus({ active: true, isTrial: false });
         }
       } catch (err) {
         console.error("Subscription load error:", err);
-        setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 35, status: "active" });
+setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "active" });
         setPlanId("starter");
         setPlanFeatures(PLAN_FEATURES.starter);
       }

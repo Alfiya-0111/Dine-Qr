@@ -444,7 +444,7 @@ export default function MyOrders() {
 
   // ── Derived filtered list (MEMOIZED) ──────────────────────────────────────
   const now = Date.now();
-  const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+  const THIRTY_DAYS = 15 * 24 * 60 * 60 * 1000;
 
   const visible = useMemo(() => {
     let result = [...orders];
@@ -628,7 +628,7 @@ export default function MyOrders() {
           {!loading && (
             <p className="text-xs text-gray-400 px-1">
               Showing {visible.length} of {orders.length} orders
-              {filter === "last30" ? " (last 30 days)" : ""}
+              {filter === "last30" ? " (last 15 days)" : ""}
               {statusFilter !== "all" ? ` · ${STATUS[statusFilter]?.label || statusFilter}` : ""}
             </p>
           )}

@@ -427,24 +427,31 @@ const cfg = statusConfig[order.status] || {
           <div style={{ fontWeight: 900, fontSize: 16, lineHeight: 1, letterSpacing: "0.3px" }}>
             #{order.id?.slice(-6)}
           </div>
-          {order.tableNumber || order.orderDetails?.tableNumber ? (
-            <div style={{
-              marginTop: 5,
-              background: "rgba(255,209,102,0.25)",
-              border: "1px solid rgba(255,209,102,0.45)",
-              display: "inline-block",
-              padding: "2px 9px",
-              borderRadius: 20,
-              fontSize: 12,
-              fontWeight: 800,
-              color: GOLD,
-            }}>
-              <FaChair style={{ color: GOLD, fontSize: 11, marginRight: 4 }} /> Table {order.tableNumber || order.orderDetails?.tableNumber}
-            </div>
-          ) : (
-            <div style={{ fontSize: 11, opacity: 0.75, marginTop: 3 }}>
-              👤 {order.customerName || order.customerInfo?.name || "Guest"}
-            </div>
+     {order.tableNumber || order.tableName || order.orderDetails?.tableNumber || order.orderDetails?.tableName ? (
+  <div style={{
+    marginTop: 5,
+    background: "rgba(255,209,102,0.25)",
+    border: "1px solid rgba(255,209,102,0.45)",
+    display: "inline-block",
+    padding: "2px 9px",
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: 800,
+    color: GOLD,
+  }}>
+    <FaChair style={{ color: GOLD, fontSize: 11, marginRight: 4 }} /> 
+    {order.floor || order.orderDetails?.floor ? `${order.floor || order.orderDetails?.floor} · ` : ''}
+    Table {order.tableName || order.tableNumber || order.orderDetails?.tableName || order.orderDetails?.tableNumber}
+  </div>
+) : (
+<div style={{ fontSize: 11, opacity: 0.75, marginTop: 3 }}>
+  👤 {order.customerName || order.customerInfo?.name || "Guest"}
+  {(order.tableName || order.orderDetails?.tableName) && (
+    <span style={{ marginLeft: 8, color: GOLD }}>
+      · {order.floor || order.orderDetails?.floor || 'Ground Floor'}
+    </span>
+  )}
+</div>
           )}
         </div>
 

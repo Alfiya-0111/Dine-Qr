@@ -9,7 +9,7 @@ import {
   FaUtensils, FaWhatsapp, FaChair, FaClipboardList,
   FaCommentAlt, FaMotorcycle, FaChartBar, FaTicketAlt,
   FaHeadset, FaLock, FaGift, FaRocket, FaChartLine,
-  FaInfinity, FaFire, FaStar, FaCheckDouble
+  FaInfinity, FaFire, FaStar, FaCheckDouble, FaUsers 
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
@@ -23,14 +23,15 @@ const PLANS = [
     id: 'trial',
     name: 'Free Trial',
     price: 0,
-    period: '30 days',
+    period: '15 days',
  icon: <FaGift style={{ fontSize: 40, color: '#22c55e' }} />,
-    tagline: '30 din free, sab kuch unlock',
-    badge: 'YAHAN SE SHURU KARO',
+    tagline: '15 din free, sab kuch unlock',
+   badge: ' FREE FOR 15 DAYS',
     badgeColor: '#22c55e',
     accentColor: '#22c55e',
     features: {
-      dishes: 'Unlimited',
+      dishes: '30',
+       staffManagement: true,
       qrMenu: true,
       whatsappOrders: true,
       kds: true,
@@ -45,22 +46,23 @@ const PLANS = [
       adminCoupons: true,
       multiBranch: true,
       analytics: 'Full',
-      support: 'Email',
+     support: 'WhatsApp',
     },
   },
   {
-    id: 'starter',
-    name: 'Starter',
-    price: 199,
+ id: 'starter',
+  name: 'Starter',
+  price: 299,
     period: 'month',
   icon: <FaRocket style={{ fontSize: 40, color: '#3b82f6' }} />,    
     tagline: 'Chote dhabe ke liye perfect',
     badge: null,
     accentColor: '#3b82f6',
     features: {
-      dishes: 35,
+      dishes: 60,
+      staffManagement: false,
       qrMenu: true,
-      whatsappOrders: false,
+      whatsappOrders: true,
       kds: false,
       tableBooking: false,
       adminOrder: true,
@@ -79,16 +81,17 @@ const PLANS = [
   {
     id: 'growth',
     name: 'Growth',
-    price: 499,
+    price: 599,
     period: 'month',
   icon: <FaChartLine style={{ fontSize: 40, color: '#8A244B' }} />,
 
     tagline: 'Growing restaurants ke liye',
-    badge: '🔥 POPULAR',
+badge: 'MOST CHOSEN',
      badgeColor: '#f97316',
     accentColor: '#8A244B',
     features: {
-      dishes: 50,
+      dishes: 90,
+      staffManagement: true, 
       qrMenu: true,
       whatsappOrders: true,
       kds: true,
@@ -118,6 +121,7 @@ const PLANS = [
     accentColor: '#FFD166',
     features: {
       dishes: 'Unlimited',
+      staffManagement: true,
       qrMenu: true,
       whatsappOrders: true,
       kds: true,
@@ -217,7 +221,7 @@ export default function SubscriptionPage() {
       orderId,
       paymentMethod: 'razorpay',
       createdAt: Date.now(),
-      expiresAt: Date.now() + 30 * 60 * 1000,
+      expiresAt: Date.now() + 15 * 60 * 1000,
     });
 
     const options = {
@@ -341,10 +345,10 @@ export default function SubscriptionPage() {
       await set(rtdbRef(realtimeDB, `subscriptions/${user.uid}`), {
         planId: 'trial',
         planName: 'Free Trial',
-        maxDishes: 'unlimited',
+        maxDishes: '30',
         status: 'active',
         activatedAt: Date.now(),
-        expiresAt: Date.now() + 30 * 86400000,
+        expiresAt: Date.now() + 15 * 86400000,
         isTrial: true,
         trialUsed: true,
         features: PLANS[0].features,
@@ -354,17 +358,17 @@ export default function SubscriptionPage() {
       const { db } = await import('../firebaseConfig');
       await updateDoc(doc(db, 'restaurants', user.uid), {
         plan: 'trial',
-        subscriptionValidTill: new Date(Date.now() + 30 * 86400000),
+        subscriptionValidTill: new Date(Date.now() + 15 * 86400000),
       });
 
       await push(rtdbRef(realtimeDB, `notifications/${user.uid}`), {
         title: '🎉 Free Trial Activated!',
-        message: '30 days unlimited access. Multi-branch bhi included!',
+        message: '15 days Trails access. Multi-branch bhi included!',
         createdAt: Date.now(),
         read: false,
       });
 
-      toast.success('🎉 30 din ka free trial activate ho gaya!');
+      toast.success('🎉 15 din ka free trial activate ho gaya!');
       navigate('/dashboard/menu');
     } catch (e) {
       console.error('Trial activation error:', e);
@@ -388,13 +392,15 @@ export default function SubscriptionPage() {
     if (isCurrentPlan(plan)) return 'Current Plan ✓';
     if (isTrialUsed(plan)) return 'Trial Used';
     if (processingPlanId === plan.id) return 'Opening...';
-    if (plan.id === 'trial') return 'Start Free Trial →';
+   if (plan.id === 'trial')
+  return 'Start 15-Day Free Trial →';
     return `Pay ₹${plan.price} →`;
   };
 
   // Feature list for plan cards
- const featureList = [
+const featureList = [
   { key: 'dishes',           label: 'Dishes',            icon: <FaUtensils />,      format: (v) => v === 'Unlimited' ? '∞ Unlimited' : v },
+  { key: 'staffManagement',  label: 'Staff Management',  icon: <FaUsers /> },
   { key: 'qrMenu',           label: 'QR Menu',           icon: <FaQrcode /> },
   { key: 'whatsappOrders',   label: 'WhatsApp Orders',   icon: <FaWhatsapp /> },
   { key: 'kds',              label: 'Kitchen Display',   icon: <FaClipboardList /> },
@@ -420,13 +426,31 @@ export default function SubscriptionPage() {
             <span style={{ color: GOLD, fontSize: 13, fontWeight: 600, letterSpacing: 1 }}>KHAATOGO PRICING</span>
           </div>
           <h1 style={{ color: '#fff', fontSize: 'clamp(28px, 5vw, 48px)', fontWeight: 800, margin: '0 0 12px', lineHeight: 1.2 }}>
-            30 Din Free.<br />
-            <span style={{ color: GOLD }}>Sab Kuch Unlock.</span>
+          
+           15 Din Free Trial.<br />
+<span style={{ color: GOLD }}>
+No payment required today.
+</span>
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 16, margin: '0 auto 24px', maxWidth: 480 }}>
             No credit card. No hidden charges. Sirf apna restaurant grow karo.
           </p>
-
+<div
+  style={{
+    background: 'rgba(34,197,94,0.15)',
+    border: '1px solid rgba(34,197,94,0.3)',
+    color: '#4ade80',
+    padding: '12px 20px',
+    borderRadius: 12,
+    display: 'inline-block',
+    marginBottom: 20,
+    fontWeight: 700,
+    fontSize: 14
+  }}
+>
+   Free Trial ke baad hi payment required hai.
+  Koi credit card nahi. Koi hidden charge nahi.
+</div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'rgba(255,209,102,0.15)', border: '1px solid rgba(255,209,102,0.3)', borderRadius: 16, padding: '12px 24px', marginBottom: 20 }}>
             <FaBuilding style={{ color: GOLD, fontSize: 20 }} />
             <div style={{ textAlign: 'left' }}>
@@ -496,7 +520,7 @@ export default function SubscriptionPage() {
                     {plan.price === 0 ? (
                       <div>
                         <span style={{ fontSize: 44, fontWeight: 900, color: '#22c55e' }}>FREE</span>
-                        <div style={{ fontSize: 13, color: '#888', marginTop: 2 }}>30 din ke liye</div>
+                        <div style={{ fontSize: 13, color: '#888', marginTop: 2 }}>15 din ke liye</div>
                       </div>
                     ) : (
                       <div>
@@ -607,13 +631,14 @@ export default function SubscriptionPage() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: showComparison ? 20 : 0 }}>
-         {[
-  { label: 'Dishes',          key: 'dishes',        icon: <FaUtensils /> },
-  { label: 'Multi-Branch',    key: 'multiBranch',   icon: <FaBuilding />,    highlight: true },
-  { label: 'QR Menu',         key: 'qrMenu',        icon: <FaQrcode /> },
-  { label: 'WhatsApp Orders', key: 'whatsappOrders',icon: <FaWhatsapp /> },
-  { label: 'Kitchen Display', key: 'kds',           icon: <FaClipboardList /> },
-  { label: 'Table Booking',   key: 'tableBooking',  icon: <FaChair /> },
+     {[
+  { label: 'Dishes',           key: 'dishes',          icon: <FaUtensils /> },
+  { label: 'Staff Management', key: 'staffManagement', icon: <FaUsers /> },
+  { label: 'Multi-Branch',     key: 'multiBranch',     icon: <FaBuilding />,    highlight: true },
+  { label: 'QR Menu',          key: 'qrMenu',          icon: <FaQrcode /> },
+  { label: 'WhatsApp Orders',  key: 'whatsappOrders',  icon: <FaWhatsapp /> },
+  { label: 'Kitchen Display',  key: 'kds',             icon: <FaClipboardList /> },
+  { label: 'Table Booking',    key: 'tableBooking',    icon: <FaChair /> },
 ].map(item => (
   <div key={item.key} style={{ background: item.highlight ? 'rgba(255,209,102,0.1)' : '#faf9f7', borderRadius: 10, padding: '10px 14px', border: item.highlight ? `1px solid ${GOLD}40` : '1px solid transparent' }}>
     <div style={{ fontSize: 11, color: '#888', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>

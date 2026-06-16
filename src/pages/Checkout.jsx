@@ -582,7 +582,11 @@ export default function Checkout() {
   const [customerName, setCustomerName]               = useState("");
   const [customerPhone, setCustomerPhone]             = useState("");
   const [customerEmail, setCustomerEmail]             = useState("");
-  const [tableNumber, setTableNumber]                 = useState("");
+ const [tableNumber, setTableNumber]                 = useState("");
+  const [selectedTable, setSelectedTable]             = useState(null);   // ← NEW
+  const [availableTables, setAvailableTables]         = useState([]);     // ← NEW
+  const [tableFloors, setTableFloors]                 = useState([]);     // ← NEW
+  const [selectedFloor, setSelectedFloor]             = useState("All");  // ← NEW
   const [numberOfGuests, setNumberOfGuests]           = useState("1");
   const [orderType, setOrderType]                     = useState("dine-in");
   const [specialInstructions, setSpecialInstructions] = useState("");
@@ -658,7 +662,31 @@ export default function Checkout() {
     setOrderDate(today);
     return () => unsubscribe();
   }, [restaurantId, today]);
-
+  // ─── LOAD TABLES (for dine-in floor/table selection) ────────────────────────
+  useEffect(() => {
+    if (!restaurantId || orderType !== "dine-in") return;
+    
+    const tablesRef = ref(realtimeDB, `restaurants/${restaurantId}/tables`);
+    const unsubscribe = onValue(tablesRef, (snap) => {
+      if (!snap.exists()) {
+        setAvailableTables([]);
+        setTableFloors([]);
+        return;
+      }
+      const data = snap.val();
+      const tablesList = Object.entries(data)
+        .map(([id, t]) => ({ id, ...t }))
+        .filter(t => t.status === "available");
+      
+      setAvailableTables(tablesList);
+      
+      // Unique floors extract karo
+      const floors = ["All", ...new Set(tablesList.map(t => t.floor || "Ground Floor"))];
+      setTableFloors(floors);
+    });
+    
+    return () => unsubscribe();
+  }, [restaurantId, orderType]);
   // ─── LOAD SUBSCRIPTION ────────────────────────────────────────────────────
   useEffect(() => {
     if (!ownerUid) return;
@@ -684,21 +712,21 @@ export default function Checkout() {
     return () => unsubscribe();
   }, [ownerUid]);
 
-  const getDefaultFeatures = (planId) => {
+   const getDefaultFeatures = (planId) => {
     const plans = {
       trial: {
-        dishes: 'Unlimited', qrMenu: true, whatsappOrders: true, kds: true,
-        tableBooking: true, aiDescriptions: true, deliveryManagement: true,
-        arFoodView: true, customBranding: true, analytics: 'Full', support: 'Email',
+        dishes: '30', qrMenu: true, whatsappOrders: true, kds: true,
+        tableBooking: true, aiDescriptions: false, deliveryManagement: true,
+        arFoodView: false, customBranding: false, analytics: 'Full', support: 'WhatsApp',
       },
       starter: {
-        dishes: 35, qrMenu: true, whatsappOrders: false, kds: false,
+        dishes: 60, qrMenu: true, whatsappOrders: false, kds: false,
         tableBooking: true, aiDescriptions: false, deliveryManagement: true,
         arFoodView: false, customBranding: false, analytics: 'Basic', support: 'Email',
       },
       growth: {
-        dishes: 50, qrMenu: true, whatsappOrders: true, kds: true,
-        tableBooking: true, aiDescriptions: true, deliveryManagement: true,
+        dishes: 90, qrMenu: true, whatsappOrders: true, kds: true,
+        tableBooking: true, aiDescriptions: false, deliveryManagement: true,
         arFoodView: false, customBranding: false, analytics: 'Full', support: 'Email + Chat',
       },
       pro: {
@@ -720,8 +748,8 @@ export default function Checkout() {
     if (customerPhone && !isValidPhone(customerPhone)) {
       toast.error("Valid 10-digit phone number daalo"); return false;
     }
-    if (orderType === "dine-in" && !tableNumber.trim()) {
-      toast.error("Table number daalo"); return false;
+   if (orderType === "dine-in" && !tableNumber.trim() && !selectedTable) {
+      toast.error("Table select karo"); return false;
     }
     if (orderType === "delivery") {
       if (!deliveryAddress.trim()) { toast.error("❌ Delivery address daalo"); return false; }
@@ -759,9 +787,12 @@ export default function Checkout() {
     phone: customerPhone.trim() || null,
     email: customerEmail.trim() || null,
   },
-  orderDetails: {
+orderDetails: {
         type:                orderType,
-        tableNumber:         orderType === "dine-in" ? tableNumber.trim() : null,
+        tableNumber:         orderType === "dine-in" ? (selectedTable?.name || tableNumber.trim()) : null,
+        tableName:           orderType === "dine-in" ? (selectedTable?.name || tableNumber.trim()) : null,
+        floor:               orderType === "dine-in" ? (selectedTable?.floor || "Ground Floor") : null,
+        tableId:             orderType === "dine-in" ? selectedTable?.id || null : null,
         numberOfGuests:      parseInt(numberOfGuests) || 1,
         orderDate,
         orderTime,
@@ -1026,14 +1057,88 @@ export default function Checkout() {
               style={{ borderColor: customerEmail ? (theme?.primary || "#8A244B") : (theme?.primary || "#8A244B") + "30" }}
             />
           </div>
-          {orderType === "dine-in" && (
-            <input
-              placeholder="Table Number *"
-              value={tableNumber}
-              onChange={(e) => setTableNumber(e.target.value)}
-              className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
-              style={{ borderColor: tableNumber ? (theme?.primary || "#8A244B") : (theme?.primary || "#8A244B") + "30" }}
-            />
+                  {orderType === "dine-in" && (
+            <div className="space-y-3">
+              {/* Floor Tabs */}
+              {tableFloors.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {tableFloors.map(floor => {
+                    const count = floor === "All" 
+                      ? availableTables.length 
+                      : availableTables.filter(t => (t.floor || "Ground Floor") === floor).length;
+                    return (
+                      <button
+                        key={floor}
+                        onClick={() => { setSelectedFloor(floor); setSelectedTable(null); setTableNumber(""); }}
+                        className="px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all"
+                        style={{
+                          backgroundColor: selectedFloor === floor ? (theme?.primary || "#8A244B") : "#f3f4f6",
+                          color: selectedFloor === floor ? "#fff" : "#374151",
+                          border: `2px solid ${selectedFloor === floor ? (theme?.primary || "#8A244B") : "#e5e7eb"}`,
+                        }}
+                      >
+                        {floor} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Table Select Dropdown */}
+              <div>
+                <label className="block text-sm font-bold mb-2" style={{ color: theme?.primary || "#8A244B" }}>
+                  🪑 Select Table *
+                </label>
+                <select
+                  value={selectedTable?.id || ""}
+                  onChange={(e) => {
+                    const tableId = e.target.value;
+                    if (!tableId) { setSelectedTable(null); setTableNumber(""); return; }
+                    const table = availableTables.find(t => t.id === tableId);
+                    setSelectedTable(table);
+                    setTableNumber(table?.name || "");
+                  }}
+                  className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
+                  style={{ 
+                    borderColor: selectedTable ? (theme?.primary || "#8A244B") : (theme?.primary || "#8A244B") + "30",
+                    backgroundColor: "#fff",
+                  }}
+                >
+                  <option value="">-- Select a Table --</option>
+                  {(selectedFloor === "All" 
+                    ? availableTables 
+                    : availableTables.filter(t => (t.floor || "Ground Floor") === selectedFloor)
+                  ).map(table => (
+                    <option key={table.id} value={table.id}>
+                      {table.name} · {table.floor || "Ground Floor"} · 👥 {table.capacity} guests
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Selected Table Info */}
+              {selectedTable && (
+                <div className="p-3 rounded-lg text-sm" style={{ backgroundColor: (theme?.primary || "#8A244B") + "10", border: `1px solid ${(theme?.primary || "#8A244B")}30` }}>
+                  <div className="font-bold" style={{ color: theme?.primary || "#8A244B" }}>
+                    ✅ {selectedTable.name} selected
+                  </div>
+                  <div className="text-gray-600 text-xs mt-1">
+                    {selectedTable.floor || "Ground Floor"} · Capacity: {selectedTable.capacity} guests · {selectedTable.location}
+                  </div>
+                </div>
+              )}
+
+              {/* Fallback: Manual table number (agar koi table nahi hai) */}
+              {availableTables.length === 0 && (
+                <input
+                  placeholder="Table Number * (No tables configured)"
+                  value={tableNumber}
+                  onChange={(e) => setTableNumber(e.target.value)}
+                  className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
+                  style={{ borderColor: tableNumber ? (theme?.primary || "#8A244B") : (theme?.primary || "#8A244B") + "30" }}
+                />
+              )}
+            </div>
           )}
         </div>
 

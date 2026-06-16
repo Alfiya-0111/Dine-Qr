@@ -9,10 +9,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Utensils, Coffee, Flame, Croissant, CloudCog } from "lucide-react";
 import { Gift, Rocket, TrendingUp, Infinity, Store, Palette, MapPin, BookOpen, Settings, AlertTriangle, Save, Lock, UtensilsCrossed, Instagram, Map, Camera, Video, Image, QrCode, Clock, CreditCard } from "lucide-react";
 const PLAN_FEATURES = {
-  trial:   { dishes: "Unlimited", paymentStatus: true, revenueDashboard: true, adminCoupons: true },
-  starter: { dishes: 35,          paymentStatus: true, revenueDashboard: false, adminCoupons: false },
-  growth:  { dishes: 50,          paymentStatus: true, revenueDashboard: true,  adminCoupons: true },
-  pro:     { dishes: "Unlimited", paymentStatus: true, revenueDashboard: true,  adminCoupons: true },
+  trial:   { dishes: 30,  paymentStatus: true, revenueDashboard: true, adminCoupons: true },
+  starter: { dishes: 60,  paymentStatus: true, revenueDashboard: false, adminCoupons: false },
+  growth:  { dishes: 90,  paymentStatus: true, revenueDashboard: true,  adminCoupons: true },
+  pro:     { dishes: "Unlimited", paymentStatus: true, revenueDashboard: true, adminCoupons: true },
 };
 const PLAN_LABELS = { trial: "Free Trial", starter: "Starter", growth: "Growth", pro: "Pro" };
 const PLAN_BADGES = {
@@ -385,7 +385,7 @@ const uploadImage = useCallback(async (file) => {
   // ══════════════════════════════════════════
   // CATEGORY CRUD
   // ══════════════════════════════════════════
-  const addCategory = async () => {
+const addCategory = async () => {
     if (!newCategory.trim()) return;
     const max = planFeatures.dishes === "Unlimited" ? Infinity : planFeatures.dishes;
     if (categories.length >= max) {
@@ -806,9 +806,9 @@ if (!ownerSnap.exists()) {
      <SectionCard icon={<UtensilsCrossed size={18} />} title="Menu categories">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
           <span style={{ fontSize: "12px", color: "#9ca3af" }}>Categories added</span>
-          <span style={{ fontSize: "12px", fontWeight: 600, color: "#8A244B", background: "#FBE8EF", padding: "2px 10px", borderRadius: "20px" }}>
-            {categories.length} / {planFeatures.dishes === "Unlimited" ? "∞" : planFeatures.dishes}
-          </span>
+        <span style={{ fontSize: "12px", fontWeight: 600, color: "#8A244B", background: "#FBE8EF", padding: "2px 10px", borderRadius: "20px" }}>
+  {categories.length} / {planFeatures.dishes === "Unlimited" ? "∞" : planFeatures.dishes}
+</span>
         </div>
 
         <div style={{ display: "flex", gap: "8px" }}>
@@ -821,7 +821,7 @@ if (!ownerSnap.exists()) {
           />
           <button
             onClick={addCategory}
-            disabled={planFeatures.dishes !== "Unlimited" && categories.length >= planFeatures.dishes}
+          disabled={planFeatures.dishes !== "Unlimited" && categories.length >= planFeatures.dishes}
             style={{
               padding: "8px 16px", borderRadius: "12px", border: "1px solid #e5e7eb",
               fontSize: "14px", fontWeight: 500, color: "#8A244B", background: "#fff",

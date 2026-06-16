@@ -27,9 +27,9 @@ const PLAN_CONFIG = {
     bgColor: "#dcfce7",
     textColor: "#166534",
     borderColor: "#bbf7d0",
-    desc: "30 din unlimited",
+    desc: "15 din unlimited",
     features: {
-      dishes: "Unlimited",
+      dishes: 30,
       qrMenu: true,
       menuItems: true,
     },
@@ -40,9 +40,9 @@ const PLAN_CONFIG = {
     bgColor: "#dbeafe",
     textColor: "#1e40af",
     borderColor: "#bfdbfe",
-    desc: "35 dishes",
+    desc: "60 dishes",  // ✅ 35 → 60
     features: {
-      dishes: 35,
+      dishes: 60,
       qrMenu: true,
       menuItems: true,
     },
@@ -53,9 +53,9 @@ const PLAN_CONFIG = {
     bgColor: "#ffedd5",
     textColor: "#9a3412",
     borderColor: "#fed7aa",
-    desc: "50 dishes",
+    desc: "90 dishes",
     features: {
-      dishes: 50,
+      dishes: 90,  // ✅ 50 → 90
       qrMenu: true,
       menuItems: true,
     },
@@ -74,7 +74,6 @@ const PLAN_CONFIG = {
     },
   },
 };
-
 // Helper to darken a hex color by percentage
 function darkenColor(hex, percent) {
   const num = parseInt(hex.replace("#", ""), 16);
@@ -137,16 +136,18 @@ export default function MenuItems() {
               planData.maxDishes || planData.planFeatures?.dishes || PLAN_CONFIG[planId]?.features?.dishes || "unlimited";
             setDishLimit(maxDishes);
           } else {
-            setUserPlan({ planId: "starter", planName: "Starter", maxDishes: 35, status: "active" });
+            setUserPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "active" });
             setPlanFeatures(PLAN_CONFIG.starter.features);
-            setDishLimit(35);
+            setDishLimit(60);
+            setPlanFeatures(PLAN_CONFIG.starter.features);
+            setDishLimit(60);
           }
-        } catch (error) {
+           } catch (error) {
           console.error("Error loading plan:", error);
-          setUserPlan({ planId: "starter", planName: "Starter", maxDishes: 35, status: "active" });
+          setUserPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "active" });
           setPlanFeatures(PLAN_CONFIG.starter.features);
-          setDishLimit(35);
-        } finally {
+          setDishLimit(60);
+        }finally {
           setPlanLoading(false);
         }
 
@@ -421,57 +422,44 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
         </h2>
 
         {/* ===== QR SECTION ===== */}
-        {hasFeature("qrMenu") && !isPlanExpired() ? (
-          <>
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div>
-                  <p className="text-sm font-bold text-gray-700 flex items-center gap-1"><QrCode size={14} />  Digital Menu QR</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Customers scan karke directly menu dekh sakte hain
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowQR(true)}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white transition hover:opacity-90 active:scale-95"
-                  style={{ background: "linear-gradient(135deg, #8A244B, #B45253)" }}
-                >
-                  <FaQrcode /> Generate QR Code
-                </button>
+             {/* ===== QR SECTION — HAMESHA FREE ===== */}
+        <>
+          <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p className="text-sm font-bold text-gray-700 flex items-center gap-1"><QrCode size={14} />  Digital Menu QR</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Customers scan karke directly menu dekh sakte hain
+                </p>
               </div>
-            </div>
- {/* DESKTOP — Add Button */}
-            {canAddMoreDishes() && (
-              <div className=" md:flex justify-end mt-6 mb-6">
-                <Link to={`/dashboard/${userId}/add-item`}>
-                  <button className="px-6 py-3 bg-[#B45253] text-white rounded-lg font-semibold hover:opacity-90 transition shadow-md">
-                    + Add New Dish
-                  </button>
-                </Link>
-              </div>
-            )}
-            <Qrmodal
-              open={showQR}
-              onClose={() => setShowQR(false)}
-              menuURL={menuURL}
-              hotelName={hotelName}
-              logoURL={hotelLogoURL}
-              theme={restaurantTheme}
-            />
-          </>
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm p-6 border-2 border-dashed border-gray-200 mb-6">
-            <div className="text-center">
-              <p className="text-sm font-bold text-gray-700 mb-2">QR Menu Locked</p>
               <button
-                onClick={goToSubscription}
-                className="px-4 py-2 bg-[#8A244B] text-white text-sm font-bold rounded-lg"
+                onClick={() => setShowQR(true)}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white transition hover:opacity-90 active:scale-95"
+                style={{ background: "linear-gradient(135deg, #8A244B, #B45253)" }}
               >
-                Upgrade to Unlock
+                <FaQrcode /> Generate QR Code
               </button>
             </div>
           </div>
-        )}
+          {/* DESKTOP — Add Button */}
+          {canAddMoreDishes() && (
+            <div className=" md:flex justify-end mt-6 mb-6">
+              <Link to={`/dashboard/${userId}/add-item`}>
+                <button className="px-6 py-3 bg-[#B45253] text-white rounded-lg font-semibold hover:opacity-90 transition shadow-md">
+                  + Add New Dish
+                </button>
+              </Link>
+            </div>
+          )}
+          <Qrmodal
+            open={showQR}
+            onClose={() => setShowQR(false)}
+            menuURL={menuURL}
+            hotelName={hotelName}
+            logoURL={hotelLogoURL}
+            theme={restaurantTheme}
+          />
+        </>
 
         {/* ===== MENU ITEMS LIST ===== */}
         {hasFeature("menuItems") && !isPlanExpired() ? (

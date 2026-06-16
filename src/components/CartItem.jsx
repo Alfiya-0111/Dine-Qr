@@ -1,4 +1,5 @@
 import { useCart } from "../context/CartContext";
+import { Flame, Droplets, Cookie, Salad, X, Plus, Minus } from "lucide-react";
 
 export default function CartItem({ item }) {
   const { updateQty, removeFromCart } = useCart();
@@ -10,13 +11,11 @@ export default function CartItem({ item }) {
   const qty = item.qty || item.quantity || 1;
   const image = item.image || item.imageUrl || item.thumbnail || "";
 
-  // Determine dish type - agar dishTasteProfile nahi hai toh spicePreference check karein
   const isSweetDish = item.dishTasteProfile === "sweet";
-  const hasSpicePreference = item.spicePreference && item.spicePreference !== "normal";
 
   return (
     <div className="flex items-center justify-between gap-3 border-b py-3">
-      
+
       {/* LEFT */}
       <div className="flex items-center gap-3">
         {image && (
@@ -29,46 +28,42 @@ export default function CartItem({ item }) {
 
         <div>
           <p className="font-semibold text-sm">{name}</p>
-
           <p className="text-xs text-gray-500">
             ₹{price} × {qty}
           </p>
 
-          {/* 🌶 SPICE - Show for non-sweet dishes OR if spicePreference is explicitly set */}
+          {/* Spice — non-sweet dishes */}
           {!isSweetDish && item.spicePreference && (
-            <p className="text-xs text-gray-600">
-              🌶 Spice:
-              <span className="ml-1 font-semibold capitalize">
-                {item.spicePreference}
-              </span>
+            <p className="text-xs text-gray-600 flex items-center gap-1 mt-0.5">
+              <Flame size={11} className="text-orange-500" />
+              <span>Spice:</span>
+              <span className="font-semibold capitalize">{item.spicePreference}</span>
             </p>
           )}
 
-          {/* 🧂 SALT */}
-        {item.saltPreference && item.dishTasteProfile !== "sweet" && (
+          {/* Salt */}
+          {item.saltPreference && item.dishTasteProfile !== "sweet" && (
+            <p className="text-xs text-gray-600 flex items-center gap-1 mt-0.5">
+              <Droplets size={11} className="text-blue-400" />
+              <span>Salt:</span>
+              <span className="font-semibold capitalize">{item.saltPreference}</span>
+            </p>
+          )}
 
-  <p className="text-xs text-gray-600">
-    🧂 Salt:
-    <span className="ml-1 font-semibold capitalize">
-      {item.saltPreference}
-    </span>
-  </p>
-)}
-
-          {/* 🍯 SWEETNESS */}
+          {/* Sweetness */}
           {isSweetDish && item.sweetLevel && (
-            <p className="text-xs text-gray-600">
-              🍰 Sweetness:
-              <span className="ml-1 font-semibold capitalize">
-                {item.sweetLevel}
-              </span>
+            <p className="text-xs text-gray-600 flex items-center gap-1 mt-0.5">
+              <Cookie size={11} className="text-pink-400" />
+              <span>Sweetness:</span>
+              <span className="font-semibold capitalize">{item.sweetLevel}</span>
             </p>
           )}
 
-          {/* 🥗 SALAD */}
+          {/* Salad */}
           {item.salad?.qty > 0 && (
-            <p className="text-xs text-gray-500">
-              🥗 Salad: {item.salad.qty} Plate ({item.salad.taste})
+            <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+              <Salad size={11} className="text-green-500" />
+              <span>Salad: {item.salad.qty} Plate ({item.salad.taste})</span>
             </p>
           )}
         </div>
@@ -78,25 +73,25 @@ export default function CartItem({ item }) {
       <div className="flex items-center gap-2">
         <button
           onClick={() => updateQty(item.id, qty - 1)}
-          className="px-2 py-1 border rounded"
+          className="p-1.5 border rounded flex items-center justify-center hover:bg-gray-50 active:scale-90 transition"
         >
-          −
+          <Minus size={12} />
         </button>
 
-        <span className="text-sm">{qty}</span>
+        <span className="text-sm font-semibold w-5 text-center">{qty}</span>
 
         <button
           onClick={() => updateQty(item.id, qty + 1)}
-          className="px-2 py-1 border rounded"
+          className="p-1.5 border rounded flex items-center justify-center hover:bg-gray-50 active:scale-90 transition"
         >
-          +
+          <Plus size={12} />
         </button>
 
         <button
           onClick={() => removeFromCart(item.id)}
-          className="ml-2 text-red-500 text-lg"
+          className="ml-1 p-1.5 text-red-500 hover:bg-red-50 rounded transition active:scale-90"
         >
-          ✕
+          <X size={14} />
         </button>
       </div>
     </div>

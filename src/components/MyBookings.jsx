@@ -57,9 +57,10 @@ const MyBookings = ({ userId, restaurantId, theme }) => {
           <div key={booking.id} className="border rounded-lg p-3 bg-gray-50">
             <div className="flex justify-between items-start">
               <div>
-                <p className="font-semibold text-sm flex items-center gap-1">
-                  <MapPin size={14} /> {booking.tableName}
-                </p>
+<p className="font-semibold text-sm flex items-center gap-1">
+  <MapPin size={14} /> 
+  {booking.floor ? `${booking.floor} · ` : ''}{booking.tableName}
+</p>
                 <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
                   <Calendar size={12} /> {booking.date} at {booking.time}
                 </p>
