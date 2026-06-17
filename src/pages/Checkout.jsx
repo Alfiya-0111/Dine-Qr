@@ -1088,7 +1088,7 @@ floor:       orderType === "dine-in" ? (selectedTable?.floor || "Ground Floor") 
               )}
 
               {/* Table Select Dropdown */}
-              <div>
+              {/* <div>
                 <label className="block text-sm font-bold mb-2" style={{ color: theme?.primary || "#8A244B" }}>
                   🪑 Select Table *
                 </label>
@@ -1117,7 +1117,7 @@ floor:       orderType === "dine-in" ? (selectedTable?.floor || "Ground Floor") 
                     </option>
                   ))}
                 </select>
-              </div>
+              </div> */}
 
               {/* Selected Table Info */}
               {selectedTable && (
@@ -1132,9 +1132,9 @@ floor:       orderType === "dine-in" ? (selectedTable?.floor || "Ground Floor") 
               )}
 
               {/* Fallback: Manual table number (agar koi table nahi hai) */}
-              {availableTables.length === 0 && (
-                <input
-                  placeholder="Table Number * (No tables configured)"
+            {(
+  <input
+    placeholder="Table Number *"
                   value={tableNumber}
                   onChange={(e) => setTableNumber(e.target.value)}
                   className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
