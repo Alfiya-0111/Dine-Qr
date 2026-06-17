@@ -82,6 +82,7 @@ import {
   FaRedo,
   FaHamburger
 } from "react-icons/fa";
+import { getCategoryIcon } from "../utils/categoryIcon";
 import {
   BsCart3,
   BsStarFill,
@@ -2912,7 +2913,10 @@ const isPlanActive = () => {
                       borderColor: activeCategory === c.id ? theme.primary : "#e5e7eb",
                     }}
                   >
-                    <IoRestaurantOutline className="w-5 h-5" style={{ color: theme.primary }} />
+                 {(() => {
+  const { Icon } = getCategoryIcon(c.name);
+  return <Icon size={20} color={theme.primary} />;
+})()}
                   </div>
                   <span
                     className="text-[10px] font-medium whitespace-nowrap max-w-[48px] truncate"

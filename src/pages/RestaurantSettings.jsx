@@ -6,6 +6,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { FaQrcode, FaCopy, FaCheckCircle } from "react-icons/fa";
 import PhoneInput from "../components/Phoneinput";
 import { useNavigate, useParams } from "react-router-dom";
+import { getCategoryIcon } from "../utils/categoryIcon";
 import { Utensils, Coffee, Flame, Croissant, CloudCog } from "lucide-react";
 import { Gift, Rocket, TrendingUp, Infinity, Store, Palette, MapPin, BookOpen, Settings, AlertTriangle, Save, Lock, UtensilsCrossed, Instagram, Map, Camera, Video, Image, QrCode, Clock, CreditCard } from "lucide-react";
 const PLAN_FEATURES = {
@@ -853,7 +854,13 @@ if (!ownerSnap.exists()) {
                 </>
               ) : (
                 <>
-                  <span style={{ color: "#374151" }}><UtensilsCrossed size={12} /> {c.name}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: "4px", color: "#374151" }}>
+  {(() => {
+    const { Icon, color } = getCategoryIcon(c.name);
+    return <Icon size={13} color={color} />;
+  })()}
+  {c.name}
+</span>
                   <button onClick={() => { setEditCatId(c.id); setEditCatName(c.name); }} style={{ color: "#60a5fa", fontSize: "12px", background: "none", border: "none", cursor: "pointer" }}>✎</button>
                   <button onClick={() => deleteCategory(c.id)} style={{ color: "#f87171", fontSize: "12px", background: "none", border: "none", cursor: "pointer" }}>✕</button>
                 </>
