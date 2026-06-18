@@ -2266,24 +2266,9 @@ Sent via DineQR
       }
     });
 
-    // ── Fetch restaurant plan status ──
-    const planRef = rtdbRef(realtimeDB, `subscriptions/${restaurantId}`);
-    const planUnsub = onValue(planRef, (snap) => {
-      if (snap.exists()) {
-        const planData = snap.val();
-        const now = Date.now();
-        const isActive = planData.status === 'active' && (!planData.expiresAt || planData.expiresAt > now);
-        setRestaurantPlan({ ...planData, isActive });
-      } else {
-        // No plan = inactive
-        setRestaurantPlan({ isActive: false, planId: null });
-      }
-      setPlanLoading(false);
-    });
-
     return () => {
       unsubscribe();
-      planUnsub();
+    
     };
   }, [restaurantId]);
   // Dish likes listener
@@ -2358,8 +2343,7 @@ Sent via DineQR
 
   // ================= AI PICK: Sabse zyada likes wala dish =================
   const [mostLikedDishId, setMostLikedDishId] = useState(null);
-  const [restaurantPlan, setRestaurantPlan] = useState(null);
-const [planLoading, setPlanLoading] = useState(true);
+
   // Replace most liked useEffect:
   useEffect(() => {
     if (!restaurantId) return;
@@ -2409,8 +2393,15 @@ const [planLoading, setPlanLoading] = useState(true);
     recognition.start();
   };
 const isPlanActive = () => {
-  if (planLoading) return false; // Loading mein safe side pe false
-  return restaurantPlan?.isActive === true;
+  // Restaurant settings se plan status check karo
+  // planStatus: "active", "trial", "expired", "inactive" ya missing
+  const status = restaurantSettings?.planStatus;
+  
+  // Agar planStatus set nahi hai, toh default "active" maano (backward compatibility)
+  if (!status) return true;
+  
+  // "active" ya "trial" = buttons dikhao
+  return status === 'active' || status === 'trial';
 };
    const handleOrderClick = (item, action = "order") => {
     if (!item || !item.id) {
