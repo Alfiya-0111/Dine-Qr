@@ -485,7 +485,7 @@ const addCategory = async () => {
 
       setSaveMsg("Data save ho raha hai...");
 
-    await update(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
+await update(dbRef(realtimeDB, `restaurants/${restaurantId}`), {
   venueType,
   name,
   tagline,
@@ -504,15 +504,10 @@ const addCategory = async () => {
     stats:        aboutData.stats,
   },
   settings: { menuPublic, feedbackEnabled, adminOrderEnabled },
-  // ownerId HATA DIYA upar se
+  ownerId: user?.uid,  // ✅ bas yeh line add karo
 });
-
-// ownerId sirf tab set karo jab exist na kare
-const ownerSnap = await get(dbRef(realtimeDB, `restaurants/${restaurantId}/ownerId`));
-if (!ownerSnap.exists()) {
-  await set(dbRef(realtimeDB, `restaurants/${restaurantId}/ownerId`), restaurantId);
-}
-
+console.log('phone:', phone, 'length:', phone.length);
+console.log('name:', name, 'length:', name.length);
       setSaveMsg("✅ Saved!");
       setTimeout(() => setSaveMsg(""), 3000);
     } catch (err) {
