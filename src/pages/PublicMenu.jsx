@@ -3397,9 +3397,23 @@ const isPlanActive = () => {
                                 >
                                   Order Now
                                 </button>
+{/* AR View button */}
 <button
   onClick={() => setArItem(item)}
-  className="w-10 h-10 rounded-xl border-2 border-purple-500 text-purple-500 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] hover:bg-purple-500 hover:text-white"
+  className="w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95]"
+  style={{ 
+    borderColor: '#9333ea', 
+    color: '#9333ea',
+    backgroundColor: 'transparent'
+  }}
+  onMouseEnter={e => { 
+    e.currentTarget.style.backgroundColor = '#9333ea'; 
+    e.currentTarget.style.color = '#fff'; 
+  }}
+  onMouseLeave={e => { 
+    e.currentTarget.style.backgroundColor = 'transparent'; 
+    e.currentTarget.style.color = '#9333ea'; 
+  }}
   title="View in AR"
 >
   <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -4077,13 +4091,14 @@ const isPlanActive = () => {
               </div>
             </div>
           )}
-          {arItem && (
+        {arItem && (
   <RealisticARViewer
     item={arItem}
     onClose={() => setArItem(null)}
     theme={theme}
   />
 )}
+
 
           {selectedItem && <OrderModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
           {/* <LoginModal /> */}
