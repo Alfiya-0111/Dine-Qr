@@ -123,11 +123,11 @@ const Toggle = ({ checked, onChange, label, sub }) => (
 );
 
 export default function RestaurantSettings() {
-  const auth         = getAuth();
-  const user         = auth.currentUser;
-  const restaurantId = user?.uid;
-  const navigate     = useNavigate();
-  const { restaurantId: paramId } = useParams();
+  const auth = getAuth();
+  const user = auth.currentUser;
+  const { restaurantId: paramId } = useParams();  // ← sirf yahan, ek baar
+  const restaurantId = paramId || user?.uid;
+  const navigate = useNavigate();
 
   // ── Auth guard ──
   const [authChecked, setAuthChecked] = useState(false);
@@ -248,11 +248,12 @@ export default function RestaurantSettings() {
       try {
         const snap = await get(dbRef(realtimeDB, `restaurants/${restaurantId}/ownerId`));
         const ownerId = snap.val();
-        if (ownerId && ownerId !== restaurantId) {
-          setIsOwner(false);
-        } else {
-          setIsOwner(true);
-        }
+       if (ownerId) {
+  setIsOwner(ownerId === user?.uid);
+} else {
+  // ownerId set nahi hai — pehli baar save ho raha hai
+  setIsOwner(user?.uid === restaurantId);
+}
       } catch {
         setIsOwner(true);
       }
