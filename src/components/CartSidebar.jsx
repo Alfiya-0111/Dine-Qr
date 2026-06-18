@@ -747,7 +747,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
 
                 <button
                   onClick={() => { if (confirm('Clear all items from cart?')) clearCart(); }}
-                  className="w-full py-2.5 text-red-500 text-xs font-medium hover:bg-red-50 rounded-xl active:scale-95 transition"
+                  className="w-full flex items-center  flex-col  py-2.5 text-red-500 text-xs font-medium hover:bg-red-50 rounded-xl active:scale-95 transition"
                 >
                  <IoTrashOutline className="w-4 h-4" /> Clear Cart
                 </button>

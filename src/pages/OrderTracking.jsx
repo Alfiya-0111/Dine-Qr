@@ -1,13 +1,14 @@
 
-import { MapPin, CheckCircle2, ChefHat, Package, Bike, Home, Rocket, Wifi, Share2 } from "lucide-react";
+import { MapPin, CheckCircle2, ChefHat, Package, Bike, Home, Share2 } from "lucide-react";
 import { useParams } from "react-router-dom";
-import { ref, onValue, update, serverTimestamp } from "firebase/database";
+import { ref, onValue, update, serverTimestamp, set } from "firebase/database";
 import { realtimeDB, auth } from "../firebaseConfig";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { 
   FaMapMarkerAlt, FaWhatsapp, FaPhone, FaClock, 
   FaCheckCircle, FaMotorcycle, FaHome, FaArrowLeft,
-  FaShareAlt, FaExclamationTriangle
+  FaShareAlt, FaExclamationTriangle, FaRocket, FaWifi,
+  FaBatteryFull
 } from "react-icons/fa";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -16,7 +17,7 @@ import { useNavigate } from "react-router-dom";
 // 🎯 LIVE LOCATION SHARING COMPONENT (YAHAN RAKHO!)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function CustomerLiveLocation({ orderId, restaurantPhone, customerName, theme }) {
+function CustomerLiveLocation({ orderId, restaurantId, restaurantPhone, customerName, theme }) {
   const [isSharing, setIsSharing] = useState(false);
   const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 min
   const [currentLocation, setCurrentLocation] = useState(null);
@@ -84,14 +85,16 @@ function CustomerLiveLocation({ orderId, restaurantPhone, customerName, theme })
         // Auto-stop after 30 min
         timerRef.current = setTimeout(stopSharing, 30 * 60 * 1000);
 
-        toast.success("📍 Live sharing start! WhatsApp pe bhej do");
+       toast.success("Live sharing start! WhatsApp pe bhej do");
+
       },
       (err) => {
         toast.error("Location permission chahiye");
         console.error(err);
       }
     );
-  }, [orderId]);
+}, [orderId, restaurantId]);
+
 
   // Stop sharing
   const stopSharing = useCallback(() => {
@@ -103,17 +106,18 @@ function CustomerLiveLocation({ orderId, restaurantPhone, customerName, theme })
     setTimeLeft(30 * 60);
     
     // Update Firebase
-    update(ref(realtimeDB, `orders/${orderId}/customerLocation`), {
+  update(ref(realtimeDB, `orders/${restaurantId}/${orderId}/customerLocation`), {
       status: "stopped",
       stoppedAt: serverTimestamp()
     });
     
     toast.info("Location sharing band ho gayi");
-  }, [orderId]);
+ }, [orderId, restaurantId]);
 
   // Save to Firebase
   const saveLocationToFirebase = (lat, lng, status) => {
-    set(ref(realtimeDB, `orders/${orderId}/customerLocation`), {
+   set(ref(realtimeDB, `orders/${restaurantId}/${orderId}/customerLocation`), {
+
       lat,
       lng,
       status,
@@ -205,7 +209,15 @@ function CustomerLiveLocation({ orderId, restaurantPhone, customerName, theme })
         <div className="flex items-center gap-2">
           <div className={`w-3 h-3 rounded-full ${isSharing ? "animate-pulse bg-green-500" : "bg-gray-400"}`} />
           <span className="font-bold" style={{ color: theme.primary }}>
-            {isSharing ? <span style={{color:"#22c55e"}}>● Live Location ON</span> : "📍 Share Your Location"}
+           {isSharing ? (
+  <span style={{color:"#22c55e"}} className="flex items-center gap-1">
+    <FaMapMarkerAlt size={12} /> Live Location ON
+  </span>
+) : (
+  <span className="flex items-center gap-1">
+    <FaMapMarkerAlt size={14} /> Share Your Location
+  </span>
+)}
           </span>
         </div>
         {isSharing && (
@@ -232,10 +244,14 @@ function CustomerLiveLocation({ orderId, restaurantPhone, customerName, theme })
               className="w-full py-3 rounded-xl font-bold text-white text-lg shadow-lg hover:shadow-xl transition-all active:scale-95 flex items-center justify-center"
               style={{ backgroundColor: theme.primary }}
             >
-             <Rocket size={18} /> Start Live Sharing
+            <FaRocket size={18} className="mr-2" /> Start Live Sharing
             </button>
             <p className="text-xs text-gray-400 mt-3">
-              ⏱️ 30 minutes auto-stop • 🔋 Battery optimized
+<span className="flex items-center justify-center gap-3">
+  <span className="flex items-center gap-1"><FaClock size={10} /> 30 min auto-stop</span>
+  <span>•</span>
+  <span className="flex items-center gap-1"><FaBatteryFull size={10} /> Battery optimized</span>
+</span>
             </p>
           </div>
         ) : (
@@ -256,7 +272,7 @@ function CustomerLiveLocation({ orderId, restaurantPhone, customerName, theme })
               </div>
               {currentLocation?.accuracy && (
                 <p className="text-xs text-green-600 ml-13">
-                  <Wifi size={12} /> Accuracy: ±{Math.round(currentLocation.accuracy)} meters
+                 <FaWifi size={12} className="mr-1" /> Accuracy: ±{Math.round(currentLocation.accuracy)} meters
                 </p>
               )}
             </div>
@@ -473,12 +489,13 @@ const currentStepIndex = statusOrder.indexOf(
 
         {/* 🎯 LIVE LOCATION SHARING - YAHAN RAKHO! */}
         {order.orderDetails?.type === "delivery" && (
-          <CustomerLiveLocation
-            orderId={orderId}
-            restaurantPhone={order.restaurantPhone || order.restaurantData?.phone}
-            customerName={order.customerInfo?.name}
-            theme={theme}
-          />
+         <CustomerLiveLocation
+  orderId={orderId}
+  restaurantId={restaurantId}
+  restaurantPhone={order.restaurantPhone || order.restaurantData?.phone}
+  customerName={order.customerInfo?.name}
+  theme={theme}
+/>
         )}
 
         {/* Delivery Boy Info */}
