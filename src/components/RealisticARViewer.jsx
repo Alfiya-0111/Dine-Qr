@@ -1,5 +1,5 @@
-// components/RealisticARViewer.jsx — Dish Rises from Table Surface
-// Dish starts tiny from below table, grows and rises up like emerging from surface
+// components/RealisticARViewer.jsx — Dish Rises Super Slow from Table
+// Ultra graceful: 3.5 seconds, power-6 ease, very gentle emergence
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   IoClose, 
@@ -28,12 +28,12 @@ export default function RealisticARViewer({ item, onClose, theme }) {
   const [dishImage, setDishImage] = useState(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   
-  // Animation values (controlled by requestAnimationFrame)
-  const [animScale, setAnimScale] = useState(0.05); // Start tiny ~20px
-  const [animY, setAnimY] = useState(150); // Start below table
-  const [animRotateX, setAnimRotateX] = useState(85); // Start very flat
-  const [animOpacity, setAnimOpacity] = useState(0); // Start invisible
-  const [animZ, setAnimZ] = useState(-300); // Start far back
+  // Animation values
+  const [animScale, setAnimScale] = useState(0.02); // Start extremely tiny
+  const [animY, setAnimY] = useState(200); // Start far below
+  const [animRotateX, setAnimRotateX] = useState(88); // Almost flat
+  const [animOpacity, setAnimOpacity] = useState(0);
+  const [animZ, setAnimZ] = useState(-400);
   const [isAnimating, setIsAnimating] = useState(false);
   
   // Cleanup
@@ -116,52 +116,44 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     setCameraActive(false);
   };
 
-  // ========== CINEMATIC RISE ANIMATION ==========
-  // Dish table se neeche se upar aati hai, chhoti se badi hoti hai
+  // ========== SUPER SLOW GRACEFUL RISE ==========
+  // 3.5 seconds total — very gentle, like placing a dish on table
   const handlePlace = () => {
     setPlaced(true);
     setIsAnimating(true);
     
-    // Haptic feedback
-    if (navigator.vibrate) navigator.vibrate(50);
+    // Gentle haptic
+    if (navigator.vibrate) navigator.vibrate(20);
     
     const startTime = performance.now();
-    const duration = 2000; // 2 seconds total animation
+    const duration = 3500; // 3.5 seconds — very slow
     
     const animate = () => {
       const elapsed = performance.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
       
-      // Ease out cubic — fast start, very slow smooth end
-      const easeOut = 1 - Math.pow(1 - progress, 4);
+      // Power-6 ease out — extremely slow at end
+      // Like: 1 - (1-x)^6
+      const easeOut = 1 - Math.pow(1 - progress, 6);
       
-      // Phase 1: 0-30% — Quick rise from below (the "pop" effect)
-      // Phase 2: 30-100% — Slow graceful growth and settle
-      
-      let currentScale, currentY, currentRotateX, currentOpacity, currentZ;
-      
-      if (progress < 0.3) {
-        // Phase 1: Quick emergence (0-30%)
-        const phase1Progress = progress / 0.3;
-        const phase1Ease = 1 - Math.pow(1 - phase1Progress, 2);
-        
-        currentScale = 0.05 + (phase1Ease * 0.25); // 0.05 → 0.30
-        currentY = 150 - (phase1Ease * 80); // 150 → 70 (rising up)
-        currentRotateX = 85 - (phase1Ease * 20); // 85° → 65°
-        currentOpacity = phase1Ease; // 0 → 1
-        currentZ = -300 + (phase1Ease * 200); // -300 → -100
-        
+      // Even gentler: use sine ease for first 20%, then power-6
+      let currentEase;
+      if (progress < 0.2) {
+        // Very gentle start — sine ease in
+        const p = progress / 0.2;
+        currentEase = p * p * (3 - 2 * p) * 0.1; // Only 10% movement in first 20%
       } else {
-        // Phase 2: Slow graceful growth (30-100%)
-        const phase2Progress = (progress - 0.3) / 0.7;
-        const phase2Ease = 1 - Math.pow(1 - phase2Progress, 5); // Very smooth
-        
-        currentScale = 0.30 + (phase2Ease * 0.70); // 0.30 → 1.00
-        currentY = 70 - (phase2Ease * 50); // 70 → 20 (final position)
-        currentRotateX = 65 - (phase2Ease * 10); // 65° → 55°
-        currentOpacity = 1;
-        currentZ = -100 + (phase2Ease * 100); // -100 → 0
+        // Main movement — power-6 ease
+        const p = (progress - 0.2) / 0.8;
+        currentEase = 0.1 + (1 - Math.pow(1 - p, 6)) * 0.9;
       }
+      
+      // Current values
+      const currentScale = 0.02 + (currentEase * 0.98); // 0.02 → 1.00
+      const currentY = 200 - (currentEase * 180); // 200 → 20
+      const currentRotateX = 88 - (currentEase * 33); // 88° → 55°
+      const currentOpacity = progress < 0.05 ? progress * 20 : 1; // Quick fade in
+      const currentZ = -400 + (currentEase * 400); // -400 → 0
       
       setAnimScale(currentScale);
       setAnimY(currentY);
@@ -173,8 +165,8 @@ export default function RealisticARViewer({ item, onClose, theme }) {
         animFrameRef.current = requestAnimationFrame(animate);
       } else {
         setIsAnimating(false);
-        // Final bloom pulse
-        if (navigator.vibrate) navigator.vibrate(20);
+        // Final gentle settle
+        if (navigator.vibrate) navigator.vibrate(10);
       }
     };
     
@@ -184,12 +176,12 @@ export default function RealisticARViewer({ item, onClose, theme }) {
   const handleReposition = () => {
     setPlaced(false);
     setIsAnimating(false);
-    // Reset animation values
-    setAnimScale(0.05);
-    setAnimY(150);
-    setAnimRotateX(85);
+    // Reset
+    setAnimScale(0.02);
+    setAnimY(200);
+    setAnimRotateX(88);
     setAnimOpacity(0);
-    setAnimZ(-300);
+    setAnimZ(-400);
     setSurfaceDetected(false);
     setTimeout(() => setSurfaceDetected(true), 1500);
   };
@@ -226,9 +218,9 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     );
   }
 
-  // Calculate final transform
+  // Calculate transform
   const getDishTransform = () => {
-    if (!placed) return 'scale(0) translateY(200px) rotateX(90deg)';
+    if (!placed) return 'scale(0) translateY(300px) rotateX(90deg)';
     
     const totalScale = scale * animScale;
     
@@ -247,22 +239,20 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     };
   };
 
-  // Shadow grows with dish
+  // Shadow
   const getShadowStyle = () => {
-    if (!placed) return { opacity: 0, transform: 'scale(0)' };
+    if (!placed) return { opacity: 0 };
     
+    const shadowOpacity = animOpacity * 0.35;
     const shadowScale = animScale;
-    const shadowOpacity = animOpacity * 0.4;
     
     return {
       opacity: shadowOpacity,
-      transform: `scale(${shadowScale})`,
-      transition: 'none'
+      transform: `translateX(-50%) rotateX(-90deg) translateZ(-25px) scale(${shadowScale})`
     };
   };
 
-  // Bloom glow after settle
-  const showBloom = placed && !isAnimating && animScale >= 0.95;
+  const showBloom = placed && !isAnimating && animScale >= 0.98;
 
   return (
     <div className="fixed inset-0 z-[10000] bg-black overflow-hidden">
@@ -361,13 +351,13 @@ export default function RealisticARViewer({ item, onClose, theme }) {
               Point at Your Table
             </p>
             <p className="text-white/70 text-sm leading-relaxed">
-              Move your phone over the table. The dish will rise from the surface!
+              Move your phone over the table. The dish will slowly rise from the surface!
             </p>
           </div>
         </div>
       )}
 
-      {/* ========== THE WOW MOMENT — DISH RISES FROM TABLE ========== */}
+      {/* ========== SUPER SLOW RISE — DISH FROM TABLE ========== */}
       {placed && dishImage && (
         <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
           <div 
@@ -375,49 +365,48 @@ export default function RealisticARViewer({ item, onClose, theme }) {
             className="relative"
             style={getDishTransform()}
           >
-            {/* ===== BLOOM GLOW (after settle) ===== */}
+            {/* Bloom glow after settle */}
             {showBloom && (
               <div 
-                className="absolute -inset-10 rounded-[3rem] pointer-events-none animate-bloom"
+                className="absolute -inset-12 rounded-[4rem] pointer-events-none animate-bloom"
                 style={{
-                  background: `radial-gradient(circle, ${theme?.primary || '#8A244B'}25 0%, transparent 70%)`,
-                  filter: 'blur(40px)',
+                  background: `radial-gradient(circle, ${theme?.primary || '#8A244B'}20 0%, transparent 70%)`,
+                  filter: 'blur(50px)',
                 }}
               />
             )}
 
-            {/* ===== PRIMARY SHADOW (grows with dish) ===== */}
+            {/* Primary shadow */}
             <div 
-              className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-[110%] h-14 bg-black/60 rounded-[50%]"
+              className="absolute -bottom-6 left-1/2 w-[120%] h-12 bg-black/50 rounded-[50%]"
               style={{
-                filter: 'blur(20px)',
-                ...getShadowStyle(),
-                transform: `translateX(-50%) rotateX(-90deg) translateZ(-30px) scale(${animScale})`
+                filter: 'blur(18px)',
+                ...getShadowStyle()
               }}
             />
             
-            {/* ===== SECONDARY SOFT SHADOW ===== */}
+            {/* Secondary soft shadow */}
             <div 
-              className="absolute -bottom-5 left-1/2 -translate-x-1/2 w-[85%] h-6 bg-black/30 rounded-[50%]"
+              className="absolute -bottom-4 left-1/2 w-[90%] h-5 bg-black/25 rounded-[50%]"
               style={{
-                filter: 'blur(12px)',
+                filter: 'blur(10px)',
                 ...getShadowStyle(),
-                transform: `translateX(-50%) rotateX(-90deg) translateZ(-20px) scale(${animScale * 0.8})`
+                transform: `translateX(-50%) rotateX(-90deg) translateZ(-18px) scale(${animScale * 0.85})`
               }}
             />
 
-            {/* ===== DISH CONTAINER ===== */}
-            <div className="relative" style={{ transform: 'translateZ(10px)' }}>
-              {/* Plate rim — grows with dish */}
+            {/* Dish container */}
+            <div className="relative" style={{ transform: 'translateZ(8px)' }}>
+              {/* Plate rim */}
               <div 
-                className="absolute -inset-3 rounded-[2rem] bg-gradient-to-b from-white/95 to-gray-100/90 -z-10"
+                className="absolute -inset-2.5 rounded-[1.8rem] bg-gradient-to-b from-white/95 to-gray-50/90 -z-10"
                 style={{
                   boxShadow: `
-                    0 15px 35px -10px rgba(0,0,0,0.3),
-                    0 5px 10px -3px rgba(0,0,0,0.15),
+                    0 12px 30px -8px rgba(0,0,0,0.25),
+                    0 4px 8px -2px rgba(0,0,0,0.1),
                     inset 0 1px 2px rgba(255,255,255,0.9)
                   `,
-                  transform: `translateZ(-5px) scale(${Math.max(0.8, animScale)})`,
+                  transform: `translateZ(-4px) scale(${Math.max(0.85, animScale)})`,
                   opacity: animOpacity
                 }}
               />
@@ -429,28 +418,26 @@ export default function RealisticARViewer({ item, onClose, theme }) {
                 className="w-72 h-56 sm:w-80 sm:h-60 object-cover rounded-2xl"
                 style={{
                   boxShadow: `
-                    0 15px 30px -8px rgba(0,0,0,0.4),
-                    0 0 0 1px rgba(255,255,255,0.05)
+                    0 12px 25px -6px rgba(0,0,0,0.35),
+                    0 0 0 1px rgba(255,255,255,0.03)
                   `,
-                  filter: 'brightness(1.02) contrast(1.02) saturate(1.03)'
+                  filter: 'brightness(1.01) contrast(1.01) saturate(1.02)'
                 }}
                 draggable={false}
               />
               
-              {/* Top gloss */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none mix-blend-overlay" />
-              
-              {/* Light streak */}
-              <div className="absolute top-1 left-3 right-3 h-[20%] rounded-t-xl bg-gradient-to-b from-white/15 to-transparent pointer-events-none" />
+              {/* Gloss */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/15 via-transparent to-transparent pointer-events-none mix-blend-overlay" />
+              <div className="absolute top-0.5 left-2 right-2 h-[18%] rounded-t-xl bg-gradient-to-b from-white/12 to-transparent pointer-events-none" />
             </div>
 
-            {/* ===== FLOATING LABEL (appears after full rise) ===== */}
+            {/* Floating label */}
             <div 
-              className="absolute -top-14 left-1/2 -translate-x-1/2 whitespace-nowrap"
+              className="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap"
               style={{ 
-                transform: `translateX(-50%) translateZ(40px)`,
+                transform: `translateX(-50%) translateZ(35px)`,
                 opacity: showBloom ? 1 : 0,
-                transition: 'opacity 0.5s ease 0.3s'
+                transition: 'opacity 0.8s ease 0.5s'
               }}
             >
               <div className="bg-white/95 backdrop-blur-xl px-4 py-2 rounded-xl shadow-xl border border-white/30">
@@ -466,7 +453,6 @@ export default function RealisticARViewer({ item, onClose, theme }) {
       <div className="absolute bottom-0 left-0 right-0 z-30 p-5 pb-8">
         
         {!placed ? (
-          /* Scanning Mode */
           <div className="flex flex-col items-center gap-3">
             <button
               onClick={handlePlace}
@@ -490,12 +476,11 @@ export default function RealisticARViewer({ item, onClose, theme }) {
             
             <p className="text-white/80 text-sm text-center bg-black/40 px-5 py-2 rounded-full backdrop-blur-sm">
               {surfaceDetected 
-                ? "👆 Tap to see dish rise from table!" 
+                ? "👆 Tap to place dish gently" 
                 : "🔄 Move phone over table surface"}
             </p>
           </div>
         ) : (
-          /* Placed Mode */
           <div className="flex flex-col items-center gap-3">
             
             {/* Controls */}
@@ -503,7 +488,6 @@ export default function RealisticARViewer({ item, onClose, theme }) {
               <button 
                 onClick={() => setScale(s => Math.max(0.4, s - 0.15))}
                 className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-700 active:scale-90 transition hover:bg-gray-200"
-                title="Smaller"
               >
                 <IoContract className="w-5 h-5" />
               </button>
@@ -516,7 +500,6 @@ export default function RealisticARViewer({ item, onClose, theme }) {
               <button 
                 onClick={() => setScale(s => Math.min(2.5, s + 0.15))}
                 className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-700 active:scale-90 transition hover:bg-gray-200"
-                title="Larger"
               >
                 <IoExpand className="w-5 h-5" />
               </button>
@@ -526,7 +509,6 @@ export default function RealisticARViewer({ item, onClose, theme }) {
               <button 
                 onClick={() => setRotation(r => r + 45)}
                 className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-700 active:scale-90 transition hover:bg-gray-200"
-                title="Rotate"
               >
                 <IoRefresh className="w-5 h-5" />
               </button>
@@ -587,11 +569,11 @@ export default function RealisticARViewer({ item, onClose, theme }) {
           animation: scan 2s ease-in-out infinite;
         }
         @keyframes bloom {
-          0%, 100% { opacity: 0.5; transform: scale(1); }
-          50% { opacity: 0.8; transform: scale(1.05); }
+          0%, 100% { opacity: 0.4; transform: scale(1); }
+          50% { opacity: 0.7; transform: scale(1.03); }
         }
         .animate-bloom {
-          animation: bloom 3s ease-in-out infinite;
+          animation: bloom 4s ease-in-out infinite;
         }
       `}</style>
     </div>
