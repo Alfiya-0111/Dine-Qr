@@ -3397,7 +3397,18 @@ const isPlanActive = () => {
                                 >
                                   Order Now
                                 </button>
-
+<button
+  onClick={() => setArItem(item)}
+  className="w-10 h-10 rounded-xl border-2 border-purple-500 text-purple-500 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] hover:bg-purple-500 hover:text-white"
+  title="View in AR"
+>
+  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2l-9 4.5v9L12 20l9-4.5v-9L12 2z"/>
+    <path d="M12 12L3 7.5"/>
+    <path d="M12 12l9-4.5"/>
+    <path d="M12 12v9"/>
+  </svg>
+</button>
                                 {/* Cart icon button */}
                                 <button
                                   onClick={() => handleOrderClick(item, "cart")}
@@ -4066,13 +4077,13 @@ const isPlanActive = () => {
               </div>
             </div>
           )}
-          {/* {arItem && (
-            <RealisticARViewer
-              item={arItem}
-              onClose={() => setArItem(null)}
-              theme={theme}
-            />
-          )} */}
+          {arItem && (
+  <RealisticARViewer
+    item={arItem}
+    onClose={() => setArItem(null)}
+    theme={theme}
+  />
+)}
 
           {selectedItem && <OrderModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
           {/* <LoginModal /> */}
