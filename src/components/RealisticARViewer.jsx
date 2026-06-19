@@ -455,7 +455,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
             <div className="w-20 h-20 border-4 border-white/10 rounded-full" />
             <div className="absolute inset-0 w-20 h-20 border-4 border-t-white rounded-full animate-spin" />
           </div>
-          <p className="text-white font-bold text-lg">Loading 4D View...</p>
+          <p className="text-white font-bold text-lg">Loading AR FOOD VIEW...</p>
           <p className="text-gray-400 text-sm mt-1">Allow camera when prompted</p>
         </div>
       )}
@@ -471,7 +471,9 @@ export default function RealisticARViewer({ item, onClose, theme }) {
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
                   style={{ backgroundColor: PRIMARY }}>4D VIEW</span>
                 <p className="text-xs text-gray-500">₹{item?.price}</p>
-                <p className="text-xs text-gray-400">• {Math.round(nutrition.cal)} kcal</p>
+                <p className="text-xs text-gray-400">
+  • ~{Math.round(nutrition.cal)} kcal
+</p>
               </div>
             </div>
             <button onClick={onClose}
@@ -497,7 +499,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
                 <div>
                   <p className="font-bold text-base text-gray-900 flex items-center gap-2">
                     <IoLeaf className="w-4 h-4" style={{ color: PRIMARY }} />
-                    Ingredients & Nutrition
+                  Ingredients & AI Estimated Nutrition
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">{item?.name} • {ingredients.length} key ingredients</p>
                 </div>
@@ -598,7 +600,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
                         style={{ backgroundColor: `${PRIMARY}08`, border: `1px solid ${PRIMARY}20` }}>
                         <p className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1">
                           <IoNutrition className="w-3.5 h-3.5" style={{ color: PRIMARY }} />
-                          Full Nutrition — {ing.name}
+                        AI Estimated Nutrition — {ing.name}
                         </p>
                         <div className="grid grid-cols-3 gap-2 mb-3">
                           {[
@@ -650,7 +652,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
 
               {/* Disclaimer */}
               <p className="text-[9px] text-gray-300 text-center mt-4">
-                * Approximate values based on typical ingredients. Actual values may vary.
+               * AI-generated nutrition estimates based on detected ingredients and standard food databases. Actual nutritional values may vary depending on recipe, portion size and preparation method.
               </p>
             </div>
           </div>

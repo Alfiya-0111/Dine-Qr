@@ -715,6 +715,7 @@ const ShowMoreText = ({ text, maxLength = 80 }) => {
 export default function PublicMenu() {
   const { cart, addToCart, clearCart, initCartForRestaurant } = useCart();
   const [aboutUs, setAboutUs] = useState(null);
+  const [subscriptionData, setSubscriptionData] = useState(null);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
   const [spiceSelections, setSpiceSelections] = useState({});
   const [showReadyBanner, setShowReadyBanner] = useState(false);
@@ -780,6 +781,32 @@ export default function PublicMenu() {
     };
     fetchId();
   }, [slug]);
+  useEffect(() => {
+  if (!restaurantId) return;
+  
+  const subRef = rtdbRef(realtimeDB, `subscriptions/${restaurantId}`);
+  const unsub = onValue(subRef, (snap) => {
+    if (snap.exists()) {
+      setSubscriptionData(snap.val());
+    }
+  });
+  return () => unsub();
+}, [restaurantId]);
+
+
+// ========== 3. FUNCTION ADD KARO (AR check karne ke liye) ==========
+const isARViewEnabled = () => {
+  if (!subscriptionData) return false;
+  
+  const planId = subscriptionData.planId;
+  const features = subscriptionData.features || {};
+  
+  // ✅ Trial aur Pro dono ko allow karo (SubscriptionPage ke plans ke hisaab se)
+  if (planId === 'trial' || planId === 'pro') return true;
+  
+  // ✅ Features object se bhi check karo (backup)
+  return features.arView === true;
+};
   const navigate = useNavigate();
 
   const requireLogin = useRequireLogin();
@@ -3399,15 +3426,24 @@ const isPlanActive = () => {
           Order Now
         </button>
 
-        <button
-          onClick={() => setArItem(item)}
-          className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-         style={{ backgroundColor: theme.primary }}
-         
-          title="View in AR"
-        >
-         View in AR
-        </button>
+       {isARViewEnabled() ? (
+  <button
+    onClick={() => setArItem(item)}
+    className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+    style={{ backgroundColor: theme.primary }}
+    title="View in AR"
+  >
+    View in AR
+  </button>
+) : (
+  <button
+    disabled
+    className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-gray-400 flex items-center justify-center gap-2 bg-gray-100 border-2 border-gray-200 cursor-not-allowed"
+    title="AR View available in Pro Plan only"
+  >
+    <FaLock className="w-3.5 h-3.5" /> AR View
+  </button>
+)}
       </div>
 
       {/* Row 2: Cart + WhatsApp + Reviews */}

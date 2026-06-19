@@ -35,6 +35,7 @@ const PLANS = [
       qrMenu: true,
       whatsappOrders: true,
       kds: true,
+      arView: true,
       tableBooking: true,
       adminOrder: true,
       restaurantSettings: true,
@@ -64,6 +65,7 @@ const PLANS = [
       qrMenu: true,
       whatsappOrders: true,
       kds: false,
+      arView: false,
       tableBooking: false,
       adminOrder: true,
       restaurantSettings: true,
@@ -95,6 +97,7 @@ badge: 'MOST CHOSEN',
       qrMenu: true,
       whatsappOrders: true,
       kds: true,
+      arView: false,
       tableBooking: true,
       adminOrder: true,
       restaurantSettings: true,
@@ -115,7 +118,7 @@ badge: 'MOST CHOSEN',
     price: 999,
     period: 'month',
    icon: <FaInfinity style={{ fontSize: 40, color: '#FFD166' }} />,
-    tagline: 'Full power, no limits',
+    tagline: 'AR Food View + Premium Features',
     badge: 'BEST VALUE',
     badgeColor: '#FFD166',
     accentColor: '#FFD166',
@@ -125,6 +128,7 @@ badge: 'MOST CHOSEN',
       qrMenu: true,
       whatsappOrders: true,
       kds: true,
+      arView: true,
       tableBooking: true,
       adminOrder: true,
       restaurantSettings: true,
@@ -411,6 +415,11 @@ const featureList = [
   { key: 'revenueDashboard', label: 'Revenue Dashboard', icon: <FaChartBar /> },
   { key: 'adminCoupons',     label: 'Admin Coupons',     icon: <FaTicketAlt /> },
   { key: 'multiBranch',      label: 'Multi-Branch',      icon: <FaBuilding />,      highlight: true },
+  {
+  key: 'arView',
+  label: 'AR Food View',
+  icon: <FaMobileAlt />
+},
   { key: 'analytics',        label: 'Analytics',         icon: <FaChartLine />,     format: (v) => v },
 ];
 
@@ -633,12 +642,18 @@ No payment required today.
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: showComparison ? 20 : 0 }}>
      {[
   { label: 'Dishes',           key: 'dishes',          icon: <FaUtensils /> },
+
   { label: 'Staff Management', key: 'staffManagement', icon: <FaUsers /> },
   { label: 'Multi-Branch',     key: 'multiBranch',     icon: <FaBuilding />,    highlight: true },
   { label: 'QR Menu',          key: 'qrMenu',          icon: <FaQrcode /> },
   { label: 'WhatsApp Orders',  key: 'whatsappOrders',  icon: <FaWhatsapp /> },
   { label: 'Kitchen Display',  key: 'kds',             icon: <FaClipboardList /> },
   { label: 'Table Booking',    key: 'tableBooking',    icon: <FaChair /> },
+  {
+  label: 'AR Food View',
+  key: 'arView',
+  icon: <FaMobileAlt />
+},
 ].map(item => (
   <div key={item.key} style={{ background: item.highlight ? 'rgba(255,209,102,0.1)' : '#faf9f7', borderRadius: 10, padding: '10px 14px', border: item.highlight ? `1px solid ${GOLD}40` : '1px solid transparent' }}>
     <div style={{ fontSize: 11, color: '#888', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
