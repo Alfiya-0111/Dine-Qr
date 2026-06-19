@@ -631,6 +631,7 @@ const PLANS = [
     features: {
       dishes: '30', staffManagement: true,
       qrMenu: true, whatsappOrders: true, kds: true,
+      arView: true,        // ← Trial mein ENABLED
       tableBooking: true, adminOrder: true, customerFeedback: true,
       deliveryBoys: true, paymentStatus: true, revenueDashboard: true,
       adminCoupons: true, multiBranch: true,
@@ -646,6 +647,7 @@ const PLANS = [
     features: {
       dishes: 60, staffManagement: false,
       qrMenu: true, whatsappOrders: true, kds: false,
+      arView: false,       // ← Starter mein DISABLED
       tableBooking: false, adminOrder: true, customerFeedback: false,
       deliveryBoys: false, paymentStatus: true, revenueDashboard: false,
       adminCoupons: false, multiBranch: false,
@@ -662,6 +664,7 @@ const PLANS = [
     features: {
       dishes: 90, staffManagement: true,
       qrMenu: true, whatsappOrders: true, kds: true,
+      arView: false,       // ← Growth mein DISABLED
       tableBooking: true, adminOrder: true, customerFeedback: true,
       deliveryBoys: false, paymentStatus: true, revenueDashboard: true,
       adminCoupons: true, multiBranch: false,
@@ -677,6 +680,7 @@ const PLANS = [
     features: {
       dishes: 'Unlimited', staffManagement: true,
       qrMenu: true, whatsappOrders: true, kds: true,
+      arView: true,        // ← Pro mein ENABLED
       tableBooking: true, adminOrder: true, customerFeedback: true,
       deliveryBoys: true, paymentStatus: true, revenueDashboard: true,
       adminCoupons: true, multiBranch: true,
@@ -684,7 +688,6 @@ const PLANS = [
     },
   },
 ];
-
 const FEAT_LABELS = [
   { key: 'dishes',           label: 'Dishes',            icon: UtensilsCrossed },
   { key: 'staffManagement',  label: 'Staff Management',  icon: Users },
@@ -699,6 +702,7 @@ const FEAT_LABELS = [
   { key: 'revenueDashboard', label: 'Revenue Dashboard', icon: BarChart3 },
   { key: 'adminCoupons',     label: 'Coupons & Promos',  icon: Ticket },
   { key: 'multiBranch',      label: 'Multi-Branch',      icon: Building2 },
+  { key: 'arView',           label: 'AR Food View',      icon: Smartphone },  // ← YEH ADD KARO
   { key: 'analytics',        label: 'Analytics',         icon: TrendingUp },
   { key: 'support',          label: 'Support',           icon: Headphones },
 ];
