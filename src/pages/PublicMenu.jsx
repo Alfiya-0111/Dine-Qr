@@ -3386,82 +3386,71 @@ const isPlanActive = () => {
                           <ShowMoreText text={item.description} />
 
                                                   {/* Action Buttons Row */}
-                          <div className="flex items-center gap-2 mt-4">
-                            {isPlanActive() ? (
-                              <>
-                                {/* Order Now - filled dark button */}
-                                <button
-                                  onClick={() => handleOrderClick(item, "order")}
-                                  className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-                                  style={{ backgroundColor: theme.primary }}
-                                >
-                                  Order Now
-                                </button>
-{/* AR View button */}
-<button
-  onClick={() => setArItem(item)}
-  className="w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95]"
-  style={{ 
-    borderColor: '#9333ea', 
-    color: '#9333ea',
-    backgroundColor: 'transparent'
-  }}
-  onMouseEnter={e => { 
-    e.currentTarget.style.backgroundColor = '#9333ea'; 
-    e.currentTarget.style.color = '#fff'; 
-  }}
-  onMouseLeave={e => { 
-    e.currentTarget.style.backgroundColor = 'transparent'; 
-    e.currentTarget.style.color = '#9333ea'; 
-  }}
-  title="View in AR"
->
-  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2l-9 4.5v9L12 20l9-4.5v-9L12 2z"/>
-    <path d="M12 12L3 7.5"/>
-    <path d="M12 12l9-4.5"/>
-    <path d="M12 12v9"/>
-  </svg>
-</button>
-                                {/* Cart icon button */}
-                                <button
-                                  onClick={() => handleOrderClick(item, "cart")}
-                                  className="w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95]"
-                                  style={{ borderColor: theme.primary, color: theme.primary }}
-                                  title="Add to Cart"
-                                >
-                                  <IoCartOutline className="w-5 h-5" />
-                                </button>
+                       <div className="mt-4 flex flex-col gap-2">
+  {isPlanActive() ? (
+    <>
+      {/* Row 1: Order Now + AR View */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => handleOrderClick(item, "order")}
+          className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+          style={{ backgroundColor: theme.primary }}
+        >
+          Order Now
+        </button>
 
-                                {/* WhatsApp icon button */}
-                                <button
-                                  onClick={() => handleOrderClick(item, "whatsapp")}
-                                  className="w-10 h-10 rounded-xl border-2 border-green-500 text-green-500 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] hover:bg-green-500 hover:text-white"
-                                  title="Order via WhatsApp"
-                                >
-                                  <FaWhatsapp className="w-5 h-5" />
-                                </button>
-                              </>
-                            ) : (
-                              /* Plan inactive - Show "Menu Only" badge */
-                              <div className="flex-1 py-2.5 px-4 rounded-xl bg-gray-100 border-2 border-gray-200 flex items-center justify-center gap-2">
-                                <IoRestaurantOutline className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm font-medium text-gray-400">Menu View Only</span>
-                              </div>
-                            )}
+        <button
+          onClick={() => setArItem(item)}
+          className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+         style={{ backgroundColor: theme.primary }}
+         
+          title="View in AR"
+        >
+         View in AR
+        </button>
+      </div>
 
-                            {/* Reviews/Chat icon button - Always visible */}
-                            <button
-                              onClick={() => {
-                                const detailsEl = document.getElementById(`reviews-${item.id}`);
-                                if (detailsEl) detailsEl.open = !detailsEl.open;
-                              }}
-                              className="w-10 h-10 rounded-xl border-2 border-gray-300 text-gray-500 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] hover:bg-gray-100"
-                              title="View Reviews"
-                            >
-                              <IoChatbubbleEllipsesOutline className="w-5 h-5" />
-                            </button>
-                          </div>
+      {/* Row 2: Cart + WhatsApp + Reviews */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => handleOrderClick(item, "cart")}
+          className="flex-1 h-10 rounded-xl border-2 flex items-center justify-center gap-2 text-sm font-medium transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+          style={{ borderColor: theme.primary, color: theme.primary }}
+          title="Add to Cart"
+        >
+          <IoCartOutline className="w-5 h-5" />
+          Cart
+        </button>
+
+        <button
+          onClick={() => handleOrderClick(item, "whatsapp")}
+          className="flex-1 h-10 rounded-xl border-2 border-green-500 text-green-500 flex items-center justify-center gap-2 text-sm font-medium transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:bg-green-500 hover:text-white"
+          title="Order via WhatsApp"
+        >
+          <FaWhatsapp className="w-5 h-5" />
+          WhatsApp
+        </button>
+
+        <button
+          onClick={() => {
+            const detailsEl = document.getElementById(`reviews-${item.id}`);
+            if (detailsEl) detailsEl.open = !detailsEl.open;
+          }}
+          className="w-10 h-10 rounded-xl border-2 border-gray-300 text-gray-500 flex items-center justify-center transition-all duration-300 hover:scale-[1.05] active:scale-[0.95] hover:bg-gray-100"
+          title="View Reviews"
+        >
+          <IoChatbubbleEllipsesOutline className="w-5 h-5" />
+        </button>
+      </div>
+    </>
+  ) : (
+    /* Plan inactive */
+    <div className="flex-1 py-2.5 px-4 rounded-xl bg-gray-100 border-2 border-gray-200 flex items-center justify-center gap-2">
+      <IoRestaurantOutline className="w-4 h-4 text-gray-400" />
+      <span className="text-sm font-medium text-gray-400">Menu View Only</span>
+    </div>
+  )}
+</div>
 
                           {/* Reviews Section */}
                           <details id={`reviews-${item.id}`} className="mt-3">

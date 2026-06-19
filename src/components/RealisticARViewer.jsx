@@ -1,215 +1,316 @@
-// components/RealisticARViewer.jsx — Dish Rises Super Slow from Table
-// Ultra graceful: 3.5 seconds, power-6 ease, very gentle emergence
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  IoClose, 
-  IoCubeOutline, 
-  IoScanOutline, 
-  IoExpand, 
-  IoContract, 
-  IoRefresh, 
+// components/RealisticARViewer.jsx
+// 4D Smart Menu Style — Instant camera, dish floats immediately, cinematic motion
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  IoClose,
+  IoExpand,
+  IoContract,
+  IoRefresh,
+  IoPhonePortraitOutline,
   IoCheckmarkCircle,
-  IoPhonePortraitOutline
 } from "react-icons/io5";
 
 export default function RealisticARViewer({ item, onClose, theme }) {
   const videoRef = useRef(null);
-  const dishRef = useRef(null);
-  const animFrameRef = useRef(null);
-  
-  const [isSupported, setIsSupported] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
-  const [cameraActive, setCameraActive] = useState(false);
-  const [placed, setPlaced] = useState(false);
+  const canvasRef = useRef(null);
+  const animRef = useRef(null);
+  const startTimeRef = useRef(null);
+
+  const [camError, setCamError] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [dishImg, setDishImg] = useState(null);
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
-  const [showHint, setShowHint] = useState(true);
-  const [surfaceDetected, setSurfaceDetected] = useState(false);
-  const [dishImage, setDishImage] = useState(null);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  
-  // Animation values
-  const [animScale, setAnimScale] = useState(0.02); // Start extremely tiny
-  const [animY, setAnimY] = useState(200); // Start far below
-  const [animRotateX, setAnimRotateX] = useState(88); // Almost flat
-  const [animOpacity, setAnimOpacity] = useState(0);
-  const [animZ, setAnimZ] = useState(-400);
-  const [isAnimating, setIsAnimating] = useState(false);
-  
-  // Cleanup
-  useEffect(() => {
-    return () => {
-      stopCamera();
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, []);
+  const [entered, setEntered] = useState(false); // entrance animation done?
 
-  // Load dish image
+  const PRIMARY = theme?.primary || '#8A244B';
+
+  // ─── Load dish image ───────────────────────────────────────────────
   useEffect(() => {
-    if (!item?.imageUrl && !item?.image) {
-      setImageLoaded(true);
-      return;
-    }
-    
+    const src = item?.imageUrl || item?.image;
+    if (!src) { setDishImg(null); return; }
     const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      setDishImage(img);
-      setImageLoaded(true);
-    };
-    img.onerror = () => {
-      const img2 = new Image();
-      img2.onload = () => {
-        setDishImage(img2);
-        setImageLoaded(true);
-      };
-      img2.src = item.imageUrl || item.image;
-    };
-    img.src = item.imageUrl || item.image;
+    img.crossOrigin = 'anonymous';
+    img.onload = () => setDishImg(img);
+    img.onerror = () => { img.crossOrigin = ''; img.src = src; img.onload = () => setDishImg(img); };
+    img.src = src;
   }, [item]);
 
-  // Initialize camera
+  // ─── Start camera immediately ───────────────────────────────────────
   useEffect(() => {
-    if (!imageLoaded) return;
-    
-    const initCamera = async () => {
+    let stream = null;
+    const start = async () => {
       try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          throw new Error('Camera not supported');
-        }
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { 
-            facingMode: 'environment',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          },
-          audio: false
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+          audio: false,
         });
-        
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current.play().catch(() => {});
-            setCameraActive(true);
-            setIsLoading(false);
-            setTimeout(() => setShowHint(false), 5000);
-          };
+          await videoRef.current.play();
+          setLoading(false);
         }
-      } catch (err) {
-        console.error('Camera init failed:', err);
-        setIsSupported(false);
-        setIsLoading(false);
+      } catch {
+        setCamError(true);
+        setLoading(false);
       }
     };
+    start();
+    return () => { stream?.getTracks().forEach(t => t.stop()); };
+  }, []);
 
-    const timer = setTimeout(initCamera, 300);
-    return () => clearTimeout(timer);
-  }, [imageLoaded]);
+  // ─── Canvas render loop ─────────────────────────────────────────────
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
 
-  const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
-      videoRef.current.srcObject = null;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // 1) Draw camera feed
+    ctx.clearRect(0, 0, W, H);
+    if (video.readyState >= 2) {
+      ctx.drawImage(video, 0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, W, H);
     }
-    setCameraActive(false);
-  };
 
-  // ========== SUPER SLOW GRACEFUL RISE ==========
-  // 3.5 seconds total — very gentle, like placing a dish on table
-  const handlePlace = () => {
-    setPlaced(true);
-    setIsAnimating(true);
-    
-    // Gentle haptic
-    if (navigator.vibrate) navigator.vibrate(20);
-    
-    const startTime = performance.now();
-    const duration = 3500; // 3.5 seconds — very slow
-    
-    const animate = () => {
-      const elapsed = performance.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      
-      // Power-6 ease out — extremely slow at end
-      // Like: 1 - (1-x)^6
-      const easeOut = 1 - Math.pow(1 - progress, 6);
-      
-      // Even gentler: use sine ease for first 20%, then power-6
-      let currentEase;
-      if (progress < 0.2) {
-        // Very gentle start — sine ease in
-        const p = progress / 0.2;
-        currentEase = p * p * (3 - 2 * p) * 0.1; // Only 10% movement in first 20%
-      } else {
-        // Main movement — power-6 ease
-        const p = (progress - 0.2) / 0.8;
-        currentEase = 0.1 + (1 - Math.pow(1 - p, 6)) * 0.9;
-      }
-      
-      // Current values
-      const currentScale = 0.02 + (currentEase * 0.98); // 0.02 → 1.00
-      const currentY = 200 - (currentEase * 180); // 200 → 20
-      const currentRotateX = 88 - (currentEase * 33); // 88° → 55°
-      const currentOpacity = progress < 0.05 ? progress * 20 : 1; // Quick fade in
-      const currentZ = -400 + (currentEase * 400); // -400 → 0
-      
-      setAnimScale(currentScale);
-      setAnimY(currentY);
-      setAnimRotateX(currentRotateX);
-      setAnimOpacity(currentOpacity);
-      setAnimZ(currentZ);
-      
-      if (progress < 1) {
-        animFrameRef.current = requestAnimationFrame(animate);
-      } else {
-        setIsAnimating(false);
-        // Final gentle settle
-        if (navigator.vibrate) navigator.vibrate(10);
-      }
+    if (!dishImg) { animRef.current = requestAnimationFrame(draw); return; }
+
+    const now = performance.now();
+    if (!startTimeRef.current) startTimeRef.current = now;
+    const elapsed = now - startTimeRef.current;
+
+    // ─── Entrance: 0–1200ms ───────────────────────────────────────────
+    const ENTER_DUR = 1200;
+    const enterP = Math.min(elapsed / ENTER_DUR, 1);
+    // Elastic ease-out for entrance
+    const elasticOut = (t) => {
+      if (t === 0 || t === 1) return t;
+      return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI) / 3) + 1;
     };
-    
-    animFrameRef.current = requestAnimationFrame(animate);
-  };
+    const eased = elasticOut(enterP);
 
-  const handleReposition = () => {
-    setPlaced(false);
-    setIsAnimating(false);
-    // Reset
-    setAnimScale(0.02);
-    setAnimY(200);
-    setAnimRotateX(88);
-    setAnimOpacity(0);
-    setAnimZ(-400);
-    setSurfaceDetected(false);
-    setTimeout(() => setSurfaceDetected(true), 1500);
-  };
+    if (enterP >= 1 && !entered) setEntered(true);
 
-  // Simulate surface detection
+    // ─── Continuous motion after entrance ────────────────────────────
+    const t = elapsed / 1000; // seconds
+
+    // Floating bob — gentle sine wave
+    const bobY = entered ? Math.sin(t * 1.4) * 10 : 0;
+    // Subtle tilt — like dish "breathing"
+    const tiltX = entered ? Math.sin(t * 0.9) * 3 : 0;   // degrees
+    const tiltZ = entered ? Math.sin(t * 0.7) * 1.5 : 0; // degrees
+
+    // ─── Dish sizing ──────────────────────────────────────────────────
+    const BASE_W = Math.min(W * 0.68, 380) * scale;
+    const BASE_H = BASE_W * 0.72;
+
+    // Center of canvas
+    const cx = W / 2;
+    const cy = H * 0.42 + bobY;
+
+    // Entrance: scale from 0 → 1, translate from bottom
+    const entryScale = 0.3 + eased * 0.7; // 0.3 → 1.0
+    const entryY = (1 - eased) * H * 0.35; // slide up from below
+
+    const totalScale = entryScale;
+
+    const dw = BASE_W * totalScale;
+    const dh = BASE_H * totalScale;
+    const dx = cx - dw / 2;
+    const dy = cy - dh / 2 + entryY;
+
+    // ─── Shadow (table surface) ───────────────────────────────────────
+    const shadowAlpha = 0.18 * eased;
+    const shadowScaleX = 1.1 * totalScale;
+    const shadowScaleY = 0.25 * totalScale;
+
+    ctx.save();
+    ctx.translate(cx, cy + dh / 2 * totalScale + entryY + 6);
+    ctx.scale(shadowScaleX, shadowScaleY);
+    const shadowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, BASE_W / 2);
+    shadowGrad.addColorStop(0, `rgba(0,0,0,${shadowAlpha})`);
+    shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.beginPath();
+    ctx.ellipse(0, 0, BASE_W / 2, BASE_H / 4, 0, 0, Math.PI * 2);
+    ctx.fillStyle = shadowGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // ─── 3D perspective transform on canvas ──────────────────────────
+    ctx.save();
+    ctx.translate(cx, cy + entryY);
+
+    // Rotation from controls
+    ctx.rotate((rotation * Math.PI) / 180);
+
+    // 3D tilt simulation using skew
+    const skewX = (tiltZ * Math.PI) / 180;
+    const skewY = (tiltX * Math.PI) / 180;
+    ctx.transform(1, skewY * 0.3, skewX * 0.15, 1, 0, 0);
+
+    ctx.translate(-dw / 2, -dh / 2);
+
+    // ─── Plate rim ────────────────────────────────────────────────────
+    const rimPad = dw * 0.04;
+    const rimRad = Math.min(dw, dh) * 0.12;
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = 28 * totalScale;
+    ctx.shadowOffsetY = 10 * totalScale;
+
+    // Plate white bg
+    roundRect(ctx, -rimPad, -rimPad, dw + rimPad * 2, dh + rimPad * 2, rimRad + 4);
+    const plateGrad = ctx.createLinearGradient(0, 0, 0, dh);
+    plateGrad.addColorStop(0, 'rgba(255,255,255,0.97)');
+    plateGrad.addColorStop(1, 'rgba(240,240,240,0.92)');
+    ctx.fillStyle = plateGrad;
+    ctx.fill();
+
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // ─── Dish image clipped ───────────────────────────────────────────
+    ctx.save();
+    roundRect(ctx, 0, 0, dw, dh, rimRad);
+    ctx.clip();
+    ctx.drawImage(dishImg, 0, 0, dw, dh);
+
+    // Gloss overlay
+    const gloss = ctx.createLinearGradient(0, 0, 0, dh * 0.45);
+    gloss.addColorStop(0, 'rgba(255,255,255,0.18)');
+    gloss.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gloss;
+    ctx.fillRect(0, 0, dw, dh);
+    ctx.restore();
+
+    // ─── Plate border ─────────────────────────────────────────────────
+    ctx.save();
+    roundRect(ctx, 0, 0, dw, dh, rimRad);
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.restore(); // end perspective
+
+    // ─── Floating info label (appears after entrance) ─────────────────
+    if (enterP > 0.7) {
+      const labelAlpha = Math.min((enterP - 0.7) / 0.3, 1);
+      const labelY = cy + entryY - dh / 2 * totalScale - 18;
+      const labelX = cx;
+
+      ctx.save();
+      ctx.globalAlpha = labelAlpha;
+
+      // Pill background
+      const labelText = item?.name || 'Dish';
+      const priceText = `₹${item?.price || 0}`;
+      ctx.font = `bold ${Math.round(14 * totalScale)}px -apple-system, sans-serif`;
+      const labelW = ctx.measureText(labelText).width + 60 * totalScale;
+      const labelH = 34 * totalScale;
+      const lx = labelX - labelW / 2;
+      const ly = labelY - labelH;
+
+      ctx.shadowColor = 'rgba(0,0,0,0.25)';
+      ctx.shadowBlur = 12;
+      roundRect(ctx, lx, ly, labelW, labelH, labelH / 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.96)';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Name
+      ctx.fillStyle = '#111';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = `bold ${Math.round(13 * totalScale)}px -apple-system, sans-serif`;
+      ctx.fillText(labelText, labelX - 14 * totalScale, ly + labelH / 2);
+
+      // Price badge
+      const badgeW = 38 * totalScale;
+      const bx = lx + labelW - badgeW - 4 * totalScale;
+      const by = ly + 4 * totalScale;
+      roundRect(ctx, bx, by, badgeW, labelH - 8 * totalScale, (labelH - 8 * totalScale) / 2);
+      ctx.fillStyle = PRIMARY;
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.round(11 * totalScale)}px -apple-system, sans-serif`;
+      ctx.fillText(priceText, bx + badgeW / 2, by + (labelH - 8 * totalScale) / 2);
+
+      ctx.restore();
+    }
+
+    // ─── "Life Size" badge ────────────────────────────────────────────
+    if (entered) {
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+      const bText = '✦ LIFE SIZE VIEW';
+      ctx.font = `bold 11px -apple-system, sans-serif`;
+      const bW = ctx.measureText(bText).width + 20;
+      roundRect(ctx, cx - bW / 2, H - 90, bW, 24, 12);
+      ctx.fillStyle = PRIMARY;
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(bText, cx, H - 78);
+      ctx.restore();
+    }
+
+    animRef.current = requestAnimationFrame(draw);
+  }, [dishImg, scale, rotation, entered, item, PRIMARY]);
+
+  // ─── Start/stop loop ───────────────────────────────────────────────
   useEffect(() => {
-    if (cameraActive && !placed) {
-      const timer = setTimeout(() => setSurfaceDetected(true), 2500);
-      return () => clearTimeout(timer);
+    if (!loading && !camError) {
+      startTimeRef.current = null;
+      animRef.current = requestAnimationFrame(draw);
     }
-  }, [cameraActive, placed]);
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+  }, [loading, camError, draw]);
 
-  // Fallback
-  if (!isSupported) {
+  // ─── Resize canvas to fill window ─────────────────────────────────
+  useEffect(() => {
+    const resize = () => {
+      if (canvasRef.current) {
+        canvasRef.current.width = window.innerWidth;
+        canvasRef.current.height = window.innerHeight;
+      }
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
+
+  // ─── Touch drag to rotate ──────────────────────────────────────────
+  const touchStartX = useRef(null);
+  const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
+  const handleTouchMove = (e) => {
+    if (touchStartX.current === null) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    setRotation(r => r + dx * 0.4);
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = () => { touchStartX.current = null; };
+
+  // ─── Camera error fallback ─────────────────────────────────────────
+  if (camError) {
     return (
       <div className="fixed inset-0 z-[10000] bg-black flex items-center justify-center p-6">
-        <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
+        <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center">
           <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <IoPhonePortraitOutline className="w-10 h-10 text-gray-400" />
           </div>
-          <p className="font-bold text-xl mb-2 text-gray-900">Camera Access Required</p>
-          <p className="text-gray-500 text-sm mb-6 leading-relaxed">
-            Please allow camera access to see the dish on your table.
-          </p>
-          <button 
+          <p className="font-bold text-xl mb-2">Camera Access Required</p>
+          <p className="text-gray-500 text-sm mb-6">Please allow camera access to see the dish in AR.</p>
+          <button
             onClick={onClose}
-            className="w-full py-3.5 rounded-2xl font-bold text-white text-sm transition-all active:scale-95"
-            style={{ backgroundColor: theme?.primary || '#8A244B' }}
+            className="w-full py-3.5 rounded-2xl font-bold text-white"
+            style={{ backgroundColor: PRIMARY }}
           >
             Close
           </button>
@@ -218,364 +319,147 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     );
   }
 
-  // Calculate transform
-  const getDishTransform = () => {
-    if (!placed) return 'scale(0) translateY(300px) rotateX(90deg)';
-    
-    const totalScale = scale * animScale;
-    
-    return {
-      transform: `
-        perspective(1200px) 
-        rotateX(${animRotateX}deg) 
-        rotateZ(${rotation}deg) 
-        scale(${totalScale})
-        translateY(${animY}px)
-        translateZ(${animZ}px)
-      `,
-      opacity: animOpacity,
-      transformStyle: 'preserve-3d',
-      transition: isAnimating ? 'none' : 'all 0.3s ease'
-    };
-  };
-
-  // Shadow
-  const getShadowStyle = () => {
-    if (!placed) return { opacity: 0 };
-    
-    const shadowOpacity = animOpacity * 0.35;
-    const shadowScale = animScale;
-    
-    return {
-      opacity: shadowOpacity,
-      transform: `translateX(-50%) rotateX(-90deg) translateZ(-25px) scale(${shadowScale})`
-    };
-  };
-
-  const showBloom = placed && !isAnimating && animScale >= 0.98;
-
   return (
-    <div className="fixed inset-0 z-[10000] bg-black overflow-hidden">
-      
-      {/* Camera Feed */}
-      <video 
+    <div className="fixed inset-0 z-[10000] bg-black overflow-hidden touch-none">
+
+      {/* Hidden video for camera feed */}
+      <video
         ref={videoRef}
-        className="absolute inset-0 w-full h-full object-cover"
-        playsInline
-        muted
-        autoPlay
+        className="absolute opacity-0 pointer-events-none"
+        playsInline muted autoPlay
+        style={{ width: 1, height: 1 }}
       />
 
-      {/* Vignette */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/50" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-black/20" />
-      </div>
+      {/* Canvas — full screen, handles everything */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={(e) => { touchStartX.current = e.clientX; }}
+        onMouseMove={(e) => {
+          if (e.buttons !== 1 || touchStartX.current === null) return;
+          setRotation(r => r + (e.clientX - touchStartX.current) * 0.4);
+          touchStartX.current = e.clientX;
+        }}
+        onMouseUp={() => { touchStartX.current = null; }}
+      />
 
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-30 p-4 pt-6">
-        <div className="flex items-center justify-between">
-          <div 
-            className="bg-white/95 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-lg max-w-[65%] border border-white/20"
-            style={{ borderLeft: `4px solid ${theme?.primary || '#8A244B'}` }}
-          >
-            <p className="font-bold text-sm text-gray-900 truncate leading-tight">
-              {item?.name || 'Dish'}
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white" 
-                style={{ backgroundColor: theme?.primary || '#8A244B' }}>
-                4D
-              </span>
-              <p className="text-xs text-gray-500">₹{item?.price || 0}</p>
-            </div>
+      {/* Loading overlay */}
+      {loading && (
+        <div className="absolute inset-0 bg-black flex flex-col items-center justify-center z-20">
+          <div className="relative mb-6">
+            <div className="w-20 h-20 border-4 border-white/10 rounded-full" />
+            <div className="absolute inset-0 w-20 h-20 border-4 border-t-white rounded-full animate-spin" />
           </div>
-
-          <button 
-            onClick={() => { stopCamera(); onClose(); }}
-            className="w-11 h-11 bg-white/95 backdrop-blur-xl rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all hover:bg-white"
-          >
-            <IoClose className="w-5 h-5 text-gray-700" />
-          </button>
-        </div>
-      </div>
-
-      {/* Center Reticle (Scanning) */}
-      {!placed && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-          <div className="relative">
-            <div className={`w-32 h-32 rounded-full border-2 transition-all duration-700 ${surfaceDetected ? 'border-green-400/80 scale-110' : 'border-white/50'}`}>
-              <div className={`absolute inset-[-4px] rounded-full border-2 ${surfaceDetected ? 'border-green-400/40 animate-ping' : 'border-white/20 animate-pulse'}`} />
-            </div>
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-              <div className={`w-4 h-4 rounded-full transition-colors duration-300 ${surfaceDetected ? 'bg-green-400 shadow-[0_0_20px_rgba(74,222,128,0.6)]' : 'bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]'}`} />
-            </div>
-            {/* Corner brackets */}
-            <div className="absolute -top-3 -left-3 w-8 h-8">
-              <div className="absolute top-0 left-0 w-full h-[2px] bg-white/70" />
-              <div className="absolute top-0 left-0 w-[2px] h-full bg-white/70" />
-            </div>
-            <div className="absolute -top-3 -right-3 w-8 h-8">
-              <div className="absolute top-0 right-0 w-full h-[2px] bg-white/70" />
-              <div className="absolute top-0 right-0 w-[2px] h-full bg-white/70" />
-            </div>
-            <div className="absolute -bottom-3 -left-3 w-8 h-8">
-              <div className="absolute bottom-0 left-0 w-full h-[2px] bg-white/70" />
-              <div className="absolute bottom-0 left-0 w-[2px] h-full bg-white/70" />
-            </div>
-            <div className="absolute -bottom-3 -right-3 w-8 h-8">
-              <div className="absolute bottom-0 right-0 w-full h-[2px] bg-white/70" />
-              <div className="absolute bottom-0 right-0 w-[2px] h-full bg-white/70" />
-            </div>
-            <div className={`absolute left-0 right-0 h-[2px] ${surfaceDetected ? 'bg-green-400/60' : 'bg-white/40'} animate-scan`} style={{ top: '50%' }} />
-          </div>
+          <p className="text-white font-bold text-lg">Loading 4D View...</p>
+          <p className="text-gray-400 text-sm mt-1">Allow camera when prompted</p>
         </div>
       )}
 
-      {/* Surface Detected Badge */}
-      {surfaceDetected && !placed && (
-        <div className="absolute top-[28%] left-0 right-0 flex justify-center z-20 pointer-events-none">
-          <div className="bg-green-500 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg shadow-green-500/30 animate-bounce flex items-center gap-2">
-            <IoCheckmarkCircle className="w-5 h-5" />
-            Table Surface Detected
-          </div>
-        </div>
-      )}
-
-      {/* Instructions */}
-      {showHint && !placed && (
-        <div className="absolute top-[55%] left-0 right-0 px-6 text-center z-20 pointer-events-none">
-          <div className="bg-black/50 backdrop-blur-md rounded-2xl p-5 inline-block max-w-xs border border-white/10">
-            <p className="text-white font-bold text-lg mb-2 flex items-center justify-center gap-2">
-              <IoScanOutline className="w-5 h-5" />
-              Point at Your Table
-            </p>
-            <p className="text-white/70 text-sm leading-relaxed">
-              Move your phone over the table. The dish will slowly rise from the surface!
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ========== SUPER SLOW RISE — DISH FROM TABLE ========== */}
-      {placed && dishImage && (
-        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-          <div 
-            ref={dishRef}
-            className="relative"
-            style={getDishTransform()}
-          >
-            {/* Bloom glow after settle */}
-            {showBloom && (
-              <div 
-                className="absolute -inset-12 rounded-[4rem] pointer-events-none animate-bloom"
-                style={{
-                  background: `radial-gradient(circle, ${theme?.primary || '#8A244B'}20 0%, transparent 70%)`,
-                  filter: 'blur(50px)',
-                }}
-              />
-            )}
-
-            {/* Primary shadow */}
-            <div 
-              className="absolute -bottom-6 left-1/2 w-[120%] h-12 bg-black/50 rounded-[50%]"
-              style={{
-                filter: 'blur(18px)',
-                ...getShadowStyle()
-              }}
-            />
-            
-            {/* Secondary soft shadow */}
-            <div 
-              className="absolute -bottom-4 left-1/2 w-[90%] h-5 bg-black/25 rounded-[50%]"
-              style={{
-                filter: 'blur(10px)',
-                ...getShadowStyle(),
-                transform: `translateX(-50%) rotateX(-90deg) translateZ(-18px) scale(${animScale * 0.85})`
-              }}
-            />
-
-            {/* Dish container */}
-            <div className="relative" style={{ transform: 'translateZ(8px)' }}>
-              {/* Plate rim */}
-              <div 
-                className="absolute -inset-2.5 rounded-[1.8rem] bg-gradient-to-b from-white/95 to-gray-50/90 -z-10"
-                style={{
-                  boxShadow: `
-                    0 12px 30px -8px rgba(0,0,0,0.25),
-                    0 4px 8px -2px rgba(0,0,0,0.1),
-                    inset 0 1px 2px rgba(255,255,255,0.9)
-                  `,
-                  transform: `translateZ(-4px) scale(${Math.max(0.85, animScale)})`,
-                  opacity: animOpacity
-                }}
-              />
-              
-              {/* The Dish Image */}
-              <img 
-                src={dishImage.src}
-                alt={item?.name}
-                className="w-72 h-56 sm:w-80 sm:h-60 object-cover rounded-2xl"
-                style={{
-                  boxShadow: `
-                    0 12px 25px -6px rgba(0,0,0,0.35),
-                    0 0 0 1px rgba(255,255,255,0.03)
-                  `,
-                  filter: 'brightness(1.01) contrast(1.01) saturate(1.02)'
-                }}
-                draggable={false}
-              />
-              
-              {/* Gloss */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/15 via-transparent to-transparent pointer-events-none mix-blend-overlay" />
-              <div className="absolute top-0.5 left-2 right-2 h-[18%] rounded-t-xl bg-gradient-to-b from-white/12 to-transparent pointer-events-none" />
-            </div>
-
-            {/* Floating label */}
-            <div 
-              className="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap"
-              style={{ 
-                transform: `translateX(-50%) translateZ(35px)`,
-                opacity: showBloom ? 1 : 0,
-                transition: 'opacity 0.8s ease 0.5s'
-              }}
+      {/* ─── Header ─────────────────────────────────────────────────── */}
+      {!loading && (
+        <div className="absolute top-0 left-0 right-0 z-30 p-4 pt-8 pointer-events-none">
+          <div className="flex items-center justify-between">
+            {/* Dish name pill */}
+            <div
+              className="bg-white/95 backdrop-blur-xl px-4 py-2.5 rounded-2xl shadow-lg max-w-[65%]"
+              style={{ borderLeft: `4px solid ${PRIMARY}` }}
             >
-              <div className="bg-white/95 backdrop-blur-xl px-4 py-2 rounded-xl shadow-xl border border-white/30">
-                <p className="font-bold text-sm text-gray-900">{item?.name}</p>
-                <p className="text-xs text-gray-500 text-center">₹{item?.price} • Life Size</p>
+              <p className="font-bold text-sm text-gray-900 truncate">{item?.name}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span
+                  className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
+                  style={{ backgroundColor: PRIMARY }}
+                >4D VIEW</span>
+                <p className="text-xs text-gray-500">₹{item?.price}</p>
               </div>
             </div>
+
+            {/* Close button */}
+            <button
+              onClick={onClose}
+              className="pointer-events-auto w-11 h-11 bg-white/90 backdrop-blur-xl rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all"
+            >
+              <IoClose className="w-5 h-5 text-gray-700" />
+            </button>
           </div>
         </div>
       )}
 
-      {/* Bottom Controls */}
-      <div className="absolute bottom-0 left-0 right-0 z-30 p-5 pb-8">
-        
-        {!placed ? (
+      {/* ─── Bottom Controls ─────────────────────────────────────────── */}
+      {!loading && entered && (
+        <div className="absolute bottom-0 left-0 right-0 z-30 p-5 pb-8">
           <div className="flex flex-col items-center gap-3">
-            <button
-              onClick={handlePlace}
-              disabled={!surfaceDetected}
-              className={`
-                px-10 py-4 rounded-full font-bold text-base shadow-2xl flex items-center gap-3 
-                transition-all duration-300 active:scale-95
-                ${surfaceDetected 
-                  ? 'bg-white text-gray-900 hover:scale-105' 
-                  : 'bg-white/30 text-white/50 cursor-not-allowed'
-                }
-              `}
-              style={surfaceDetected ? {
-                border: `3px solid ${theme?.primary || '#8A244B'}`,
-                boxShadow: `0 10px 40px ${theme?.primary || '#8A244B'}60, 0 0 80px ${theme?.primary || '#8A244B'}30`
-              } : {}}
-            >
-              <IoCubeOutline className="w-6 h-6" style={{ color: surfaceDetected ? theme?.primary : 'currentColor' }} />
-              <span>Place on Table</span>
-            </button>
-            
-            <p className="text-white/80 text-sm text-center bg-black/40 px-5 py-2 rounded-full backdrop-blur-sm">
-              {surfaceDetected 
-                ? "👆 Tap to place dish gently" 
-                : "🔄 Move phone over table surface"}
+
+            {/* Drag hint */}
+            <p className="text-white/70 text-xs text-center bg-black/40 px-4 py-1.5 rounded-full backdrop-blur-sm">
+              👆 Drag to rotate • Pinch to resize
             </p>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-3">
-            
-            {/* Controls */}
-            <div className="bg-white/95 backdrop-blur-xl px-5 py-3 rounded-2xl flex items-center gap-3 shadow-2xl border border-white/20">
-              <button 
+
+            {/* Controls row */}
+            <div className="bg-white/95 backdrop-blur-xl px-5 py-3 rounded-2xl flex items-center gap-4 shadow-2xl">
+              {/* Scale down */}
+              <button
                 onClick={() => setScale(s => Math.max(0.4, s - 0.15))}
                 className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-700 active:scale-90 transition hover:bg-gray-200"
               >
                 <IoContract className="w-5 h-5" />
               </button>
-              
-              <div className="w-16 text-center">
+
+              <div className="w-14 text-center">
                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Size</p>
                 <p className="font-bold text-gray-900 text-sm">{Math.round(scale * 100)}%</p>
               </div>
-              
-              <button 
+
+              {/* Scale up */}
+              <button
                 onClick={() => setScale(s => Math.min(2.5, s + 0.15))}
                 className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-700 active:scale-90 transition hover:bg-gray-200"
               >
                 <IoExpand className="w-5 h-5" />
               </button>
-              
-              <div className="w-px h-8 bg-gray-200 mx-1" />
-              
-              <button 
+
+              <div className="w-px h-8 bg-gray-200" />
+
+              {/* Rotate */}
+              <button
                 onClick={() => setRotation(r => r + 45)}
                 className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-700 active:scale-90 transition hover:bg-gray-200"
               >
                 <IoRefresh className="w-5 h-5" />
               </button>
-            </div>
 
-            <div className="flex gap-3">
+              <div className="w-px h-8 bg-gray-200" />
+
+              {/* Done */}
               <button
-                onClick={handleReposition}
-                className="bg-white/90 backdrop-blur-xl px-5 py-3 rounded-full font-bold shadow-lg text-gray-700 active:scale-95 transition flex items-center gap-2 hover:bg-white border border-white/20"
+                onClick={onClose}
+                className="px-4 h-10 rounded-full font-bold text-sm text-white flex items-center gap-2 active:scale-95 transition"
+                style={{ backgroundColor: PRIMARY }}
               >
-                <IoRefresh className="w-4 h-4" />
-                Reset
-              </button>
-              
-              <button
-                onClick={() => { stopCamera(); onClose(); }}
-                className="px-6 py-3 rounded-full font-bold shadow-lg text-white active:scale-95 transition flex items-center gap-2"
-                style={{ 
-                  backgroundColor: theme?.primary || '#8A244B',
-                  boxShadow: `0 4px 20px ${theme?.primary || '#8A244B'}50`
-                }}
-              >
-                <IoCheckmarkCircle className="w-5 h-5" />
-                Done
+                <IoCheckmarkCircle className="w-4 h-4" /> Done
               </button>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Loading */}
-      {isLoading && (
-        <div className="absolute inset-0 bg-black flex flex-col items-center justify-center z-50">
-          <div className="relative mb-8">
-            <div className="w-24 h-24 border-4 border-white/10 rounded-full" />
-            <div className="absolute inset-0 w-24 h-24 border-4 border-t-white border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <IoCubeOutline className="w-10 h-10 text-white/80" />
-            </div>
-          </div>
-          <p className="text-white font-bold text-xl mb-2">Preparing 4D Experience</p>
-          <p className="text-gray-400 text-sm">Please allow camera access when prompted</p>
-          <div className="flex gap-2 mt-6">
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
           </div>
         </div>
       )}
-
-      {/* Animations */}
-      <style>{`
-        @keyframes scan {
-          0%, 100% { transform: translateY(-60px); opacity: 0; }
-          50% { transform: translateY(60px); opacity: 1; }
-        }
-        .animate-scan {
-          animation: scan 2s ease-in-out infinite;
-        }
-        @keyframes bloom {
-          0%, 100% { opacity: 0.4; transform: scale(1); }
-          50% { opacity: 0.7; transform: scale(1.03); }
-        }
-        .animate-bloom {
-          animation: bloom 4s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   );
+}
+
+// ─── Helper: rounded rect path ─────────────────────────────────────────────
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
 }
