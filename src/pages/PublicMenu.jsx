@@ -80,7 +80,8 @@ import {
   FaChevronRight,
   FaEllipsisH,
   FaRedo,
-  FaHamburger
+  FaHamburger,
+  FaLock
 } from "react-icons/fa";
 import { getCategoryIcon } from "../utils/categoryIcon";
 import {
