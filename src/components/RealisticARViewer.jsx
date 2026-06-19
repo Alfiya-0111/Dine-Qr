@@ -233,48 +233,74 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     if (!startTimeRef.current) startTimeRef.current = now;
     const elapsed = now - startTimeRef.current;
 
-    // Entrance (1.2s elastic)
-    const ENTER_DUR = 1200;
+    // ── Entrance: 3.2s slow table-rise ─────────────────────────────────
+    // Dish starts flat on table and slowly lifts up toward camera
+    const ENTER_DUR = 3200;
     const enterP = Math.min(elapsed / ENTER_DUR, 1);
-    const elasticOut = t => t === 0 || t === 1 ? t :
-      Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI) / 3) + 1;
-    const eased = elasticOut(enterP);
+
+    // Two-phase ease:
+    // Phase 1 (0-35%): very sluggish — dish barely peeling off table
+    // Phase 2 (35-100%): power-3 deceleration — gravity slowing it down
+    const easeOut3 = t => 1 - Math.pow(1 - t, 3);
+    let eased;
+    if (enterP < 0.35) {
+      const p = enterP / 0.35;
+      eased = easeOut3(p) * 0.12;
+    } else {
+      const p = (enterP - 0.35) / 0.65;
+      eased = 0.12 + easeOut3(p) * 0.88;
+    }
+
     if (enterP >= 1 && !entered) setEntered(true);
 
     const t = elapsed / 1000;
-    const bobY  = entered ? Math.sin(t * 1.4) * 10  : 0;
-    const tiltX = entered ? Math.sin(t * 0.9) * 3   : 0;
-    const tiltZ = entered ? Math.sin(t * 0.7) * 1.5 : 0;
+    // Float bob fades in only after fully entered
+    const bobAmt = entered ? 1 : Math.max(0, (enterP - 0.9) / 0.1);
+    const bobY   = Math.sin(t * 1.4) * 9 * bobAmt;
+    const tiltX  = entered ? Math.sin(t * 0.9) * 3   : 0;
+    const tiltZ  = entered ? Math.sin(t * 0.7) * 1.5 : 0;
+
+    // During entrance: dish tilts from flat-on-table to upright
+    const entrancePerspSkewY = (1 - eased) * 0.55;
 
     const BASE_W = Math.min(W * 0.68, 380) * scale;
     const BASE_H = BASE_W * 0.72;
     const cx = W / 2;
-    // When panel is open, dish moves up a bit
     const panelOffset = showPanel ? -H * 0.08 : 0;
     const cy = H * 0.40 + bobY + panelOffset;
 
-    const entryScale = 0.3 + eased * 0.7;
-    const entryY     = (1 - eased) * H * 0.35;
+    // Scale: starts tiny (flat on table) grows as rises toward viewer
+    const entryScale = 0.08 + eased * 0.92;
+    // Y: starts far below (table level) rises to final position
+    const entryY = (1 - eased) * H * 0.48;
+    // Opacity: gentle fade-in at start
+    const entryAlpha = Math.min(1, eased * 4);
+
     const dw = BASE_W * entryScale;
     const dh = BASE_H * entryScale;
 
-    // Shadow
+    // Shadow — stays on table, shrinks as dish lifts away
     ctx.save();
-    ctx.translate(cx, cy + dh / 2 * entryScale + entryY + 6);
-    ctx.scale(1.1 * entryScale, 0.25 * entryScale);
+    const shadowShrink = 0.9 - eased * 0.5;
+    ctx.translate(cx, cy + entryY * 0.3 + dh * 0.5 + 6);
+    ctx.scale(1.1 * entryScale * shadowShrink, 0.22 * entryScale * shadowShrink);
     const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, BASE_W / 2);
-    sg.addColorStop(0, `rgba(0,0,0,${0.18 * eased})`);
+    sg.addColorStop(0, `rgba(0,0,0,${0.22 * eased})`);
     sg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.beginPath();
-    ctx.ellipse(0, 0, BASE_W / 2, BASE_H / 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, BASE_W / 2, BASE_H / 3, 0, 0, Math.PI * 2);
     ctx.fillStyle = sg; ctx.fill();
     ctx.restore();
 
     // 3D dish
     ctx.save();
+    ctx.globalAlpha = entryAlpha;
     ctx.translate(cx, cy + entryY);
     ctx.rotate((rotation * Math.PI) / 180);
-    ctx.transform(1, (tiltX * Math.PI / 180) * 0.3, (tiltZ * Math.PI / 180) * 0.15, 1, 0, 0);
+    // Entrance perspective: flat-on-table skew fades out as dish rises
+    const liveSkewY = entrancePerspSkewY + (tiltX * Math.PI / 180) * 0.3;
+    const liveSkewX = (tiltZ * Math.PI / 180) * 0.15;
+    ctx.transform(1, liveSkewY, liveSkewX, 1 - entrancePerspSkewY * 0.4, 0, 0);
     ctx.translate(-dw / 2, -dh / 2);
 
     const rimPad = dw * 0.04;
@@ -304,11 +330,11 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     roundRect(ctx, 0, 0, dw, dh, rimRad);
     ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.restore();
-    ctx.restore();
+    ctx.restore(); // end 3D dish (restores globalAlpha too)
 
-    // Floating name label
-    if (enterP > 0.7) {
-      const la = Math.min((enterP - 0.7) / 0.3, 1);
+    // Floating name label — appears in final 20% of entrance
+    if (enterP > 0.82) {
+      const la = Math.min((enterP - 0.82) / 0.18, 1);
       const lY = cy + entryY - dh / 2 * entryScale - 18;
       ctx.save();
       ctx.globalAlpha = la;
