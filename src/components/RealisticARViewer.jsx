@@ -1,42 +1,197 @@
 // components/RealisticARViewer.jsx
-// 4D Smart Menu Style — Instant camera, dish floats immediately, cinematic motion
+// 4D Smart Menu Style — Instant camera + floating dish + ingredient nutrition panel
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  IoClose,
-  IoExpand,
-  IoContract,
-  IoRefresh,
-  IoPhonePortraitOutline,
-  IoCheckmarkCircle,
+  IoClose, IoExpand, IoContract, IoRefresh,
+  IoPhonePortraitOutline, IoCheckmarkCircle,
+  IoLeaf, IoFlame, IoNutrition, IoWater,
+  IoChevronUp, IoChevronDown,
 } from "react-icons/io5";
 
-export default function RealisticARViewer({ item, onClose, theme }) {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const animRef = useRef(null);
-  const startTimeRef = useRef(null);
+// ─── Smart ingredient → nutrition mapper ──────────────────────────────────
+// Dish name se common ingredients guess karta hai, aur unki nutrition info deta hai
+const INGREDIENT_DB = {
+  // Grains & Carbs
+  rice:       { emoji: '🍚', cal: 130, protein: 2.7, carbs: 28, fat: 0.3, fiber: 0.4, vitamins: ['B1', 'B3'], minerals: ['Iron', 'Magnesium'] },
+  wheat:      { emoji: '🌾', cal: 340, protein: 13,  carbs: 71, fat: 2.5, fiber: 10,  vitamins: ['B1', 'B6', 'E'], minerals: ['Iron', 'Zinc'] },
+  bread:      { emoji: '🍞', cal: 265, protein: 9,   carbs: 49, fat: 3.2, fiber: 2.7, vitamins: ['B1', 'B3'], minerals: ['Calcium', 'Iron'] },
+  maida:      { emoji: '🌾', cal: 360, protein: 10,  carbs: 75, fat: 1.2, fiber: 2.5, vitamins: ['B1', 'B3'], minerals: ['Iron'] },
+  noodles:    { emoji: '🍜', cal: 138, protein: 4.5, carbs: 25, fat: 2.1, fiber: 1.8, vitamins: ['B1', 'B3'], minerals: ['Iron', 'Sodium'] },
+  pasta:      { emoji: '🍝', cal: 158, protein: 5.8, carbs: 31, fat: 0.9, fiber: 1.8, vitamins: ['B1', 'B9'], minerals: ['Iron', 'Magnesium'] },
+  oats:       { emoji: '🌾', cal: 389, protein: 17,  carbs: 66, fat: 7,   fiber: 10,  vitamins: ['B1', 'B5'], minerals: ['Manganese', 'Iron'] },
 
-  const [camError, setCamError] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [dishImg, setDishImg] = useState(null);
-  const [scale, setScale] = useState(1);
-  const [rotation, setRotation] = useState(0);
-  const [entered, setEntered] = useState(false); // entrance animation done?
+  // Proteins
+  chicken:    { emoji: '🍗', cal: 239, protein: 27,  carbs: 0,  fat: 14,  fiber: 0,   vitamins: ['B3', 'B6', 'B12'], minerals: ['Phosphorus', 'Selenium'] },
+  mutton:     { emoji: '🥩', cal: 294, protein: 25,  carbs: 0,  fat: 21,  fiber: 0,   vitamins: ['B12', 'B3', 'B6'], minerals: ['Zinc', 'Iron'] },
+  fish:       { emoji: '🐟', cal: 206, protein: 22,  carbs: 0,  fat: 12,  fiber: 0,   vitamins: ['D', 'B12', 'B3'], minerals: ['Selenium', 'Phosphorus'] },
+  egg:        { emoji: '🥚', cal: 155, protein: 13,  carbs: 1.1,fat: 11,  fiber: 0,   vitamins: ['D', 'B12', 'A'], minerals: ['Selenium', 'Phosphorus'] },
+  paneer:     { emoji: '🧀', cal: 265, protein: 18,  carbs: 1.2,fat: 20,  fiber: 0,   vitamins: ['A', 'B12', 'D'], minerals: ['Calcium', 'Phosphorus'] },
+  dal:        { emoji: '🫘', cal: 116, protein: 9,   carbs: 20, fat: 0.4, fiber: 8,   vitamins: ['B1', 'B9', 'B6'], minerals: ['Iron', 'Potassium'] },
+  lentil:     { emoji: '🫘', cal: 116, protein: 9,   carbs: 20, fat: 0.4, fiber: 8,   vitamins: ['B9', 'B1'], minerals: ['Iron', 'Zinc'] },
+  soya:       { emoji: '🫘', cal: 173, protein: 17,  carbs: 10, fat: 9,   fiber: 6,   vitamins: ['K', 'B2', 'C'], minerals: ['Iron', 'Calcium'] },
+  tofu:       { emoji: '🧆', cal: 76,  protein: 8,   carbs: 1.9,fat: 4.8, fiber: 0.3, vitamins: ['B1', 'B2'], minerals: ['Calcium', 'Iron'] },
+  prawn:      { emoji: '🦐', cal: 99,  protein: 24,  carbs: 0.2,fat: 0.3, fiber: 0,   vitamins: ['B12', 'D'], minerals: ['Selenium', 'Zinc'] },
+
+  // Dairy
+  milk:       { emoji: '🥛', cal: 61,  protein: 3.2, carbs: 4.8,fat: 3.3, fiber: 0,   vitamins: ['D', 'B12', 'A'], minerals: ['Calcium', 'Potassium'] },
+  curd:       { emoji: '🥛', cal: 61,  protein: 3.5, carbs: 4.7,fat: 3.3, fiber: 0,   vitamins: ['B12', 'B2'], minerals: ['Calcium', 'Phosphorus'] },
+  cheese:     { emoji: '🧀', cal: 402, protein: 25,  carbs: 1.3,fat: 33,  fiber: 0,   vitamins: ['A', 'B12', 'D'], minerals: ['Calcium', 'Phosphorus'] },
+  butter:     { emoji: '🧈', cal: 717, protein: 0.9, carbs: 0.1,fat: 81,  fiber: 0,   vitamins: ['A', 'D', 'E'], minerals: ['Sodium'] },
+  cream:      { emoji: '🥛', cal: 340, protein: 2.1, carbs: 2.8,fat: 36,  fiber: 0,   vitamins: ['A', 'D'], minerals: ['Calcium'] },
+
+  // Vegetables
+  potato:     { emoji: '🥔', cal: 77,  protein: 2,   carbs: 17, fat: 0.1, fiber: 2.2, vitamins: ['C', 'B6', 'B3'], minerals: ['Potassium', 'Manganese'] },
+  tomato:     { emoji: '🍅', cal: 18,  protein: 0.9, carbs: 3.9,fat: 0.2, fiber: 1.2, vitamins: ['C', 'K', 'A'], minerals: ['Potassium', 'Manganese'] },
+  onion:      { emoji: '🧅', cal: 40,  protein: 1.1, carbs: 9.3,fat: 0.1, fiber: 1.7, vitamins: ['C', 'B6', 'B9'], minerals: ['Potassium', 'Manganese'] },
+  garlic:     { emoji: '🧄', cal: 149, protein: 6.4, carbs: 33, fat: 0.5, fiber: 2.1, vitamins: ['C', 'B6', 'B1'], minerals: ['Manganese', 'Calcium'] },
+  spinach:    { emoji: '🥬', cal: 23,  protein: 2.9, carbs: 3.6,fat: 0.4, fiber: 2.2, vitamins: ['K', 'A', 'C', 'B9'], minerals: ['Iron', 'Calcium'] },
+  peas:       { emoji: '🫛', cal: 81,  protein: 5.4, carbs: 14, fat: 0.4, fiber: 5.1, vitamins: ['C', 'K', 'B1'], minerals: ['Iron', 'Manganese'] },
+  carrot:     { emoji: '🥕', cal: 41,  protein: 0.9, carbs: 10, fat: 0.2, fiber: 2.8, vitamins: ['A', 'K', 'B6'], minerals: ['Potassium', 'Biotin'] },
+  capsicum:   { emoji: '🫑', cal: 31,  protein: 1,   carbs: 6,  fat: 0.3, fiber: 2.1, vitamins: ['C', 'B6', 'A'], minerals: ['Potassium', 'Folate'] },
+  mushroom:   { emoji: '🍄', cal: 22,  protein: 3.1, carbs: 3.3,fat: 0.3, fiber: 1,   vitamins: ['D', 'B2', 'B3'], minerals: ['Selenium', 'Potassium'] },
+  corn:       { emoji: '🌽', cal: 86,  protein: 3.3, carbs: 19, fat: 1.4, fiber: 2.7, vitamins: ['C', 'B3', 'B1'], minerals: ['Magnesium', 'Phosphorus'] },
+  cauliflower:{ emoji: '🥦', cal: 25,  protein: 1.9, carbs: 5,  fat: 0.3, fiber: 2,   vitamins: ['C', 'K', 'B6'], minerals: ['Potassium', 'Manganese'] },
+  brinjal:    { emoji: '🍆', cal: 25,  protein: 1,   carbs: 6,  fat: 0.2, fiber: 3,   vitamins: ['C', 'K', 'B6'], minerals: ['Potassium', 'Manganese'] },
+
+  // Fruits
+  lemon:      { emoji: '🍋', cal: 29,  protein: 1.1, carbs: 9,  fat: 0.3, fiber: 2.8, vitamins: ['C', 'B6', 'B9'], minerals: ['Potassium', 'Calcium'] },
+  mango:      { emoji: '🥭', cal: 60,  protein: 0.8, carbs: 15, fat: 0.4, fiber: 1.6, vitamins: ['C', 'A', 'B6'], minerals: ['Potassium', 'Magnesium'] },
+  coconut:    { emoji: '🥥', cal: 354, protein: 3.3, carbs: 15, fat: 33,  fiber: 9,   vitamins: ['C', 'B6', 'B1'], minerals: ['Manganese', 'Copper'] },
+  banana:     { emoji: '🍌', cal: 89,  protein: 1.1, carbs: 23, fat: 0.3, fiber: 2.6, vitamins: ['B6', 'C', 'B9'], minerals: ['Potassium', 'Magnesium'] },
+
+  // Oils & Condiments
+  oil:        { emoji: '🫙', cal: 884, protein: 0,   carbs: 0,  fat: 100, fiber: 0,   vitamins: ['E', 'K'], minerals: [] },
+  ghee:       { emoji: '🧈', cal: 900, protein: 0,   carbs: 0,  fat: 100, fiber: 0,   vitamins: ['A', 'D', 'E', 'K'], minerals: [] },
+  sugar:      { emoji: '🍬', cal: 387, protein: 0,   carbs: 100,fat: 0,   fiber: 0,   vitamins: [], minerals: [] },
+  salt:       { emoji: '🧂', cal: 0,   protein: 0,   carbs: 0,  fat: 0,   fiber: 0,   vitamins: [], minerals: ['Sodium', 'Chloride'] },
+  ginger:     { emoji: '🫚', cal: 80,  protein: 1.8, carbs: 18, fat: 0.8, fiber: 2,   vitamins: ['C', 'B6'], minerals: ['Magnesium', 'Potassium'] },
+  cumin:      { emoji: '🌿', cal: 375, protein: 18,  carbs: 44, fat: 22,  fiber: 10,  vitamins: ['A', 'C', 'E'], minerals: ['Iron', 'Calcium'] },
+  turmeric:   { emoji: '🌿', cal: 354, protein: 8,   carbs: 65, fat: 10,  fiber: 21,  vitamins: ['C', 'B6'], minerals: ['Iron', 'Manganese'] },
+  coriander:  { emoji: '🌿', cal: 23,  protein: 2.1, carbs: 3.7,fat: 0.5, fiber: 2.8, vitamins: ['K', 'A', 'C'], minerals: ['Potassium', 'Calcium'] },
+  chilli:     { emoji: '🌶️', cal: 40,  protein: 1.9, carbs: 8.8,fat: 0.4, fiber: 1.5, vitamins: ['C', 'A', 'B6'], minerals: ['Potassium', 'Copper'] },
+};
+
+// Dish name se ingredients guess karo
+function guessIngredients(dishName = '', description = '') {
+  const text = (dishName + ' ' + description).toLowerCase();
+  const found = [];
+
+  // Priority ingredient keywords
+  const checkMap = [
+    ['chicken', 'chicken'], ['mutton', 'mutton'], ['paneer', 'paneer'],
+    ['fish', 'fish'], ['prawn', 'prawn'], ['egg', 'egg'], ['tofu', 'tofu'],
+    ['dal', 'dal'], ['lentil', 'lentil'], ['soya', 'soya'],
+    ['rice', 'rice'], ['noodles', 'noodles'], ['pasta', 'pasta'],
+    ['bread', 'bread'], ['roti', 'wheat'], ['naan', 'maida'], ['paratha', 'wheat'],
+    ['maida', 'maida'], ['wheat', 'wheat'], ['oats', 'oats'],
+    ['potato', 'potato'], ['aloo', 'potato'], ['tomato', 'tomato'],
+    ['onion', 'onion'], ['garlic', 'garlic'], ['spinach', 'spinach'],
+    ['palak', 'spinach'], ['peas', 'peas'], ['matar', 'peas'],
+    ['carrot', 'carrot'], ['mushroom', 'mushroom'],
+    ['corn', 'corn'], ['cauliflower', 'cauliflower'], ['gobhi', 'cauliflower'],
+    ['brinjal', 'brinjal'], ['baingan', 'brinjal'], ['capsicum', 'capsicum'],
+    ['milk', 'milk'], ['curd', 'curd'], ['cheese', 'cheese'],
+    ['butter', 'butter'], ['cream', 'cream'], ['paneer', 'paneer'],
+    ['coconut', 'coconut'], ['mango', 'mango'],
+    ['ghee', 'ghee'], ['oil', 'oil'],
+    ['lemon', 'lemon'], ['nimbu', 'lemon'],
+    ['ginger', 'ginger'], ['adrak', 'ginger'],
+    ['chilli', 'chilli'], ['mirch', 'chilli'],
+    ['turmeric', 'turmeric'], ['haldi', 'turmeric'],
+    ['cumin', 'cumin'], ['jeera', 'cumin'],
+    ['coriander', 'coriander'], ['dhania', 'coriander'],
+  ];
+
+  const seen = new Set();
+  for (const [keyword, dbKey] of checkMap) {
+    if (text.includes(keyword) && !seen.has(dbKey) && INGREDIENT_DB[dbKey]) {
+      seen.add(dbKey);
+      found.push({ key: dbKey, name: keyword.charAt(0).toUpperCase() + keyword.slice(1), ...INGREDIENT_DB[dbKey] });
+    }
+  }
+
+  // Always add some base if nothing found
+  if (found.length < 2) {
+    ['oil', 'salt', 'coriander'].forEach(k => {
+      if (!seen.has(k)) {
+        found.push({ key: k, name: k.charAt(0).toUpperCase() + k.slice(1), ...INGREDIENT_DB[k] });
+        seen.add(k);
+      }
+    });
+  }
+
+  // Add spices if spicy dish
+  if ((text.includes('spic') || text.includes('masala') || text.includes('curry')) && !seen.has('chilli')) {
+    found.push({ key: 'chilli', name: 'Chilli', ...INGREDIENT_DB['chilli'] });
+    found.push({ key: 'turmeric', name: 'Turmeric', ...INGREDIENT_DB['turmeric'] });
+  }
+
+  return found.slice(0, 8); // max 8 ingredients
+}
+
+// Total nutrition from ingredients
+function calcNutrition(ingredients) {
+  return ingredients.reduce((acc, ing) => ({
+    cal:     acc.cal     + (ing.cal     || 0),
+    protein: acc.protein + (ing.protein || 0),
+    carbs:   acc.carbs   + (ing.carbs   || 0),
+    fat:     acc.fat     + (ing.fat     || 0),
+    fiber:   acc.fiber   + (ing.fiber   || 0),
+  }), { cal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
+}
+
+// ─── Rounded rect helper ──────────────────────────────────────────────────
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────
+export default function RealisticARViewer({ item, onClose, theme }) {
+  const videoRef      = useRef(null);
+  const canvasRef     = useRef(null);
+  const animRef       = useRef(null);
+  const startTimeRef  = useRef(null);
+  const touchStartX   = useRef(null);
+
+  const [camError, setCamError]   = useState(false);
+  const [loading, setLoading]     = useState(true);
+  const [dishImg, setDishImg]     = useState(null);
+  const [scale, setScale]         = useState(1);
+  const [rotation, setRotation]   = useState(0);
+  const [entered, setEntered]     = useState(false);
+  const [showPanel, setShowPanel] = useState(false);  // ingredient panel
+  const [activeIng, setActiveIng] = useState(null);   // selected ingredient
 
   const PRIMARY = theme?.primary || '#8A244B';
+  const ingredients = guessIngredients(item?.name, item?.description);
+  const nutrition   = calcNutrition(ingredients);
 
-  // ─── Load dish image ───────────────────────────────────────────────
+  // ─── Load dish image ─────────────────────────────────────────────────
   useEffect(() => {
     const src = item?.imageUrl || item?.image;
     if (!src) { setDishImg(null); return; }
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => setDishImg(img);
-    img.onerror = () => { img.crossOrigin = ''; img.src = src; img.onload = () => setDishImg(img); };
+    img.onerror = () => {
+      const img2 = new Image();
+      img2.onload = () => setDishImg(img2);
+      img2.src = src;
+    };
     img.src = src;
   }, [item]);
 
-  // ─── Start camera immediately ───────────────────────────────────────
+  // ─── Camera ──────────────────────────────────────────────────────────
   useEffect(() => {
     let stream = null;
     const start = async () => {
@@ -59,24 +214,18 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     return () => { stream?.getTracks().forEach(t => t.stop()); };
   }, []);
 
-  // ─── Canvas render loop ─────────────────────────────────────────────
+  // ─── Canvas draw loop ─────────────────────────────────────────────────
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
-    const video = videoRef.current;
+    const video  = videoRef.current;
     if (!canvas || !video) return;
 
     const ctx = canvas.getContext('2d');
-    const W = canvas.width;
-    const H = canvas.height;
+    const W = canvas.width, H = canvas.height;
 
-    // 1) Draw camera feed
     ctx.clearRect(0, 0, W, H);
-    if (video.readyState >= 2) {
-      ctx.drawImage(video, 0, 0, W, H);
-    } else {
-      ctx.fillStyle = '#111';
-      ctx.fillRect(0, 0, W, H);
-    }
+    if (video.readyState >= 2) ctx.drawImage(video, 0, 0, W, H);
+    else { ctx.fillStyle = '#111'; ctx.fillRect(0, 0, W, H); }
 
     if (!dishImg) { animRef.current = requestAnimationFrame(draw); return; }
 
@@ -84,187 +233,125 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     if (!startTimeRef.current) startTimeRef.current = now;
     const elapsed = now - startTimeRef.current;
 
-    // ─── Entrance: 0–1200ms ───────────────────────────────────────────
+    // Entrance (1.2s elastic)
     const ENTER_DUR = 1200;
     const enterP = Math.min(elapsed / ENTER_DUR, 1);
-    // Elastic ease-out for entrance
-    const elasticOut = (t) => {
-      if (t === 0 || t === 1) return t;
-      return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI) / 3) + 1;
-    };
+    const elasticOut = t => t === 0 || t === 1 ? t :
+      Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI) / 3) + 1;
     const eased = elasticOut(enterP);
-
     if (enterP >= 1 && !entered) setEntered(true);
 
-    // ─── Continuous motion after entrance ────────────────────────────
-    const t = elapsed / 1000; // seconds
+    const t = elapsed / 1000;
+    const bobY  = entered ? Math.sin(t * 1.4) * 10  : 0;
+    const tiltX = entered ? Math.sin(t * 0.9) * 3   : 0;
+    const tiltZ = entered ? Math.sin(t * 0.7) * 1.5 : 0;
 
-    // Floating bob — gentle sine wave
-    const bobY = entered ? Math.sin(t * 1.4) * 10 : 0;
-    // Subtle tilt — like dish "breathing"
-    const tiltX = entered ? Math.sin(t * 0.9) * 3 : 0;   // degrees
-    const tiltZ = entered ? Math.sin(t * 0.7) * 1.5 : 0; // degrees
-
-    // ─── Dish sizing ──────────────────────────────────────────────────
     const BASE_W = Math.min(W * 0.68, 380) * scale;
     const BASE_H = BASE_W * 0.72;
-
-    // Center of canvas
     const cx = W / 2;
-    const cy = H * 0.42 + bobY;
+    // When panel is open, dish moves up a bit
+    const panelOffset = showPanel ? -H * 0.08 : 0;
+    const cy = H * 0.40 + bobY + panelOffset;
 
-    // Entrance: scale from 0 → 1, translate from bottom
-    const entryScale = 0.3 + eased * 0.7; // 0.3 → 1.0
-    const entryY = (1 - eased) * H * 0.35; // slide up from below
+    const entryScale = 0.3 + eased * 0.7;
+    const entryY     = (1 - eased) * H * 0.35;
+    const dw = BASE_W * entryScale;
+    const dh = BASE_H * entryScale;
 
-    const totalScale = entryScale;
-
-    const dw = BASE_W * totalScale;
-    const dh = BASE_H * totalScale;
-    const dx = cx - dw / 2;
-    const dy = cy - dh / 2 + entryY;
-
-    // ─── Shadow (table surface) ───────────────────────────────────────
-    const shadowAlpha = 0.18 * eased;
-    const shadowScaleX = 1.1 * totalScale;
-    const shadowScaleY = 0.25 * totalScale;
-
+    // Shadow
     ctx.save();
-    ctx.translate(cx, cy + dh / 2 * totalScale + entryY + 6);
-    ctx.scale(shadowScaleX, shadowScaleY);
-    const shadowGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, BASE_W / 2);
-    shadowGrad.addColorStop(0, `rgba(0,0,0,${shadowAlpha})`);
-    shadowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.translate(cx, cy + dh / 2 * entryScale + entryY + 6);
+    ctx.scale(1.1 * entryScale, 0.25 * entryScale);
+    const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, BASE_W / 2);
+    sg.addColorStop(0, `rgba(0,0,0,${0.18 * eased})`);
+    sg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.beginPath();
     ctx.ellipse(0, 0, BASE_W / 2, BASE_H / 4, 0, 0, Math.PI * 2);
-    ctx.fillStyle = shadowGrad;
-    ctx.fill();
+    ctx.fillStyle = sg; ctx.fill();
     ctx.restore();
 
-    // ─── 3D perspective transform on canvas ──────────────────────────
+    // 3D dish
     ctx.save();
     ctx.translate(cx, cy + entryY);
-
-    // Rotation from controls
     ctx.rotate((rotation * Math.PI) / 180);
-
-    // 3D tilt simulation using skew
-    const skewX = (tiltZ * Math.PI) / 180;
-    const skewY = (tiltX * Math.PI) / 180;
-    ctx.transform(1, skewY * 0.3, skewX * 0.15, 1, 0, 0);
-
+    ctx.transform(1, (tiltX * Math.PI / 180) * 0.3, (tiltZ * Math.PI / 180) * 0.15, 1, 0, 0);
     ctx.translate(-dw / 2, -dh / 2);
 
-    // ─── Plate rim ────────────────────────────────────────────────────
     const rimPad = dw * 0.04;
     const rimRad = Math.min(dw, dh) * 0.12;
+
     ctx.shadowColor = 'rgba(0,0,0,0.35)';
-    ctx.shadowBlur = 28 * totalScale;
-    ctx.shadowOffsetY = 10 * totalScale;
-
-    // Plate white bg
+    ctx.shadowBlur  = 28 * entryScale;
+    ctx.shadowOffsetY = 10 * entryScale;
     roundRect(ctx, -rimPad, -rimPad, dw + rimPad * 2, dh + rimPad * 2, rimRad + 4);
-    const plateGrad = ctx.createLinearGradient(0, 0, 0, dh);
-    plateGrad.addColorStop(0, 'rgba(255,255,255,0.97)');
-    plateGrad.addColorStop(1, 'rgba(240,240,240,0.92)');
-    ctx.fillStyle = plateGrad;
-    ctx.fill();
+    const pg = ctx.createLinearGradient(0, 0, 0, dh);
+    pg.addColorStop(0, 'rgba(255,255,255,0.97)');
+    pg.addColorStop(1, 'rgba(240,240,240,0.92)');
+    ctx.fillStyle = pg; ctx.fill();
 
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetY = 0;
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
 
-    // ─── Dish image clipped ───────────────────────────────────────────
     ctx.save();
-    roundRect(ctx, 0, 0, dw, dh, rimRad);
-    ctx.clip();
+    roundRect(ctx, 0, 0, dw, dh, rimRad); ctx.clip();
     ctx.drawImage(dishImg, 0, 0, dw, dh);
-
-    // Gloss overlay
     const gloss = ctx.createLinearGradient(0, 0, 0, dh * 0.45);
     gloss.addColorStop(0, 'rgba(255,255,255,0.18)');
     gloss.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = gloss;
-    ctx.fillRect(0, 0, dw, dh);
+    ctx.fillStyle = gloss; ctx.fillRect(0, 0, dw, dh);
     ctx.restore();
 
-    // ─── Plate border ─────────────────────────────────────────────────
     ctx.save();
     roundRect(ctx, 0, 0, dw, dh, rimRad);
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.restore();
     ctx.restore();
 
-    ctx.restore(); // end perspective
-
-    // ─── Floating info label (appears after entrance) ─────────────────
+    // Floating name label
     if (enterP > 0.7) {
-      const labelAlpha = Math.min((enterP - 0.7) / 0.3, 1);
-      const labelY = cy + entryY - dh / 2 * totalScale - 18;
-      const labelX = cx;
-
+      const la = Math.min((enterP - 0.7) / 0.3, 1);
+      const lY = cy + entryY - dh / 2 * entryScale - 18;
       ctx.save();
-      ctx.globalAlpha = labelAlpha;
-
-      // Pill background
-      const labelText = item?.name || 'Dish';
+      ctx.globalAlpha = la;
+      const nameText  = item?.name || 'Dish';
       const priceText = `₹${item?.price || 0}`;
-      ctx.font = `bold ${Math.round(14 * totalScale)}px -apple-system, sans-serif`;
-      const labelW = ctx.measureText(labelText).width + 60 * totalScale;
-      const labelH = 34 * totalScale;
-      const lx = labelX - labelW / 2;
-      const ly = labelY - labelH;
-
-      ctx.shadowColor = 'rgba(0,0,0,0.25)';
-      ctx.shadowBlur = 12;
-      roundRect(ctx, lx, ly, labelW, labelH, labelH / 2);
-      ctx.fillStyle = 'rgba(255,255,255,0.96)';
-      ctx.fill();
+      ctx.font = `bold ${Math.round(14 * entryScale)}px -apple-system, sans-serif`;
+      const lW  = ctx.measureText(nameText).width + 60 * entryScale;
+      const lH  = 34 * entryScale;
+      const lx  = cx - lW / 2;
+      const ly  = lY - lH;
+      ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowBlur = 12;
+      roundRect(ctx, lx, ly, lW, lH, lH / 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.96)'; ctx.fill();
       ctx.shadowBlur = 0;
-
-      // Name
-      ctx.fillStyle = '#111';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = `bold ${Math.round(13 * totalScale)}px -apple-system, sans-serif`;
-      ctx.fillText(labelText, labelX - 14 * totalScale, ly + labelH / 2);
-
-      // Price badge
-      const badgeW = 38 * totalScale;
-      const bx = lx + labelW - badgeW - 4 * totalScale;
-      const by = ly + 4 * totalScale;
-      roundRect(ctx, bx, by, badgeW, labelH - 8 * totalScale, (labelH - 8 * totalScale) / 2);
-      ctx.fillStyle = PRIMARY;
-      ctx.fill();
+      ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `bold ${Math.round(13 * entryScale)}px -apple-system, sans-serif`;
+      ctx.fillText(nameText, cx - 14 * entryScale, ly + lH / 2);
+      const bW = 38 * entryScale, bx = lx + lW - bW - 4 * entryScale, by = ly + 4 * entryScale;
+      roundRect(ctx, bx, by, bW, lH - 8 * entryScale, (lH - 8 * entryScale) / 2);
+      ctx.fillStyle = PRIMARY; ctx.fill();
       ctx.fillStyle = '#fff';
-      ctx.font = `bold ${Math.round(11 * totalScale)}px -apple-system, sans-serif`;
-      ctx.fillText(priceText, bx + badgeW / 2, by + (labelH - 8 * totalScale) / 2);
-
+      ctx.font = `bold ${Math.round(11 * entryScale)}px -apple-system, sans-serif`;
+      ctx.fillText(priceText, bx + bW / 2, by + (lH - 8 * entryScale) / 2);
       ctx.restore();
     }
 
-    // ─── "Life Size" badge ────────────────────────────────────────────
+    // Life size badge
     if (entered) {
       ctx.save();
       ctx.globalAlpha = 0.85;
-      const bText = '✦ LIFE SIZE VIEW';
-      ctx.font = `bold 11px -apple-system, sans-serif`;
-      const bW = ctx.measureText(bText).width + 20;
-      roundRect(ctx, cx - bW / 2, H - 90, bW, 24, 12);
-      ctx.fillStyle = PRIMARY;
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(bText, cx, H - 78);
+      const bt = '✦ LIFE SIZE VIEW';
+      ctx.font = 'bold 11px -apple-system, sans-serif';
+      const bW = ctx.measureText(bt).width + 20;
+      roundRect(ctx, cx - bW / 2, H - 96, bW, 24, 12);
+      ctx.fillStyle = PRIMARY; ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(bt, cx, H - 84);
       ctx.restore();
     }
 
     animRef.current = requestAnimationFrame(draw);
-  }, [dishImg, scale, rotation, entered, item, PRIMARY]);
+  }, [dishImg, scale, rotation, entered, item, PRIMARY, showPanel]);
 
-  // ─── Start/stop loop ───────────────────────────────────────────────
   useEffect(() => {
     if (!loading && !camError) {
       startTimeRef.current = null;
@@ -273,11 +360,10 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
   }, [loading, camError, draw]);
 
-  // ─── Resize canvas to fill window ─────────────────────────────────
   useEffect(() => {
     const resize = () => {
       if (canvasRef.current) {
-        canvasRef.current.width = window.innerWidth;
+        canvasRef.current.width  = window.innerWidth;
         canvasRef.current.height = window.innerHeight;
       }
     };
@@ -286,59 +372,49 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     return () => window.removeEventListener('resize', resize);
   }, []);
 
-  // ─── Touch drag to rotate ──────────────────────────────────────────
-  const touchStartX = useRef(null);
+  // Touch drag to rotate
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
-  const handleTouchMove = (e) => {
+  const handleTouchMove  = (e) => {
     if (touchStartX.current === null) return;
-    const dx = e.touches[0].clientX - touchStartX.current;
-    setRotation(r => r + dx * 0.4);
+    setRotation(r => r + (e.touches[0].clientX - touchStartX.current) * 0.4);
     touchStartX.current = e.touches[0].clientX;
   };
   const handleTouchEnd = () => { touchStartX.current = null; };
 
-  // ─── Camera error fallback ─────────────────────────────────────────
-  if (camError) {
-    return (
-      <div className="fixed inset-0 z-[10000] bg-black flex items-center justify-center p-6">
-        <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center">
-          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <IoPhonePortraitOutline className="w-10 h-10 text-gray-400" />
-          </div>
-          <p className="font-bold text-xl mb-2">Camera Access Required</p>
-          <p className="text-gray-500 text-sm mb-6">Please allow camera access to see the dish in AR.</p>
-          <button
-            onClick={onClose}
-            className="w-full py-3.5 rounded-2xl font-bold text-white"
-            style={{ backgroundColor: PRIMARY }}
-          >
-            Close
-          </button>
+  // ─── Camera error fallback ────────────────────────────────────────────
+  if (camError) return (
+    <div className="fixed inset-0 z-[10000] bg-black flex items-center justify-center p-6">
+      <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center">
+        <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <IoPhonePortraitOutline className="w-10 h-10 text-gray-400" />
         </div>
+        <p className="font-bold text-xl mb-2">Camera Access Required</p>
+        <p className="text-gray-500 text-sm mb-6">Allow camera to see the dish in 4D.</p>
+        <button onClick={onClose} className="w-full py-3.5 rounded-2xl font-bold text-white"
+          style={{ backgroundColor: PRIMARY }}>Close</button>
       </div>
-    );
-  }
+    </div>
+  );
+
+  // ─── Vitamin color map ────────────────────────────────────────────────
+  const vitColor = { A:'#f97316', B1:'#8b5cf6', B2:'#ec4899', B3:'#f59e0b', B5:'#06b6d4',
+    B6:'#10b981', B9:'#6366f1', B12:'#ef4444', C:'#22c55e', D:'#eab308', E:'#f97316',
+    K:'#14b8a6' };
 
   return (
     <div className="fixed inset-0 z-[10000] bg-black overflow-hidden touch-none">
 
-      {/* Hidden video for camera feed */}
-      <video
-        ref={videoRef}
-        className="absolute opacity-0 pointer-events-none"
-        playsInline muted autoPlay
-        style={{ width: 1, height: 1 }}
-      />
+      {/* Hidden video */}
+      <video ref={videoRef} className="absolute opacity-0 pointer-events-none"
+        playsInline muted autoPlay style={{ width: 1, height: 1 }} />
 
-      {/* Canvas — full screen, handles everything */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full"
+      {/* Canvas */}
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onMouseDown={(e) => { touchStartX.current = e.clientX; }}
-        onMouseMove={(e) => {
+        onMouseDown={e  => { touchStartX.current = e.clientX; }}
+        onMouseMove={e  => {
           if (e.buttons !== 1 || touchStartX.current === null) return;
           setRotation(r => r + (e.clientX - touchStartX.current) * 0.4);
           touchStartX.current = e.clientX;
@@ -346,7 +422,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
         onMouseUp={() => { touchStartX.current = null; }}
       />
 
-      {/* Loading overlay */}
+      {/* Loading */}
       {loading && (
         <div className="absolute inset-0 bg-black flex flex-col items-center justify-center z-20">
           <div className="relative mb-6">
@@ -358,108 +434,246 @@ export default function RealisticARViewer({ item, onClose, theme }) {
         </div>
       )}
 
-      {/* ─── Header ─────────────────────────────────────────────────── */}
+      {/* ─── Header ──────────────────────────────────────────────────── */}
       {!loading && (
         <div className="absolute top-0 left-0 right-0 z-30 p-4 pt-8 pointer-events-none">
           <div className="flex items-center justify-between">
-            {/* Dish name pill */}
-            <div
-              className="bg-white/95 backdrop-blur-xl px-4 py-2.5 rounded-2xl shadow-lg max-w-[65%]"
-              style={{ borderLeft: `4px solid ${PRIMARY}` }}
-            >
+            <div className="bg-white/95 backdrop-blur-xl px-4 py-2.5 rounded-2xl shadow-lg max-w-[65%]"
+              style={{ borderLeft: `4px solid ${PRIMARY}` }}>
               <p className="font-bold text-sm text-gray-900 truncate">{item?.name}</p>
               <div className="flex items-center gap-2 mt-0.5">
-                <span
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
-                  style={{ backgroundColor: PRIMARY }}
-                >4D VIEW</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
+                  style={{ backgroundColor: PRIMARY }}>4D VIEW</span>
                 <p className="text-xs text-gray-500">₹{item?.price}</p>
+                <p className="text-xs text-gray-400">• {Math.round(nutrition.cal)} kcal</p>
               </div>
             </div>
-
-            {/* Close button */}
-            <button
-              onClick={onClose}
-              className="pointer-events-auto w-11 h-11 bg-white/90 backdrop-blur-xl rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all"
-            >
+            <button onClick={onClose}
+              className="pointer-events-auto w-11 h-11 bg-white/90 backdrop-blur-xl rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all">
               <IoClose className="w-5 h-5 text-gray-700" />
             </button>
           </div>
         </div>
       )}
 
-      {/* ─── Bottom Controls ─────────────────────────────────────────── */}
+      {/* ─── Ingredient Panel (slide up from bottom) ─────────────────── */}
       {!loading && entered && (
+        <div
+          className="absolute left-0 right-0 z-40 transition-all duration-500 ease-out"
+          style={{ bottom: showPanel ? 0 : '-100%' }}
+        >
+          <div className="bg-white/97 backdrop-blur-2xl rounded-t-3xl shadow-2xl max-h-[60vh] overflow-hidden flex flex-col">
+
+            {/* Panel drag handle + header */}
+            <div className="flex flex-col items-center pt-3 pb-2 px-5">
+              <div className="w-10 h-1 bg-gray-300 rounded-full mb-3" />
+              <div className="flex justify-between items-center w-full">
+                <div>
+                  <p className="font-bold text-base text-gray-900 flex items-center gap-2">
+                    <IoLeaf className="w-4 h-4" style={{ color: PRIMARY }} />
+                    Ingredients & Nutrition
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">{item?.name} • {ingredients.length} key ingredients</p>
+                </div>
+                <button onClick={() => setShowPanel(false)}
+                  className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                  <IoChevronDown className="w-4 h-4 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            {/* ── Macro summary row ───────────────────────────────────── */}
+            <div className="grid grid-cols-5 gap-1.5 px-4 pb-3">
+              {[
+                { label: 'Calories', val: Math.round(nutrition.cal), unit: 'kcal', color: '#f97316', icon: '🔥' },
+                { label: 'Protein',  val: Math.round(nutrition.protein), unit: 'g', color: '#8b5cf6', icon: '💪' },
+                { label: 'Carbs',    val: Math.round(nutrition.carbs),   unit: 'g', color: '#f59e0b', icon: '⚡' },
+                { label: 'Fat',      val: Math.round(nutrition.fat),     unit: 'g', color: '#ef4444', icon: '🧈' },
+                { label: 'Fiber',    val: Math.round(nutrition.fiber),   unit: 'g', color: '#22c55e', icon: '🌾' },
+              ].map(m => (
+                <div key={m.label} className="flex flex-col items-center bg-gray-50 rounded-2xl py-2.5 px-1">
+                  <span className="text-base">{m.icon}</span>
+                  <p className="font-bold text-sm mt-0.5" style={{ color: m.color }}>{m.val}</p>
+                  <p className="text-[9px] text-gray-400 font-medium">{m.unit}</p>
+                  <p className="text-[9px] text-gray-400">{m.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Scrollable ingredient list ──────────────────────────── */}
+            <div className="overflow-y-auto flex-1 px-4 pb-6">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                Key Ingredients
+              </p>
+
+              <div className="space-y-2">
+                {ingredients.map((ing) => (
+                  <div key={ing.key}>
+                    {/* Ingredient row */}
+                    <button
+                      onClick={() => setActiveIng(activeIng?.key === ing.key ? null : ing)}
+                      className="w-full flex items-center gap-3 p-3 rounded-2xl transition-all active:scale-[0.98]"
+                      style={{
+                        backgroundColor: activeIng?.key === ing.key ? `${PRIMARY}12` : '#f9fafb',
+                        border: activeIng?.key === ing.key ? `1.5px solid ${PRIMARY}40` : '1.5px solid transparent',
+                      }}
+                    >
+                      <span className="text-2xl flex-shrink-0">{ing.emoji}</span>
+                      <div className="flex-1 text-left">
+                        <p className="font-semibold text-sm text-gray-900">{ing.name}</p>
+                        <div className="flex gap-2 mt-0.5 flex-wrap">
+                          <span className="text-[10px] text-orange-500 font-medium">{ing.cal} kcal</span>
+                          <span className="text-[10px] text-purple-500 font-medium">{ing.protein}g protein</span>
+                          <span className="text-[10px] text-green-500 font-medium">{ing.fiber}g fiber</span>
+                        </div>
+                        {/* Vitamin pills */}
+                        {ing.vitamins?.length > 0 && (
+                          <div className="flex gap-1 mt-1 flex-wrap">
+                            {ing.vitamins.map(v => (
+                              <span key={v}
+                                className="text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white"
+                                style={{ backgroundColor: vitColor[v] || PRIMARY }}>
+                                Vit {v}
+                              </span>
+                            ))}
+                            {ing.minerals?.slice(0, 2).map(m => (
+                              <span key={m}
+                                className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600">
+                                {m}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* Mini progress bars */}
+                      <div className="flex flex-col gap-0.5 w-14 flex-shrink-0">
+                        {[
+                          { label: 'P', val: ing.protein, max: 30, color: '#8b5cf6' },
+                          { label: 'C', val: ing.carbs,   max: 80, color: '#f59e0b' },
+                          { label: 'F', val: ing.fiber,   max: 15, color: '#22c55e' },
+                        ].map(bar => (
+                          <div key={bar.label} className="flex items-center gap-1">
+                            <span className="text-[8px] text-gray-400 w-2">{bar.label}</span>
+                            <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full"
+                                style={{
+                                  width: `${Math.min(100, (bar.val / bar.max) * 100)}%`,
+                                  backgroundColor: bar.color
+                                }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </button>
+
+                    {/* Expanded detail card */}
+                    {activeIng?.key === ing.key && (
+                      <div className="mx-2 mb-1 p-3 rounded-2xl"
+                        style={{ backgroundColor: `${PRIMARY}08`, border: `1px solid ${PRIMARY}20` }}>
+                        <p className="text-xs font-bold text-gray-700 mb-2 flex items-center gap-1">
+                          <IoNutrition className="w-3.5 h-3.5" style={{ color: PRIMARY }} />
+                          Full Nutrition — {ing.name}
+                        </p>
+                        <div className="grid grid-cols-3 gap-2 mb-3">
+                          {[
+                            { label: '🔥 Calories', val: ing.cal,     unit: 'kcal' },
+                            { label: '💪 Protein',  val: ing.protein,  unit: 'g' },
+                            { label: '⚡ Carbs',    val: ing.carbs,    unit: 'g' },
+                            { label: '🧈 Fat',      val: ing.fat,      unit: 'g' },
+                            { label: '🌾 Fiber',    val: ing.fiber,    unit: 'g' },
+                          ].map(n => (
+                            <div key={n.label} className="bg-white rounded-xl p-2 text-center shadow-sm">
+                              <p className="text-[10px] text-gray-500">{n.label}</p>
+                              <p className="font-bold text-sm text-gray-900">{n.val}<span className="text-[9px] text-gray-400 font-normal ml-0.5">{n.unit}</span></p>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Vitamins */}
+                        {ing.vitamins?.length > 0 && (
+                          <>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Vitamins</p>
+                            <div className="flex flex-wrap gap-1.5 mb-2">
+                              {ing.vitamins.map(v => (
+                                <div key={v} className="flex items-center gap-1 px-2 py-1 rounded-full"
+                                  style={{ backgroundColor: (vitColor[v] || PRIMARY) + '18', border: `1px solid ${vitColor[v] || PRIMARY}30` }}>
+                                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: vitColor[v] || PRIMARY }} />
+                                  <span className="text-[10px] font-bold" style={{ color: vitColor[v] || PRIMARY }}>Vitamin {v}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                        {/* Minerals */}
+                        {ing.minerals?.length > 0 && (
+                          <>
+                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Minerals</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {ing.minerals.map(m => (
+                                <span key={m} className="text-[10px] font-medium px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
+                                  ⚙️ {m}
+                                </span>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Disclaimer */}
+              <p className="text-[9px] text-gray-300 text-center mt-4">
+                * Approximate values based on typical ingredients. Actual values may vary.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Bottom Controls (hidden when panel open) ─────────────────── */}
+      {!loading && entered && !showPanel && (
         <div className="absolute bottom-0 left-0 right-0 z-30 p-5 pb-8">
           <div className="flex flex-col items-center gap-3">
 
-            {/* Drag hint */}
             <p className="text-white/70 text-xs text-center bg-black/40 px-4 py-1.5 rounded-full backdrop-blur-sm">
               👆 Drag to rotate • Pinch to resize
             </p>
 
-            {/* Controls row */}
-            <div className="bg-white/95 backdrop-blur-xl px-5 py-3 rounded-2xl flex items-center gap-4 shadow-2xl">
-              {/* Scale down */}
+            <div className="flex gap-2 w-full max-w-xs">
+              {/* Ingredients button */}
               <button
-                onClick={() => setScale(s => Math.max(0.4, s - 0.15))}
-                className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-700 active:scale-90 transition hover:bg-gray-200"
+                onClick={() => setShowPanel(true)}
+                className="flex-1 py-3 rounded-2xl font-bold text-sm text-white flex items-center justify-center gap-2 shadow-xl active:scale-95 transition"
+                style={{ backgroundColor: '#16a34a' }}
               >
-                <IoContract className="w-5 h-5" />
+                <IoLeaf className="w-4 h-4" /> Ingredients
               </button>
 
-              <div className="w-14 text-center">
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Size</p>
-                <p className="font-bold text-gray-900 text-sm">{Math.round(scale * 100)}%</p>
+              {/* Controls */}
+              <div className="bg-white/95 backdrop-blur-xl px-3 py-2 rounded-2xl flex items-center gap-2 shadow-2xl">
+                <button onClick={() => setScale(s => Math.max(0.4, s - 0.15))}
+                  className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center active:scale-90 transition">
+                  <IoContract className="w-4 h-4 text-gray-700" />
+                </button>
+                <button onClick={() => setScale(s => Math.min(2.5, s + 0.15))}
+                  className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center active:scale-90 transition">
+                  <IoExpand className="w-4 h-4 text-gray-700" />
+                </button>
+                <button onClick={() => setRotation(r => r + 45)}
+                  className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center active:scale-90 transition">
+                  <IoRefresh className="w-4 h-4 text-gray-700" />
+                </button>
+                <button onClick={onClose}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white active:scale-95 transition"
+                  style={{ backgroundColor: PRIMARY }}>
+                  <IoClose className="w-4 h-4" />
+                </button>
               </div>
-
-              {/* Scale up */}
-              <button
-                onClick={() => setScale(s => Math.min(2.5, s + 0.15))}
-                className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-700 active:scale-90 transition hover:bg-gray-200"
-              >
-                <IoExpand className="w-5 h-5" />
-              </button>
-
-              <div className="w-px h-8 bg-gray-200" />
-
-              {/* Rotate */}
-              <button
-                onClick={() => setRotation(r => r + 45)}
-                className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-700 active:scale-90 transition hover:bg-gray-200"
-              >
-                <IoRefresh className="w-5 h-5" />
-              </button>
-
-              <div className="w-px h-8 bg-gray-200" />
-
-              {/* Done */}
-              <button
-                onClick={onClose}
-                className="px-4 h-10 rounded-full font-bold text-sm text-white flex items-center gap-2 active:scale-95 transition"
-                style={{ backgroundColor: PRIMARY }}
-              >
-                <IoCheckmarkCircle className="w-4 h-4" /> Done
-              </button>
             </div>
           </div>
         </div>
       )}
     </div>
   );
-}
-
-// ─── Helper: rounded rect path ─────────────────────────────────────────────
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
 }
