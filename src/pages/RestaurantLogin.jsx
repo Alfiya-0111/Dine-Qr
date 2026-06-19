@@ -601,7 +601,7 @@ export default function RestaurantLogin() {
                   onClose={() => setShowFaceLogin(false)}
                 />
               )}
-              <button
+              {/* <button
                 onClick={() => setShowFaceLogin(true)}
                 disabled={loading}
                 className="w-full py-3 mb-3 rounded-xl font-semibold border transition flex items-center justify-center gap-3 hover:bg-gray-50 disabled:opacity-60"
@@ -616,7 +616,7 @@ export default function RestaurantLogin() {
                   />
                 </svg>
                 Login with Face
-              </button>
+              </button> */}
 
               <button
                 onClick={handleGoogleLogin}

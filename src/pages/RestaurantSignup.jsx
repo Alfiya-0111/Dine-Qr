@@ -339,7 +339,7 @@ export default function RestaurantSignup() {
               )}
 
               {/* Face Register */}
-              <button
+              {/* <button
                 onClick={() => setShowFaceRegister(true)}
                 disabled={loading}
                 className={`w-full py-3 rounded-xl font-semibold border-2 border-dashed transition flex items-center justify-center gap-3 mb-4 disabled:opacity-50 ${
@@ -353,7 +353,7 @@ export default function RestaurantSignup() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
                 {faceDescriptor ? "✓ Face Registered" : "Register Face (Optional)"}
-              </button>
+              </button> */}
 
               {/* Submit */}
               <button
