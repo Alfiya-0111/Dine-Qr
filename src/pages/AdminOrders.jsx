@@ -397,7 +397,8 @@ const getDateRangeMs = (filterKey) => {
 
   // ── STATUS UPDATE ──
   const updateStatus = async (id, status) => {
-    const order = ordersRefState.current.find(o => o.id === id);
+const order = ordersRefState.current.find(o => o.id === id) || (historicalOrders || []).find(o => o.id === id);
+
     const t = Date.now();
     const updates = { 
       status: status.toLowerCase(), 
@@ -1120,13 +1121,13 @@ const getFilteredOrders = () => {
                     padding: "7px 10px", fontSize: 13, fontFamily: "'DM Sans', sans-serif",
                   }} />
               </div>
-              <button onClick={() => setCustomFilter(false)} style={{
-                padding: "9px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700,
-                cursor: "pointer", border: "none", fontFamily: "'DM Sans', sans-serif",
-                background: "#374151", color: "#fff",
-              }}>
-                Apply
-              </button>
+             <button onClick={(e) => e.target.blur()} style={{
+  padding: "9px 16px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+  cursor: "pointer", border: "none", fontFamily: "'DM Sans', sans-serif",
+  background: "#374151", color: "#fff",
+}}>
+  Apply
+</button>
             </div>
           )}
         </div>

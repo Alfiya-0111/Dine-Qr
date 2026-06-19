@@ -9,7 +9,7 @@ import {
   FaCrown, FaArrowLeft, FaUtensils, FaLock, FaSpinner,
   FaMotorcycle, FaMapMarkedAlt, FaTimes, FaCrosshairs,
   FaMapMarkerAlt, FaWhatsapp, FaChevronUp, FaChevronDown,
-  FaConciergeBell, FaShoppingBag, FaTruck
+  FaConciergeBell, FaShoppingBag, FaTruck,FaBed
 } from "react-icons/fa";
 
 import {
@@ -583,6 +583,7 @@ export default function Checkout() {
   const [customerPhone, setCustomerPhone]             = useState("");
   const [customerEmail, setCustomerEmail]             = useState("");
  const [tableNumber, setTableNumber]                 = useState("");
+ const [roomNumber, setRoomNumber]                   = useState("");
   const [selectedTable, setSelectedTable]             = useState(null);   // ← NEW
   const [availableTables, setAvailableTables]         = useState([]);     // ← NEW
   const [tableFloors, setTableFloors]                 = useState([]);     // ← NEW
@@ -634,6 +635,7 @@ export default function Checkout() {
     { id: "dine-in",  label: "Dine In",  Icon: FaConciergeBell },
     { id: "takeaway", label: "Takeaway", Icon: FaShoppingBag   },
     { id: "delivery", label: "Delivery", Icon: FaTruck         },
+     { id: "room-service", label: "Room Service", Icon: FaBed           },
   ];
 
   // ─── LOAD RESTAURANT DATA ──────────────────────────────────────────────────
@@ -751,6 +753,9 @@ export default function Checkout() {
    if (orderType === "dine-in" && !tableNumber.trim() && !selectedTable) {
       toast.error("Table select karo"); return false;
     }
+     if (orderType === "room-service" && !roomNumber.trim()) {
+      toast.error("Room number daalo"); return false;
+    }
     if (orderType === "delivery") {
       if (!deliveryAddress.trim()) { toast.error("❌ Delivery address daalo"); return false; }
       if (deliveryZones.length > 0 && !selectedZone) {
@@ -793,6 +798,7 @@ orderDetails: {
         tableName:           orderType === "dine-in" ? (selectedTable?.name || tableNumber.trim()) : null,
         floor:               orderType === "dine-in" ? (selectedTable?.floor || "Ground Floor") : null,
         tableId:             orderType === "dine-in" ? selectedTable?.id || null : null,
+        roomNumber:          orderType === "room-service" ? roomNumber.trim() : null,
         numberOfGuests:      parseInt(numberOfGuests) || 1,
         orderDate,
         orderTime,
@@ -817,9 +823,10 @@ orderDetails: {
           deliveredAt:      null,
         },
       }),
-      tableNumber: orderType === "dine-in" ? (selectedTable?.name || tableNumber.trim()) : null,
+    tableNumber: orderType === "dine-in" ? (selectedTable?.name || tableNumber.trim()) : null,
 tableName:   orderType === "dine-in" ? (selectedTable?.name || tableNumber.trim()) : null,
 floor:       orderType === "dine-in" ? (selectedTable?.floor || "Ground Floor") : null,
+roomNumber:  orderType === "room-service" ? roomNumber.trim() : null,
       hotelName,
       paymentMethod:  "cash",
       paymentStatus,
@@ -1148,6 +1155,20 @@ floor:       orderType === "dine-in" ? (selectedTable?.floor || "Ground Floor") 
               )}
             </div>
           )}
+          {orderType === "room-service" && (
+            <div>
+              <label className="block text-sm font-bold mb-2" style={{ color: theme?.primary || "#8A244B" }}>
+              <FaBed/>   Room Number *
+              </label>
+              <input
+                placeholder="e.g. 204"
+                value={roomNumber}
+                onChange={(e) => setRoomNumber(e.target.value)}
+                className="w-full border-2 rounded-xl p-3.5 outline-none transition-all"
+                style={{ borderColor: roomNumber ? (theme?.primary || "#8A244B") : (theme?.primary || "#8A244B") + "30" }}
+              />
+            </div>
+          )}
         </div>
 
         {/* ── Order Type ── */}
@@ -1156,20 +1177,22 @@ floor:       orderType === "dine-in" ? (selectedTable?.floor || "Ground Floor") 
           <h3 className="font-bold mb-3 flex items-center gap-2" style={{ color: theme?.primary || "#8A244B" }}>
             <FaUtensils color={theme?.primary || "#8A244B"} /> Order Type
           </h3>
-          <div className="grid grid-cols-3 gap-2">
+<div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+
             {ORDER_TYPES.map(({ id, label, Icon }) => {
               const isActive = orderType === id;
               return (
                 <button
                   key={id}
-                  onClick={() => {
-                    setOrderType(id);
-                    if (id !== "delivery") {
-                      setSelectedZone(null); setDeliveryCharge(0);
-                      setDeliveryAddress(""); setGoogleMapsLink("");
-                      setDeliveryLandmark(""); setCoordinates(null);
-                    }
-                  }}
+                 onClick={() => {
+  setOrderType(id);
+  if (id !== "delivery") {
+    setSelectedZone(null); setDeliveryCharge(0);
+    setDeliveryAddress(""); setGoogleMapsLink("");
+    setDeliveryLandmark(""); setCoordinates(null);
+  }
+  if (id !== "room-service") setRoomNumber("");
+}}
                   className="p-3 rounded-xl border-2 font-semibold text-sm transition-all"
                   style={{
                     borderColor:     isActive ? (theme?.primary || "#8A244B") : (theme?.primary || "#8A244B") + "40",

@@ -23,6 +23,7 @@ import {
   FaDownload,
   FaPrint,
   FaEye,
+   FaBed,
 } from "react-icons/fa";
 import { MdOutlineRestaurantMenu } from "react-icons/md";
 import { BiDish } from "react-icons/bi";
@@ -331,11 +332,12 @@ export function Ordercard({
     return <Pill bg="#f3f4f6" color="#374151" icon={<FaCreditCard size={9} />}>Payment</Pill>;
   };
 
-  const orderTypeIcon = {
-    "dine-in": <FaUtensils size={10} />,
-    takeaway:  <FaBoxOpen size={10} />,
-    delivery:  <FaMotorcycle size={10} />,
-  };
+const orderTypeIcon = {
+  "dine-in": <FaUtensils size={10} />,
+  takeaway:  <FaBoxOpen size={10} />,
+  delivery:  <FaMotorcycle size={10} />,
+  "room-service": <FaBed size={10} />,
+};
 
   const borderColor = isActive
     ? order.status === "ready" ? "#4ade80" : "#fbbf24"
@@ -448,6 +450,11 @@ export function Ordercard({
     {order.floor || order.orderDetails?.floor || "Ground Floor"} · Table {order.tableName || order.tableNumber || order.orderDetails?.tableName || order.orderDetails?.tableNumber}
   </Pill>
 )}
+   {(order.roomNumber || order.orderDetails?.roomNumber) && (
+              <Pill bg="#fdf2f8" color="#9d174d" icon={<FaBed size={10} />}>
+                Room {order.roomNumber || order.orderDetails?.roomNumber}
+              </Pill>
+            )}
             {order.orderDetails?.numberOfGuests > 0 && (
               <Pill bg="#eff6ff" color="#1e40af" icon={<FaUsers size={10} />}>
                 {order.orderDetails.numberOfGuests} Guests
