@@ -972,7 +972,7 @@ floor:       orderType === "dine-in" ? (selectedTable?.floor || "Ground Floor") 
           <h3 className="font-bold mb-3 flex items-center gap-2" style={{ color: theme?.primary || "#8A244B" }}>
             <IoReceiptOutline className="w-5 h-5" /> Order Summary
           </h3>
-          <div className="space-y-2 max-h-48 overflow-y-auto">
+         <div className="space-y-2 max-h-48 overflow-y-auto">
             {getValidCart().map((item) => (
               <div key={item.id} className="flex justify-between py-2 border-b border-gray-200 last:border-0">
                 <div className="flex-1">
@@ -1000,6 +1000,11 @@ floor:       orderType === "dine-in" ? (selectedTable?.floor || "Ground Floor") 
                       </span>
                     )}
                   </div>
+                  {orderType === "delivery" && item.deliveryCharge > 0 && (
+                    <p className="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
+                      <FaMotorcycle className="text-gray-400" /> Delivery: ₹{item.deliveryCharge}
+                    </p>
+                  )}
                 </div>
                 <p className="font-bold text-sm flex-shrink-0 ml-3" style={{ color: theme?.primary || "#8A244B" }}>
                   ₹{item.price * item.qty}

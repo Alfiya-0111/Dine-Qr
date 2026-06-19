@@ -345,6 +345,7 @@ export default function AddItem() {
     isChefPick: false,
     dineIn: true,
     delivery: true,
+     deliveryCharge: "",
     inStock: true,
     isNew: false,
     categoryIds: [],
@@ -440,6 +441,7 @@ setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "act
         dineIn: editData.availableModes?.dineIn ?? true,
         delivery: editData.availableModes?.delivery ?? true,
         gstPercent: editData.gstPercent ?? 5,
+            deliveryCharge: editData.deliveryCharge ?? "",
         drinkSize: editData.drinkSize ?? "",
         weightUnit: editData.weightUnit ?? "piece",
         weightValue: editData.weightValue ?? "",
@@ -653,6 +655,8 @@ setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "act
       payload.saladRequired = form.saladRequired;
     }
     if (venueCfg.showDrinkSize && form.drinkSize) payload.drinkSize = form.drinkSize;
+        payload.deliveryCharge = form.delivery ? (Number(form.deliveryCharge) || 0) : 0;
+
     if (venueCfg.showWeight) {
       payload.weightValue = form.weightValue;
       payload.weightUnit = form.weightUnit;
@@ -1058,7 +1062,7 @@ setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "act
             )}
           </div>
 
-          {/* ITEM OPTIONS */}
+         {/* ITEM OPTIONS */}
           <div className="bg-gray-50 rounded-xl p-4">
             <p className="font-semibold text-sm text-gray-700 mb-3">Options</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -1076,6 +1080,23 @@ setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "act
                 </label>
               ))}
             </div>
+
+            {form.delivery && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <FaMotorcycle className="inline mr-1" /> Delivery Charge (Rs)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 30"
+                  value={form.deliveryCharge}
+                  onChange={(e) => setForm({ ...form, deliveryCharge: e.target.value })}
+                  className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B45253] text-base"
+                />
+                <p className="text-xs text-gray-400 mt-1">Is item ke delivery ka extra charge — checkout pe customer ko dikhega</p>
+              </div>
+            )}
           </div>
 
           {/* IMAGE UPLOAD */}

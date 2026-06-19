@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { ref, onValue, update, remove, get } from "firebase/database";
+import { ref, onValue, update, remove, get, query, orderByChild, startAt, endAt, limitToLast } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { initWhatsAppAutoProcessor } from "../utils/whatsappAutoProcessor";
@@ -80,7 +80,8 @@ const getItemsArray = (items) => {
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 export default function AdminOrders() {
   const completingOrdersRef = useRef(new Set());
-
+const [historicalOrders, setHistoricalOrders] = useState(null);
+const [historyLoading, setHistoryLoading]     = useState(false);
   const [orders, setOrders]                           = useState([]);
   const [now, setNow]                                 = useState(Date.now());
   const [selectedFilter, setSelectedFilter]           = useState("today");
@@ -109,7 +110,18 @@ export default function AdminOrders() {
   const { restaurantId: paramId } = useParams();
 
   const goToSubscription = () => navigate(`/dashboard/${paramId || restaurantId}/subscription`);
-
+const getDateRangeMs = (filterKey) => {
+  const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
+  const endOfDay   = (d) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x.getTime(); };
+  const now = new Date();
+  switch (filterKey) {
+    case "today":     return { start: startOfDay(now), end: endOfDay(now) };
+    case "yesterday": { const y = new Date(); y.setDate(y.getDate() - 1); return { start: startOfDay(y), end: endOfDay(y) }; }
+    case "week":      { const ws = new Date(); ws.setDate(ws.getDate() - ws.getDay()); return { start: startOfDay(ws), end: endOfDay(now) }; }
+    case "month":     { const ms = new Date(now.getFullYear(), now.getMonth(), 1); return { start: startOfDay(ms), end: endOfDay(now) }; }
+    default:          return null; // "total" — no bound
+  }
+};
   const isPlanExpired = () => {
     if (!userPlan) return false;
     if (userPlan.expiresAt && userPlan.expiresAt < Date.now()) return true;
@@ -146,67 +158,6 @@ export default function AdminOrders() {
       });
     }
   };
-
-  // ── DEBUG: WhatsApp Orders Raw Data ──
-  useEffect(() => {
-    if (!restaurantId) return;
-    
-    const debugRef = ref(realtimeDB, `whatsappOrders/${restaurantId}`);
-    const unsub = onValue(debugRef, (snap) => {
-      const data = snap.val();
-      if (!data) return;
-      
-     
-      Object.entries(data).forEach(([id, order]) => {
-        
-        
-        const possibleItemFields = ['items', 'orderItems', 'dishes', 'cart', 'products', 'foodItems', 'menuItems', 'selectedItems', 'order'];
-        possibleItemFields.forEach(field => {
-          if (order[field] !== undefined) {
-           
-            const arr = Array.isArray(order[field]) ? order[field] : Object.values(order[field]);
-            arr.forEach((item, idx) => {
-             
-            });
-          }
-        });
-        
-        if (!possibleItemFields.some(f => order[f] !== undefined)) {
-         
-        }
-      });
-    });
-    
-    return () => unsub();
-  }, [restaurantId]);
-
-  // ── DEBUG: Main Orders Raw Data ──
-  useEffect(() => {
-    if (!restaurantId) return;
-    
-    const debugRef = ref(realtimeDB, `orders/${restaurantId}`);
-    const unsub = onValue(debugRef, (snap) => {
-      const data = snap.val();
-      if (!data) return;
-      
-     
-      Object.entries(data).forEach(([id, order]) => {
-        if (order.source === 'whatsapp' || order.type === 'whatsapp') {
-         
-          if (order.items) {
-            const arr = Array.isArray(order.items) ? order.items : Object.values(order.items);
-          
-            arr.forEach((item, idx) => {
-            
-            });
-          }
-        }
-      });
-    });
-    
-    return () => unsub();
-  }, [restaurantId]);
-
   useEffect(() => {
     if (paramId && !restaurantId) {
       setRestaurantId(paramId);
@@ -316,27 +267,25 @@ export default function AdminOrders() {
     });
   };
 
-  // ── ORDERS LISTENER ──
+// ── LIVE ORDERS LISTENER (sirf aaj ka data, real-time) ──
   useEffect(() => {
     if (!restaurantId) return;
+    const { start } = getDateRangeMs("today");
+    const liveQuery = query(
+      ref(realtimeDB, `orders/${restaurantId}`),
+      orderByChild("createdAt"),
+      startAt(start)
+    );
 
-    const ordersRef = ref(realtimeDB, `orders/${restaurantId}`);
-
-    const unsub = onValue(ordersRef, (snap) => {
+    const unsub = onValue(liveQuery, (snap) => {
       const data = snap.val();
       if (!data) {
         setOrders([]);
         ordersRefState.current = [];
         return;
       }
-
       const myOrders = Object.entries(data)
-        .map(([id, o]) => ({
-          id,
-          ...o,
-          restaurantId,
-          source: o.type || o.source || "regular",
-        }))
+        .map(([id, o]) => ({ id, ...o, restaurantId, source: o.type || o.source || "regular" }))
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
       if (isInitialLoadRef.current) {
@@ -362,6 +311,47 @@ export default function AdminOrders() {
 
     return () => unsub();
   }, [restaurantId, voiceEnabled, planFeatures]);
+
+  // ── HISTORICAL ORDERS (purani date select karne pe on-demand fetch) ──
+  useEffect(() => {
+    if (!restaurantId) return;
+    if (selectedFilter === "today" && !customFilter) {
+      setHistoricalOrders(null); // live `orders` se hi kaam chal jayega
+      return;
+    }
+
+    const fetchHistory = async () => {
+      setHistoryLoading(true);
+      try {
+        const baseRef = ref(realtimeDB, `orders/${restaurantId}`);
+        let q;
+        if (customFilter && dateRange.start && dateRange.end) {
+          const s = new Date(dateRange.start); s.setHours(0, 0, 0, 0);
+          const e = new Date(dateRange.end); e.setHours(23, 59, 59, 999);
+          q = query(baseRef, orderByChild("createdAt"), startAt(s.getTime()), endAt(e.getTime()));
+        } else {
+          const range = getDateRangeMs(selectedFilter);
+          q = range
+            ? query(baseRef, orderByChild("createdAt"), startAt(range.start), endAt(range.end))
+            : query(baseRef, orderByChild("createdAt"), limitToLast(1000)); // "All Time" safety cap
+        }
+        const snap = await get(q);
+        const data = snap.val();
+        if (!data) { setHistoricalOrders([]); return; }
+        const list = Object.entries(data)
+          .map(([id, o]) => ({ id, ...o, restaurantId, source: o.type || o.source || "regular" }))
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        setHistoricalOrders(list);
+      } catch (e) {
+        console.error("History fetch error:", e);
+        setHistoricalOrders([]);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, [restaurantId, selectedFilter, customFilter, dateRange.start, dateRange.end]);
 
   // ── AUTO-COMPLETE TIMER ──
   const AUTO_COMPLETE_GRACE = 2 * 60 * 1000;
@@ -685,17 +675,9 @@ Sent via Khaatogo
     ed.setHours(23, 59, 59, 999);
     return d >= sd && d <= ed;
   };
-
-  const getFilteredOrders = () => {
-    if (customFilter && dateRange.start && dateRange.end)
-      return orders.filter(o => isInRange(o.createdAt, dateRange.start, dateRange.end));
-    switch (selectedFilter) {
-      case "today":     return orders.filter(o => isToday(o.createdAt));
-      case "yesterday": return orders.filter(o => isYesterday(o.createdAt));
-      case "week":      return orders.filter(o => isThisWeek(o.createdAt));
-      case "month":     return orders.filter(o => isThisMonth(o.createdAt));
-      default:          return orders;
-    }
+const getFilteredOrders = () => {
+    if (selectedFilter === "today" && !customFilter) return orders;
+    return historicalOrders || [];
   };
 
   const filteredOrders  = getFilteredOrders();
