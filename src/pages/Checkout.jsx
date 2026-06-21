@@ -4,7 +4,7 @@ import { realtimeDB, auth } from "../firebaseConfig";
 import { useEffect, useState, useRef } from "react";
 import { useCart } from "../context/CartContext";
 import { toast } from "sonner";
-
+import { getDeviceId } from "../utils/deviceId";
 import {
   FaCrown, FaArrowLeft, FaUtensils, FaLock, FaSpinner,
   FaMotorcycle, FaMapMarkedAlt, FaTimes, FaCrosshairs,
@@ -17,6 +17,22 @@ import {
   IoReceiptOutline, IoCardOutline, IoCartOutline,
   IoLeaf, IoFlame, IoSnow, IoStar
 } from "react-icons/io5";
+const LOCATION_CACHE_KEY = "khaatogo_last_delivery_location";
+
+const getCachedLocation = () => {
+  try {
+    const deviceId = getDeviceId();
+    const raw = localStorage.getItem(`${LOCATION_CACHE_KEY}_${deviceId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+};
+
+const setCachedLocation = (location) => {
+  try {
+    const deviceId = getDeviceId();
+    localStorage.setItem(`${LOCATION_CACHE_KEY}_${deviceId}`, JSON.stringify(location));
+  } catch {}
+};
 
 // ─── LOAD LEAFLET ─────────────────────────────────────────────────────────────
 const loadLeaflet = () => {
@@ -95,16 +111,74 @@ const detectZoneFromCoordinates = (lat, lng, zones) => {
   return nearestZone;
 };
 
-// ─── LOCATION PICKER MODAL ────────────────────────────────────────────────────
 function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef  = useRef(null);
   const markerRef       = useRef(null);
+  const tileLayerRef    = useRef(null);
   const [searchQuery, setSearchQuery]           = useState("");
   const [searchResults, setSearchResults]       = useState([]);
   const [isSearching, setIsSearching]           = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(initialLocation || null);
   const [isLoading, setIsLoading]               = useState(true);
+  const [isDetecting, setIsDetecting]           = useState(false);
+  const [mapView, setMapView]                   = useState("street");
+  const [locationError, setLocationError]       = useState("");
+
+  const TILE_LAYERS = {
+    street: {
+      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attribution: '&copy; OpenStreetMap contributors'
+    },
+    satellite: {
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      attribution: '&copy; Esri'
+    }
+  };
+
+  const switchTileLayer = (view) => {
+    if (!mapInstanceRef.current) return;
+    if (tileLayerRef.current) mapInstanceRef.current.removeLayer(tileLayerRef.current);
+    const layer = window.L.tileLayer(TILE_LAYERS[view].url, {
+      attribution: TILE_LAYERS[view].attribution, maxZoom: 19
+    }).addTo(mapInstanceRef.current);
+    tileLayerRef.current = layer;
+    setMapView(view);
+  };
+
+  const detectLiveLocation = (silent = false) => {
+    if (!navigator.geolocation) {
+      if (!silent) toast.error("Tumhare browser mein location access supported nahi hai");
+      return;
+    }
+    setIsDetecting(true);
+    setLocationError("");
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        if (mapInstanceRef.current && markerRef.current) {
+          mapInstanceRef.current.setView([latitude, longitude], 17);
+          markerRef.current.setLatLng([latitude, longitude]);
+        }
+        const address = await getAddressFromCoords(latitude, longitude);
+        setSelectedLocation({ lat: latitude, lng: longitude, address });
+        setIsDetecting(false);
+        if (!silent) toast.success("📍 Live location mil gayi! Pin ko adjust kar sakte ho.");
+      },
+      (err) => {
+        setIsDetecting(false);
+        if (!silent) {
+          if (err.code === 1) {
+            setLocationError("Location permission denied. Map pe directly tap karke apni location set karo.");
+            toast.error("Location permission denied. Map pe tap karke set karo.");
+          } else {
+            toast.error("Live location nahi mili. Map pe tap karke set karo.");
+          }
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -113,14 +187,19 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
       try {
         await loadLeaflet();
         if (!isMounted) return;
-        const defaultLat = initialLocation?.lat || 28.6139;
-        const defaultLng = initialLocation?.lng || 77.2090;
-        const map = window.L.map(mapContainerRef.current).setView([defaultLat, defaultLng], 15);
+
+        const cached = !initialLocation ? getCachedLocation() : null;
+        const startLat = initialLocation?.lat || cached?.lat || 21.4058; // Bilimora fallback
+        const startLng = initialLocation?.lng || cached?.lng || 72.9628;
+
+        const map = window.L.map(mapContainerRef.current).setView([startLat, startLng], 15);
         mapInstanceRef.current = map;
-        window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
+        const layer = window.L.tileLayer(TILE_LAYERS.street.url, {
+          attribution: TILE_LAYERS.street.attribution, maxZoom: 19
         }).addTo(map);
-        const marker = window.L.marker([defaultLat, defaultLng], {
+        tileLayerRef.current = layer;
+
+        const marker = window.L.marker([startLat, startLng], {
           draggable: true,
           icon: window.L.divIcon({
             className: 'custom-marker',
@@ -140,8 +219,17 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
           const address = await getAddressFromCoords(e.latlng.lat, e.latlng.lng);
           setSelectedLocation({ lat: e.latlng.lat, lng: e.latlng.lng, address });
         });
-        if (initialLocation) setSelectedLocation(initialLocation);
+
+        if (initialLocation) {
+          setSelectedLocation(initialLocation);
+        } else if (cached) {
+          setSelectedLocation(cached);
+        }
         setIsLoading(false);
+
+        if (!initialLocation) {
+          setTimeout(() => detectLiveLocation(true), 400);
+        }
       } catch (error) {
         toast.error("Map load nahi hua. Refresh karo.");
       }
@@ -177,26 +265,9 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
     setSearchResults([]);
   };
 
-  const handleGetCurrentLocation = () => {
-    if (!navigator.geolocation) { toast.error("Geolocation supported nahi hai"); return; }
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        if (mapInstanceRef.current && markerRef.current) {
-          mapInstanceRef.current.setView([latitude, longitude], 16);
-          markerRef.current.setLatLng([latitude, longitude]);
-          const address = await getAddressFromCoords(latitude, longitude);
-          setSelectedLocation({ lat: latitude, lng: longitude, address });
-          toast.success("Current location mil gayi!");
-        }
-      },
-      () => { toast.error("Location access denied ya error"); },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
   const handleConfirm = () => {
     if (!selectedLocation) { toast.error("Pehle location select karo!"); return; }
+    setCachedLocation(selectedLocation);
     onSelect(selectedLocation);
     onClose();
   };
@@ -209,48 +280,56 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
         <div className="px-4 sm:px-6 py-4 flex justify-between items-center shrink-0"
           style={{ backgroundColor: theme?.primary || "#8A244B" }}>
           <h3 className="text-white font-bold text-lg flex items-center gap-2">
-            <FaMapMarkedAlt /> <IoLocationOutline className="w-4 h-4 mr-1" /> Location Pick Karo
+            <FaMapMarkedAlt /> Apni Delivery Location Set Karo
           </h3>
           <button onClick={onClose} className="text-white/80 hover:text-white text-2xl p-1">
             <FaTimes />
           </button>
         </div>
         <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                placeholder="Apna address search karo (min 3 letters)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full border-2 rounded-xl px-4 py-3 pr-10 text-sm sm:text-base"
-                style={{ borderColor: (theme?.primary || "#8A244B") + "40" }}
-              />
-              {isSearching && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <FaSpinner className="animate-spin text-gray-400" />
-                </div>
-              )}
-              {searchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 bg-white border-2 rounded-xl mt-1 shadow-xl max-h-48 overflow-y-auto z-50"
-                  style={{ borderColor: (theme?.primary || "#8A244B") + "20" }}>
-                  {searchResults.map((result) => (
-                    <button key={result.id} onClick={() => handleSelectResult(result)}
-                      className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-0 last:rounded-b-xl text-sm transition-colors">
-                      <div className="font-medium text-gray-800">{result.name}</div>
-                      <div className="text-xs text-gray-500 truncate">{result.fullAddress}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button onClick={handleGetCurrentLocation}
-              className="px-4 py-3 rounded-xl font-medium flex items-center gap-2 shrink-0"
-              style={{ backgroundColor: (theme?.primary || "#8A244B") + "15", color: theme?.primary || "#8A244B" }}
-              title="Current Location">
-              <FaCrosshairs />
-            </button>
+
+          <button onClick={() => detectLiveLocation(false)} disabled={isDetecting}
+            className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-3 text-white transition-all hover:shadow-lg active:scale-[0.98] disabled:opacity-70"
+            style={{ backgroundColor: theme?.primary || "#8A244B" }}>
+            {isDetecting ? (
+              <><FaSpinner className="animate-spin" /> Live location detect ho rahi hai...</>
+            ) : (
+              <><FaCrosshairs size={18} /> 📍 Meri Live Location Use Karo (Recommended)</>
+            )}
+          </button>
+
+          {locationError && <p className="text-xs text-red-500 -mt-2">{locationError}</p>}
+
+          <p className="text-xs text-gray-400 text-center">— ya neeche map pe tap/drag karke manually set karo —</p>
+
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Ya address search karo (agar Google pe listed hai)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full border-2 rounded-xl px-4 py-3 pr-10 text-sm"
+              style={{ borderColor: (theme?.primary || "#8A244B") + "30" }}
+            />
+            {isSearching && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <FaSpinner className="animate-spin text-gray-400" />
+              </div>
+            )}
+            {searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 bg-white border-2 rounded-xl mt-1 shadow-xl max-h-48 overflow-y-auto z-50"
+                style={{ borderColor: (theme?.primary || "#8A244B") + "20" }}>
+                {searchResults.map((result) => (
+                  <button key={result.id} onClick={() => handleSelectResult(result)}
+                    className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b last:border-0 last:rounded-b-xl text-sm transition-colors">
+                    <div className="font-medium text-gray-800">{result.name}</div>
+                    <div className="text-xs text-gray-500 truncate">{result.fullAddress}</div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
           <div className="relative">
             <div ref={mapContainerRef}
               className="w-full h-64 sm:h-80 rounded-xl border-2 z-0"
@@ -264,7 +343,20 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
                 </div>
               </div>
             )}
+            <div className="absolute top-2 right-2 z-10 flex bg-white rounded-lg shadow-md overflow-hidden border">
+              <button onClick={() => switchTileLayer("street")}
+                className="px-3 py-1.5 text-xs font-semibold transition-colors"
+                style={{ backgroundColor: mapView === "street" ? (theme?.primary || "#8A244B") : "white", color: mapView === "street" ? "white" : "#374151" }}>
+                Map
+              </button>
+              <button onClick={() => switchTileLayer("satellite")}
+                className="px-3 py-1.5 text-xs font-semibold transition-colors"
+                style={{ backgroundColor: mapView === "satellite" ? (theme?.primary || "#8A244B") : "white", color: mapView === "satellite" ? "white" : "#374151" }}>
+                Satellite
+              </button>
+            </div>
           </div>
+
           {selectedLocation && (
             <div className="rounded-xl p-4 border-l-4 bg-gray-50" style={{ borderLeftColor: theme?.primary || "#8A244B" }}>
               <p className="font-semibold text-gray-800 mb-1 text-sm">
@@ -276,11 +368,12 @@ function LocationPickerModal({ isOpen, onClose, onSelect, theme, initialLocation
               </p>
             </div>
           )}
+
           <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-700 space-y-1">
-            <p className="font-semibold">🎯 Kaise use karein:</p>
-            <p>• Search box mein address type karo ya 📍 button se current location lo</p>
-            <p>• Map pe click karke bhi location set kar sakte ho</p>
-            <p>• Marker drag karke exact point adjust karo</p>
+            <p className="font-semibold">💡 Address Google pe na mile to:</p>
+            <p>• "Meri Live Location" button dabao — GPS se exact pin lag jayegi</p>
+            <p>• Satellite view se apna ghar/area visually pehchaan ke pin drag karo</p>
+            <p>• Niche address box mein landmark khud type kar do delivery boy ke liye</p>
           </div>
         </div>
         <div className="p-4 border-t bg-gray-50 flex gap-3 shrink-0">
