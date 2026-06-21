@@ -192,6 +192,7 @@ import { useRequireLogin } from "../utils/requireLogin";
 import NewItemsSlider from "../components/Slider";
 import BottomCart from "../components/BottomCart";
 import CartSidebar from "../components/CartSidebar";
+
 // ================= GLASS MORPHISM STYLES =================
 const glassStyles = {
   header: "backdrop-blur-xl bg-white/70 border-b border-white/20 shadow-lg",
