@@ -29,6 +29,11 @@ import MultiBranchDashboard from "./pages/Multibranchdashboard";
 import InventoryManagement from "./pages/Inventorymanagement";
 import OrderTracking from "./pages/OrderTracking";
 import StaffManagement from "./pages/StaffManagement";
+import StaysPage from "./pages/StaysPage.jsx";
+import StayOwnerDashboard from "./components/Stay/StayOwnerDashboard.jsx";
+import StayLogin from "./components/Stay/StayLogin.jsx";
+import StayListing from "./components/Stay/StayListing.jsx";
+import StayCustomerLogin from "./components/Stay/StayCustomerLogin.jsx";
 
 // ❌ AuthProvider import hatao — already main.jsx mein hai
 // import { AuthProvider } from "./context/AuthContext";
@@ -41,7 +46,10 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/home" element={<HomePage />} />
         <Route path="/discover" element={<DiscoveryPage />} />
-
+<Route path="/stays" element={<StayListing />} />
+<Route path="/stay/login" element={<StayCustomerLogin />} />
+<Route path="/host/login" element={<StayLogin />} />
+<Route path="/host/dashboard" element={<StayOwnerDashboard />} />
         <Route path="/signup" element={<RestaurantSignup />} />
         <Route path="/login" element={<RestaurantLogin />} />
         <Route path="/login/:restaurantId" element={<RestaurantLogin />} />

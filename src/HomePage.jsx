@@ -707,7 +707,12 @@ const FEAT_LABELS = [
   { key: 'support',          label: 'Support',           icon: Headphones },
 ];
 /* ─── Plan Card ──────────────────────────────────────────────────────────── */
-const PlanCard = ({ plan, onSelect, delay, isDark }) => {
+const PlanCard = ({ plan, onSelect, delay, isDark, isYearly }) => {
+  const DISCOUNT = 0.20;
+  const yearlyMonthlyPrice = plan.price === 0 ? 0 : Math.round(plan.price * (1 - DISCOUNT));
+  const yearlyTotalPrice = yearlyMonthlyPrice * 12;
+  const yearlySavings = plan.price === 0 ? 0 : (plan.price * 12) - yearlyTotalPrice;
+  const displayPrice = isYearly ? yearlyMonthlyPrice : plan.price;
   const [hovered, setHovered] = useState(false);
   const isPopular = plan.popular;
   const { width } = useWindowSize();
@@ -795,6 +800,7 @@ const PlanCard = ({ plan, onSelect, delay, isDark }) => {
           </div>
 
           {/* Price */}
+        {/* Price */}
           <div style={{ paddingBottom: 18, marginBottom: 16, borderBottom: '1px solid var(--glass-border)' }}>
             {plan.price === 0 ? (
               <div>
@@ -807,15 +813,40 @@ const PlanCard = ({ plan, onSelect, delay, isDark }) => {
               </div>
             ) : (
               <div>
+                {isYearly && (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)',
+                    borderRadius: 100, padding: '3px 10px', marginBottom: 8,
+                  }}>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: '#16a34a', textDecoration: 'line-through' }}>Rs.{plan.price}</span>
+                    <span style={{ fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 800, color: '#16a34a' }}>20% OFF</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
                   <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600, color: 'var(--maroon)', lineHeight: '46px', verticalAlign: 'top' }}>Rs.</span>
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 46, fontWeight: 900, color: 'var(--maroon)', letterSpacing: '-2px', lineHeight: 1 }}>
-                    {plan.price}
+                  <span style={{
+                    fontFamily: 'var(--font-display)', fontSize: 46, fontWeight: 900,
+                    color: 'var(--maroon)', letterSpacing: '-2px', lineHeight: 1,
+                    transition: 'all 0.3s ease',
+                  }}>
+                    {displayPrice}
                   </span>
                 </div>
                 <div style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
-                  per {plan.period} &middot; cancel anytime
+                  per month &middot; {isYearly ? `Rs.${yearlyTotalPrice} billed yearly` : 'cancel anytime'}
                 </div>
+                {isYearly && yearlySavings > 0 && (
+                  <div style={{
+                    marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 5,
+                    background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)',
+                    borderRadius: 8, padding: '4px 10px',
+                  }}>
+                    <span style={{ fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 800, color: '#16a34a' }}>
+                      Rs.{yearlySavings} bachao har saal!
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1258,7 +1289,7 @@ const HomePage = () => {
     setIsDark(newDark);
     localStorage.setItem('khaatogo-theme', newDark ? 'dark' : 'light');
   };
-
+const [isYearly, setIsYearly] = useState(false);
   const [orders, setOrders] = useState(500);
   const [avg, setAvg] = useState(400);
   const [comm, setComm] = useState(25);
@@ -1302,11 +1333,13 @@ const HomePage = () => {
 
   const navLinks = [
     ['#features','Features'],
-    ['#how-it-works','How It Works'],
+    // ['#how-it-works','How It Works'],
     ['#pricing','Pricing'],
     ['#demo','Live Demo'],
-    ['#testimonials','Reviews'],
+    // ['#testimonials','Reviews'],
     ['/discover','Discover Restaurants'], 
+    ['/stays','Stays'],
+    // ['/host/dashboard', 'List Your Property'],
   ];
 
   return (
@@ -1414,7 +1447,7 @@ const HomePage = () => {
 
             <div className="nav-desktop-ctas" style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 12 }}>
               <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
-              {!isMobile && (
+             {!isTablet && (
                 <button
                   className="nav-login-btn"
                   onClick={() => navigate('/login')}
@@ -1425,7 +1458,7 @@ const HomePage = () => {
                   Login
                 </button>
               )}
-              {!isMobile && (
+              {!isTablet && (
                 <button
                   onClick={() => navigate('/signup')}
                   style={{
@@ -1438,7 +1471,7 @@ const HomePage = () => {
                   {isTablet ? 'Free Trial' : 'Start Free Trial'}
                 </button>
               )}
-              {isMobile && (
+            {isTablet && (
                 <button
                   className="nav-mobile-toggle"
                   style={{ background: 'none', border: '1px solid var(--glass-border)', borderRadius: 8, padding: '8px', cursor: 'pointer', color: 'var(--text1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -1892,20 +1925,78 @@ const HomePage = () => {
 
 
         {/* ── PRICING ───────────────────────────────────────────────────── */}
+      {/* ── PRICING ───────────────────────────────────────────────────── */}
         <section id="pricing" className="section-pad">
           <div className="glow-orb" style={{ top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 800, height: 400, background: 'radial-gradient(ellipse, rgba(138,36,75,0.07) 0%, transparent 65%)' }} />
           <div className="container">
             <Reveal>
-              <div style={{ textAlign: 'center', marginBottom: 56 }}>
+              <div style={{ textAlign: 'center', marginBottom: 40 }}>
                 <div className="section-tag"><Award style={{ width: 12, height: 12 }} /> Pricing</div>
                 <h2 className="section-h2">Simple, Transparent <span style={{ color: 'var(--maroon)' }}>Pricing</span></h2>
                 <p style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: 'var(--text2)', lineHeight: 1.75, maxWidth: 480, margin: '0 auto' }}>Start free for 15 days. No hidden charges. Cancel anytime. Zero commission — always.</p>
+
+                {/* ── Monthly / Yearly Toggle ── */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 28 }}>
+                  <span style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14,
+                    color: !isYearly ? 'var(--maroon)' : 'var(--text3)',
+                    transition: 'color 0.3s ease',
+                  }}>Monthly</span>
+
+                  <div
+                    onClick={() => setIsYearly(!isYearly)}
+                    style={{
+                      width: 52, height: 28, borderRadius: 100, cursor: 'pointer',
+                      background: isYearly ? 'linear-gradient(135deg, var(--maroon), var(--maroon2))' : 'var(--glass-border)',
+                      position: 'relative', transition: 'background 0.3s ease',
+                      border: '1px solid rgba(138,36,75,0.3)',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <div style={{
+                      position: 'absolute', top: 3, left: isYearly ? 26 : 3,
+                      width: 20, height: 20, borderRadius: '50%',
+                      background: isYearly ? '#fff' : 'var(--maroon)',
+                      transition: 'left 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                    }} />
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{
+                      fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 14,
+                      color: isYearly ? 'var(--maroon)' : 'var(--text3)',
+                      transition: 'color 0.3s ease',
+                    }}>Yearly</span>
+                    <span style={{
+                      background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                      color: '#fff', padding: '3px 10px', borderRadius: 100,
+                      fontSize: 11, fontWeight: 800,
+                      fontFamily: 'var(--font-display)',
+                      boxShadow: '0 4px 12px rgba(34,197,94,0.35)',
+                      animation: isYearly ? 'bounce-in 0.4s ease' : 'none',
+                    }}>
+                      20% OFF
+                    </span>
+                  </div>
+                </div>
+
+                {/* Yearly savings hint */}
+                {isYearly && (
+                  <div style={{
+                    marginTop: 12,
+                    fontFamily: 'var(--font-body)', fontSize: 13, color: '#16a34a',
+                    animation: 'fade-up 0.4s ease both',
+                  }}>
+                    🎉 Yearly plan pe 2 mahine free milte hain!
+                  </div>
+                )}
               </div>
             </Reveal>
 
             <div className="pricing-grid">
               {PLANS.map((plan, i) => (
-                <PlanCard key={plan.id} plan={plan} onSelect={() => navigate('/signup')} delay={i * 80} isDark={isDark} />
+                <PlanCard key={plan.id} plan={plan} onSelect={() => navigate('/signup')} delay={i * 80} isDark={isDark} isYearly={isYearly} />
               ))}
             </div>
 

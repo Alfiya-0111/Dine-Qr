@@ -17,21 +17,23 @@ import { toast } from 'react-toastify';
 const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID;
 const MAROON = '#8A244B';
 const GOLD = '#FFD166';
+
 // ─── PLAN CONFIG ───────────────────────────────────────────────────────────────
 const PLANS = [
   {
     id: 'trial',
     name: 'Free Trial',
     price: 0,
+    yearlyPrice: 0,
     period: '15 days',
- icon: <FaGift style={{ fontSize: 40, color: '#22c55e' }} />,
+    icon: <FaGift style={{ fontSize: 40, color: '#22c55e' }} />,
     tagline: '15 din free, sab kuch unlock',
-   badge: ' FREE FOR 15 DAYS',
+    badge: ' FREE FOR 15 DAYS',
     badgeColor: '#22c55e',
     accentColor: '#22c55e',
     features: {
       dishes: '30',
-       staffManagement: true,
+      staffManagement: true,
       qrMenu: true,
       whatsappOrders: true,
       kds: true,
@@ -47,15 +49,16 @@ const PLANS = [
       adminCoupons: true,
       multiBranch: true,
       analytics: 'Full',
-     support: 'WhatsApp',
+      support: 'WhatsApp',
     },
   },
   {
- id: 'starter',
-  name: 'Starter',
-  price: 299,
+    id: 'starter',
+    name: 'Starter',
+    price: 299,
+    yearlyPrice: Math.round(299 * 12 * 0.80),
     period: 'month',
-  icon: <FaRocket style={{ fontSize: 40, color: '#3b82f6' }} />,    
+    icon: <FaRocket style={{ fontSize: 40, color: '#3b82f6' }} />,    
     tagline: 'Chote dhabe ke liye perfect',
     badge: null,
     accentColor: '#3b82f6',
@@ -84,12 +87,12 @@ const PLANS = [
     id: 'growth',
     name: 'Growth',
     price: 599,
+    yearlyPrice: Math.round(599 * 12 * 0.80),
     period: 'month',
-  icon: <FaChartLine style={{ fontSize: 40, color: '#8A244B' }} />,
-
+    icon: <FaChartLine style={{ fontSize: 40, color: '#8A244B' }} />,
     tagline: 'Growing restaurants ke liye',
-badge: 'MOST CHOSEN',
-     badgeColor: '#f97316',
+    badge: 'MOST CHOSEN',
+    badgeColor: '#f97316',
     accentColor: '#8A244B',
     features: {
       dishes: 90,
@@ -116,8 +119,9 @@ badge: 'MOST CHOSEN',
     id: 'pro',
     name: 'Pro',
     price: 999,
+    yearlyPrice: Math.round(999 * 12 * 0.80),
     period: 'month',
-   icon: <FaInfinity style={{ fontSize: 40, color: '#FFD166' }} />,
+    icon: <FaInfinity style={{ fontSize: 40, color: '#FFD166' }} />,
     tagline: 'AR Food View + Premium Features',
     badge: 'BEST VALUE',
     badgeColor: '#FFD166',
@@ -154,6 +158,9 @@ export default function SubscriptionPage() {
   const [pendingOrderId, setPendingOrderId] = useState(null);
   const [showComparison, setShowComparison] = useState(false);
   const [processingPlanId, setProcessingPlanId] = useState(null);
+
+  // 👇 YEARLY TOGGLE STATE
+  const [isYearly, setIsYearly] = useState(false);
 
   const navigate = useNavigate();
   const auth = getAuth();
@@ -208,6 +215,7 @@ export default function SubscriptionPage() {
       return;
     }
 
+    const finalAmount = isYearly ? plan.yearlyPrice : plan.price;
     const orderId = `order_${Date.now()}_${user.uid}`;
     setPendingOrderId(orderId);
     setProcessingPlanId(plan.id);
@@ -219,21 +227,22 @@ export default function SubscriptionPage() {
       userName: user.displayName || 'User',
       planId: plan.id,
       planName: plan.name,
-      amount: plan.price,
+      amount: finalAmount,
       maxDishes: plan.features.dishes,
       status: 'pending',
       orderId,
       paymentMethod: 'razorpay',
+      billingCycle: isYearly ? 'yearly' : 'monthly',
       createdAt: Date.now(),
       expiresAt: Date.now() + 15 * 60 * 1000,
     });
 
     const options = {
       key: RAZORPAY_KEY,
-      amount: plan.price * 100, // paise mein
+      amount: finalAmount * 100, // paise mein
       currency: 'INR',
       name: 'Khaatogo',
-      description: `${plan.name} Plan - Monthly`,
+      description: `${plan.name} Plan - ${isYearly ? 'Yearly' : 'Monthly'}`,
       prefill: {
         name: user.displayName || '',
         email: user.email || '',
@@ -254,21 +263,21 @@ export default function SubscriptionPage() {
             planId: plan.id,
             planName: plan.name,
             maxDishes: plan.features.dishes,
-            amount: plan.price,
+            amount: finalAmount,
             razorpayPaymentId: razorpay_payment_id,
             razorpayOrderId: razorpay_order_id || '',
             razorpaySignature: razorpay_signature || '',
             orderId,
             status: 'pending',
             paymentMethod: 'razorpay',
+            billingCycle: isYearly ? 'yearly' : 'monthly',
             submittedAt: Date.now(),
-            billingCycle: 'monthly',
             planFeatures: plan.features,
           });
 
           await set(rtdbRef(realtimeDB, `userPaymentRequests/${user.uid}/${ref.key}`), {
             status: 'pending',
-            amount: plan.price,
+            amount: finalAmount,
             planId: plan.id,
             planName: plan.name,
             orderId,
@@ -283,12 +292,13 @@ export default function SubscriptionPage() {
             userId: user.uid,
             userEmail: user.email,
             userName: user.displayName || 'User',
-            amount: plan.price,
+            amount: finalAmount,
             planName: plan.name,
             planId: plan.id,
             razorpayPaymentId: razorpay_payment_id,
+            billingCycle: isYearly ? 'yearly' : 'monthly',
             status: 'pending_verification',
-            message: `Razorpay payment received: ₹${plan.price} for ${plan.name}. Payment ID: ${razorpay_payment_id}`,
+            message: `Razorpay payment received: ₹${finalAmount} for ${plan.name} (${isYearly ? 'Yearly' : 'Monthly'}). Payment ID: ${razorpay_payment_id}`,
             createdAt: Date.now(),
             read: false,
             actionRequired: true,
@@ -296,7 +306,7 @@ export default function SubscriptionPage() {
 
           await push(rtdbRef(realtimeDB, `notifications/${user.uid}`), {
             title: '💳 Payment Received!',
-            message: `${plan.name} plan (₹${plan.price}) verify ho raha hai. 24 ghante mein activate ho jayega.`,
+            message: `${plan.name} plan (₹${finalAmount}) verify ho raha hai. 24 ghante mein activate ho jayega.`,
             type: 'payment',
             createdAt: Date.now(),
             read: false,
@@ -396,32 +406,28 @@ export default function SubscriptionPage() {
     if (isCurrentPlan(plan)) return 'Current Plan ✓';
     if (isTrialUsed(plan)) return 'Trial Used';
     if (processingPlanId === plan.id) return 'Opening...';
-   if (plan.id === 'trial')
-  return 'Start 15-Day Free Trial →';
-    return `Pay ₹${plan.price} →`;
+    if (plan.id === 'trial')
+      return 'Start 15-Day Free Trial →';
+    return isYearly ? `Pay ₹${plan.yearlyPrice}/year →` : `Pay ₹${plan.price}/month →`;
   };
 
   // Feature list for plan cards
-const featureList = [
-  { key: 'dishes',           label: 'Dishes',            icon: <FaUtensils />,      format: (v) => v === 'Unlimited' ? '∞ Unlimited' : v },
-  { key: 'staffManagement',  label: 'Staff Management',  icon: <FaUsers /> },
-  { key: 'qrMenu',           label: 'QR Menu',           icon: <FaQrcode /> },
-  { key: 'whatsappOrders',   label: 'WhatsApp Orders',   icon: <FaWhatsapp /> },
-  { key: 'kds',              label: 'Kitchen Display',   icon: <FaClipboardList /> },
-  { key: 'tableBooking',     label: 'Table Booking',     icon: <FaChair /> },
-  { key: 'adminOrder',       label: 'Admin Order',       icon: <FaClipboardList /> },
-  { key: 'customerFeedback', label: 'Customer Feedback', icon: <FaCommentAlt /> },
-  { key: 'deliveryBoys',     label: 'Delivery Boys',     icon: <FaMotorcycle /> },
-  { key: 'revenueDashboard', label: 'Revenue Dashboard', icon: <FaChartBar /> },
-  { key: 'adminCoupons',     label: 'Admin Coupons',     icon: <FaTicketAlt /> },
-  { key: 'multiBranch',      label: 'Multi-Branch',      icon: <FaBuilding />,      highlight: true },
-  {
-  key: 'arView',
-  label: 'AR Food View',
-  icon: <FaMobileAlt />
-},
-  { key: 'analytics',        label: 'Analytics',         icon: <FaChartLine />,     format: (v) => v },
-];
+  const featureList = [
+    { key: 'dishes',           label: 'Dishes',            icon: <FaUtensils />,      format: (v) => v === 'Unlimited' ? '∞ Unlimited' : v },
+    { key: 'staffManagement',  label: 'Staff Management',  icon: <FaUsers /> },
+    { key: 'qrMenu',           label: 'QR Menu',           icon: <FaQrcode /> },
+    { key: 'whatsappOrders',   label: 'WhatsApp Orders',   icon: <FaWhatsapp /> },
+    { key: 'kds',              label: 'Kitchen Display',   icon: <FaClipboardList /> },
+    { key: 'tableBooking',     label: 'Table Booking',     icon: <FaChair /> },
+    { key: 'adminOrder',       label: 'Admin Order',       icon: <FaClipboardList /> },
+    { key: 'customerFeedback', label: 'Customer Feedback', icon: <FaCommentAlt /> },
+    { key: 'deliveryBoys',     label: 'Delivery Boys',     icon: <FaMotorcycle /> },
+    { key: 'revenueDashboard', label: 'Revenue Dashboard', icon: <FaChartBar /> },
+    { key: 'adminCoupons',     label: 'Admin Coupons',     icon: <FaTicketAlt /> },
+    { key: 'multiBranch',      label: 'Multi-Branch',      icon: <FaBuilding />,      highlight: true },
+    { key: 'arView',           label: 'AR Food View',      icon: <FaMobileAlt /> },
+    { key: 'analytics',        label: 'Analytics',         icon: <FaChartLine />,     format: (v) => v },
+  ];
 
   return (
     <div style={{ minHeight: '100vh', background: '#faf9f7', fontFamily: "'Sora', sans-serif", paddingBottom: 80 }}>
@@ -435,31 +441,30 @@ const featureList = [
             <span style={{ color: GOLD, fontSize: 13, fontWeight: 600, letterSpacing: 1 }}>KHAATOGO PRICING</span>
           </div>
           <h1 style={{ color: '#fff', fontSize: 'clamp(28px, 5vw, 48px)', fontWeight: 800, margin: '0 0 12px', lineHeight: 1.2 }}>
-          
-           15 Din Free Trial.<br />
-<span style={{ color: GOLD }}>
-No payment required today.
-</span>
+            15 Din Free Trial.<br />
+            <span style={{ color: GOLD }}>
+              No payment required today.
+            </span>
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 16, margin: '0 auto 24px', maxWidth: 480 }}>
             No credit card. No hidden charges. Sirf apna restaurant grow karo.
           </p>
-<div
-  style={{
-    background: 'rgba(34,197,94,0.15)',
-    border: '1px solid rgba(34,197,94,0.3)',
-    color: '#4ade80',
-    padding: '12px 20px',
-    borderRadius: 12,
-    display: 'inline-block',
-    marginBottom: 20,
-    fontWeight: 700,
-    fontSize: 14
-  }}
->
-   Free Trial ke baad hi payment required hai.
-  Koi credit card nahi. Koi hidden charge nahi.
-</div>
+          <div
+            style={{
+              background: 'rgba(34,197,94,0.15)',
+              border: '1px solid rgba(34,197,94,0.3)',
+              color: '#4ade80',
+              padding: '12px 20px',
+              borderRadius: 12,
+              display: 'inline-block',
+              marginBottom: 20,
+              fontWeight: 700,
+              fontSize: 14
+            }}
+          >
+            Free Trial ke baad hi payment required hai.
+            Koi credit card nahi. Koi hidden charge nahi.
+          </div>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'rgba(255,209,102,0.15)', border: '1px solid rgba(255,209,102,0.3)', borderRadius: 16, padding: '12px 24px', marginBottom: 20 }}>
             <FaBuilding style={{ color: GOLD, fontSize: 20 }} />
             <div style={{ textAlign: 'left' }}>
@@ -471,7 +476,7 @@ No payment required today.
           {/* Razorpay badge */}
           <div style={{ display: 'block', marginTop: 8 }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 100, padding: '8px 20px' }}>
-<FaLock style={{ color: GOLD, fontSize: 16 }} />
+              <FaLock style={{ color: GOLD, fontSize: 16 }} />
               <span style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600, fontSize: 13 }}>Secured by Razorpay — GPay, PhonePe, UPI, Cards</span>
             </div>
           </div>
@@ -489,8 +494,67 @@ No payment required today.
         </div>
       </div>
 
-      {/* ── PLAN CARDS ── */}
+      {/* ── MONTHLY / YEARLY TOGGLE ── */}
       <div style={{ maxWidth: 1100, margin: '-40px auto 0', padding: '0 16px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 32, marginTop: 20 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, background: '#fff', borderRadius: 16, padding: '16px 24px', boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
+            <span style={{
+              fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: 14,
+              color: !isYearly ? MAROON : '#888',
+              transition: 'color 0.3s ease',
+            }}>Monthly</span>
+
+            <div
+              onClick={() => setIsYearly(!isYearly)}
+              style={{
+                width: 52, height: 28, borderRadius: 100, cursor: 'pointer',
+                background: isYearly ? `linear-gradient(135deg, ${MAROON}, #5c1030)` : '#e5e7eb',
+                position: 'relative', transition: 'background 0.3s ease',
+                border: `1px solid ${isYearly ? MAROON : '#d1d5db'}`,
+                flexShrink: 0,
+              }}
+            >
+              <div style={{
+                position: 'absolute', top: 3, left: isYearly ? 26 : 3,
+                width: 20, height: 20, borderRadius: '50%',
+                background: '#fff',
+                transition: 'left 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+              }} />
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{
+                fontFamily: "'Sora', sans-serif", fontWeight: 700, fontSize: 14,
+                color: isYearly ? MAROON : '#888',
+                transition: 'color 0.3s ease',
+              }}>Yearly</span>
+              <span style={{
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                color: '#fff', padding: '3px 10px', borderRadius: 100,
+                fontSize: 11, fontWeight: 800,
+                fontFamily: "'Sora', sans-serif",
+                boxShadow: '0 4px 12px rgba(34,197,94,0.35)',
+                animation: isYearly ? 'pop 0.4s ease' : 'none',
+              }}>
+                20% OFF
+              </span>
+            </div>
+          </div>
+
+          {/* Yearly savings hint */}
+          {isYearly && (
+            <div style={{
+              marginTop: 12,
+              fontFamily: "'Sora', sans-serif", fontSize: 13, color: '#16a34a',
+              animation: 'fade-up 0.4s ease both',
+            }}>
+              🎉 Yearly plan pe 2 mahine free milte hain!
+            </div>
+          )}
+        </div>
+
+        {/* ── PLAN CARDS ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
           {PLANS.map((plan) => {
             const isCurrent = isCurrentPlan(plan);
@@ -500,6 +564,9 @@ No payment required today.
             const hasMultiBranch = plan.features.multiBranch;
             const isProcessing = processingPlanId === plan.id;
             const isDisabled = isCurrent || isTrialUsed(plan) || isProcessing;
+            const displayPrice = isYearly ? Math.round(plan.price * 0.80) : plan.price;
+            const yearlyTotal = plan.yearlyPrice;
+            const yearlySavings = (plan.price * 12) - yearlyTotal;
 
             return (
               <div key={plan.id} style={{
@@ -520,11 +587,12 @@ No payment required today.
 
                 <div style={{ padding: '28px 24px 24px' }}>
                   <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                   <div style={{ fontSize: 42, marginBottom: 8, display: 'flex', justifyContent: 'center' }}>{plan.icon}</div>
+                    <div style={{ fontSize: 42, marginBottom: 8, display: 'flex', justifyContent: 'center' }}>{plan.icon}</div>
                     <h3 style={{ fontSize: 22, fontWeight: 800, color: '#111', margin: '0 0 4px' }}>{plan.name}</h3>
                     <p style={{ fontSize: 13, color: '#888', margin: 0 }}>{plan.tagline}</p>
                   </div>
 
+                  {/* ── UPDATED PRICE SECTION ── */}
                   <div style={{ textAlign: 'center', marginBottom: 24 }}>
                     {plan.price === 0 ? (
                       <div>
@@ -533,9 +601,40 @@ No payment required today.
                       </div>
                     ) : (
                       <div>
-                        <span style={{ fontSize: 13, color: '#888', verticalAlign: 'top', lineHeight: '44px' }}>₹</span>
-                        <span style={{ fontSize: 44, fontWeight: 900, color: MAROON }}>{plan.price}</span>
-                        <span style={{ fontSize: 14, color: '#888' }}>/month</span>
+                        {isYearly && (
+                          <div style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)',
+                            borderRadius: 100, padding: '3px 10px', marginBottom: 8,
+                          }}>
+                            <span style={{ fontSize: 11, color: '#16a34a', textDecoration: 'line-through' }}>₹{plan.price}</span>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: '#16a34a' }}>20% OFF</span>
+                          </div>
+                        )}
+                        <div>
+                          <span style={{ fontSize: 13, color: '#888', verticalAlign: 'top', lineHeight: '44px' }}>₹</span>
+                          <span style={{ fontSize: 44, fontWeight: 900, color: MAROON }}>
+                            {displayPrice}
+                          </span>
+                          <span style={{ fontSize: 14, color: '#888' }}>/month</span>
+                        </div>
+                        <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                          {isYearly 
+                            ? `₹${yearlyTotal} billed yearly · Save ₹${yearlySavings}`
+                            : 'cancel anytime'
+                          }
+                        </div>
+                        {isYearly && (
+                          <div style={{
+                            marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 5,
+                            background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.25)',
+                            borderRadius: 8, padding: '4px 10px',
+                          }}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: '#16a34a' }}>
+                              ₹{yearlySavings} bachao har saal!
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -544,8 +643,8 @@ No payment required today.
                     <div style={{ background: isTrial ? 'rgba(34,197,94,0.1)' : 'rgba(255,209,102,0.15)', border: `1px solid ${isTrial ? 'rgba(34,197,94,0.3)' : 'rgba(255,209,102,0.4)'}`, borderRadius: 10, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <FaBuilding style={{ color: isTrial ? '#22c55e' : GOLD, fontSize: 16 }} />
                       <span style={{ fontSize: 12, fontWeight: 700, color: isTrial ? '#16a34a' : '#8A244B', display: 'flex', alignItems: 'center', gap: 5 }}>
-  <FaBuilding style={{ fontSize: 12 }} /> Multi-Branch {isTrial ? 'Trial me FREE' : 'Unlimited'}
-</span>
+                        <FaBuilding style={{ fontSize: 12 }} /> Multi-Branch {isTrial ? 'Trial me FREE' : 'Unlimited'}
+                      </span>
                     </div>
                   )}
 
@@ -556,10 +655,10 @@ No payment required today.
                       const displayValue = f.format ? f.format(value) : value;
                       return (
                         <div key={f.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, padding: isMultiBranch && value ? '4px 8px' : '0', background: isMultiBranch && value ? 'rgba(255,209,102,0.1)' : 'transparent', borderRadius: isMultiBranch && value ? 6 : 0 }}>
-<span style={{ fontSize: 12, color: '#666', fontWeight: isMultiBranch && value ? 700 : 400, display: 'flex', alignItems: 'center', gap: 5 }}>
-  <span style={{ color: MAROON, fontSize: 12 }}>{f.icon}</span>
-  {f.label}
-</span>
+                          <span style={{ fontSize: 12, color: '#666', fontWeight: isMultiBranch && value ? 700 : 400, display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <span style={{ color: MAROON, fontSize: 12 }}>{f.icon}</span>
+                            {f.label}
+                          </span>
                           {typeof value === 'boolean'
                             ? value
                               ? <span style={{ color: '#22c55e', fontWeight: 700, fontSize: 15 }}>✓</span>
@@ -570,9 +669,9 @@ No payment required today.
                       );
                     })}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, paddingTop: 8, borderTop: '1px solid #eee' }}>
-                     <span style={{ fontSize: 12, color: '#666', display: 'flex', alignItems: 'center', gap: 5 }}>
-  <FaHeadset style={{ color: MAROON, fontSize: 11 }} /> Support
-</span>
+                      <span style={{ fontSize: 12, color: '#666', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <FaHeadset style={{ color: MAROON, fontSize: 11 }} /> Support
+                      </span>
                       <span style={{ fontSize: 11, fontWeight: 700, color: MAROON }}>{plan.features.support}</span>
                     </div>
                   </div>
@@ -613,9 +712,9 @@ No payment required today.
 
                   {/* Razorpay hint for paid plans */}
                   {!isTrial && !isCurrent && !isTrialUsed(plan) && (
-                   <p style={{ fontSize: 11, color: '#aaa', textAlign: 'center', marginTop: 8, margin: '8px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-  <FaLock style={{ fontSize: 10, color: '#aaa' }} /> GPay · PhonePe · UPI · Cards via Razorpay
-</p>
+                    <p style={{ fontSize: 11, color: '#aaa', textAlign: 'center', marginTop: 8, margin: '8px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                      <FaLock style={{ fontSize: 10, color: '#aaa' }} /> GPay · PhonePe · UPI · Cards via Razorpay
+                    </p>
                   )}
                 </div>
               </div>
@@ -628,9 +727,9 @@ No payment required today.
       <div style={{ maxWidth: 1100, margin: '40px auto 0', padding: '0 16px' }}>
         <div style={{ background: '#fff', borderRadius: 20, padding: '24px', border: '1px solid #f0e8ec', boxShadow: '0 2px 16px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-<h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111', display: 'flex', alignItems: 'center', gap: 8 }}>
-  <FaChartBar style={{ color: MAROON }} /> Plan Comparison
-</h3>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#111', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <FaChartBar style={{ color: MAROON }} /> Plan Comparison
+            </h3>
             <button
               onClick={() => setShowComparison(!showComparison)}
               style={{ background: 'none', border: 'none', color: MAROON, fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: "'Sora', sans-serif" }}
@@ -640,26 +739,21 @@ No payment required today.
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: showComparison ? 20 : 0 }}>
-     {[
-  { label: 'Dishes',           key: 'dishes',          icon: <FaUtensils /> },
-
-  { label: 'Staff Management', key: 'staffManagement', icon: <FaUsers /> },
-  { label: 'Multi-Branch',     key: 'multiBranch',     icon: <FaBuilding />,    highlight: true },
-  { label: 'QR Menu',          key: 'qrMenu',          icon: <FaQrcode /> },
-  { label: 'WhatsApp Orders',  key: 'whatsappOrders',  icon: <FaWhatsapp /> },
-  { label: 'Kitchen Display',  key: 'kds',             icon: <FaClipboardList /> },
-  { label: 'Table Booking',    key: 'tableBooking',    icon: <FaChair /> },
-  {
-  label: 'AR Food View',
-  key: 'arView',
-  icon: <FaMobileAlt />
-},
-].map(item => (
-  <div key={item.key} style={{ background: item.highlight ? 'rgba(255,209,102,0.1)' : '#faf9f7', borderRadius: 10, padding: '10px 14px', border: item.highlight ? `1px solid ${GOLD}40` : '1px solid transparent' }}>
-    <div style={{ fontSize: 11, color: '#888', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
-      <span style={{ color: MAROON }}>{item.icon}</span>
-      {item.label}
-    </div>
+            {[
+              { label: 'Dishes',           key: 'dishes',          icon: <FaUtensils /> },
+              { label: 'Staff Management', key: 'staffManagement', icon: <FaUsers /> },
+              { label: 'Multi-Branch',     key: 'multiBranch',     icon: <FaBuilding />,    highlight: true },
+              { label: 'QR Menu',          key: 'qrMenu',          icon: <FaQrcode /> },
+              { label: 'WhatsApp Orders',  key: 'whatsappOrders',  icon: <FaWhatsapp /> },
+              { label: 'Kitchen Display',  key: 'kds',             icon: <FaClipboardList /> },
+              { label: 'Table Booking',    key: 'tableBooking',    icon: <FaChair /> },
+              { label: 'AR Food View',     key: 'arView',          icon: <FaMobileAlt /> },
+            ].map(item => (
+              <div key={item.key} style={{ background: item.highlight ? 'rgba(255,209,102,0.1)' : '#faf9f7', borderRadius: 10, padding: '10px 14px', border: item.highlight ? `1px solid ${GOLD}40` : '1px solid transparent' }}>
+                <div style={{ fontSize: 11, color: '#888', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ color: MAROON }}>{item.icon}</span>
+                  {item.label}
+                </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {PLANS.map(plan => {
                     const val = plan.features[item.key];
@@ -695,11 +789,11 @@ No payment required today.
                   {featureList.map((f, idx) => (
                     <tr key={f.key} style={{ borderBottom: '1px solid #f5f5f5', background: f.key === 'multiBranch' ? 'rgba(255,209,102,0.08)' : idx % 2 === 0 ? '#fafafa' : '#fff' }}>
                       <td style={{ padding: '10px 8px', fontWeight: f.key === 'multiBranch' ? 700 : 400, color: f.key === 'multiBranch' ? '#8A244B' : '#555' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-  <span style={{ color: MAROON, fontSize: 12 }}>{f.icon}</span>
-  {f.label}
-  {f.key === 'multiBranch' && <FaStar style={{ color: GOLD, fontSize: 11 }} />}
-</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span style={{ color: MAROON, fontSize: 12 }}>{f.icon}</span>
+                          {f.label}
+                          {f.key === 'multiBranch' && <FaStar style={{ color: GOLD, fontSize: 11 }} />}
+                        </span>
                       </td>
                       {PLANS.map(plan => {
                         const val = plan.features[f.key];
@@ -720,11 +814,11 @@ No payment required today.
                     </tr>
                   ))}
                   <tr style={{ borderTop: '2px solid #f0e8ec' }}>
-                   <td style={{ padding: '10px 8px', fontWeight: 600, color: '#555' }}>
-  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-    <FaHeadset style={{ color: MAROON, fontSize: 12 }} /> Support
-  </span>
-</td>
+                    <td style={{ padding: '10px 8px', fontWeight: 600, color: '#555' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <FaHeadset style={{ color: MAROON, fontSize: 12 }} /> Support
+                      </span>
+                    </td>
                     {PLANS.map(plan => (
                       <td key={plan.id} style={{ textAlign: 'center', padding: '10px 8px', fontWeight: 700, color: MAROON }}>
                         {plan.features.support}
@@ -741,9 +835,9 @@ No payment required today.
       {/* ── MULTI-BRANCH INFO SECTION ── */}
       <div style={{ maxWidth: 1100, margin: '30px auto 0', padding: '0 16px' }}>
         <div style={{ background: `linear-gradient(135deg, ${MAROON}10, ${GOLD}15)`, borderRadius: 20, padding: '24px', border: `1px solid ${MAROON}25`, display: 'flex', alignItems: 'center', gap: 20 }}>
-         <div style={{ width: 60, height: 60, background: `linear-gradient(135deg, ${MAROON}, #5c1030)`, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-  <FaBuilding style={{ fontSize: 28, color: '#fff' }} />
-</div>
+          <div style={{ width: 60, height: 60, background: `linear-gradient(135deg, ${MAROON}, #5c1030)`, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <FaBuilding style={{ fontSize: 28, color: '#fff' }} />
+          </div>
           <div style={{ flex: 1 }}>
             <h4 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 800, color: '#111' }}>Multi-Branch Management</h4>
             <p style={{ margin: 0, fontSize: 13, color: '#666', lineHeight: 1.6 }}>
@@ -761,8 +855,7 @@ No payment required today.
       {/* ── RAZORPAY TRUST BADGE ── */}
       <div style={{ maxWidth: 1100, margin: '20px auto 0', padding: '0 16px', textAlign: 'center' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16, background: '#fff', borderRadius: 16, padding: '16px 28px', border: '1px solid #f0e8ec', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
-<FaLock style={{ fontSize: 22, color: MAROON }} />
-
+          <FaLock style={{ fontSize: 22, color: MAROON }} />
           <div style={{ textAlign: 'left' }}>
             <div style={{ fontWeight: 800, fontSize: 13, color: '#111' }}>100% Secure Payments</div>
             <div style={{ fontSize: 12, color: '#888' }}>Powered by Razorpay · GPay · PhonePe · UPI · Credit/Debit Cards · Net Banking</div>
@@ -772,6 +865,8 @@ No payment required today.
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pop { 0% { transform: scale(0); } 80% { transform: scale(1.1); } 100% { transform: scale(1); } }
       `}</style>
     </div>
   );
