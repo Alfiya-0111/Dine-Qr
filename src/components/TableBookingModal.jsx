@@ -45,9 +45,10 @@ const TableBookingModal = ({ isOpen, onClose, restaurantId, theme, userId }) => 
       try {
         const snap = await get(rtdbRef(realtimeDB, `subscriptions/${userId}`));
         if (snap.exists()) {
-          const data = snap.val();
-          setUserPlan(data);
-          setPlanFeatures(PLAN_FEATURES[data.planId || "starter"] || PLAN_FEATURES.starter);
+         const data = snap.val();
+setUserPlan(data);
+const planInfo = PLAN_FEATURES[data.planId || "starter"];
+setPlanFeatures({ ...planInfo, billingCycle: data.billingCycle || 'monthly' });
         } else {
           setPlanFeatures(PLAN_FEATURES.starter);
         }
@@ -342,10 +343,15 @@ const TableBookingModal = ({ isOpen, onClose, restaurantId, theme, userId }) => 
 
           {!bookingConfirmed && planFeatures && (
             <div style={{ padding: "0 20px", marginTop: 10 }}>
-              <div className={`tbm-plan-badge ${userPlan?.planId || "starter"}`}><Crown size={14} />{planFeatures?.name || "Starter"} Plan</div>
-              {planFeatures.tableBooking && (
-                <div className="tbm-limit-info"><Users size={14} />{todaysBookingCount}/{planFeatures.maxTablesPerDay} bookings today · Max {planFeatures.maxGuests} guests</div>
-              )}
+              <div className={`tbm-plan-badge ${userPlan?.planId || "starter"}`}>
+  <Crown size={14} />
+  {planFeatures?.name || "Starter"} Plan
+  {userPlan?.billingCycle === 'yearly' && (
+    <span style={{ marginLeft: 6, fontSize: 10, background: '#FFD166', color: '#000', padding: '1px 6px', borderRadius: 10, fontWeight: 800 }}>
+      YEARLY 20% OFF
+    </span>
+  )}
+</div>
               {!planFeatures.tableBooking && (
                 <div className="tbm-limit-warning" onClick={() => setShowUpgradeModal(true)}><Lock size={14} />Table booking is only available in Pro plan. Upgrade now!</div>
               )}

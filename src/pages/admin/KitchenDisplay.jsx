@@ -23,7 +23,7 @@ const PLAN_FEATURES = {
     dishes: "Unlimited",
     qrMenu: true,
     whatsappOrders: true,
-    kds: true,              // ✅ KDS allowed
+    kds: true,
     tableBooking: true,
     adminOrder: true,
     restaurantSettings: true,
@@ -40,7 +40,7 @@ const PLAN_FEATURES = {
     dishes: 35,
     qrMenu: true,
     whatsappOrders: false,
-    kds: false,             // ❌ KDS NOT allowed
+    kds: false,
     tableBooking: false,
     adminOrder: true,
     restaurantSettings: true,
@@ -57,7 +57,7 @@ const PLAN_FEATURES = {
     dishes: 50,
     qrMenu: true,
     whatsappOrders: true,
-    kds: true,              // ✅ KDS allowed
+    kds: true,
     tableBooking: true,
     adminOrder: true,
     restaurantSettings: true,
@@ -74,7 +74,42 @@ const PLAN_FEATURES = {
     dishes: "Unlimited",
     qrMenu: true,
     whatsappOrders: true,
-    kds: true,              // ✅ KDS allowed
+    kds: true,
+    tableBooking: true,
+    adminOrder: true,
+    restaurantSettings: true,
+    menuItems: true,
+    customerFeedback: true,
+    deliveryBoys: true,
+    paymentStatus: true,
+    adminCoupons: true,
+    support: "Priority + Call",
+  },
+  // ⭐ YEARLY PLANS
+  growth_yearly: {
+    revenueDashboard: true,
+    analytics: "Full",
+    dishes: 50,
+    qrMenu: true,
+    whatsappOrders: true,
+    kds: true,
+    tableBooking: true,
+    adminOrder: true,
+    restaurantSettings: true,
+    menuItems: true,
+    customerFeedback: true,
+    deliveryBoys: false,
+    paymentStatus: true,
+    adminCoupons: true,
+    support: "Email + Chat",
+  },
+  pro_yearly: {
+    revenueDashboard: true,
+    analytics: "Full + Reports",
+    dishes: "Unlimited",
+    qrMenu: true,
+    whatsappOrders: true,
+    kds: true,
     tableBooking: true,
     adminOrder: true,
     restaurantSettings: true,
@@ -86,26 +121,19 @@ const PLAN_FEATURES = {
     support: "Priority + Call",
   },
 };
-
-// ─── CHECK KDS ACCESS ─────────────────────────────────────────────────────────
 const hasKdsAccess = (subscription) => {
   if (!subscription) return false;
-
-  // Check if plan is active
   if (subscription.status !== "active") return false;
+  if (subscription.expiresAt && subscription.expiresAt < Date.now()) return false;
 
-  // Check if trial expired
-  if (subscription.planId === "trial" && subscription.expiresAt && subscription.expiresAt < Date.now()) {
-    return false;
-  }
+  const planId = subscription.planId || subscription.plan || "";
+  const kdsPlans = ["trial", "growth", "pro", "growth_yearly", "pro_yearly"];
+  
+  if (!kdsPlans.includes(planId)) return false;
 
-  // Check features from subscription data first, fallback to PLAN_FEATURES
-  const features = subscription.features || PLAN_FEATURES[subscription.planId] || {};
-
-  // KDS access requires kds: true AND revenueDashboard: true (Growth/Pro/Trial)
+  const features = subscription.features || PLAN_FEATURES[planId] || {};
   return features.kds === true && features.revenueDashboard === true;
 };
-
 // ─── LOCKED SCREEN ─────────────────────────────────────────────────────────────
 function LockedScreen({ planName, navigate, restaurantId }) {
   return (
@@ -168,9 +196,10 @@ function LockedScreen({ planName, navigate, restaurantId }) {
         <p style={{ fontSize: 14, color: "#888", margin: "0 0 6px", lineHeight: 1.6 }}>
           Aapka current plan: <strong style={{ color: MAROON }}>{planName || "Starter"}</strong>
         </p>
-        <p style={{ fontSize: 14, color: "#888", margin: "0 0 28px", lineHeight: 1.6 }}>
-          Kitchen Display (KDS) available hai <strong>Growth (₹499)</strong> aur <strong>Pro (₹999)</strong> plans mein.
-        </p>
+      <p style={{ fontSize: 14, color: "#888", margin: "0 0 28px", lineHeight: 1.6 }}>
+  Kitchen Display (KDS) available hai <strong>Growth</strong> aur <strong>Pro</strong> plans mein.<br/>
+  <span style={{ fontSize: 12, opacity: 0.8 }}>Monthly: ₹499/₹999 &nbsp;|&nbsp; Yearly: ₹4,999/₹9,999</span>
+</p>
 
         {/* feature list */}
         <div style={{
@@ -201,22 +230,48 @@ function LockedScreen({ planName, navigate, restaurantId }) {
 
         {/* plan pills */}
         <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 28, flexWrap: "wrap" }}>
-          {[
-            { name: "Growth", price: "₹499/mo", color: MAROON },
-            { name: "Pro",    price: "₹999/mo", color: "#7c3aed" },
-          ].map((p) => (
-            <div key={p.name} style={{
-              padding: "6px 16px",
-              borderRadius: 100,
-              border: `2px solid ${p.color}30`,
-              background: `${p.color}08`,
-              fontSize: 12,
-              fontWeight: 700,
-              color: p.color,
-            }}>
-              {p.name} · {p.price}
-            </div>
-          ))}
+         {[
+  { 
+    name: "Growth", 
+    monthly: "₹499/mo", 
+    yearly: "₹4,999/yr",
+    save: "Save ~17%",
+    color: MAROON 
+  },
+  { 
+    name: "Pro",    
+    monthly: "₹999/mo", 
+    yearly: "₹9,999/yr",
+    save: "Save ~17%",
+    color: "#7c3aed" 
+  },
+].map((p) => (
+  <div key={p.name} style={{
+    padding: "10px 14px",
+    borderRadius: 14,
+    border: `2px solid ${p.color}30`,
+    background: `${p.color}08`,
+    fontSize: 11,
+    fontWeight: 700,
+    color: p.color,
+    textAlign: "center",
+    minWidth: 120,
+  }}>
+    <div style={{ fontSize: 13, marginBottom: 3 }}>{p.name}</div>
+    <div style={{ textDecoration: "line-through", opacity: 0.6, fontSize: 10 }}>{p.monthly}</div>
+    <div style={{ fontSize: 12, fontWeight: 800 }}>{p.yearly}</div>
+    <div style={{ 
+      fontSize: 9, 
+      background: `${p.color}18`, 
+      padding: "1px 6px", 
+      borderRadius: 8,
+      marginTop: 3,
+      display: "inline-block"
+    }}>
+      {p.save}
+    </div>
+  </div>
+))}
         </div>
 
         <button
@@ -856,12 +911,30 @@ const myOrders = Object.entries(data)
   );
 
   // ── SUBSCRIPTION GATE ──────────────────────────────────────────────────────
-  const kdsAccess = hasKdsAccess(subscription);
+ 
+const getDisplayPlanName = (subscription) => {
+  if (!subscription) return "No Plan";
+  
+  const planId = subscription.planId || subscription.plan || "";
+  
+  const names = {
+    trial: "Free Trial",
+    starter: "Starter",
+    growth: "Growth Monthly",
+    pro: "Pro Monthly",
+    growth_yearly: "Growth Yearly",
+    pro_yearly: "Pro Yearly",
+  };
+  
+  return names[planId] || planId;
+};
+
+ const kdsAccess = hasKdsAccess(subscription);
 
   if (!kdsAccess) {
     return (
       <LockedScreen 
-        planName={subscription?.planName || (subscription ? "Starter" : "No Plan")} 
+        planName={getDisplayPlanName(subscription)}   // ✅ FIXED
         navigate={navigate} 
         restaurantId={restaurantId} 
       />

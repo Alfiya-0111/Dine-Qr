@@ -126,13 +126,34 @@ const PLAN_FEATURES = {
     deliveryBoys: true, paymentStatus: true, revenueDashboard: true,
     adminCoupons: true, multiBranch: true, analytics: "Full + Reports", support: "Priority + Call",
   },
+   growth_yearly: {
+    dishes: 90, qrMenu: true, whatsappOrders: true, kds: true,
+    tableBooking: true, adminOrder: true, restaurantSettings: true, menuItems: true, customerFeedback: true,
+    deliveryBoys: false, paymentStatus: true, revenueDashboard: true,
+    adminCoupons: true, multiBranch: false, analytics: "Full", support: "Email + Chat",
+  },
+  pro_yearly: {
+    dishes: "Unlimited", qrMenu: true, whatsappOrders: true, kds: true,
+    tableBooking: true, adminOrder: true, restaurantSettings: true, menuItems: true, customerFeedback: true,
+    deliveryBoys: true, paymentStatus: true, revenueDashboard: true,
+    adminCoupons: true, multiBranch: true, analytics: "Full + Reports", support: "Priority + Call",
+  },
 };
-const PLAN_LABELS = { trial: "Free Trial", starter: "Starter", growth: "Growth", pro: "Pro" };
+const PLAN_LABELS = { 
+  trial: "Free Trial", 
+  starter: "Starter", 
+  growth: "Growth", 
+  pro: "Pro",
+  growth_yearly: "Growth Yearly",
+  pro_yearly: "Pro Yearly",
+};
 const PLAN_BADGES = {
-trial:   { icon: <FaGift />,     color: "#22c55e" },
-starter: { icon: <FaRocket />,   color: "#3b82f6" },
-growth:  { icon: <FaChartLine />, color: "#8A244B" },
-pro:     { icon: <FaInfinity />, color: "#FFD166" },
+  trial:   { icon: <FaGift />,      color: "#22c55e" },
+  starter: { icon: <FaRocket />,    color: "#3b82f6" },
+  growth:  { icon: <FaChartLine />, color: "#8A244B" },
+  pro:     { icon: <FaInfinity />,  color: "#FFD166" },
+  growth_yearly: { icon: <FaChartLine />, color: "#8A244B" },
+  pro_yearly:    { icon: <FaInfinity />,  color: "#FFD166" },
 };
 
 // SPELLCHECK
@@ -707,12 +728,12 @@ setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "act
               {planId && (
                 <span
                   className="px-3 py-1 rounded-full text-xs font-bold text-white shrink-0 flex items-center gap-1"
-                  style={{
-                    background: planId === "pro" ? "linear-gradient(135deg,#8A244B,#f18e49)"
-                      : planId === "growth" ? "#8A244B"
-                      : planId === "trial" ? "#22c55e"
-                      : "#374151",
-                  }}
+                 style={{
+  background: planId === "pro" || planId === "pro_yearly" ? "linear-gradient(135deg,#8A244B,#f18e49)"
+    : planId === "growth" || planId === "growth_yearly" ? "#8A244B"
+    : planId === "trial" ? "#22c55e"
+    : "#374151",
+}}
                 >
                   {PLAN_BADGES[planId]?.icon} {PLAN_LABELS[planId]}
                 </span>
@@ -745,7 +766,13 @@ setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "act
 
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-gray-500">Current Plan:</span>
-            <span className="px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1" style={{ background: planId === "pro" ? "linear-gradient(135deg,#8A244B,#f18e49)" : planId === "growth" ? "#8A244B" : planId === "trial" ? "#22c55e" : "#374151", color: "#fff" }}>
+<span className="px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1" style={{ 
+  background: planId === "pro" || planId === "pro_yearly" ? "linear-gradient(135deg,#8A244B,#f18e49)" 
+    : planId === "growth" || planId === "growth_yearly" ? "#8A244B" 
+    : planId === "trial" ? "#22c55e" 
+    : "#374151", 
+  color: "#fff" 
+}}>
               {PLAN_BADGES[planId]?.icon} {PLAN_LABELS[planId] || planId}
             </span>
             <button onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)} className="text-xs text-[#8A244B] font-medium hover:underline">Upgrade</button>

@@ -40,6 +40,7 @@ const TableManagement = ({ restaurantId }) => {
   });
 
   // ─── SUBSCRIPTION STATE ───────────────────────────────────────────────────
+  const [userPlan, setUserPlan] = useState(null);
   const [planFeatures, setPlanFeatures] = useState(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
 
@@ -49,12 +50,13 @@ const TableManagement = ({ restaurantId }) => {
   useEffect(() => {
     const fetchSubscription = async () => {
       try {
-        const snap = await get(rtdbRef(realtimeDB, `subscriptions/${restaurantId}`));
-        if (snap.exists()) {
-          const data = snap.val();
-          const planId = data.planId || "starter";
-          setPlanFeatures(PLAN_FEATURES[planId] || PLAN_FEATURES.starter);
-        } else {
+       const snap = await get(rtdbRef(realtimeDB, `subscriptions/${restaurantId}`));
+if (snap.exists()) {
+  const data = snap.val();
+    setUserPlan(data);
+  const planId = data.planId || "starter";
+  setPlanFeatures({ ...PLAN_FEATURES[planId], billingCycle: data.billingCycle || 'monthly' });
+} else {
           setPlanFeatures(PLAN_FEATURES.starter);
         }
       } catch (e) {
@@ -226,10 +228,14 @@ const TableManagement = ({ restaurantId }) => {
 <Lock size={36} color="#dc2626" />
           </div>
           <h2 className="tm-locked-title">Table Management Locked 🔒</h2>
-          <p className="tm-locked-sub">
-            Table management is only available in <strong>Pro plan</strong>.<br/>
-            Upgrade to Pro to add and manage tables.
-          </p>
+          <div className="tm-locked-sub">
+  Table management is only available in <strong>Pro plan</strong>.
+  <br/>
+  <span style={{ color: '#16a34a', fontSize: 13, marginTop: 4, display: 'block' }}>
+    Yearly plan pe ₹9590/year (bajaye ₹11988) — ₹2398 bachao!
+  </span>
+</div>
+          
           <button className="tm-locked-btn" onClick={goToSubscription}>
            <Crown size={16} color={GOLD} /> Upgrade to Pro →
           </button>

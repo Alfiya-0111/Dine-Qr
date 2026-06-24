@@ -40,7 +40,7 @@ const PLAN_CONFIG = {
     bgColor: "#dbeafe",
     textColor: "#1e40af",
     borderColor: "#bfdbfe",
-    desc: "60 dishes",  // ✅ 35 → 60
+    desc: "60 dishes",
     features: {
       dishes: 60,
       qrMenu: true,
@@ -55,7 +55,7 @@ const PLAN_CONFIG = {
     borderColor: "#fed7aa",
     desc: "90 dishes",
     features: {
-      dishes: 90,  // ✅ 50 → 90
+      dishes: 90,
       qrMenu: true,
       menuItems: true,
     },
@@ -67,6 +67,33 @@ const PLAN_CONFIG = {
     textColor: "#854d0e",
     borderColor: "#fde047",
     desc: "Unlimited",
+    features: {
+      dishes: "Unlimited",
+      qrMenu: true,
+      menuItems: true,
+    },
+  },
+  // ⭐ NEW: YEARLY PLANS
+  growth_yearly: {
+    label: " GROWTH YEARLY",
+    color: "#f97316",
+    bgColor: "#ffedd5",
+    textColor: "#9a3412",
+    borderColor: "#fed7aa",
+    desc: "90 dishes • Save 17%",
+    features: {
+      dishes: 90,
+      qrMenu: true,
+      menuItems: true,
+    },
+  },
+  pro_yearly: {
+    label: " PRO YEARLY",
+    color: "#FFD166",
+    bgColor: "#fef9c3",
+    textColor: "#854d0e",
+    borderColor: "#fde047",
+    desc: "Unlimited • Save 17%",
     features: {
       dishes: "Unlimited",
       qrMenu: true,
@@ -132,8 +159,7 @@ export default function MenuItems() {
               });
             }
 
-            const maxDishes =
-              planData.maxDishes || planData.planFeatures?.dishes || PLAN_CONFIG[planId]?.features?.dishes || "unlimited";
+           const maxDishes = planData.maxDishes || planData.planFeatures?.dishes || PLAN_CONFIG[planId]?.features?.dishes || "unlimited";
             setDishLimit(maxDishes);
           } else {
             setUserPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "active" });
@@ -251,10 +277,10 @@ export default function MenuItems() {
     return false;
   };
 
-  const getPlanConfig = () => {
-    const planId = userPlan?.planId || "trial";
-    return PLAN_CONFIG[planId] || PLAN_CONFIG.trial;
-  };
+const getPlanConfig = () => {
+  const planId = userPlan?.planId || "trial";
+  return PLAN_CONFIG[planId] || PLAN_CONFIG.trial;
+};
 
   const planConfig = getPlanConfig();
 const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
@@ -297,7 +323,10 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
                   className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-xl md:text-2xl shadow-sm"
                   style={{ backgroundColor: planConfig.color }}
                 >
-{userPlan?.planId === "trial" ? <Gift size={24} /> : userPlan?.planId === "starter" ? <Rocket size={24} /> : userPlan?.planId === "growth" ? <TrendingUp size={24} /> : <Infinity size={24} />}
+{userPlan?.planId === "trial" ? <Gift size={24} /> : 
+ userPlan?.planId === "starter" ? <Rocket size={24} /> : 
+ userPlan?.planId === "growth" || userPlan?.planId === "growth_yearly" ? <TrendingUp size={24} /> : 
+ <Infinity size={24} />}
                 </div>
 
                 <div>
@@ -357,7 +386,7 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
                      <RefreshCw size={14} /> Renew Now
                   </button>
                 )}
-                {!isPlanExpired() && userPlan?.planId !== "pro" && (
+              {!isPlanExpired() && userPlan?.planId !== "pro" && userPlan?.planId !== "pro_yearly" && (
                   <button
                     onClick={goToSubscription}
                     className="px-4 py-2 text-sm font-bold rounded-xl transition shadow-sm border-2"
@@ -370,11 +399,11 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
                     <ArrowUpCircle size={14} />  Upgrade
                   </button>
                 )}
-                {userPlan?.planId === "pro" && !isPlanExpired() && (
-                  <span className="px-4 py-2 bg-[#8A244B] text-white text-sm font-bold rounded-xl">
-                    <Crown size={14} /> Best Plan
-                  </span>
-                )}
+               {(userPlan?.planId === "pro" || userPlan?.planId === "pro_yearly") && !isPlanExpired() && (
+  <span className="px-4 py-2 bg-[#8A244B] text-white text-sm font-bold rounded-xl">
+    <Crown size={14} /> Best Plan
+  </span>
+)}
               </div>
             </div>
           </div>

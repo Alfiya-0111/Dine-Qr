@@ -34,6 +34,7 @@ import StayOwnerDashboard from "./components/Stay/StayOwnerDashboard.jsx";
 import StayLogin from "./components/Stay/StayLogin.jsx";
 import StayListing from "./components/Stay/StayListing.jsx";
 import StayCustomerLogin from "./components/Stay/StayCustomerLogin.jsx";
+import AdminOrderEntry from "./pages/AdminOrderEntry.jsx";
 
 // ❌ AuthProvider import hatao — already main.jsx mein hai
 // import { AuthProvider } from "./context/AuthContext";
@@ -63,6 +64,7 @@ function App() {
 
         <Route path="/dashboard/:restaurantId" element={<Dashboard />}>
           <Route path="adminorder" element={<AdminOrders />} />
+        <Route path="admin-order-entry" element={<AdminOrderEntry />} />
           <Route path="restaurant-settings" element={<RestaurantSettings />} />
           <Route path="bookingtable" element={<AdminDashboard />} />
           <Route path="menu" element={<MenuItems />} />

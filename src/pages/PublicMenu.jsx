@@ -4125,8 +4125,6 @@ const isPlanActive = () => {
     theme={theme}
   />
 )}
-
-
           {selectedItem && <OrderModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
           {/* <LoginModal /> */}
         </div>

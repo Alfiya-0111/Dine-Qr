@@ -179,41 +179,44 @@ const getDateRangeMs = (filterKey) => {
     return () => unsub();
   }, [paramId]);
 
-  // ── LOAD SUBSCRIPTION ──
-  useEffect(() => {
-    if (!restaurantId) return;
-    const loadSub = async () => {
-      try {
-        const snap = await get(ref(realtimeDB, `subscriptions/${restaurantId}`));
-        if (snap.exists()) {
-          const data = snap.val();
-          const id = data.planId || "trial";
-          setPlanId(id);
-          setUserPlan(data);
-          setPlanFeatures(PLAN_FEATURES[id] || PLAN_FEATURES.trial);
-          if (data.planId === "trial" && data.expiresAt) {
-            const daysLeft = Math.ceil((data.expiresAt - Date.now()) / 86400000);
-            setTrialStatus({
-              active: daysLeft > 0,
-              daysLeft: Math.max(0, daysLeft),
-              expired: daysLeft <= 0,
-            });
-          }
-        } else {
-               setPlanId("starter");
-          setUserPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "active" });
-          setPlanFeatures(PLAN_FEATURES.starter);
+ 
+// ── LOAD SUBSCRIPTION ──
+useEffect(() => {
+  if (!restaurantId) return;
+  const loadSub = async () => {
+    try {
+      const snap = await get(ref(realtimeDB, `subscriptions/${restaurantId}`));
+      if (snap.exists()) {
+        const data = snap.val();
+        const id = data.planId || "trial";
+        setPlanId(id);
+        setUserPlan(data);
+        setPlanFeatures(PLAN_FEATURES[id] || PLAN_FEATURES.trial);
+        
+        // 👇 YEARLY EXPIRY CHECK ADD KARO
+        if (data.expiresAt) {
+          const daysLeft = Math.ceil((data.expiresAt - Date.now()) / 86400000);
+          setTrialStatus({
+            active: daysLeft > 0,
+            daysLeft: Math.max(0, daysLeft),
+            expired: daysLeft <= 0,
+          });
         }
-      } catch (e) {
-        console.error(e);
+      } else {
         setPlanId("starter");
+        setUserPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "active" });
         setPlanFeatures(PLAN_FEATURES.starter);
-      } finally {
-        setPlanLoading(false);
       }
-    };
-    loadSub();
-  }, [restaurantId]);
+    } catch (e) {
+      console.error(e);
+      setPlanId("starter");
+      setPlanFeatures(PLAN_FEATURES.starter);
+    } finally {
+      setPlanLoading(false);
+    }
+  };
+  loadSub();
+}, [restaurantId]);
 
   // ── WHATSAPP PROCESSOR ──
   useEffect(() => {
@@ -736,125 +739,238 @@ const getFilteredOrders = () => {
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 16px 80px" }}>
 
         {/* ── PLAN BADGE ── */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{
-            position: "relative", overflow: "hidden",
-            borderRadius: 18, border: `2px solid ${planConfig.borderColor}`,
-            background: planConfig.bgColor, padding: "16px 20px",
-          }}>
-            <div style={{
-              position: "absolute", top: -24, right: -24,
-              width: 96, height: 96, borderRadius: "50%",
-              background: planConfig.color, opacity: 0.2,
-            }} />
-            <div style={{
-              position: "absolute", bottom: -16, left: -16,
-              width: 64, height: 64, borderRadius: "50%",
-              background: planConfig.color, opacity: 0.1,
-            }} />
+     <div style={{ marginBottom: 16 }}>
+  <div style={{
+    position: "relative", overflow: "hidden",
+    borderRadius: 18, border: `2px solid ${planConfig.borderColor}`,
+    background: planConfig.bgColor, padding: "16px 20px",
+  }}>
+    {/* Decorative circles */}
+    <div style={{
+      position: "absolute", top: -24, right: -24,
+      width: 96, height: 96, borderRadius: "50%",
+      background: planConfig.color, opacity: 0.2,
+    }} />
+    <div style={{
+      position: "absolute", bottom: -16, left: -16,
+      width: 64, height: 64, borderRadius: "50%",
+      background: planConfig.color, opacity: 0.1,
+    }} />
 
-            <div style={{
-              position: "relative", display: "flex",
-              alignItems: "center", justifyContent: "space-between",
-              flexWrap: "wrap", gap: 12,
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{
-                  width: 52, height: 52, borderRadius: 14,
-                  background: planConfig.color,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-                }}>
-                  {planId === "trial" ? <Gift size={24} /> : planId === "starter" ? <Rocket size={24} /> : planId === "growth" ? <TrendingUp size={24} /> : <Infinity size={24} />}
-                </div>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{
-                      fontSize: 15, fontWeight: 800,
-                      color: planConfig.textColor, fontFamily: "'Sora', sans-serif",
-                    }}>
-                      {planConfig.label}
-                    </span>
-                    {trialStatus?.active && (
-                      <span style={{
-                        padding: "2px 10px", background: "#dcfce7", color: "#166534",
-                        fontSize: 11, fontWeight: 800, borderRadius: 20, border: "1px solid #bbf7d0",
-                      }}>
-                        {trialStatus.daysLeft}d left
-                      </span>
-                    )}
-                    {(trialStatus?.expired || (isPlanExpired() && !trialStatus)) && (
-                      <span style={{
-                        padding: "2px 10px", background: "#fee2e2", color: "#991b1b",
-                        fontSize: 11, fontWeight: 800, borderRadius: 20, border: "1px solid #fca5a5",
-                      }}>
-                        EXPIRED
-                      </span>
-                    )}
-                    {!isPlanExpired() && userPlan?.status === "active" && !trialStatus && (
-                      <span style={{
-                        padding: "2px 10px", background: "#dcfce7", color: "#166534",
-                        fontSize: 11, fontWeight: 800, borderRadius: 20, border: "1px solid #bbf7d0",
-                      }}>
-                        ACTIVE
-                      </span>
-                    )}
-                  </div>
-                  <p style={{
-                    fontSize: 12, marginTop: 4,
-                    color: planConfig.textColor, opacity: 0.8, margin: "4px 0 0",
-                  }}>
-                    {planConfig.desc} • Orders Dashboard
-                  </p>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {isPlanExpired() && (
-                  <button onClick={goToSubscription} style={{
-                    padding: "9px 18px", background: "#dc2626", color: "#fff",
-                    border: "none", borderRadius: 12, fontWeight: 800, fontSize: 13,
-                    cursor: "pointer", fontFamily: "'Sora', sans-serif",
-                  }}><RefreshCw size={14} /> Renew Now
-                  </button>
-                )}
-                {!isPlanExpired() && planId !== "pro" && (
-                  <button onClick={goToSubscription} style={{
-                    padding: "9px 18px", background: "#fff",
-                    color: planConfig.textColor, border: `2px solid ${planConfig.borderColor}`,
-                    borderRadius: 12, fontWeight: 800, fontSize: 13,
-                    cursor: "pointer", fontFamily: "'Sora', sans-serif",
-                  }}><ArrowUpCircle size={14} /> Upgrade</button>
-                )}
-                {planId === "pro" && !isPlanExpired() && (
-                  <span style={{
-                    padding: "9px 18px", background: PRIMARY,
-                    color: "#fff", borderRadius: 12, fontWeight: 800, fontSize: 13,
-                  }}>
-                    <Crown size={14} color={GOLD} /> Best Plan
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+    <div style={{
+      position: "relative", display: "flex",
+      alignItems: "center", justifyContent: "space-between",
+      flexWrap: "wrap", gap: 12,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        {/* Plan Icon */}
+        <div style={{
+          width: 52, height: 52, borderRadius: 14,
+          background: planConfig.color,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+        }}>
+          {planId === "trial" ? <Gift size={24} /> : planId === "starter" ? <Rocket size={24} /> : planId === "growth" ? <TrendingUp size={24} /> : <Infinity size={24} />}
         </div>
 
-        {/* ── Expired Banner ── */}
-        {isPlanExpired() && (
-          <div style={{
-            background: "#fef2f2", border: "2px solid #fca5a5",
-            borderRadius: 14, padding: "14px 18px", marginBottom: 16,
-          }}>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#991b1b" }}>
-              <AlertTriangle size={16} color="#991b1b" /> Aapka {userPlan?.planName} plan expire ho gaya hai. Full access ke liye renew karo.
-            </p>
-          </div>
-        )}
+        <div>
+          {/* Plan Name + Badges Row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{
+              fontSize: 15, fontWeight: 800,
+              color: planConfig.textColor, fontFamily: "'Sora', sans-serif",
+            }}>
+              {planConfig.label}
+            </span>
 
-        {/* ── UPGRADE BANNER (sirf starter ke liye) ── */}
-        {isStarterPlan && !isPlanExpired() && (
-          <UpgradeBanner onUpgrade={goToSubscription} />
+            {/* 🎉 YEARLY BADGE — 20% OFF */}
+            {userPlan?.billingCycle === 'yearly' && (
+              <span style={{
+                padding: "3px 12px", 
+                background: "linear-gradient(135deg, #FFD166, #FCB53B)", 
+                color: "#000",
+                fontSize: 11, fontWeight: 900, borderRadius: 20, 
+                border: "1px solid #e09020",
+                fontFamily: "'Sora', sans-serif",
+                letterSpacing: 0.5,
+                boxShadow: "0 2px 8px rgba(255,209,102,0.3)",
+              }}>
+                🏷️ YEARLY (20% OFF)
+              </span>
+            )}
+
+            {/* Trial Days Left */}
+            {trialStatus?.active && (
+              <span style={{
+                padding: "2px 10px", background: "#dcfce7", color: "#166534",
+                fontSize: 11, fontWeight: 800, borderRadius: 20, border: "1px solid #bbf7d0",
+              }}>
+                {trialStatus.daysLeft}d left
+              </span>
+            )}
+
+            {/* Expired Badge */}
+            {(trialStatus?.expired || (isPlanExpired() && !trialStatus)) && (
+              <span style={{
+                padding: "2px 10px", background: "#fee2e2", color: "#991b1b",
+                fontSize: 11, fontWeight: 800, borderRadius: 20, border: "1px solid #fca5a5",
+              }}>
+                EXPIRED
+              </span>
+            )}
+
+            {/* Active Badge */}
+            {!isPlanExpired() && userPlan?.status === "active" && !trialStatus && (
+              <span style={{
+                padding: "2px 10px", background: "#dcfce7", color: "#166534",
+                fontSize: 11, fontWeight: 800, borderRadius: 20, border: "1px solid #bbf7d0",
+              }}>
+                ACTIVE
+              </span>
+            )}
+          </div>
+
+          {/* Plan Description with Billing Cycle */}
+          <p style={{
+            fontSize: 12, marginTop: 4,
+            color: planConfig.textColor, opacity: 0.8, margin: "4px 0 0",
+            fontFamily: "'DM Sans', sans-serif",
+          }}>
+            {planConfig.desc} • {userPlan?.billingCycle === 'yearly' ? '🔥 Yearly Plan (Save 20%)' : '📅 Monthly Plan'} • Orders Dashboard
+          </p>
+
+          {/* 💰 Price Info (for paid plans) */}
+          {planId !== 'trial' && userPlan?.amount && (
+            <p style={{
+              fontSize: 11, marginTop: 2,
+              color: planConfig.textColor, opacity: 0.7,
+              fontFamily: "'DM Sans', sans-serif",
+            }}>
+              ₹{userPlan.amount} / {userPlan?.billingCycle === 'yearly' ? 'year' : 'month'}
+              {userPlan?.billingCycle === 'yearly' && (
+                <span style={{ color: "#16a34a", fontWeight: 700, marginLeft: 6 }}>
+                  (₹{Math.round(userPlan.amount / 12)}/month effective)
+                </span>
+              )}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {isPlanExpired() && (
+          <button onClick={goToSubscription} style={{
+            padding: "9px 18px", background: "#dc2626", color: "#fff",
+            border: "none", borderRadius: 12, fontWeight: 800, fontSize: 13,
+            cursor: "pointer", fontFamily: "'Sora', sans-serif",
+            display: "flex", alignItems: "center", gap: 6,
+          }}>
+            <RefreshCw size={14} /> Renew Now
+          </button>
         )}
+        {!isPlanExpired() && planId !== "pro" && (
+          <button onClick={goToSubscription} style={{
+            padding: "9px 18px", background: "#fff",
+            color: planConfig.textColor, border: `2px solid ${planConfig.borderColor}`,
+            borderRadius: 12, fontWeight: 800, fontSize: 13,
+            cursor: "pointer", fontFamily: "'Sora', sans-serif",
+            display: "flex", alignItems: "center", gap: 6,
+          }}>
+            <ArrowUpCircle size={14} /> Upgrade
+          </button>
+        )}
+        {planId === "pro" && !isPlanExpired() && (
+          <span style={{
+            padding: "9px 18px", background: PRIMARY,
+            color: "#fff", borderRadius: 12, fontWeight: 800, fontSize: 13,
+            display: "flex", alignItems: "center", gap: 6,
+          }}>
+            <Crown size={14} color={GOLD} /> Best Plan
+          </span>
+        )}
+      </div>
+    </div>
+  </div>
+</div>
+
+{/* ── YEARLY EXPIRING SOON WARNING ── */}
+{userPlan?.billingCycle === 'yearly' && trialStatus?.active && trialStatus?.daysLeft <= 7 && trialStatus?.daysLeft > 0 && (
+  <div style={{
+    background: "#fffbeb", border: "1.5px solid #fbbf24",
+    borderRadius: 14, padding: "12px 16px", marginBottom: 16,
+    display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+  }}>
+    <AlertTriangle size={20} color="#92400e" />
+    <div style={{ flex: 1, minWidth: 200 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: "#92400e", fontFamily: "'Sora', sans-serif" }}>
+        ⏰ Yearly Plan {trialStatus.daysLeft} din mein expire ho raha hai!
+      </div>
+      <div style={{ fontSize: 11, color: "#b45309", marginTop: 2 }}>
+        Renew karo aur 20% OFF ka fayda uthao. Monthly se bachat jari rakho.
+      </div>
+    </div>
+    <button onClick={goToSubscription} style={{
+      padding: "8px 18px", borderRadius: 10,
+      background: "linear-gradient(135deg, #8A244B, #5c1030)", 
+      color: "#fff", border: "none",
+      fontWeight: 800, fontSize: 12, cursor: "pointer",
+      fontFamily: "'Sora', sans-serif",
+      whiteSpace: "nowrap",
+    }}>
+      Renew Now →
+    </button>
+  </div>
+)}
+
+{/* ── MONTHLY UPGRADE TO YEARLY SUGGESTION ── */}
+{!isPlanExpired() && planId !== 'trial' && userPlan?.billingCycle !== 'yearly' && (
+  <div style={{
+    background: "#f0fdf4", border: "1.5px solid #86efac",
+    borderRadius: 14, padding: "12px 16px", marginBottom: 16,
+    display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+  }}>
+    <Gift size={20} color="#16a34a" />
+    <div style={{ flex: 1, minWidth: 200 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: "#166534", fontFamily: "'Sora', sans-serif" }}>
+        💡 Yearly plan pe switch karo — 20% bachao!
+      </div>
+      <div style={{ fontSize: 11, color: "#15803d", marginTop: 2 }}>
+        {planId === 'starter' && '₹2870/year (bajaye ₹3588) — ₹718 bachao!'}
+        {planId === 'growth' && '₹5750/year (bajaye ₹7188) — ₹1438 bachao!'}
+        {planId === 'pro' && '₹9590/year (bajaye ₹11988) — ₹2398 bachao!'}
+      </div>
+    </div>
+    <button onClick={goToSubscription} style={{
+      padding: "8px 18px", borderRadius: 10,
+      background: "#22c55e", color: "#fff", border: "none",
+      fontWeight: 800, fontSize: 12, cursor: "pointer",
+      fontFamily: "'Sora', sans-serif",
+      whiteSpace: "nowrap",
+    }}>
+      Switch to Yearly →
+    </button>
+  </div>
+)}
+
+        {/* ── Expired Banner ── */}
+      {isPlanExpired() && (
+  <div style={{
+    background: "#fef2f2", border: "2px solid #fca5a5",
+    borderRadius: 14, padding: "14px 18px", marginBottom: 16,
+  }}>
+    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#991b1b" }}>
+      <AlertTriangle size={16} color="#991b1b" /> 
+      Aapka {userPlan?.planName} {userPlan?.billingCycle === 'yearly' ? 'yearly' : ''} plan expire ho gaya hai. Full access ke liye renew karo.
+    </p>
+  </div>
+)}
+       {/* ── UPGRADE BANNER ── */}
+{isStarterPlan && !isPlanExpired() && (
+  <UpgradeBanner onUpgrade={goToSubscription} />
+)}
+
+
 
         {/* ── Page Title ── */}
         <div style={{

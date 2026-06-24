@@ -118,7 +118,7 @@ const navItems = [
   { to: "adminorder",          label: "Admin Order",         icon: ClipboardList,   group: "operations" },
   { to: "bookingtable",        label: "Table Booking",       icon: CalendarCheck,   group: "operations" },
   { to: "kitchen-display",     label: "Kitchen Display",     icon: ChefHat,         group: "operations" },
-
+{ to: "admin-order-entry", label: "New Order", icon: PlusCircle, group: "operations" },
   // Menu Management
   { to: "menu",                label: "Menu Items",          icon: UtensilsCrossed, group: "menu" },
   { to: "add-item",            label: "Add Item",            icon: PlusCircle,      group: "menu" },
