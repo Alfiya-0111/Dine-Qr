@@ -482,7 +482,7 @@ const cfg = statusConfig[order.status] || {
           <div style={{ fontWeight: 900, fontSize: 16, lineHeight: 1, letterSpacing: "0.3px" }}>
             #{order.id?.slice(-6)}
           </div>
-     {order.tableNumber || order.tableName || order.orderDetails?.tableNumber || order.orderDetails?.tableName ? (
+   {(order.tableNumber || order.tableName || order.orderDetails?.tableNumber || order.orderDetails?.tableName || order.tableNo) ? (
   <div style={{
     marginTop: 5,
     background: "rgba(255,209,102,0.25)",
@@ -496,18 +496,18 @@ const cfg = statusConfig[order.status] || {
   }}>
     <FaChair style={{ color: GOLD, fontSize: 11, marginRight: 4 }} /> 
     {order.floor || order.orderDetails?.floor ? `${order.floor || order.orderDetails?.floor} · ` : ''}
-    Table {order.tableName || order.tableNumber || order.orderDetails?.tableName || order.orderDetails?.tableNumber}
+    Table {order.tableName || order.tableNumber || order.orderDetails?.tableName || order.orderDetails?.tableNumber || order.tableNo}
   </div>
 ) : (
-<div style={{ fontSize: 11, opacity: 0.75, marginTop: 3 }}>
-  👤 {order.customerName || order.customerInfo?.name || "Guest"}
-  {(order.tableName || order.orderDetails?.tableName) && (
-    <span style={{ marginLeft: 8, color: GOLD }}>
-      · {order.floor || order.orderDetails?.floor || 'Ground Floor'}
-    </span>
-  )}
-</div>
-          )}
+  <div style={{ fontSize: 11, opacity: 0.75, marginTop: 3 }}>
+    👤 {order.customerName || order.customerInfo?.name || "Guest"}
+    {(order.tableName || order.orderDetails?.tableName || order.tableNo) && (
+      <span style={{ marginLeft: 8, color: GOLD }}>
+        · {order.floor || order.orderDetails?.floor || 'Ground Floor'}
+      </span>
+    )}
+  </div>
+)}
         </div>
 
         <div style={{ textAlign: "right" }}>

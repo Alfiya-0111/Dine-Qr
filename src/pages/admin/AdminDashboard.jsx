@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { getAuth } from "firebase/auth";
 import { ref as rtdbRef, get } from "firebase/database";
 import { realtimeDB } from "../../firebaseConfig";
-import TableManagement from "../../components/admin/TableManagement";
-import BookingManagement from "../../components/admin/BookingManagement";
+import TableManagement from "../../components/TableManagement";
+import TableBookingModal from "../../components/TableBookingModal";
 import { FaTable, FaCalendarCheck, FaLock, FaCrown } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { Gift, Rocket, TrendingUp, Infinity, Crown, RefreshCw, ArrowUpCircle } from "lucide-react";
@@ -318,7 +318,7 @@ const AdminDashboard = () => {
           <>
             {/* Table Booking Feature Check */}
             {hasFeature("tableBooking") && !isPlanExpired() ? (
-              <BookingManagement restaurantId={restaurantId} />
+              <TableBookingModal restaurantId={restaurantId} />
             ) : !hasFeature("tableBooking") ? (
               /* LOCKED STATE - Plan doesn't have feature */
               <div className="bg-white rounded-xl shadow-sm p-8 text-center border-2 border-dashed border-gray-200">

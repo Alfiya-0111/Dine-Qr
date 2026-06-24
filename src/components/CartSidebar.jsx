@@ -59,7 +59,7 @@ function calcDiscount(coupon, subtotal) {
   return Math.min(coupon.discountValue, subtotal);
 }
 
-export default function CartSidebar({ open, onClose, theme, restaurantId, restaurantSettings, onWhatsAppOrder, promoData }) {
+export default function CartSidebar({ open, onClose, theme, restaurantId, restaurantSettings, onWhatsAppOrder, promoData, tableNumber: propTableNumber }) {
   const { cart, removeFromCart, updateQty, clearCart, total, cartCount } = useCart();
   const [showCheckout, setShowCheckout] = useState(false);
   const [showWhatsAppCheckout, setShowWhatsAppCheckout] = useState(false);
@@ -106,7 +106,21 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
       document.body.style.width = '';
     };
   }, [open]);
-
+  // ===== RESTORE TABLE NUMBER FROM PROP OR URL =====
+  useEffect(() => {
+    // Pehle prop se lo
+    if (propTableNumber) {
+      setCustomerInfo(prev => ({ ...prev, tableNumber: propTableNumber }));
+      return;
+    }
+    
+    // Phir URL se lo
+    const params = new URLSearchParams(window.location.search);
+    const tableFromURL = params.get("table");
+    if (tableFromURL && !customerInfo.tableNumber) {
+      setCustomerInfo(prev => ({ ...prev, tableNumber: tableFromURL }));
+    }
+  }, [propTableNumber]);
   // ===== FETCH COUPONS =====
   useEffect(() => {
     if (!restaurantId) return;
@@ -197,13 +211,27 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
     setCouponInput('');
   };
 
-  const handleCheckout = () => {
+   const handleCheckout = () => {
     if (cart.length === 0) return;
     const user = auth.currentUser;
+    
+    // Get table number from prop or customerInfo
+    const tableNum = propTableNumber || customerInfo.tableNumber || '';
+    
     if (!user) {
-      navigate(`/logins/${restaurantId}?redirect=cart`);
+      // Not logged in → go to login with redirect back to cart
+      if (tableNum) {
+        navigate(`/logins/${restaurantId}?redirect=cart&table=${encodeURIComponent(tableNum)}`);
+      } else {
+        navigate(`/logins/${restaurantId}?redirect=cart`);
+      }
     } else {
-      navigate(`/checkout/${restaurantId}`);
+      // Logged in → go to checkout with table number in URL
+      if (tableNum) {
+        navigate(`/checkout/${restaurantId}?table=${encodeURIComponent(tableNum)}`);
+      } else {
+        navigate(`/checkout/${restaurantId}`);
+      }
     }
   };
 
@@ -297,7 +325,8 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
       const cleanPhone = phone.toString().replace(/\s/g, '').replace('+', '');
       const items = cart.map(i => `${i.name} x${i.qty || 1}`).join(', ');
       const couponLine = appliedCoupon ? ` Coupon: ${appliedCoupon.code} (-₹${discount.toFixed(0)}).` : '';
-      const message = `Hi, I'm ${customerInfo.name} (${customerInfo.phone}). I want to order: ${items}.${couponLine} Total: ₹${grandTotal.toFixed(0)}. ${customerInfo.tableNumber ? `Table: ${customerInfo.tableNumber}. ` : ''}${customerInfo.specialInstructions || ''}`;
+           const tableStr = (propTableNumber || customerInfo.tableNumber) ? `Table: ${propTableNumber || customerInfo.tableNumber}. ` : '';
+      const message = `Hi, I'm ${customerInfo.name} (${customerInfo.phone}). I want to order: ${items}.${couponLine} Total: ₹${grandTotal.toFixed(0)}. ${tableStr}${customerInfo.specialInstructions || ''}`;
       
       window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
       
@@ -347,7 +376,7 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
       customerName: customerInfo.name,
       customerPhone: customerInfo.phone,
       customerEmail: user.email || "",
-      tableNumber: customerInfo.tableNumber || "",
+      tableNumber: propTableNumber || customerInfo.tableNumber || "",
       specialInstructions: customerInfo.specialInstructions || "",
       items: items,
       type: "whatsapp",
@@ -378,7 +407,8 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
       const message = `🍽️ *NEW ORDER - ${restaurantSettings?.name || 'Restaurant'}* 🍽️\n\n` +
         `👤 *Customer:* ${customerInfo.name}\n` +
         `📱 *Phone:* ${customerInfo.phone}\n` +
-        (customerInfo.tableNumber ? `🪑 *Table:* ${customerInfo.tableNumber}\n` : '') +
+              ((propTableNumber || customerInfo.tableNumber) ? `🪑 *Table:* ${propTableNumber || customerInfo.tableNumber}\n` : '') +
+
         `\n*Order Details:*\n` +
         cart.map((item, i) => `• ${item.name} x${item.qty || 1} - ₹${item.price * (item.qty || 1)}`).join('\n') +
         `\n\n💰 *Subtotal:* ₹${subtotal.toFixed(2)}\n` +
@@ -544,6 +574,12 @@ export default function CartSidebar({ open, onClose, theme, restaurantId, restau
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start gap-2">
                           <h4 className="font-semibold text-sm truncate flex-1">{item.name}</h4>
+                          {/* Table Number Badge */}
+                            {(propTableNumber || customerInfo.tableNumber) && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0" style={{ backgroundColor: `${theme.primary}15`, color: theme.primary }}>
+                                🪑 {propTableNumber || customerInfo.tableNumber}
+                              </span>
+                            )}
                           <span className="font-bold text-sm shrink-0" style={{ color: theme.primary }}>
                             ₹{item.price}
                           </span>

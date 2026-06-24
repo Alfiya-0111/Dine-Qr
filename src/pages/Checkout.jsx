@@ -730,7 +730,20 @@ export default function Checkout() {
     { id: "delivery", label: "Delivery", Icon: FaTruck         },
      { id: "room-service", label: "Room Service", Icon: FaBed           },
   ];
-
+useEffect(() => {
+  if (!restaurantId) return;
+  
+  const params = new URLSearchParams(window.location.search);
+  const tableFromURL = params.get("table");
+  const tableFromState = location.state?.tableNumber;
+  const savedTable = localStorage.getItem(`checkoutTable_${restaurantId}`);
+  
+  const finalTable = tableFromURL || tableFromState || savedTable || "";
+  
+  if (finalTable) {
+    setTableNumber(finalTable);
+  }
+}, [restaurantId, location.state]);
   // ─── LOAD RESTAURANT DATA ──────────────────────────────────────────────────
   useEffect(() => {
     if (!restaurantId) return;

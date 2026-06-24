@@ -480,14 +480,14 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
               </Link>
             </div>
           )}
-          <Qrmodal
-            open={showQR}
-            onClose={() => setShowQR(false)}
-            menuURL={menuURL}
-            hotelName={hotelName}
-            logoURL={hotelLogoURL}
-            theme={restaurantTheme}
-          />
+        <Qrmodal
+  open={showQR}
+  onClose={() => setShowQR(false)}
+  menuURL={menuURL}
+  hotelName={hotelName}
+  logoURL={hotelLogoURL}
+  theme={restaurantTheme}
+/>
         </>
 
         {/* ===== MENU ITEMS LIST ===== */}

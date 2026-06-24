@@ -402,11 +402,14 @@ useEffect(() => {
   const updateStatus = async (id, status) => {
 const order = ordersRefState.current.find(o => o.id === id) || (historicalOrders || []).find(o => o.id === id);
 
-    const t = Date.now();
-    const updates = { 
-      status: status.toLowerCase(), 
-      updatedAt: t 
-    };
+   const updates = { 
+  status: status.toLowerCase(), 
+  updatedAt: t,
+  tableNumber: order.tableNumber || order.tableNo || order.orderDetails?.tableNumber || "",
+  tableName: order.tableName || order.orderDetails?.tableName || "",
+  floor: order.floor || order.orderDetails?.floor || "Ground Floor",
+};
+
     
     if (status === "preparing" || status === "ready") {
       const prepTime = order?.prepTime || 5;

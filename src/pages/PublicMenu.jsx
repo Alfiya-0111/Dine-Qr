@@ -181,7 +181,7 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 
 import Likes from "../components/Likes";
 import Rating from "../components/Rating";
@@ -717,6 +717,7 @@ const ShowMoreText = ({ text, maxLength = 80 }) => {
 export default function PublicMenu() {
   const { cart, addToCart, clearCart, initCartForRestaurant } = useCart();
   const [aboutUs, setAboutUs] = useState(null);
+  const [tableNumber, setTableNumber] = useState("");
   const [subscriptionData, setSubscriptionData] = useState(null);
   const [restaurantSettings, setRestaurantSettings] = useState(null);
   const [spiceSelections, setSpiceSelections] = useState({});
@@ -760,6 +761,24 @@ export default function PublicMenu() {
     setUserId(null);
     setActiveTab("menu");
   };
+  const location = useLocation();
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tableFromURL = params.get("table");
+    
+    if (tableFromURL) {
+      setTableNumber(tableFromURL);
+      if (restaurantId || slug) {
+        localStorage.setItem(`tableNumber_${restaurantId || slug}`, tableFromURL);
+      }
+    } else {
+      // Fallback: localStorage se lo
+      const savedTable = localStorage.getItem(`tableNumber_${restaurantId || slug}`);
+      if (savedTable) {
+        setTableNumber(savedTable);
+      }
+    }
+  }, [restaurantId, slug]);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60);
     window.addEventListener('scroll', onScroll);
@@ -1226,7 +1245,7 @@ Sent via DineQR
         customerName: customerData?.name || user.displayName || "Customer",
         customerPhone: customerData?.phone || user.phoneNumber || "",
         customerEmail: user.email || "",
-        tableNumber: customerData?.tableNumber || "",
+      tableNumber: customerData?.tableNumber || tableNumber || "",
         specialInstructions: customerData?.specialInstructions || "",
         items: [enrichedItem],
         type: "whatsapp",
@@ -1422,7 +1441,7 @@ ${'━'.repeat(30)}
         customerName: orderData.customerName || user.displayName || "Customer",
         customerPhone: orderData.customerPhone || user.phoneNumber || "",
         customerEmail: user.email || "",
-        tableNumber: orderData.tableNumber || "",
+tableNumber: orderData.tableNumber || tableNumber || "",
         specialInstructions: orderData.specialInstructions || "",
         items: detailedItems,
         type: "whatsapp",
@@ -1484,8 +1503,8 @@ ${'━'.repeat(30)}
     const enrichedOrderData = {
       customerName: orderData.customerName,
       customerPhone: orderData.customerPhone,
-      tableNumber: orderData.tableNumber,
-      specialInstructions: orderData.specialInstructions,
+tableNumber: orderData.tableNumber || tableNumber || "",
+specialInstructions: orderData.specialInstructions || "",
       items: cart.map(item => ({
         id: item.id,
         name: item.name,
@@ -1914,29 +1933,30 @@ Sent via DineQR
   const visibleCategories = categories.filter(cat => categoryCounts[cat.id] > 0);
 
   // Call Waiter Function with Voice
-  // Call Waiter Function with Voice
-  const callWaiter = async () => {
-    if (waiterCooldown || !userId) return;
+const callWaiter = async () => {
+  if (waiterCooldown || !userId) return;
 
-    // Pehle check karo kahi table number already saved hai ya order mein hai
-    let tableNumber = activeOrder?.[0]?.tableNumber || "";
-    
-    if (!tableNumber) {
-      const savedTable = localStorage.getItem(`tableNumber_${restaurantId}`);
-      if (savedTable) {
-        tableNumber = savedTable;
-      }
+  // Pehle URL/localStorage wala table number check karo
+  let tableNum = tableNumber; // state se
+  
+  if (!tableNum) {
+    tableNum = activeOrder?.[0]?.tableNumber || "";
+  }
+  
+  if (!tableNum) {
+    const savedTable = localStorage.getItem(`tableNumber_${restaurantId}`);
+    if (savedTable) {
+      tableNum = savedTable;
     }
+  }
 
-    // Agar table number mil gaya toh direct call kar do
-    if (tableNumber) {
-      await sendWaiterCall(tableNumber);
-    } else {
-      // Nahi mila toh modal khol do
-      setWaiterTableInput("");
-      setShowWaiterModal(true);
-    }
-  };
+  if (tableNum) {
+    await sendWaiterCall(tableNum);
+  } else {
+    setWaiterTableInput("");
+    setShowWaiterModal(true);
+  }
+};
 
   const sendWaiterCall = async (tableNumber) => {
     setWaiterCalled(true);
@@ -3743,14 +3763,16 @@ const isPlanActive = () => {
 
                             const rid = restaurantId || slug;
                             if (rid) {
-                              navigate(`/checkout/${rid}`, {
-                                state: {
-                                  cartItems: [payload],
-                                  restaurantId: rid,
-                                  restaurantName: restaurantName || restaurantSettings?.name,
-                                  fromDirectOrder: true
-                                }
-                              });
+const tableParam = tableNumber ? `?table=${encodeURIComponent(tableNumber)}` : "";
+navigate(`/checkout/${rid}${tableParam}`, {
+  state: {
+    cartItems: [payload],
+    restaurantId: rid,
+    restaurantName: restaurantName || restaurantSettings?.name,
+    fromDirectOrder: true,
+    tableNumber: tableNumber || "",
+  }
+});
                             } else {
                               toast.error("Restaurant ID missing. Cannot checkout.");
                             }
@@ -3952,15 +3974,16 @@ const isPlanActive = () => {
 
               {/* CartSidebar */}
                {isPlanActive() && (
-              <CartSidebar
-                open={openCart}
-                onClose={() => setOpenCart(false)}
-                theme={theme}
-                restaurantId={restaurantId}
-                restaurantSettings={restaurantSettings}
-                onWhatsAppOrder={handleWhatsAppOrderFromCart}
-                promoData={restaurantSettings?.promo}
-              />
+             <CartSidebar
+  open={openCart}
+  onClose={() => setOpenCart(false)}
+  theme={theme}
+  restaurantId={restaurantId}
+  restaurantSettings={restaurantSettings}
+  onWhatsAppOrder={handleWhatsAppOrderFromCart}
+  promoData={restaurantSettings?.promo}
+  tableNumber={tableNumber} // ← ADD THIS
+/>
               )}
             </>
               

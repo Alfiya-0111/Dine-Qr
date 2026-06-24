@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { ref as rtdbRef, onValue, set, update, remove, get } from "firebase/database";
-import { realtimeDB } from "../../firebaseConfig";
-import { Plus, Pencil, Trash2, Armchair, MapPin, Users, Lock, Crown } from "lucide-react";
-
+import { realtimeDB } from "../firebaseConfig";
+import { Plus, Pencil,QrCode , Trash2, Armchair, MapPin, Users, Lock, Crown, } from "lucide-react";
+import Qrmodal from "../pages/Qrmodal";
 import { useNavigate } from "react-router-dom";
-
+function darkenColor(hex, percent) {
+  const num = parseInt(hex.replace("#", ""), 16);
+  const amt = Math.round(2.55 * percent);
+  const R = Math.max(0, (num >> 16) - amt);
+  const G = Math.max(0, ((num >> 8) & 0x00FF) - amt);
+  const B = Math.max(0, (num & 0x0000FF) - amt);
+  return "#" + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+}
 // ─── PLAN CONFIG (Only Trial & Pro have table management) ───────────────────
 const PLAN_FEATURES = {
   trial: {
@@ -38,13 +45,39 @@ const TableManagement = ({ restaurantId }) => {
     location: "Center",
     status: "available",
   });
-
+ const [restaurantSettings, setRestaurantSettings] = useState(null);
   // ─── SUBSCRIPTION STATE ───────────────────────────────────────────────────
   const [userPlan, setUserPlan] = useState(null);
   const [planFeatures, setPlanFeatures] = useState(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
-
+const [showQR, setShowQR] = useState(false);
+const [qrTable, setQrTable] = useState(null);
   const navigate = useNavigate();
+  // ── Fetch restaurant info (name, logo, theme) from Realtime DB ──
+  useEffect(() => {
+    if (!restaurantId || restaurantId === "menu" || restaurantId === "bookingtable") return;
+
+    const fetchRestaurantInfo = async () => {
+      try {
+        const restSnap = await get(rtdbRef(realtimeDB, `restaurants/${restaurantId}`));
+        if (restSnap.exists()) {
+          const d = restSnap.val();
+          setRestaurantSettings({
+            name: d.name || "Restaurant",
+            logo: d.logo || null,
+            theme: d.theme || null,
+          });
+        } else {
+          setRestaurantSettings({ name: "Restaurant", logo: null, theme: null });
+        }
+      } catch (e) {
+        console.error("Error fetching restaurant info:", e);
+        setRestaurantSettings({ name: "Restaurant", logo: null, theme: null });
+      }
+    };
+
+    fetchRestaurantInfo();
+  }, [restaurantId]);
 
   // ─── FETCH USER SUBSCRIPTION ────────────────────────────────────────────────
   useEffect(() => {
@@ -629,8 +662,8 @@ if (snap.exists()) {
 
         {/* Tables Grid */}
         {tables.length === 0 ? (
-          <div className="tm-empty">
-            <div className="tm-empty-icon">🪑</div>
+          <div className="tm-empty flex flex-col-reverse items-center">
+            <div className="tm-empty-icon text-center"><Armchair/></div>
             <p>No tables added yet. Add your first table!</p>
           </div>
         ) : (
@@ -641,14 +674,26 @@ if (snap.exists()) {
                 <div key={table.id} className="tm-card">
                   <div className="tm-card-top">
                     <span className="tm-card-name">{table.name}</span>
-                    <div className="tm-card-actions">
-                      <button className="tm-icon-btn edit" onClick={() => handleEdit(table)} title="Edit">
-<Pencil size={14} />
-                      </button>
-                      <button className="tm-icon-btn delete" onClick={() => handleDelete(table.id)} title="Delete">
-                       <Trash2 size={14} />
-                      </button>
-                    </div>
+                   <div className="tm-card-actions">
+  <button 
+    className="tm-icon-btn" 
+    onClick={() => {
+      // QR modal open karo is table ke liye
+      setQrTable(table);
+      setShowQR(true);
+    }} 
+    title="Generate QR"
+    style={{ background: '#f0fdf4', color: '#16a34a' }}
+  >
+    <QrCode size={14} />
+  </button>
+  <button className="tm-icon-btn edit" onClick={() => handleEdit(table)} title="Edit">
+    <Pencil size={14} />
+  </button>
+  <button className="tm-icon-btn delete" onClick={() => handleDelete(table.id)} title="Delete">
+    <Trash2 size={14} />
+  </button>
+</div>
                   </div>
 
                   <div className="tm-card-info">
@@ -674,6 +719,22 @@ if (snap.exists()) {
           </div>
         )}
       </div>
+          {showQR && qrTable && (
+        <Qrmodal
+          open={showQR}
+          onClose={() => { setShowQR(false); setQrTable(null); }}
+          menuURL={`${window.location.origin}/menu/${restaurantId}`}
+          hotelName={restaurantSettings?.name || "Restaurant"}
+          logoURL={restaurantSettings?.logo || null}
+          theme={{
+            primary: restaurantSettings?.theme?.primary || "#8A244B",
+            primaryDark: restaurantSettings?.theme?.primary ? darkenColor(restaurantSettings.theme.primary, 40) : "#6e1435",
+            accent: restaurantSettings?.theme?.border || "#FFD166",
+            bg: restaurantSettings?.theme?.background || "#ffffff",
+          }}
+          tableNumber={qrTable.name || qrTable.id}
+        />
+      )}
     </>
   );
 };

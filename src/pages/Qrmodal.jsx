@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useCallback, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-
+import {Armchair} from "lucide-react";
 // Helper: convert hex to rgba
 function hexToRgba(hex, alpha) {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -9,7 +9,7 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export default function Qrmodal({ open, onClose, menuURL, hotelName, logoURL, theme = {} }) {
+export default function Qrmodal({ open, onClose, menuURL, hotelName, logoURL, theme = {}, tableNumber = null }) {
   const primary     = theme.primary     || "#8A244B";
   const primaryDark = theme.primaryDark || "#6e1435";
   const accent      = theme.accent      || "#FFD166";
@@ -104,9 +104,12 @@ export default function Qrmodal({ open, onClose, menuURL, hotelName, logoURL, th
   const handleDownload = async () => {
     setIsGenerating(true);
     try {
-      const blob = await generateCardBlob();
+     const blob = await generateCardBlob();
       if (!blob) { alert("Failed to generate image. Please try again."); return; }
-      const file = new File([blob], `${hotelName || "menu"}-qr-card.png`, { type: "image/png" });
+      const fileName = tableNumber 
+        ? `${hotelName || "menu"}-table-${tableNumber}-qr.png`
+        : `${hotelName || "menu"}-qr-card.png`;
+      const file = new File([blob], fileName, { type: "image/png" });
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -169,7 +172,7 @@ export default function Qrmodal({ open, onClose, menuURL, hotelName, logoURL, th
         <div class="body">
           <div class="qrframe">${svgHTML}</div>
           <div class="vl">View Our Menu</div>
-          <div class="url">${menuURL}</div>
+            <div class="url">${tableNumber ? `${menuURL}?table=${tableNumber}` : menuURL}</div>
           <div class="footer">Digital Menu by <span>Khaatogo</span> &middot; khaatogo.com</div>
         </div>
       </div>
@@ -418,8 +421,24 @@ export default function Qrmodal({ open, onClose, menuURL, hotelName, logoURL, th
               </div>
 
               <div className="qrm-name">{hotelName || "Restaurant"}</div>
-              <div className="qrm-hint">Scan to view our menu</div>
-              <div className="qrm-wave" style={waveStyle} />
+             <div className="qrm-hint">Scan to view our menu</div>
+{tableNumber && (
+  <div style={{
+    fontSize: 13,
+    fontWeight: 800,
+   color: accent,
+background: hexToRgba(accent, 0.2),
+border: `1px solid ${hexToRgba(accent, 0.4)}`,
+    borderRadius: 20,
+    padding: '4px 14px',
+    display: 'inline-block',
+    marginBottom: 12,
+    letterSpacing: 0.5,
+  }}>
+     Table {tableNumber}
+  </div>
+)}
+<div className="qrm-wave" style={waveStyle} />
             </div>
 
             {/* Body — QR + URL + footer + buttons */}
@@ -429,7 +448,7 @@ export default function Qrmodal({ open, onClose, menuURL, hotelName, logoURL, th
               <div className="qrm-frame" style={frameStyle}>
                 <QRCodeSVG
                   id="khaatogo-qr-svg"
-                  value={menuURL}
+                 value={tableNumber ? `${menuURL}?table=${tableNumber}` : menuURL}
                   size={200}
                   bgColor={bg}
                   fgColor={primary}
@@ -440,17 +459,18 @@ export default function Qrmodal({ open, onClose, menuURL, hotelName, logoURL, th
               <div className="qrm-view-label" style={viewLabelStyle}>View Our Menu</div>
 
               <div>
-                <span
+                             <span
                   className="qrm-url-pill"
                   style={urlPillStyle}
                   title="Click to copy"
                   onClick={() => {
-                    navigator.clipboard.writeText(menuURL);
+                    const fullURL = tableNumber ? `${menuURL}?table=${tableNumber}` : menuURL;
+                    navigator.clipboard.writeText(fullURL);
                     setCopied(true);
                     setTimeout(() => setCopied(false), 2000);
                   }}
                 >
-                  🔗 {menuURL}
+                  🔗 {tableNumber ? `${menuURL}?table=${tableNumber}` : menuURL}
                 </span>
               </div>
               <div className="qrm-copy-tip">
