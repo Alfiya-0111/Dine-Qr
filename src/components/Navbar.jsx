@@ -221,6 +221,7 @@ const Navbar = ({ user, onToggleSidebar, sidebarOpen }) => {
   const navItems = [
     { name: "Table Booking",        path: `/dashboard/${restaurantId}/bookingtable`,        icon: CalendarCheck,   route: "bookingtable" },
     { name: "Admin Order",          path: `/dashboard/${restaurantId}/adminorder`,          icon: ClipboardList,   route: "adminorder" },
+    { name: "New Order",            path: `/dashboard/${restaurantId}/admin-order-entry`,  icon: PlusCircle,      route: "admin-order-entry" },
     { name: "Restaurant Settings",  path: `/dashboard/${restaurantId}/restaurant-settings`, icon: Settings,        route: "restaurant-settings" },
     { name: "Menu Items",           path: `/dashboard/${restaurantId}/menu`,                icon: UtensilsCrossed, route: "menu" },
     { name: "Add Item",             path: `/dashboard/${restaurantId}/add-item`,            icon: PlusCircle,      route: "add-item" },
