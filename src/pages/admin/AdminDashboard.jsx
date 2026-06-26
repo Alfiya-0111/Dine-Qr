@@ -7,7 +7,7 @@ import TableBookingModal from "../../components/TableBookingModal";
 import { FaTable, FaCalendarCheck, FaLock, FaCrown } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { Gift, Rocket, TrendingUp, Infinity, Crown, RefreshCw, ArrowUpCircle } from "lucide-react";
-
+import BookingManagement from "../../components/admin/BookingManagement";
 // ═══════════════════════════════════════════════════════════════════════════════
 // PLAN CONFIG — RestaurantSettings.js ke saath EXACT SYNC
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -318,7 +318,7 @@ const AdminDashboard = () => {
           <>
             {/* Table Booking Feature Check */}
             {hasFeature("tableBooking") && !isPlanExpired() ? (
-              <TableBookingModal restaurantId={restaurantId} />
+               <BookingManagement restaurantId={restaurantId} />  
             ) : !hasFeature("tableBooking") ? (
               /* LOCKED STATE - Plan doesn't have feature */
               <div className="bg-white rounded-xl shadow-sm p-8 text-center border-2 border-dashed border-gray-200">

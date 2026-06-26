@@ -516,8 +516,24 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
                       <h3 className="font-bold text-[#8A244B] truncate text-lg">{item.name}</h3>
                       <p className="text-xl font-bold text-[#B45253] mt-1">Rs. {item.price}</p>
                       <span className="inline-block mt-1 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                        {item.category}
-                      </span>
+  {item.category}
+</span>
+{item.quantity !== undefined && (
+  <span className={`inline-block mt-1 px-2 py-1 text-xs rounded-full font-bold ${
+    item.remainingQuantity <= 0 
+      ? "bg-red-100 text-red-700" 
+      : item.remainingQuantity <= (item.lowStockThreshold || 5)
+        ? "bg-orange-100 text-orange-700"
+        : "bg-green-100 text-green-700"
+  }`}>
+    {item.remainingQuantity <= 0 
+      ? "Out of Stock" 
+      : item.remainingQuantity <= (item.lowStockThreshold || 5)
+        ? `Low (${item.remainingQuantity})`
+        : `Stock: ${item.remainingQuantity}`
+    }
+  </span>
+)}
                     </div>
                   </div>
                   <div className="flex gap-2 mt-3">
@@ -561,6 +577,7 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
                       <th className="px-6 py-4 text-left font-semibold">Dish</th>
                       <th className="px-6 py-4 text-left font-semibold">Price</th>
                       <th className="px-6 py-4 text-left font-semibold">Category</th>
+                      <th className="px-6 py-4 text-left font-semibold">Stock</th>
                       <th className="px-6 py-4 text-left font-semibold">Image</th>
                       <th className="px-6 py-4 text-left font-semibold">Actions</th>
                     </tr>
@@ -572,11 +589,38 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
                           <span className="font-semibold text-[#8A244B]">{item.name}</span>
                         </td>
                         <td className="px-6 py-4 font-medium">Rs. {item.price}</td>
-                        <td className="px-6 py-4">
-                          <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
-                            {item.category}
-                          </span>
-                        </td>
+                       <td className="px-6 py-4">
+  <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm">
+    {item.category}
+  </span>
+</td>
+<td className="px-6 py-4">
+ {item.quantity !== undefined ? (
+    <div>
+      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+        item.remainingQuantity <= 0 
+          ? "bg-red-100 text-red-700" 
+          : item.remainingQuantity <= (item.lowStockThreshold || 5)
+            ? "bg-orange-100 text-orange-700"
+            : "bg-green-100 text-green-700"
+      }`}>
+        {item.remainingQuantity <= 0 
+          ? "Out of Stock" 
+          : item.remainingQuantity <= (item.lowStockThreshold || 5)
+            ? `Low (${item.remainingQuantity})`
+            : `${item.remainingQuantity} left`
+        }
+      </span>
+      <p className="text-[10px] text-gray-400 mt-1">
+        {item.quantityUsed || 0}/{item.quantity} used
+      </p>
+    </div>
+  ) : (
+  <span className="px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500">
+        Unlimited
+    </span>
+  )}
+</td>
                         <td className="px-6 py-4">
                           {item.imageUrl ? (
                             <img

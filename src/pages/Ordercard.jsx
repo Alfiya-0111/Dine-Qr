@@ -25,9 +25,10 @@ import {
   FaEye,
   FaBed,
 } from "react-icons/fa";
+import { ref, update, get } from "firebase/database";
 import { MdOutlineRestaurantMenu } from "react-icons/md";
 import { BiDish } from "react-icons/bi";
-import { ref, update } from "firebase/database";
+
 import { realtimeDB } from "../firebaseConfig";
 import { useState } from "react";
 import { Phone, User, Building2 } from "lucide-react";
@@ -1037,28 +1038,56 @@ export function Ordercard({
               <FaRupeeSign size={15} style={{ marginTop: 3 }} />
               {order.total || 0}
             </div>
-            {order.paymentMethod === "cash" &&
-              order.paymentStatus === "pending_cash" && (
-                <button
-                  onClick={() => onUpdatePayment(order.id, "cash_received")}
-                  style={{
-                    marginTop: 6,
-                    padding: "6px 12px",
-                    borderRadius: 8,
-                    border: "none",
-                    background: "#16a34a",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: 12,
-                    cursor: "pointer",
-                    fontFamily: "'DM Sans', sans-serif",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 5,
-                  }}
-                >
-                  <FaMoneyBillWave size={11} /> Mark Cash Received
-                </button>
+{order.paymentMethod === "cash" &&
+  (order.paymentStatus === "pending_cash" || order.paymentStatus === "pay_at_counter") && (
+          <button
+  onClick={async () => {
+    onUpdatePayment(order.id, "cash_received");
+    
+    const tblName = order?.tableName 
+      || order?.tableNumber 
+      || order?.orderDetails?.tableName 
+      || order?.orderDetails?.tableNumber;
+    
+    if (tblName && restaurantId) {
+      try {
+        const tablesSnap = await get(ref(realtimeDB, `restaurants/${restaurantId}/tables`));
+        if (tablesSnap.exists()) {
+          const tables = tablesSnap.val();
+          const matched = Object.entries(tables).find(
+            ([, tbl]) => tbl.name?.toLowerCase().trim() === String(tblName).toLowerCase().trim()
+          );
+          if (matched) {
+            const [tableId] = matched;
+            await update(
+              ref(realtimeDB, `restaurants/${restaurantId}/tables/${tableId}`),
+              { status: "available" }
+            );
+          }
+        }
+      } catch (e) {
+        console.error("Table free karne mein error:", e);
+      }
+    }
+  }}
+  style={{
+    marginTop: 6,
+    padding: "6px 12px",
+    borderRadius: 8,
+    border: "none",
+    background: "#16a34a",
+    color: "#fff",
+    fontWeight: 700,
+    fontSize: 12,
+    cursor: "pointer",
+    fontFamily: "'DM Sans', sans-serif",
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+  }}
+>
+  <FaMoneyBillWave size={11} /> Mark Cash Received
+</button>
               )}
           </div>
 

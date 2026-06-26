@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
-  ref, get, set, update, onValue,
+  ref, get, set, update, onValue, update as updateRTDB,
 } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
 import {
@@ -114,11 +114,11 @@ const [showMostOrdered, setShowMostOrdered] = useState(false);
         const snap = await getDocs(q);
         const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         if (items.length === 0) {
-          const menuSnap = await get(ref(realtimeDB, `menu/${userId}`));
-          if (menuSnap.exists()) {
-            const data = menuSnap.val();
-            Object.entries(data).forEach(([id, item]) => { items.push({ id, ...item }); });
-          }
+        const menuSnap = await get(ref(realtimeDB, `menu/${userId}`));
+if (menuSnap.exists()) {
+  const data = menuSnap.val();
+  Object.entries(data).forEach(([id, item]) => { items.push({ id, ...item }); });
+}
         }
         setMenuItems(items);
         const { ref: dbref, get: dbGet } = await import("firebase/database");
@@ -169,29 +169,52 @@ const filteredItems = menuItems.filter((item) => {
       item.category === selectedCategory ||
       item.category === (categories.find(c => typeof c === 'object' && c.id === selectedCategory)?.name);
   
-  return matchesSearch && matchesCategory && item.outOfStock !== true;
+return matchesSearch && matchesCategory && item.inStock !== false && item.remainingQuantity !== 0;
 });
 
-  const addToOrder = (item) => {
-    const existingIndex = orderItems.findIndex(
-      (oi) => oi.dishId === item.id && oi.spicePreference === "normal" &&
-        oi.saltPreference === "normal" && !oi.specialInstructions
-    );
-    if (existingIndex >= 0) {
-      const updated = [...orderItems];
-      updated[existingIndex].qty += 1;
-      setOrderItems(updated);
-    } else {
-      setOrderItems((prev) => [...prev, {
-        dishId: item.id, name: item.name, price: Number(item.price) || 0, qty: 1,
-        image: item.imageUrl || item.image || null, category: item.category || "",
-        vegType: item.vegType || "veg", prepTime: item.prepTime || 15,
-        spicePreference: "normal", saltPreference: "normal", sweetLevel: "normal",
-        dishTasteProfile: item.dishTasteProfile || "savory", specialInstructions: "",
-        salad: { qty: 0, price: 0 },
-      }]);
+const addToOrder = (item) => {
+  if (item.remainingQuantity !== undefined && item.remainingQuantity <= 0) {
+    alert("Yeh item out of stock hai!");
+    return;
+  }
+
+  const existingIndex = orderItems.findIndex(
+    (oi) => oi.dishId === item.id && oi.spicePreference === "normal" &&
+      oi.saltPreference === "normal" && !oi.specialInstructions
+  );
+
+  // Cart mein already kitni qty hai
+  const currentCartQty = existingIndex >= 0 ? orderItems[existingIndex].qty : 0;
+
+  // Stock limit check (sirf tab jab remainingQuantity defined ho)
+  if (item.remainingQuantity !== undefined) {
+    if (currentCartQty >= item.remainingQuantity) {
+      alert(`Sirf ${item.remainingQuantity} stock available hai!`);
+      return;
     }
-  };
+    if (currentCartQty + 1 >= item.remainingQuantity) {
+      if (!window.confirm(`Warning: Sirf ${item.remainingQuantity} bachi hai. Phir bhi add karna hai?`)) {
+        return;
+      }
+    }
+  }
+
+  if (existingIndex >= 0) {
+    const updated = [...orderItems];
+    updated[existingIndex].qty += 1;
+    setOrderItems(updated);
+  } else {
+    setOrderItems((prev) => [...prev, {
+      dishId: item.id, name: item.name, price: Number(item.price) || 0, qty: 1,
+      image: item.imageUrl || item.image || null, category: item.category || "",
+      vegType: item.vegType || "veg", prepTime: item.prepTime || 15,
+      spicePreference: "normal", saltPreference: "normal", sweetLevel: "normal",
+      dishTasteProfile: item.dishTasteProfile || "savory", specialInstructions: "",
+      salad: { qty: 0, price: 0 },
+      remainingQuantity: item.remainingQuantity, // ★ store karo
+    }]);
+  }
+};
 
   const openModifiers = (item) => {
     setSelectedItemForModifiers(item);
@@ -218,13 +241,25 @@ const filteredItems = menuItems.filter((item) => {
     setSelectedItemForModifiers(null);
   };
 
-  const updateQty = (index, delta) => {
-    setOrderItems((prev) => {
-      const updated = [...prev];
-      updated[index].qty = Math.max(1, updated[index].qty + delta);
-      return updated;
-    });
-  };
+const updateQty = (index, delta) => {
+  setOrderItems((prev) => {
+    const updated = [...prev];
+    const item = updated[index];
+    const newQty = item.qty + delta;
+
+    // Minus side
+    if (newQty < 1) return prev;
+
+    // Plus side — stock limit check
+    if (delta > 0 && item.remainingQuantity !== undefined && newQty > item.remainingQuantity) {
+      alert(`Sirf ${item.remainingQuantity} stock available hai!`);
+      return prev;
+    }
+
+    updated[index] = { ...item, qty: newQty };
+    return updated;
+  });
+};
 
   const removeItem = (index) => { setOrderItems((prev) => prev.filter((_, i) => i !== index)); };
 
@@ -254,11 +289,18 @@ const filteredItems = menuItems.filter((item) => {
     if (orderType === "dine_in" && !tableNumber.trim()) { alert("Table number daliye!"); return; }
     if (orderType === "room_service" && !roomNumber.trim()) { alert("Room number daliye!"); return; }
     if (orderType === "delivery" && !deliveryAddress.trim()) { alert("Delivery address daliye!"); return; }
-    const orderId = generateOrderId(); const now = Date.now();
-    const orderData = {
-      id: orderId, restaurantId: userId, status: "pending", orderType: orderType,
-      tableNumber: orderType === "dine_in" ? tableNumber : null,
-      tableName: orderType === "dine_in" ? tableNumber : null,
+ const orderId = generateOrderId(); const now = Date.now();
+
+// ★ AUTO-PIPELINE: order seedha "preparing" se start, manual confirm ki zaroorat nahi
+const maxPrepTime = orderItems.length > 0
+  ? Math.max(...orderItems.map((i) => Number(i.prepTime) || 15))
+  : 15;
+const prepEndsAt = now + maxPrepTime * 60 * 1000;
+
+const orderData = {
+  id: orderId, restaurantId: userId, status: "preparing", orderType: orderType,
+  prepStartedAt: now, prepEndsAt: prepEndsAt,
+  tableNumber: orderType === "dine_in" ? tableNumber : null,
       floor: orderType === "dine_in" ? floor : null,
       roomNumber: orderType === "room_service" ? roomNumber.trim() : null,
       deliveryInfo: orderType === "delivery" ? {
@@ -270,19 +312,20 @@ const filteredItems = menuItems.filter((item) => {
       customerName: customerName.trim() || "Guest",
       customerPhone: customerPhone.trim() || null,
       customerInfo: { name: customerName.trim() || "Guest", phone: customerPhone.trim() || null },
-      items: orderItems.map((item) => ({
-        dishId: item.dishId, name: item.name, price: item.price, qty: item.qty,
-        image: item.image, category: item.category, vegType: item.vegType, prepTime: item.prepTime,
-        spicePreference: item.spicePreference, saltPreference: item.saltPreference,
-        sweetLevel: item.sweetLevel, dishTasteProfile: item.dishTasteProfile,
-        specialInstructions: item.specialInstructions, salad: item.salad,
-      })),
-      subtotal: subtotal, gst: gst, deliveryCharge: deliveryFee, total: total,
+  items: orderItems.map((item) => ({
+    dishId: item.dishId, name: item.name, price: item.price, qty: item.qty,
+    image: item.image, category: item.category, vegType: item.vegType, prepTime: item.prepTime,
+    spicePreference: item.spicePreference, saltPreference: item.saltPreference,
+    sweetLevel: item.sweetLevel, dishTasteProfile: item.dishTasteProfile,
+    specialInstructions: item.specialInstructions, salad: item.salad,
+    prepStartedAt: now, itemStatus: "preparing",
+  })),
+     subtotal: subtotal, gst: gst, deliveryCharge: deliveryFee, total: total,
       specialInstructions: specialInstructions.trim() || null,
       orderNote: orderNote.trim() || null,
       source: "admin_manual", type: "admin_manual",
       createdAt: now, updatedAt: now, createdBy: "admin",
-      paymentStatus: "pending", isPaid: false,
+      paymentMethod: "cash", paymentStatus: "pending_cash", isPaid: false,
     };
     try {
       await set(ref(realtimeDB, `orders/${userId}/${orderId}`), orderData);
@@ -295,6 +338,29 @@ const filteredItems = menuItems.filter((item) => {
         totalOrders: (currentStats.totalOrders || 0) + 1,
         totalRevenue: (currentStats.totalRevenue || 0) + total, lastOrderAt: now,
       });
+      // ★ Table status → reserved (dine_in orders ke liye)
+if (orderType === "dine_in" && tableNumber.trim()) {
+  try {
+    const tablesSnap = await get(ref(realtimeDB, `restaurants/${userId}/tables`));
+    if (tablesSnap.exists()) {
+      const tablesData = tablesSnap.val();
+      const matchedEntry = Object.entries(tablesData).find(
+        ([, t]) => t.name?.toLowerCase().trim() === tableNumber.toLowerCase().trim()
+      );
+      if (matchedEntry) {
+        const [tableId] = matchedEntry;
+        await update(ref(realtimeDB, `restaurants/${userId}/tables/${tableId}`), {
+          status: "reserved",
+          currentOrderId: orderId,
+          occupiedAt: now,
+          occupiedBy: "admin_manual",
+        });
+      }
+    }
+  } catch (tableErr) {
+    console.error("Table status update error:", tableErr);
+  }
+}
       if ("speechSynthesis" in window) {
         window.speechSynthesis.cancel();
         const locationLabel = orderType === "dine_in" ? `Table ${tableNumber || "unknown"}`
@@ -304,6 +370,45 @@ const filteredItems = menuItems.filter((item) => {
         const u = new SpeechSynthesisUtterance(`New order received. ${locationLabel}. ${orderItems.length} items.`);
         u.lang = "en-IN"; u.rate = 1; window.speechSynthesis.speak(u);
       }
+      // ★ FIX: Stock decrement karo - har item ke liye
+try {
+    const { db } = await import("../firebaseConfig");
+    const { collection: col, getDocs: gd, query: qry, where: wh, doc: ddoc, updateDoc: updDoc } = await import("firebase/firestore");
+    
+    for (const orderItem of orderItems) {
+        const menuQ = qry(col(db, "menu"), wh("restaurantId", "==", userId), wh("name", "==", orderItem.name));
+        const menuSnap = await gd(menuQ);
+        
+        if (!menuSnap.empty) {
+            const menuDoc = menuSnap.docs[0];
+            const menuData = menuDoc.data();
+            // ★ FIX: quantity field set nahi hai = unlimited stock dish, decrement skip karo
+            if (menuData.quantity === undefined || menuData.quantity === null) continue;
+            const currentQtyUsed = menuData.quantityUsed || 0;
+            const newQtyUsed = currentQtyUsed + orderItem.qty;
+            const newRemaining = (menuData.quantity || 0) - newQtyUsed;
+            await updDoc(ddoc(db, "menu", menuDoc.id), {
+                quantityUsed: newQtyUsed,
+                remainingQuantity: Math.max(0, newRemaining),
+                inStock: newRemaining > 0,
+                outOfStock: newRemaining <= 0,
+                updatedAt: Date.now()
+            });
+            
+            // Realtime DB bhi update karo
+            await updateRTDB(ref(realtimeDB, `restaurants/${userId}/menu/${menuDoc.id}`), {
+                quantityUsed: newQtyUsed,
+                remainingQuantity: Math.max(0, newRemaining),
+                inStock: newRemaining > 0,
+                outOfStock: newRemaining <= 0,
+                updatedAt: Date.now()
+            });
+        }
+    }
+} catch (stockErr) {
+    console.error("Stock update error:", stockErr);
+    // Order place ho gaya, bas stock update nahi hua - alert mat dikhao
+}
       setSuccessOrderId(orderId); setShowSuccess(true);
       setOrderItems([]); setTableNumber(""); setCustomerName(""); setCustomerPhone("");
       setSpecialInstructions(""); setOrderNote("");
@@ -657,13 +762,40 @@ const filteredItems = menuItems.filter((item) => {
               ) : (
                 filteredItems.map((item) => (
                   <div key={item.id} className="aoe-dish-card" onClick={() => addToOrder(item)}>
-                    {item.imageUrl || item.image ? (
-                      <img src={item.imageUrl || item.image} alt={item.name} className="aoe-dish-img"
-                        onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }} />
-                    ) : null}
-                    <div className="aoe-dish-img-placeholder" style={{ display: item.imageUrl || item.image ? "none" : "flex" }}>
-                      <UtensilsCrossed size={24} />
-                    </div>
+                   <div style={{ position: 'relative' }}>
+  {item.imageUrl || item.image ? (
+    <img src={item.imageUrl || item.image} alt={item.name} className="aoe-dish-img"
+      onError={(e) => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }} />
+  ) : null}
+  <div className="aoe-dish-img-placeholder" style={{ display: item.imageUrl || item.image ? "none" : "flex" }}>
+    <UtensilsCrossed size={24} />
+  </div>
+  
+  {/* LOW STOCK BADGE */}
+  {item.quantity !== undefined && item.remainingQuantity > 0 && item.remainingQuantity <= (item.lowStockThreshold || 5) && (
+    <div style={{
+      position: 'absolute', top: 8, right: 8, 
+      background: '#f97316', color: '#fff',
+      padding: '4px 8px', borderRadius: 8,
+      fontSize: 10, fontWeight: 700, zIndex: 5
+    }}>
+      Low ({item.remainingQuantity})
+    </div>
+  )}
+
+  {/* OUT OF STOCK OVERLAY */}
+  {item.remainingQuantity <= 0 && (
+    <div style={{
+      position: 'absolute', inset: 0,
+      background: 'rgba(0,0,0,0.6)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: '#fff', fontSize: 12, fontWeight: 700,
+      zIndex: 10, borderRadius: 14
+    }}>
+      OUT OF STOCK
+    </div>
+  )}
+</div>
                     <div className="aoe-dish-info">
                       <p className="aoe-dish-name">{item.name}</p>
                       <div className="aoe-dish-meta">

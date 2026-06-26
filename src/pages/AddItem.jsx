@@ -376,6 +376,10 @@ export default function AddItem() {
     weightUnit: "piece",
     weightValue: "",
     vegType: "",
+    quantity: 50,
+lowStockThreshold: 5,
+quantityUsed: 0,
+remainingQuantity: 50,
   });
 
   const foodDictionary = [
@@ -463,6 +467,10 @@ setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "act
         delivery: editData.availableModes?.delivery ?? true,
         gstPercent: editData.gstPercent ?? 5,
             deliveryCharge: editData.deliveryCharge ?? "",
+            quantity: editData.quantity ?? 50,
+lowStockThreshold: editData.lowStockThreshold ?? 5,
+quantityUsed: editData.quantityUsed ?? 0,
+remainingQuantity: editData.remainingQuantity ?? (editData.quantity ?? 50),
         drinkSize: editData.drinkSize ?? "",
         weightUnit: editData.weightUnit ?? "piece",
         weightValue: editData.weightValue ?? "",
@@ -641,6 +649,7 @@ setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "act
       restaurantId: userId,
       venueType,
       name: form.name,
+      
       price: Number(form.price),
       description: form.description,
       servingSize: form.servingSize,
@@ -661,7 +670,23 @@ setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "act
     };
 
     if (!isDrinkSelected && form.vegType) payload.vegType = form.vegType;
-    
+    // Quantity fields
+payload.quantity = Number(form.quantity) || 0;
+payload.lowStockThreshold = Number(form.lowStockThreshold) || 5;
+// ★ FIX: Edit mode mein existing quantityUsed preserve karo, naya add karte waqt 0
+const quantityChanged = editData && (Number(editData.quantity) !== payload.quantity);
+payload.quantityUsed = (editData && !quantityChanged) ? (editData.quantityUsed || 0) : 0;
+payload.remainingQuantity = Math.max(0, payload.quantity - payload.quantityUsed);
+
+// Auto inStock update
+if (payload.remainingQuantity <= 0) {
+  payload.inStock = false;
+  payload.outOfStock = true;
+  payload.remainingQuantity = 0;
+} else {
+  payload.inStock = true;
+  payload.outOfStock = false;
+}
     // Spice Level — always save if set (badge se bhi set ho sakta hai)
         payload.spiceLevel = form.spiceLevel || "";
 
@@ -682,7 +707,7 @@ setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "act
       payload.weightValue = form.weightValue;
       payload.weightUnit = form.weightUnit;
     }
-
+payload.outOfStock = payload.remainingQuantity <= 0;
     Object.keys(payload).forEach((key) => { if (payload[key] === undefined) delete payload[key]; });
 
     try {
@@ -790,7 +815,39 @@ setSubPlan({ planId: "starter", planName: "Starter", maxDishes: 60, status: "act
               customWords={foodDictionary}
             />
           </div>
+{/* ITEM NAME ke baad yeh add karo */}
 
+{/* QUANTITY / STOCK INPUT */}
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  <div className="space-y-1">
+    <label className="block text-sm font-medium text-gray-700">
+      Total Quantity Available *
+    </label>
+    <input
+      type="number"
+      min="0"
+      className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B45253] text-base"
+      placeholder="e.g. 50"
+      value={form.quantity || ""}
+      onChange={(e) => setForm({ ...form, quantity: Math.max(0, Number(e.target.value)) })}
+    />
+    <p className="text-xs text-gray-400">Jab quantity 0 ho jayegi, item automatically out of stock ho jayega</p>
+  </div>
+  <div className="space-y-1">
+    <label className="block text-sm font-medium text-gray-700">
+      Low Stock Alert Threshold
+    </label>
+    <input
+      type="number"
+      min="1"
+      className="w-full border border-gray-300 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#B45253] text-base"
+      placeholder="e.g. 5"
+      value={form.lowStockThreshold || ""}
+      onChange={(e) => setForm({ ...form, lowStockThreshold: Math.max(1, Number(e.target.value)) })}
+    />
+    <p className="text-xs text-gray-400">Is se kam quantity pe "Low Stock" warning dikhega</p>
+  </div>
+</div>
           {/* PRICE + PREP TIME */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">

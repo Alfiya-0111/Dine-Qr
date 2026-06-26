@@ -287,10 +287,9 @@ useEffect(() => {
         ordersRefState.current = [];
         return;
       }
-      const myOrders = Object.entries(data)
+     const myOrders = Object.entries(data)
         .map(([id, o]) => ({ id, ...o, restaurantId, source: o.type || o.source || "regular" }))
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
       if (isInitialLoadRef.current) {
         myOrders.forEach(o => announcedOrdersRef.current.add(o.id));
         isInitialLoadRef.current = false;
@@ -359,7 +358,7 @@ useEffect(() => {
   // ── AUTO-COMPLETE TIMER ──
   const AUTO_COMPLETE_GRACE = 2 * 60 * 1000;
 
-  const completeOrderAndGenerateBill = async (orderId) => {
+ const completeOrderAndGenerateBill = async (orderId) => {
     if (completingOrdersRef.current.has(orderId)) return;
     completingOrdersRef.current.add(orderId);
     try {
@@ -367,13 +366,36 @@ useEffect(() => {
       if (!snap.exists()) return;
       const d = snap.val();
       if (d.status === "completed" || d.completedAt) return;
-      if (Date.now() < Number(d.prepEndsAt || 0) + AUTO_COMPLETE_GRACE) return;
+      if (d.prepEndsAt && Date.now() < Number(d.prepEndsAt) + AUTO_COMPLETE_GRACE) return;
+
       await update(ref(realtimeDB, `orders/${restaurantId}/${orderId}`), {
         status: "completed",
         completedAt: Date.now(),
         updatedAt: Date.now(),
         autoCompleted: true,
       });
+
+      // ★ FIX: auto-complete pe table bhi available karo
+      const tableName = d?.tableName || d?.tableNumber || d?.orderDetails?.tableName || d?.orderDetails?.tableNumber;
+      if (tableName) {
+        try {
+          const tablesSnap = await get(ref(realtimeDB, `restaurants/${restaurantId}/tables`));
+          if (tablesSnap.exists()) {
+            const tables = tablesSnap.val();
+            const matched = Object.entries(tables).find(
+              ([, tbl]) => tbl.name?.toLowerCase().trim() === String(tableName).toLowerCase().trim()
+            );
+            if (matched) {
+              const [tableId] = matched;
+              await update(ref(realtimeDB, `restaurants/${restaurantId}/tables/${tableId}`), {
+                status: "available", currentOrderId: null, occupiedAt: null, occupiedBy: null,
+              });
+            }
+          }
+        } catch (e) {
+          console.error("Table status update failed (auto-complete):", e);
+        }
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -381,7 +403,8 @@ useEffect(() => {
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
+    if (!restaurantId) return; // ★ FIX: restaurantId load hone tak wait karo
     const timer = setInterval(() => {
       setNow(Date.now());
       if (!autoCompleteEnabled || !planFeatures.autoComplete) return;
@@ -396,41 +419,79 @@ useEffect(() => {
         });
     }, 2000);
     return () => clearInterval(timer);
-  }, [autoCompleteEnabled, planFeatures.autoComplete]);
+  }, [restaurantId, autoCompleteEnabled, planFeatures.autoComplete]); // ★ FIX: restaurantId add hua
 
   // ── STATUS UPDATE ──
-  const updateStatus = async (id, status) => {
-const order = ordersRefState.current.find(o => o.id === id) || (historicalOrders || []).find(o => o.id === id);
+const updateStatus = async (id, status) => {
+  const t = Date.now();
+  const order = ordersRefState.current.find(o => o.id === id) 
+    || (historicalOrders || []).find(o => o.id === id);
 
-   const updates = { 
-  status: status.toLowerCase(), 
-  updatedAt: t,
-  tableNumber: order.tableNumber || order.tableNo || order.orderDetails?.tableNumber || "",
-  tableName: order.tableName || order.orderDetails?.tableName || "",
-  floor: order.floor || order.orderDetails?.floor || "Ground Floor",
-};
-
-    
-    if (status === "preparing" || status === "ready") {
-      const prepTime = order?.prepTime || 5;
-      updates.prepStartedAt = t;
-      updates.prepEndsAt = t + prepTime * 60 * 1000;
-    }
-    
-    // ✅ Main order update
-    await update(ref(realtimeDB, `orders/${restaurantId}/${id}`), updates);
-    
-    // ✅ Agar ye WhatsApp order hai, toh whatsappOrders bhi update karo
-    if (order?.source === "whatsapp" || order?.type === "whatsapp") {
-      await update(ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`), {
-        whatsappStatus: "admin_confirmed",
-        status: status.toLowerCase(),
-        adminConfirmedAt: t,
-        updatedAt: t,
-      }).catch(() => {});
-    }
+  const updates = {
+    status: status.toLowerCase(),
+    updatedAt: t,
   };
 
+  if (status === "preparing") {
+    const items = getItemsArray(order?.items);
+    const maxPrepTime = items.length > 0
+      ? Math.max(...items.map(i => Number(i.prepTime) || 15))
+      : (order?.prepTime || 15);
+    updates.prepStartedAt = t;
+    updates.prepEndsAt = t + maxPrepTime * 60 * 1000;
+  }
+
+  if (status === "ready") {
+    updates.readyAt = t;
+  }
+
+  if (status === "completed") {
+    updates.completedAt = t;
+  }
+
+  await update(ref(realtimeDB, `orders/${restaurantId}/${id}`), updates);
+
+  if (order?.source === "whatsapp" || order?.type === "whatsapp") {
+    await update(ref(realtimeDB, `whatsappOrders/${restaurantId}/${id}`), {
+      whatsappStatus: "admin_confirmed",
+      status: status.toLowerCase(),
+      adminConfirmedAt: t,
+      updatedAt: t,
+    }).catch(() => {});
+  }
+
+  // ★ FIX: TABLE STATUS UPDATE — "completed" ya "cancelled" pe available karo
+  const tableName = order?.tableName 
+    || order?.tableNumber 
+    || order?.orderDetails?.tableName 
+    || order?.orderDetails?.tableNumber;
+
+  if (tableName && (status === "completed" || status === "cancelled")) {
+    try {
+      const tablesSnap = await get(ref(realtimeDB, `restaurants/${restaurantId}/tables`));
+      if (tablesSnap.exists()) {
+        const tables = tablesSnap.val();
+        const matched = Object.entries(tables).find(
+          ([, tbl]) => tbl.name?.toLowerCase().trim() === String(tableName).toLowerCase().trim()
+        );
+        if (matched) {
+          const [tableId] = matched;
+          await update(
+            ref(realtimeDB, `restaurants/${restaurantId}/tables/${tableId}`),
+            { 
+              status: "available",
+              currentOrderId: null,
+              occupiedAt: null,
+              occupiedBy: null,
+            }
+          );
+        }
+      }
+    } catch (e) {
+      console.error("Table status update failed:", e);
+    }
+  }
+};
   const deleteOrder = async (id) => {
     if (!window.confirm("Delete this order permanently?")) return;
     await remove(ref(realtimeDB, `orders/${restaurantId}/${id}`));

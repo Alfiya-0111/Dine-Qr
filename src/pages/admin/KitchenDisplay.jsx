@@ -360,7 +360,7 @@ const getItemsArray = (items) => {
   return [];
 };
 
-function OrderCard({ order, onUpdateStatus, tick }) {
+function OrderCard({ order, onUpdateStatus, tick, stockData }) {
   const now = Date.now();
   const elapsed = now - (order.createdAt || now);
   const isUrgent    = elapsed > 15 * 60 * 1000;
@@ -585,7 +585,7 @@ const cfg = statusConfig[order.status] || {
                     <span style={{ fontWeight: 900, fontSize: 13, color: MAROON, marginLeft: 4 }}>×{item.qty || 1}</span>
                   </div>
 
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3 }}>
+                                 <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 3 }}>
                     {item.dishTasteProfile !== "sweet" && item.spicePreference && item.spicePreference !== "normal" && (
                       <span style={{ fontSize: 10, padding: "1px 6px", background: "#fee2e2", color: "#991b1b", borderRadius: 4, fontWeight: 700 }}>
                         <FaFire style={{ fontSize: 10, color: "#991b1b" }} /> {item.spicePreference}
@@ -606,6 +606,39 @@ const cfg = statusConfig[order.status] || {
                         🥗 Salad
                       </span>
                     )}
+                    
+                    {/* ★ STOCK STATUS BADGES */}
+                    {(() => {
+                      const stockItem = stockData?.[item.dishId];
+                      if (!stockItem) return null;
+                      const isOutOfStock = stockItem.remainingQuantity <= 0;
+                      const isLowStock = stockItem.remainingQuantity > 0 && 
+                        stockItem.remainingQuantity <= (stockItem.lowStockThreshold || 5);
+                      
+                      if (isOutOfStock) {
+                        return (
+                          <span style={{ 
+                            fontSize: 10, padding: "2px 8px", background: "#fee2e2", 
+                            color: "#dc2626", borderRadius: 6, fontWeight: 800,
+                            border: "1px solid #fecaca", display: "flex", alignItems: "center", gap: 3
+                          }}>
+                            ❌ OUT OF STOCK
+                          </span>
+                        );
+                      }
+                      if (isLowStock) {
+                        return (
+                          <span style={{ 
+                            fontSize: 10, padding: "2px 8px", background: "#fff7ed", 
+                            color: "#f97316", borderRadius: 6, fontWeight: 800,
+                            border: "1px solid #fed7aa", display: "flex", alignItems: "center", gap: 3
+                          }}>
+                            ⚠️ LOW ({stockItem.remainingQuantity} left)
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
 
                   {item.specialInstructions && (
@@ -728,6 +761,7 @@ export default function KitchenDisplay() {
   const [activeTab, setActiveTab]         = useState(0);
   const [subscription, setSubscription]   = useState(null);
   const [subLoading, setSubLoading]       = useState(true);
+  const [stockData, setStockData]         = useState({});
 
   const prevOrderIdsRef = useRef(new Set());
   const announcedRef    = useRef(new Set());
@@ -752,6 +786,18 @@ export default function KitchenDisplay() {
     });
     return () => unsub();
   }, []);
+
+  // ================= STOCK DATA LISTENER =================
+  useEffect(() => {
+    if (!restaurantId) return;
+    
+    const stockRef = ref(realtimeDB, `restaurants/${restaurantId}/menu`);
+    const unsub = onValue(stockRef, (snap) => {
+      if (snap.exists()) setStockData(snap.val());
+    });
+    
+    return () => unsub();
+  }, [restaurantId]);
 
   const playNewOrderSound = useCallback(() => {
     if (!soundEnabled) return;
@@ -792,17 +838,17 @@ export default function KitchenDisplay() {
       const todayStartTs = todayStart.getTime();
       const ACTIVE_STATUSES = ["pending", "confirmed", "preparing", "ready"];
 
-     const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-
+    const FIVE_MINUTES = 5 * 60 * 1000;
 const myOrders = Object.entries(data)
   .filter(([, o]) => {
     if (ACTIVE_STATUSES.includes(o.status)) return true;
     if (o.status === "completed") {
       const completedAt = o.completedAt || o.updatedAt || o.createdAt || 0;
-      return (Date.now() - completedAt) < TWENTY_FOUR_HOURS;
+      return (Date.now() - completedAt) < FIVE_MINUTES;
     }
     return false;
   })
+
         .map(([id, o]) => ({ id, ...o }))
         .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
 
@@ -822,9 +868,47 @@ const myOrders = Object.entries(data)
     });
     return () => unsub();
   }, [restaurantId, playNewOrderSound]);
+// ★ FIX: Auto-complete "ready" → "completed" (table free + stock decrement ke saath)
+  useEffect(() => {
+    if (!restaurantId) return;
+    const interval = setInterval(async () => {
+      const now = Date.now();
+      const readyOrders = orders.filter(o =>
+        o.status === "ready" &&
+        o.readyAt &&
+        (now - o.readyAt) > 2 * 60 * 1000
+      );
+      for (const order of readyOrders) {
+        try {
+          await handleUpdateStatus(order.id, "completed");
+        } catch (e) {
+          console.error("Auto-complete failed for order:", order.id, e);
+        }
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [restaurantId, orders]);
 
-  const handleUpdateStatus = async (orderId, newStatus) => {
-    const now   = Date.now();
+  // ★ NEW: prep time khatam hote hi "preparing" → "ready" automatic
+  useEffect(() => {
+    if (!restaurantId) return;
+    const interval = setInterval(async () => {
+      const now = Date.now();
+      const doneCooking = orders.filter(o =>
+        o.status === "preparing" && o.prepEndsAt && now >= Number(o.prepEndsAt)
+      );
+      for (const order of doneCooking) {
+        try {
+          await handleUpdateStatus(order.id, "ready");
+        } catch (e) {
+          console.error("Auto-ready failed for order:", order.id, e);
+        }
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [restaurantId, orders]);
+const handleUpdateStatus = async (orderId, newStatus) => {
+    const now = Date.now();
     const order = orders.find((o) => o.id === orderId);
     if (!order) return;
 
@@ -833,11 +917,11 @@ const myOrders = Object.entries(data)
     if (newStatus === "preparing") {
       const prepTime = Math.max(...getItemsArray(order.items).map((i) => i.prepTime || 15));
       updates.prepStartedAt = now;
-      updates.prepEndsAt    = now + prepTime * 60 * 1000;
+      updates.prepEndsAt = now + prepTime * 60 * 1000;
       getItemsArray(order.items).forEach((item) => {
         const itemKey = item.dishId || item.id;
         if (itemKey) {
-          update(ref(realtimeDB, `orders/${orderId}/items/${itemKey}`), {
+         update(ref(realtimeDB, `orders/${restaurantId}/${orderId}/items/${itemKey}`), {
             prepStartedAt: now, prepTime: item.prepTime || 15, itemStatus: "preparing",
           }).catch(() => {});
         }
@@ -846,17 +930,67 @@ const myOrders = Object.entries(data)
 
     if (newStatus === "ready") {
       updates.readyAt = now;
-      setTimeout(async () => {
-        try {
-          await update(ref(realtimeDB, `orders/${orderId}`), {
-            status: "completed", completedAt: Date.now(), updatedAt: Date.now(), autoCompleted: true,
-          });
-        } catch (e) { console.error("Auto-complete failed:", e); }
-      }, 2 * 60 * 1000);
+      // ★ FIX: setTimeout hata diya — ab periodic interval handle karega auto-complete
     }
 
-    if (newStatus === "completed") updates.completedAt = now;
-    await update(ref(realtimeDB, `orders/${orderId}`), updates);
+    // ★ FIX: "completed" pe table status bhi "available" karo
+    if (newStatus === "completed") {
+      updates.completedAt = now;
+      
+      // Stock decrement
+      const items = getItemsArray(order.items);
+      for (const item of items) {
+        if (!item.dishId) continue;
+        try {
+          const menuRef = ref(realtimeDB, `restaurants/${restaurantId}/menu/${item.dishId}`);
+          const menuSnap = await get(menuRef);
+          if (menuSnap.exists()) {
+            const data = menuSnap.val();
+            const currentQty = Number(data.quantity) || 0;
+            const used = Number(data.quantityUsed) || 0;
+            const qtyToDeduct = Number(item.qty) || 1;
+            const newUsed = used + qtyToDeduct;
+            const remaining = Math.max(0, currentQty - newUsed);
+            
+            await update(menuRef, {
+              quantityUsed: newUsed,
+              remainingQuantity: remaining,
+              inStock: remaining > 0,
+              updatedAt: Date.now()
+            });
+          }
+        } catch (e) {
+          console.error("Stock update failed:", e);
+        }
+      }
+
+      // ★ TABLE STATUS: "available" karo
+      const tableName = order?.tableName || order?.tableNumber || order?.tableNo;
+      if (tableName) {
+        try {
+          const tablesSnap = await get(ref(realtimeDB, `restaurants/${restaurantId}/tables`));
+          if (tablesSnap.exists()) {
+            const tables = tablesSnap.val();
+            const matched = Object.entries(tables).find(
+              ([, tbl]) => tbl.name?.toLowerCase().trim() === String(tableName).toLowerCase().trim()
+            );
+            if (matched) {
+              const [tableId] = matched;
+              await update(ref(realtimeDB, `restaurants/${restaurantId}/tables/${tableId}`), {
+                status: "available",
+                currentOrderId: null,
+                occupiedAt: null,
+                occupiedBy: null,
+              });
+            }
+          }
+        } catch (e) {
+          console.error("Table status update failed:", e);
+        }
+      }
+    }
+
+   await update(ref(realtimeDB, `orders/${restaurantId}/${orderId}`), updates);
   };
 
   const pendingOrders   = orders.filter((o) => o.status === "pending");
@@ -1296,8 +1430,8 @@ const getDisplayPlanName = (subscription) => {
                         <div className="kd-empty-txt">All clear!</div>
                       </div>
                     ) : (
-                      col.orders.map((order) => (
-                        <OrderCard key={order.id} order={order} onUpdateStatus={handleUpdateStatus} tick={tick} />
+                     col.orders.map((order) => (
+                        <OrderCard key={order.id} order={order} onUpdateStatus={handleUpdateStatus} tick={tick} stockData={stockData} />
                       ))
                     )}
                   </div>
@@ -1315,8 +1449,8 @@ const getDisplayPlanName = (subscription) => {
                   <div className="kd-empty-txt">All clear in this section!</div>
                 </div>
               ) : (
-                columns[activeTab].orders.map((order) => (
-                  <OrderCard key={order.id} order={order} onUpdateStatus={handleUpdateStatus} tick={tick} />
+                 columns[activeTab].orders.map((order) => (
+                  <OrderCard key={order.id} order={order} onUpdateStatus={handleUpdateStatus} tick={tick} stockData={stockData} />
                 ))
               )}
             </div>

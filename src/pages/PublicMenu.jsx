@@ -44,6 +44,7 @@ import {
   IoPersonOutline,
   IoFlash,
   IoPricetagOutline,
+  IoAlertCircle,
 } from "react-icons/io5";
 import {
   FaWhatsapp,
@@ -1262,8 +1263,11 @@ Sent via DineQR
         whatsappNumber: cleanPhone,
         billOpened: false
       };
-      await set(orderRef, order);
-
+     await set(orderRef, order);
+      
+      // ★ STOCK DECREMENT
+      await decrementStock(order.items, restaurantId);
+      
       try {
         const whatsappOrderData = {
           ...order,
@@ -1460,11 +1464,13 @@ tableNumber: orderData.tableNumber || tableNumber || "",
         timestamp: Date.now()
       };
 
-      await set(orderRef, order);
+     await set(orderRef, order);
       await set(rtdbRef(realtimeDB, `whatsappOrders/${restaurantId}/${orderId}`), {
         ...order, whatsappStatus: "new", userId: user.uid, restaurantId: restaurantId
       });
-
+      
+      // ★ STOCK DECREMENT
+      await decrementStock(order.items, restaurantId);
 
       const phone = restaurantSettings?.whatsappNumber || restaurantSettings?.contact?.phone;
       if (phone) {
@@ -1843,66 +1849,78 @@ specialInstructions: orderData.specialInstructions || "",
 
   };
 
-  const shareBillOnWhatsApp = (order) => {
+   const shareBillOnWhatsApp = (order) => {
     if (!order) return;
-
-    markOrderAsProcessed(order.id);
-
-    const bill = order.bill || generateBillText(order);
-
-    const message = `
-🧾 *ORDER BILL - ${restaurantName || 'Restaurant'}*
-
-👤 *Customer:* ${bill.customerName || order.customerName || 'Customer'}
-🆔 *Order ID:* #${order.id.slice(-6).toUpperCase()}
-📅 *Date:* ${new Date(order.createdAt || Date.now()).toLocaleString()}
-
-*ORDER ITEMS:*
-${order.items?.map((item, idx) => {
-      let details = `${idx + 1}. ${item.name}${item.vegType ? ` ${item.vegType === 'veg' ? '🟢' : '🔴'}` : ''}`;
-      details += `\n   💰 ₹${item.price} × ${item.qty || 1} = ₹${(item.price * (item.qty || 1)).toFixed(0)}`;
-
-      if (item.spicePreference && item.dishTasteProfile !== 'sweet') {
-        details += `\n   🌶️ Spice: ${item.spicePreference}`;
-      }
-      if (item.sweetLevel && item.dishTasteProfile === 'sweet') {
-        details += `\n   🍰 Sweetness: ${item.sweetLevel}`;
-      }
-      if (item.saltPreference && item.saltPreference !== 'normal') {
-        details += `\n   🧂 Salt: ${item.saltPreference}`;
-      }
-
-      return details;
-    }).join('\n\n') || 'No items'}
-
-━━━━━━━━━━━━━━
-💵 *BILL SUMMARY:*
- Subtotal: ₹${order.subtotal || 0}
-   GST (5%): ₹${order.gst || 0}${(order.discount > 0) ? `
-   🏷️ Discount (${order.couponCode}): −₹${order.discount}` : ''}
-   ${'─'.repeat(15)}
-   *TOTAL: ₹${order.total || 0}* 💰${(order.discount > 0) ? `
-   🎉 *You saved ₹${order.discount}!*` : ''}
-━━━━━━━━━━━━━━
-
-🙏 Thank you for dining with us!
-🍽️ Enjoy your meal!
-
-Sent via DineQR
-  `.trim();
-
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, "_blank");
-
-    // Voice notification for bill share
-    speakText(`Thank you for coming in ${restaurantName || 'our restaurant'}. We hope to see you again!`);
-
+    // ... existing code ...
     if (auth.currentUser) {
       update(rtdbRef(realtimeDB, `orders/${restaurantId}/${order.id}`), {
         status: "completed",
         completedAt: Date.now(),
         billOpened: true
       });
+    }
+  };
+
+  // ================= STOCK DECREMENT UTILITY =================
+  const decrementStock = async (items, restaurantId) => {
+    if (!items || !restaurantId) return;
+    
+    for (const item of items) {
+      if (!item.dishId && !item.id) continue;
+      
+      const dishId = item.dishId || item.id;
+      const qtyToDeduct = Number(item.qty) || 1;
+      
+      try {
+        // Firestore update
+        const { db } = await import("../firebaseConfig");
+        const { collection, getDocs, query, where, doc, updateDoc } = await import("firebase/firestore");
+        
+        const menuQ = query(
+          collection(db, "menu"), 
+          where("restaurantId", "==", restaurantId), 
+          where("__name__", "==", dishId)
+        );
+        const menuSnap = await getDocs(menuQ);
+        
+        if (!menuSnap.empty) {
+          const menuDoc = menuSnap.docs[0];
+          const data = menuDoc.data();
+          const currentQty = Number(data.quantity) || 0;
+          const used = Number(data.quantityUsed) || 0;
+          const newUsed = used + qtyToDeduct;
+          const remaining = Math.max(0, currentQty - newUsed);
+          
+          await updateDoc(doc(db, "menu", menuDoc.id), {
+            quantityUsed: newUsed,
+            remainingQuantity: remaining,
+            inStock: remaining > 0,
+            outOfStock: remaining <= 0,
+            updatedAt: Date.now()
+          });
+        }
+        
+        // Realtime DB update
+        const menuRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}/menu/${dishId}`);
+        const rtSnap = await get(menuRef);
+        if (rtSnap.exists()) {
+          const data = rtSnap.val();
+          const currentQty = Number(data.quantity) || 0;
+          const used = Number(data.quantityUsed) || 0;
+          const newUsed = used + qtyToDeduct;
+          const remaining = Math.max(0, currentQty - newUsed);
+          
+          await update(menuRef, {
+            quantityUsed: newUsed,
+            remainingQuantity: remaining,
+            inStock: remaining > 0,
+            outOfStock: remaining <= 0,
+            updatedAt: Date.now()
+          });
+        }
+      } catch (e) {
+        console.error(`Stock decrement failed for ${item.name}:`, e);
+      }
     }
   };
 
@@ -1929,8 +1947,14 @@ Sent via DineQR
       generatedAt: Date.now()
     };
   };
-
-  const visibleCategories = categories.filter(cat => categoryCounts[cat.id] > 0);
+const visibleCategories = categories.length > 0 && items.length === 0
+  ? categories  // Items abhi load ho rahi hain — sab categories dikhao
+  : categories.filter(cat => {
+      if (categoryCounts[cat.id] > 0) return true;
+      return items.some(item =>
+        item.category?.trim().toLowerCase() === cat.name?.trim().toLowerCase()
+      );
+    });
 
   // Call Waiter Function with Voice
 const callWaiter = async () => {
@@ -2046,6 +2070,21 @@ const callWaiter = async () => {
 
     setOpenCart(true);
   };
+  // ★ CATEGORIES LOAD — YAHAN ADD KARO
+useEffect(() => {
+  if (!restaurantId) return;
+  const ref = rtdbRef(realtimeDB, `restaurants/${restaurantId}/categories`);
+  const unsubscribe = onValue(ref, (snap) => {
+    if (snap.exists()) {
+      setCategories(
+        Object.entries(snap.val())
+          .map(([id, data]) => ({ id, ...data }))
+          .sort((a, b) => a.order - b.order)
+      );
+    }
+  });
+  return () => unsubscribe();
+}, [restaurantId]);
 
   // Live Queue Position
   useEffect(() => {
@@ -2271,19 +2310,31 @@ const callWaiter = async () => {
     return () => unsubscribe();
   }, [userId, restaurantId, handleStatusChange, updateActiveOrders]);
 
-  useEffect(() => {
+ useEffect(() => {
     if (!restaurantId) return;
-    const ref = rtdbRef(realtimeDB, `restaurants/${restaurantId}/categories`);
-    const unsubscribe = onValue(ref, (snap) => {
-      if (snap.exists()) {
-        setCategories(
-          Object.entries(snap.val())
-            .map(([id, data]) => ({ id, ...data }))
-            .sort((a, b) => a.order - b.order)
-        );
-      }
+    
+    const stockRef = rtdbRef(realtimeDB, `restaurants/${restaurantId}/menu`);
+    const unsub = onValue(stockRef, (snap) => {
+      if (!snap.exists()) return;
+      
+      const stockData = snap.val();
+      setItems(prevItems => prevItems.map(item => {
+        const stockItem = stockData[item.id];
+        if (stockItem) {
+          return {
+            ...item,
+            remainingQuantity: stockItem.remainingQuantity,
+            inStock: stockItem.inStock,
+            outOfStock: stockItem.outOfStock,
+            quantityUsed: stockItem.quantityUsed,
+            quantity: stockItem.quantity
+          };
+        }
+        return item;
+      }));
     });
-    return () => unsubscribe();
+    
+    return () => unsub();
   }, [restaurantId]);
 
   useEffect(() => {
@@ -2452,16 +2503,16 @@ const isPlanActive = () => {
   // "active" ya "trial" = buttons dikhao
   return status === 'active' || status === 'trial';
 };
-   const handleOrderClick = (item, action = "order") => {
+const handleOrderClick = (item, action = "order") => {
     if (!item || !item.id) {
-      console.error("Invalid item passed to handleOrderClick:", item);
-      return;
+        console.error("Invalid item passed to handleOrderClick:", item);
+        return;
     }
 
-    // ★ ADD: Block if out of stock
-    if (item.inStock === false) {
-      toast.error(`${item.name} is currently out of stock`);
-      return;
+    // ★ FIX: Block if out of stock (inStock OR remainingQuantity check)
+    if (item.inStock === false || item.remainingQuantity <= 0) {
+        toast.error(`${item.name} is currently out of stock`);
+        return;
     }
 
     // ★ ADD: Ensure restaurantId is available
@@ -3292,7 +3343,7 @@ const isPlanActive = () => {
                   <p className="text-sm mt-2">Try another search or clear filters.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-6 pb-20">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-6 pb-20">
                   {filteredItems.map((item) => {
                     const isDrink = item.category?.toLowerCase() === "drinks";
                     return (
@@ -3344,13 +3395,20 @@ const isPlanActive = () => {
                               <IoSnow className="text-white text-xs" />
                             </span>
                           )}
+                          {/* LOW STOCK BADGE */}
+{item.quantity !== undefined && item.remainingQuantity > 0 && item.remainingQuantity <= (item.lowStockThreshold || 5) && (
+  <span className="absolute top-10 left-3  text-white text-[10px] font-bold px-2 py-1 rounded-full z-10 animate-pulse"
+  style={{background:theme.primary}}>
+    Only {item.remainingQuantity} left!
+  </span>
+)}
   {/* Out of Stock overlay - FULL CARD DISABLE */}
-                          {item.inStock === false && (
-                            <div className="absolute inset-0 bg-gray-200/90 flex flex-col items-center justify-center z-20 backdrop-blur-[2px]">
-                              <IoClose className="w-10 h-10 text-gray-400 mb-2" />
-                              <span className="text-gray-500 font-bold text-sm uppercase tracking-wider">Out of Stock</span>
-                            </div>
-                          )}
+                     {(item.inStock === false || item.remainingQuantity <= 0) && (
+    <div className="absolute inset-0 bg-gray-200/90 flex flex-col items-center justify-center z-30 backdrop-blur-[2px] pointer-events-auto">
+        <IoClose className="w-10 h-10 text-gray-400 mb-2" />
+        <span className="text-gray-500 font-bold text-sm uppercase tracking-wider">Out of Stock</span>
+    </div>
+)}
                           {/* Bottom overlay bar */}
                           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 flex items-end justify-between z-10">
                             {/* Like button - bottom left */}
@@ -3385,10 +3443,11 @@ const isPlanActive = () => {
                         </div>
 
                         {/* Card Body */}
-                       <div className="p-4 relative">
-                          {item.inStock === false && (
-                            <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 rounded-b-3xl cursor-not-allowed" />
-                          )}
+                      <div className="p-4 relative">
+    {(item.inStock === false || item.remainingQuantity <= 0) && (
+        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 rounded-b-3xl cursor-not-allowed" />
+    )}
+                        
                           {/* Title & Price Row */}
                           <div className="flex items-center justify-between mb-1">
                             <h3 className="font-bold text-base truncate flex items-center gap-2">
@@ -3433,6 +3492,13 @@ const isPlanActive = () => {
 
                           {/* Description */}
                           <ShowMoreText text={item.description} />
+                          {item.quantity !== undefined && item.remainingQuantity > 0 && item.remainingQuantity <= (item.lowStockThreshold || 5) && (
+  <p className="text-xs  font-medium mt-1 flex items-center gap-1"
+ style={{ color: theme.primary }}>
+    <IoAlertCircle className="w-3 h-3" />
+    Hurry! Only {item.remainingQuantity} left
+  </p>
+)}
 
                                                   {/* Action Buttons Row */}
                        <div className="mt-4 flex flex-col gap-2">
@@ -3440,13 +3506,14 @@ const isPlanActive = () => {
     <>
       {/* Row 1: Order Now + AR View */}
       <div className="flex items-center gap-2">
-        <button
-          onClick={() => handleOrderClick(item, "order")}
-          className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-          style={{ backgroundColor: theme.primary }}
-        >
-          Order Now
-        </button>
+       <button
+  onClick={() => handleOrderClick(item, "order")}
+  disabled={item.remainingQuantity <= 0}
+  className="flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+  style={{ backgroundColor: theme.primary }}
+>
+  {item.remainingQuantity <= 0 ? "Out of Stock" : "Order Now"}
+</button>
 
        {isARViewEnabled() ? (
   <button
@@ -3470,24 +3537,26 @@ const isPlanActive = () => {
 
       {/* Row 2: Cart + WhatsApp + Reviews */}
       <div className="flex items-center gap-2">
-        <button
-          onClick={() => handleOrderClick(item, "cart")}
-          className="flex-1 h-10 rounded-xl border-2 flex items-center justify-center gap-2 text-sm font-medium transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-          style={{ borderColor: theme.primary, color: theme.primary }}
-          title="Add to Cart"
-        >
-          <IoCartOutline className="w-5 h-5" />
-          Cart
-        </button>
+      <button
+  onClick={() => handleOrderClick(item, "cart")}
+  disabled={item.remainingQuantity <= 0}
+  className="flex-1 h-10 rounded-xl border-2 flex items-center justify-center gap-2 text-sm font-medium transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+  style={{ borderColor: theme.primary, color: theme.primary }}
+  title="Add to Cart"
+>
+  <IoCartOutline className="w-5 h-5" />
+  {item.remainingQuantity <= 0 ? "Unavailable" : "Cart"}
+</button>
 
-        <button
-          onClick={() => handleOrderClick(item, "whatsapp")}
-          className="flex-1 h-10 rounded-xl border-2 border-green-500 text-green-500 flex items-center justify-center gap-2 text-sm font-medium transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:bg-green-500 hover:text-white"
-          title="Order via WhatsApp"
-        >
-          <FaWhatsapp className="w-5 h-5" />
-          WhatsApp
-        </button>
+       <button
+    onClick={() => handleOrderClick(item, "whatsapp")}
+    disabled={item.remainingQuantity <= 0}
+    className="flex-1 h-10 rounded-xl border-2 border-green-500 text-green-500 flex items-center justify-center gap-2 text-sm font-medium transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] hover:bg-green-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-green-500"
+    title="Order via WhatsApp"
+>
+    <FaWhatsapp className="w-5 h-5" />
+    WhatsApp
+</button>
 
         <button
           onClick={() => {
