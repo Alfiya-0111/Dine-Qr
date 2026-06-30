@@ -3995,7 +3995,7 @@ const handleOrderClick = (item, action = "order") => {
                   <div className="mt-3 pt-3 border-t border-gray-100">
                     <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${restaurantSettings?.isOpen
                         ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-600"
+                        : "bg-red-100 text-[#8A244B]"
                       }`}>
                       {restaurantSettings?.isOpen ? "● Open Now" : "● Closed"}
                     </span>

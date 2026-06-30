@@ -225,7 +225,7 @@ const BookingManagement = ({ restaurantId }) => {
                     </button>
                     <button
                       onClick={() => updateStatus(booking.id, booking.date, 'cancelled')}
-                      className="px-3 py-1 bg-red-600 text-white rounded text-sm flex items-center gap-1 hover:bg-red-700"
+                      className="px-3 py-1 bg-[#8A244B] text-white rounded text-sm flex items-center gap-1 hover:bg-red-700"
                     >
                       <FaTimes /> Cancel
                     </button>

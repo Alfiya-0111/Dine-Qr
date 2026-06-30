@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { realtimeDB as db } from "../firebaseConfig";
 import {
   ref,
@@ -10,11 +10,15 @@ import {
   set,
   serverTimestamp,
 } from "firebase/database";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, getDoc } from "firebase/firestore";
 import { db as firestoreDb } from "../firebaseConfig";
 
 const UNITS = ["kg", "g", "litre", "ml", "pcs", "dozen", "packet", "box"];
 const TABS = ["Items", "Raw Materials", "Suppliers", "Stock History", "Food Cost", "Purchase Orders", "Stock Count", "Analytics"];
+
+// Tabs that require the "full" inventory tier (Trial / Growth / Pro).
+// Starter plan users see a locked upgrade prompt instead.
+const FULL_ONLY_TABS = [4, 5, 6, 7]; // Food Cost, Purchase Orders, Stock Count, Analytics
 
 const theme = {
   primary: "#6B1535",
@@ -194,6 +198,10 @@ const css = `
     font-weight: 600;
   }
   .inv-tab:not(.active):hover { background: ${theme.bg}; color: ${theme.primary}; }
+
+  .inv-tab.locked {
+    color: ${theme.textLight};
+  }
 
   .inv-toolbar {
     display: flex;
@@ -529,6 +537,11 @@ const css = `
     border: 1px solid ${theme.border};
   }
 
+  .inv-upgrade-card {
+    background: linear-gradient(135deg, ${theme.primary}10, ${theme.accent}15);
+    border: 1.5px dashed ${theme.primary}40;
+  }
+
   @media (max-width: 768px) {
     .inv-root { padding: 16px; }
     .inv-table th:nth-child(4), .inv-table td:nth-child(4),
@@ -565,6 +578,26 @@ const PO_STATUS_COLORS = {
   received: { bg: "#E8F5E9", color: "#2E7D32", label: "Received" },
   cancelled:{ bg: "#FFEBEE", color: "#C62828", label: "Cancelled" },
 };
+
+// ───────────────────────── Upgrade Lock (shown for Starter plan on full-tier-only tabs) ─────────────────────────
+function UpgradeLock({ feature, navigate }) {
+  return (
+    <div className="inv-table-wrap inv-upgrade-card">
+      <div className="inv-empty">
+        <div className="inv-empty-icon">🔒</div>
+        <p style={{ fontWeight: 700, color: theme.primary, marginBottom: 6 }}>
+          {feature} Growth plan se upar available hai
+        </p>
+        <p style={{ fontSize: 12, marginBottom: 16 }}>
+          Starter plan mein yeh feature included nahi hai.
+        </p>
+        <button className="inv-btn inv-btn-primary" onClick={() => navigate("/dashboard/subscription")}>
+          ⬆️ Upgrade Plan
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function ItemModal({ onClose, onSave, initial, title, allowPrepared, rawMaterials }) {
   const [form, setForm] = useState(
@@ -939,6 +972,7 @@ function StockCountModal({ onClose, onSave, items, rawMaterials }) {
 // ───────────────────────── MAIN COMPONENT ─────────────────────────
 export default function InventoryManagement() {
   const { restaurantId } = useParams();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [search, setSearch] = useState("");
 
@@ -949,6 +983,10 @@ export default function InventoryManagement() {
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [stockCounts, setStockCounts] = useState([]);
   const [menuItems, setMenuItems] = useState([]);
+
+  // Inventory tier — gates Food Cost / Purchase Orders / Stock Count / Analytics / Prepared Items.
+  // Default "basic" (locked) until the plan is confirmed from Firestore — fail-safe, no free-ride on load.
+  const [inventoryTier, setInventoryTier] = useState("basic");
 
   const [showItemModal, setShowItemModal] = useState(false);
   const [showRawModal, setShowRawModal] = useState(false);
@@ -961,6 +999,22 @@ export default function InventoryManagement() {
   const [analyticsRange, setAnalyticsRange] = useState(7); // days
 
   const base = `restaurants/${restaurantId}/inventory`;
+
+  // ── Load plan/tier from Firestore restaurant doc ──
+  useEffect(() => {
+    if (!restaurantId) return;
+    const loadPlan = async () => {
+      try {
+        const snap = await getDoc(doc(firestoreDb, "restaurants", restaurantId));
+        const planId = snap.exists() ? snap.data().plan : null;
+        setInventoryTier(planId === "starter" ? "basic" : "full"); // trial/growth/pro -> full, starter -> basic
+      } catch (e) {
+        console.error("Plan load error:", e);
+        // stays "basic" on failure — locked is the safe default
+      }
+    };
+    loadPlan();
+  }, [restaurantId]);
 
   useEffect(() => {
     const unsubs = [];
@@ -1356,10 +1410,10 @@ export default function InventoryManagement() {
           {activeTab === 2 && (
             <button className="inv-btn inv-btn-primary" onClick={() => { setEditTarget(null); setShowSupplierModal(true); }}>+ Add Supplier</button>
           )}
-          {activeTab === 5 && (
+          {activeTab === 5 && inventoryTier === "full" && (
             <button className="inv-btn inv-btn-primary" onClick={() => setShowPOModal(true)}>+ New Purchase Order</button>
           )}
-          {activeTab === 6 && (
+          {activeTab === 6 && inventoryTier === "full" && (
             <button className="inv-btn inv-btn-primary" onClick={() => setShowStockCountModal(true)}>📋 Start Stock Count</button>
           )}
         </div>
@@ -1373,7 +1427,7 @@ export default function InventoryManagement() {
         </div>
       )}
 
-      {lowMarginCount > 0 && (
+      {inventoryTier === "full" && lowMarginCount > 0 && (
         <div className="inv-alert danger">
           📉 <strong>{lowMarginCount} dish{lowMarginCount > 1 ? "es have" : " has"}</strong> margin below 40% — check "Food Cost" tab to fix pricing
         </div>
@@ -1400,19 +1454,28 @@ export default function InventoryManagement() {
           <div className="inv-stat-value">{suppliers.length}</div>
           <div className="inv-stat-sub">Active vendors</div>
         </div>
-        <div className="inv-stat-card blue">
-          <div className="inv-stat-label">Avg Margin</div>
-          <div className="inv-stat-value">{avgMargin !== null ? `${avgMargin.toFixed(0)}%` : "—"}</div>
-          <div className="inv-stat-sub">{lowMarginCount} dishes need attention</div>
-        </div>
+        {inventoryTier === "full" && (
+          <div className="inv-stat-card blue">
+            <div className="inv-stat-label">Avg Margin</div>
+            <div className="inv-stat-value">{avgMargin !== null ? `${avgMargin.toFixed(0)}%` : "—"}</div>
+            <div className="inv-stat-sub">{lowMarginCount} dishes need attention</div>
+          </div>
+        )}
       </div>
 
       <div className="inv-tabs">
-        {TABS.map((t, i) => (
-          <button key={t} className={`inv-tab${activeTab === i ? " active" : ""}`} onClick={() => setActiveTab(i)}>
-            {t}
-          </button>
-        ))}
+        {TABS.map((t, i) => {
+          const locked = inventoryTier === "basic" && FULL_ONLY_TABS.includes(i);
+          return (
+            <button
+              key={t}
+              className={`inv-tab${activeTab === i ? " active" : ""}${locked ? " locked" : ""}`}
+              onClick={() => setActiveTab(i)}
+            >
+              {t}{locked ? " 🔒" : ""}
+            </button>
+          );
+        })}
       </div>
 
       {activeTab < 3 && (
@@ -1504,197 +1567,213 @@ export default function InventoryManagement() {
         </div>
       )}
 
-      {/* ── TAB 4: Food Cost ── */}
+      {/* ── TAB 4: Food Cost (full tier only) ── */}
       {activeTab === 4 && (
-        <div>
-          <div className="inv-alert info">
-            💡 Yeh recipe cost (AddItem mein set kiya hua) vs selling price ka margin dikhata hai. Recipe set nahi hai to "No Recipe" dikhega.
-          </div>
-          <div className="inv-table-wrap">
-            <table className="inv-table">
-              <thead>
-                <tr>
-                  <th>Dish</th>
-                  <th>Selling Price</th>
-                  <th>Recipe Cost</th>
-                  <th>Food Cost %</th>
-                  <th>Margin</th>
-                  <th>Visual</th>
-                </tr>
-              </thead>
-              <tbody>
-                {foodCostData.length === 0 ? (
-                  <tr><td colSpan={6}><div className="inv-empty"><div className="inv-empty-icon">🍽️</div><p>No menu items found.</p></div></td></tr>
-                ) : (
-                  foodCostData.map((d) => (
-                    <tr key={d.id}>
-                      <td style={{ fontWeight: 600 }}>{d.name}</td>
-                      <td>₹{d.price}</td>
-                      <td>
-                        {d.hasRecipe ? `₹${d.recipeCost.toFixed(2)}` : <span style={{ color: theme.textLight }}>No recipe</span>}
-                        {d.missingIngredient && <span style={{ color: theme.danger, fontSize: 10, marginLeft: 4 }}>(missing item)</span>}
-                      </td>
-                      <td>{d.foodCostPct !== null && d.hasRecipe ? `${d.foodCostPct.toFixed(0)}%` : "—"}</td>
-                      <td><MarginBadge pct={d.hasRecipe ? d.margin : null} /></td>
-                      <td style={{ minWidth: 100 }}>
-                        {d.hasRecipe && d.margin !== null && (
-                          <div className="inv-margin-bar">
-                            <div className="inv-margin-bar-fill" style={{ width: `${Math.max(0, Math.min(100, d.margin))}%`, background: marginColor(d.margin) }} />
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ── TAB 5: Purchase Orders ── */}
-      {activeTab === 5 && (
-        <div className="inv-table-wrap">
-          {purchaseOrders.length === 0 ? (
-            <div className="inv-empty">
-              <div className="inv-empty-icon">📝</div>
-              <p>No purchase orders yet. Create one to order from suppliers!</p>
+        inventoryTier === "basic" ? (
+          <UpgradeLock feature="Food Cost Analysis" navigate={navigate} />
+        ) : (
+          <div>
+            <div className="inv-alert info">
+              💡 Yeh recipe cost (AddItem mein set kiya hua) vs selling price ka margin dikhata hai. Recipe set nahi hai to "No Recipe" dikhega.
             </div>
-          ) : (
-            <table className="inv-table">
-              <thead>
-                <tr>
-                  <th>PO Date</th>
-                  <th>Supplier</th>
-                  <th>Items</th>
-                  <th>Total</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {purchaseOrders.map((po) => {
-                  const sc = PO_STATUS_COLORS[po.status] || PO_STATUS_COLORS.draft;
-                  return (
-                    <tr key={po.id}>
-                      <td>{po.createdAt ? new Date(po.createdAt).toLocaleDateString("en-IN") : "—"}</td>
-                      <td style={{ fontWeight: 600 }}>{po.supplierName}</td>
-                      <td>{(po.lines || []).map((l) => `${l.itemName} (${l.qty}${l.unit})`).join(", ")}</td>
-                      <td style={{ fontWeight: 700, color: theme.primary }}>₹{(po.total || 0).toLocaleString("en-IN")}</td>
-                      <td><span className="inv-po-status" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span></td>
-                      <td>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          {po.status === "sent" && (
-                            <button className="inv-btn inv-btn-sm" style={{ background: "#E8F5E9", color: "#2E7D32" }} onClick={() => receivePO(po)}>✅ Receive</button>
+            <div className="inv-table-wrap">
+              <table className="inv-table">
+                <thead>
+                  <tr>
+                    <th>Dish</th>
+                    <th>Selling Price</th>
+                    <th>Recipe Cost</th>
+                    <th>Food Cost %</th>
+                    <th>Margin</th>
+                    <th>Visual</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {foodCostData.length === 0 ? (
+                    <tr><td colSpan={6}><div className="inv-empty"><div className="inv-empty-icon">🍽️</div><p>No menu items found.</p></div></td></tr>
+                  ) : (
+                    foodCostData.map((d) => (
+                      <tr key={d.id}>
+                        <td style={{ fontWeight: 600 }}>{d.name}</td>
+                        <td>₹{d.price}</td>
+                        <td>
+                          {d.hasRecipe ? `₹${d.recipeCost.toFixed(2)}` : <span style={{ color: theme.textLight }}>No recipe</span>}
+                          {d.missingIngredient && <span style={{ color: theme.danger, fontSize: 10, marginLeft: 4 }}>(missing item)</span>}
+                        </td>
+                        <td>{d.foodCostPct !== null && d.hasRecipe ? `${d.foodCostPct.toFixed(0)}%` : "—"}</td>
+                        <td><MarginBadge pct={d.hasRecipe ? d.margin : null} /></td>
+                        <td style={{ minWidth: 100 }}>
+                          {d.hasRecipe && d.margin !== null && (
+                            <div className="inv-margin-bar">
+                              <div className="inv-margin-bar-fill" style={{ width: `${Math.max(0, Math.min(100, d.margin))}%`, background: marginColor(d.margin) }} />
+                            </div>
                           )}
-                          {po.status === "sent" && (
-                            <button className="inv-btn inv-btn-sm" style={{ background: "#FFEBEE", color: "#C62828" }} onClick={() => cancelPO(po)}>Cancel</button>
-                          )}
-                          <button className="inv-btn inv-btn-danger" onClick={() => deletePO(po.id)}>🗑</button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
       )}
 
-      {/* ── TAB 6: Stock Count ── */}
-      {activeTab === 6 && (
-        <div>
-          <div className="inv-alert info">
-            📋 Physical count regularly karne se chori, wastage, aur galat entries pakdi jaati hain. Hafte mein ek baar zaroor karo.
-          </div>
+      {/* ── TAB 5: Purchase Orders (full tier only) ── */}
+      {activeTab === 5 && (
+        inventoryTier === "basic" ? (
+          <UpgradeLock feature="Purchase Orders" navigate={navigate} />
+        ) : (
           <div className="inv-table-wrap">
-            {stockCounts.length === 0 ? (
+            {purchaseOrders.length === 0 ? (
               <div className="inv-empty">
-                <div className="inv-empty-icon">📋</div>
-                <p>Koi stock count nahi hua abhi tak. "Start Stock Count" se shuru karo!</p>
+                <div className="inv-empty-icon">📝</div>
+                <p>No purchase orders yet. Create one to order from suppliers!</p>
               </div>
             ) : (
               <table className="inv-table">
                 <thead>
                   <tr>
-                    <th>Date</th>
-                    <th>Items Counted</th>
-                    <th>Variance Value</th>
-                    <th>Details</th>
+                    <th>PO Date</th>
+                    <th>Supplier</th>
+                    <th>Items</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {stockCounts.map((sc) => (
-                    <tr key={sc.id}>
-                      <td>{sc.date ? new Date(sc.date).toLocaleString("en-IN") : "—"}</td>
-                      <td>{sc.itemsCounted}</td>
-                      <td style={{ fontWeight: 700, color: sc.totalVarianceValue < 0 ? theme.danger : sc.totalVarianceValue > 0 ? theme.success : theme.text }}>
-                        {sc.totalVarianceValue < 0 ? "-" : "+"}₹{Math.abs(sc.totalVarianceValue || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
-                      </td>
-                      <td style={{ fontSize: 12, color: theme.textMuted, maxWidth: 320 }}>
-                        {(sc.details || []).filter((d) => d.variance !== 0).map((d) => `${d.name}: ${d.variance > 0 ? "+" : ""}${d.variance.toFixed(1)}${d.unit}`).join(", ") || "No variance"}
-                      </td>
-                    </tr>
-                  ))}
+                  {purchaseOrders.map((po) => {
+                    const sc = PO_STATUS_COLORS[po.status] || PO_STATUS_COLORS.draft;
+                    return (
+                      <tr key={po.id}>
+                        <td>{po.createdAt ? new Date(po.createdAt).toLocaleDateString("en-IN") : "—"}</td>
+                        <td style={{ fontWeight: 600 }}>{po.supplierName}</td>
+                        <td>{(po.lines || []).map((l) => `${l.itemName} (${l.qty}${l.unit})`).join(", ")}</td>
+                        <td style={{ fontWeight: 700, color: theme.primary }}>₹{(po.total || 0).toLocaleString("en-IN")}</td>
+                        <td><span className="inv-po-status" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span></td>
+                        <td>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {po.status === "sent" && (
+                              <button className="inv-btn inv-btn-sm" style={{ background: "#E8F5E9", color: "#2E7D32" }} onClick={() => receivePO(po)}>✅ Receive</button>
+                            )}
+                            {po.status === "sent" && (
+                              <button className="inv-btn inv-btn-sm" style={{ background: "#FFEBEE", color: "#C62828" }} onClick={() => cancelPO(po)}>Cancel</button>
+                            )}
+                            <button className="inv-btn inv-btn-danger" onClick={() => deletePO(po.id)}>🗑</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
           </div>
-        </div>
+        )
       )}
 
-      {/* ── TAB 7: Analytics ── */}
-      {activeTab === 7 && (
-        <div>
-          <div className="inv-toolbar">
-            <div style={{ display: "flex", gap: 8 }}>
-              {[7, 14, 30].map((d) => (
-                <button
-                  key={d}
-                  className="inv-btn inv-btn-sm"
-                  style={analyticsRange === d ? { background: theme.primary, color: "#fff" } : {}}
-                  onClick={() => setAnalyticsRange(d)}
-                >
-                  Last {d} days
-                </button>
-              ))}
+      {/* ── TAB 6: Stock Count (full tier only) ── */}
+      {activeTab === 6 && (
+        inventoryTier === "basic" ? (
+          <UpgradeLock feature="Stock Count" navigate={navigate} />
+        ) : (
+          <div>
+            <div className="inv-alert info">
+              📋 Physical count regularly karne se chori, wastage, aur galat entries pakdi jaati hain. Hafte mein ek baar zaroor karo.
             </div>
-          </div>
-
-          <div className="inv-stats" style={{ marginBottom: 20 }}>
-            <div className="inv-stat-card red">
-              <div className="inv-stat-label">Wastage Cost</div>
-              <div className="inv-stat-value">₹{wasteValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
-              <div className="inv-stat-sub">Last {analyticsRange} days</div>
-            </div>
-            <div className="inv-stat-card purple">
-              <div className="inv-stat-label">Items Tracked</div>
-              <div className="inv-stat-value">{analyticsData.length}</div>
-              <div className="inv-stat-sub">With consumption activity</div>
-            </div>
-          </div>
-
-          <div className="inv-table-wrap" style={{ padding: 20 }}>
-            <p style={{ fontWeight: 700, fontSize: 14, color: theme.primary, marginBottom: 16 }}>🔥 Top Consumed Items</p>
-            {analyticsData.length === 0 ? (
-              <div className="inv-empty">
-                <div className="inv-empty-icon">📊</div>
-                <p>Is range mein koi consumption data nahi mila.</p>
-              </div>
-            ) : (
-              analyticsData.map((d) => (
-                <div className="inv-bar-row" key={d.name}>
-                  <div className="inv-bar-label">{d.name}</div>
-                  <div className="inv-bar-track">
-                    <div className="inv-bar-fill" style={{ width: `${(d.qty / maxAnalyticsQty) * 100}%` }} />
-                  </div>
-                  <div className="inv-bar-value">{d.qty.toFixed(1)}</div>
+            <div className="inv-table-wrap">
+              {stockCounts.length === 0 ? (
+                <div className="inv-empty">
+                  <div className="inv-empty-icon">📋</div>
+                  <p>Koi stock count nahi hua abhi tak. "Start Stock Count" se shuru karo!</p>
                 </div>
-              ))
-            )}
+              ) : (
+                <table className="inv-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Items Counted</th>
+                      <th>Variance Value</th>
+                      <th>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stockCounts.map((sc) => (
+                      <tr key={sc.id}>
+                        <td>{sc.date ? new Date(sc.date).toLocaleString("en-IN") : "—"}</td>
+                        <td>{sc.itemsCounted}</td>
+                        <td style={{ fontWeight: 700, color: sc.totalVarianceValue < 0 ? theme.danger : sc.totalVarianceValue > 0 ? theme.success : theme.text }}>
+                          {sc.totalVarianceValue < 0 ? "-" : "+"}₹{Math.abs(sc.totalVarianceValue || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
+                        </td>
+                        <td style={{ fontSize: 12, color: theme.textMuted, maxWidth: 320 }}>
+                          {(sc.details || []).filter((d) => d.variance !== 0).map((d) => `${d.name}: ${d.variance > 0 ? "+" : ""}${d.variance.toFixed(1)}${d.unit}`).join(", ") || "No variance"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
-        </div>
+        )
+      )}
+
+      {/* ── TAB 7: Analytics (full tier only) ── */}
+      {activeTab === 7 && (
+        inventoryTier === "basic" ? (
+          <UpgradeLock feature="Consumption Analytics" navigate={navigate} />
+        ) : (
+          <div>
+            <div className="inv-toolbar">
+              <div style={{ display: "flex", gap: 8 }}>
+                {[7, 14, 30].map((d) => (
+                  <button
+                    key={d}
+                    className="inv-btn inv-btn-sm"
+                    style={analyticsRange === d ? { background: theme.primary, color: "#fff" } : {}}
+                    onClick={() => setAnalyticsRange(d)}
+                  >
+                    Last {d} days
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="inv-stats" style={{ marginBottom: 20 }}>
+              <div className="inv-stat-card red">
+                <div className="inv-stat-label">Wastage Cost</div>
+                <div className="inv-stat-value">₹{wasteValue.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div>
+                <div className="inv-stat-sub">Last {analyticsRange} days</div>
+              </div>
+              <div className="inv-stat-card purple">
+                <div className="inv-stat-label">Items Tracked</div>
+                <div className="inv-stat-value">{analyticsData.length}</div>
+                <div className="inv-stat-sub">With consumption activity</div>
+              </div>
+            </div>
+
+            <div className="inv-table-wrap" style={{ padding: 20 }}>
+              <p style={{ fontWeight: 700, fontSize: 14, color: theme.primary, marginBottom: 16 }}>🔥 Top Consumed Items</p>
+              {analyticsData.length === 0 ? (
+                <div className="inv-empty">
+                  <div className="inv-empty-icon">📊</div>
+                  <p>Is range mein koi consumption data nahi mila.</p>
+                </div>
+              ) : (
+                analyticsData.map((d) => (
+                  <div className="inv-bar-row" key={d.name}>
+                    <div className="inv-bar-label">{d.name}</div>
+                    <div className="inv-bar-track">
+                      <div className="inv-bar-fill" style={{ width: `${(d.qty / maxAnalyticsQty) * 100}%` }} />
+                    </div>
+                    <div className="inv-bar-value">{d.qty.toFixed(1)}</div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )
       )}
 
       {/* Modals */}
@@ -1711,7 +1790,7 @@ export default function InventoryManagement() {
         <ItemModal
           title={editTarget ? "Edit Raw Material" : "Add Raw Material"}
           initial={editTarget}
-          allowPrepared
+          allowPrepared={inventoryTier === "full"}
           rawMaterials={rawMaterials}
           onClose={() => { setShowRawModal(false); setEditTarget(null); }}
           onSave={(form) => saveItem(form, "rawMaterials", editTarget?.id)}
@@ -1726,7 +1805,7 @@ export default function InventoryManagement() {
         />
       )}
 
-      {showPOModal && (
+      {showPOModal && inventoryTier === "full" && (
         <POModal
           suppliers={suppliers}
           rawMaterials={rawMaterials}
@@ -1736,7 +1815,7 @@ export default function InventoryManagement() {
         />
       )}
 
-      {showStockCountModal && (
+      {showStockCountModal && inventoryTier === "full" && (
         <StockCountModal
           items={items}
           rawMaterials={rawMaterials}

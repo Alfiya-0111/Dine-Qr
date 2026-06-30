@@ -107,7 +107,7 @@ export default function CouponBanner({ restaurantId, theme }) {
               </span>
             )}
             {expiryDate && (
-              <span className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-bold">
+              <span className="text-[10px] bg-red-50 text-[#8A244B] px-2 py-0.5 rounded-full font-bold">
                 Expires {expiryDate}
               </span>
             )}

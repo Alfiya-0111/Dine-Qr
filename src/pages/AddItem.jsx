@@ -783,8 +783,8 @@ payload.outOfStock = payload.remainingQuantity <= 0;
 
           {isPlanExpired && (
             <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl">
-              <p className="text-red-700 font-bold text-sm"><FaExclamationTriangle className="inline mr-1 text-red-600"/> Plan expired!</p>
-              <button onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)} className="mt-2 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg">
+              <p className="text-red-700 font-bold text-sm"><FaExclamationTriangle className="inline mr-1 bg-[#8A244B]"/> Plan expired!</p>
+              <button onClick={() => navigate(`/dashboard/${restaurantId}/subscription`)} className="mt-2 px-4 py-2 bg-[#8A244B] text-white text-xs font-bold rounded-lg">
                 <FaSyncAlt className="inline mr-1"/> Renew Now
               </button>
             </div>
@@ -1228,7 +1228,7 @@ payload.outOfStock = payload.remainingQuantity <= 0;
             {preview && (
               <div className="relative">
                 <img src={preview} alt="preview" className="w-full h-48 md:h-64 object-cover rounded-xl" />
-                <button onClick={() => { setPreview(""); setImage(null); }} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition">
+                <button onClick={() => { setPreview(""); setImage(null); }} className="absolute top-2 right-2  text-white p-2 rounded-full bg-[#8A244B] transition">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>

@@ -148,7 +148,7 @@ export default function LoginPage() {
 
           {/* Error */}
           {error && (
-            <div className="mb-5 p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm font-medium flex items-center gap-2">
+            <div className="mb-5 p-3 rounded-xl bg-red-50 border border-red-200 text-[#8A244B] text-sm font-medium flex items-center gap-2">
               <IoClose className="w-4 h-4 flex-shrink-0" /> {error}
             </div>
           )}

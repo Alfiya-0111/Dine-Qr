@@ -129,7 +129,7 @@ const AdminDashboard = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-500">Please login first!</p>
+          <p className="text-[#8A244B]">Please login first!</p>
         </div>
       </div>
     );
@@ -198,12 +198,12 @@ const AdminDashboard = () => {
 
                   </span>
                   {isPlanExpired() && (
-                    <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full border border-red-300">
+                    <span className="px-2 py-0.5 bg-red-100 text-[#8A244B] text-xs font-bold rounded-full border border-red-300">
                       EXPIRED
                     </span>
                   )}
                   {!isPlanExpired() && subscriptionStatus?.active && (
-                    <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full border border-green-300">
+                    <span className="px-2 py-0.5 bg-green-100 text-[#8A244B] text-xs font-bold rounded-full border border-green-300">
                       ACTIVE
                     </span>
                   )}
@@ -219,7 +219,7 @@ const AdminDashboard = () => {
             <div className="flex items-center gap-2">
               {isPlanExpired() && (
                 <button onClick={goToSubscription}
-                  className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition shadow-md"
+                  className="px-4 py-2 bg-[#8A244B] text-white text-sm font-bold rounded-xl bg-[#8A244B] transition shadow-md"
                 >
                <RefreshCw size={14} /> Renew Now
                 </button>
@@ -248,7 +248,7 @@ const AdminDashboard = () => {
         {/* ═══ EXPIRED WARNING ═══ */}
         {isPlanExpired() && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-            <p className="text-sm text-red-700 font-bold">
+            <p className="text-sm text-[#8A244B] font-bold">
               ⚠️ Your {planConfig.name} plan has expired. Please renew to continue managing tables and bookings.
             </p>
           </div>
@@ -263,7 +263,7 @@ const AdminDashboard = () => {
             ) : !hasFeature("tableManagement") ? (
               /* LOCKED STATE - Plan doesn't have feature */
               <div className="bg-white rounded-xl shadow-sm p-8 text-center border-2 border-dashed border-gray-200">
-                <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-20 h-20 bg-[#8A244B] rounded-full flex items-center justify-center mx-auto mb-4">
                   <FaLock size={32} color="#dc2626" />
                 </div>
                 <h3 className="text-lg font-bold text-gray-800 mb-2">Table Management Locked 🔒</h3>
@@ -302,10 +302,10 @@ const AdminDashboard = () => {
                 <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
                   <FaLock size={32} color="#dc2626" />
                 </div>
-                <h3 className="text-lg font-bold text-red-700 mb-2">Feature Unavailable</h3>
+                <h3 className="text-lg font-bold bg-[#8A244B] mb-2">Feature Unavailable</h3>
                 <p className="text-sm text-gray-500 mb-4">Your plan has expired. Renew to access table management.</p>
                 <button onClick={goToSubscription}
-                  className="px-6 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition"
+                  className="px-6 py-2 bg-[#8A244B] text-white font-bold rounded-xl bg-[#8A244B] transition"
                 >
                   🔄 Renew Now
                 </button>
@@ -358,10 +358,10 @@ const AdminDashboard = () => {
                 <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
                   <FaLock size={32} color="#dc2626" />
                 </div>
-                <h3 className="text-lg font-bold text-red-700 mb-2">Feature Unavailable</h3>
+                <h3 className="text-lg font-bold bg-[#8A244B] mb-2">Feature Unavailable</h3>
                 <p className="text-sm text-gray-500 mb-4">Your plan has expired. Renew to access table bookings.</p>
                 <button onClick={goToSubscription}
-                  className="px-6 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition"
+                  className="px-6 py-2 bg-[#8A244B] text-white font-bold rounded-xl bg-[#8A244B] transition"
                 >
                   🔄 Renew Now
                 </button>

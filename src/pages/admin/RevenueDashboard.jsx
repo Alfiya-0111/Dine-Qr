@@ -453,7 +453,7 @@ const isPlanExpired = () => {
                   </div>
                 </div>
                 <button onClick={goToSubscription}
-                  className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition shadow-md"
+                  className="px-4 py-2 bg-[#8A244B] text-white text-sm font-bold rounded-xl transition shadow-md"
                   style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <FaSync style={{ fontSize: 12 }} /> Renew Now
                 </button>
@@ -560,7 +560,7 @@ const isPlanExpired = () => {
           label="Total Revenue"
           value={`₹${totalRevenue.toLocaleString("en-IN")}`}
           sub={growth !== null ? `${growth >= 0 ? "▲" : "▼"} ${Math.abs(growth)}% vs yesterday` : null}
-          subColor={growth >= 0 ? "text-green-600" : "text-red-500"}
+          subColor={growth >= 0 ? "text-green-600" : "text-[#8A244B]"}
           accent={MAROON}
         />
         <StatCard

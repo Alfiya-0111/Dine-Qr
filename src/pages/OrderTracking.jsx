@@ -304,7 +304,7 @@ function CustomerLiveLocation({ orderId, restaurantId, restaurantPhone, customer
             {/* Stop Button */}
             <button
               onClick={stopSharing}
-              className="w-full py-2 rounded-lg text-red-600 border border-red-200 hover:bg-red-50 font-semibold transition-colors"
+              className="w-full py-2 rounded-lg text-[#8A244B] border  font-semibold transition-colors"
             >
               <FaExclamationTriangle className="inline mr-1" /> Stop Sharing
             </button>

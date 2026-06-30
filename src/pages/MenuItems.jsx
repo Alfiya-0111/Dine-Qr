@@ -381,7 +381,7 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
                 {isPlanExpired() && (
                   <button
                     onClick={goToSubscription}
-                    className="px-4 py-2 bg-red-600 text-white text-sm font-bold rounded-xl hover:bg-red-700 transition shadow-md"
+                    className="px-4 py-2 bg-[#8A244B] text-white text-sm font-bold rounded-xl bg-[#8A244B] transition shadow-md"
                   >
                      <RefreshCw size={14} /> Renew Now
                   </button>
@@ -418,7 +418,7 @@ const goToSubscription = () => navigate(`/dashboard/${userId}/subscription`);
             {dishLimit !== "unlimited" && dishLimit !== "Unlimited" && (
               <span
                 className={`text-xs font-bold ${
-                  getRemainingDishes() === 0 ? "text-red-600" : "text-gray-500"
+                  getRemainingDishes() === 0 ? "text-[#8A244B]" : "text-gray-500"
                 }`}
               >
                 {getRemainingDishes()} remaining

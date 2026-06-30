@@ -292,7 +292,7 @@ function StaffDetailView({ staff, onClose, onEdit, onDelete }) {
                 <p className="text-xs text-gray-500">Present</p>
               </div>
               <div className="p-3 rounded-xl bg-red-50 text-center">
-                <p className="text-lg font-black text-red-600">{absentCount}</p>
+                <p className="text-lg font-black text-[#8A244B]">{absentCount}</p>
                 <p className="text-xs text-gray-500">Absent</p>
               </div>
               <div className="p-3 rounded-xl bg-orange-50 text-center">
@@ -313,7 +313,7 @@ function StaffDetailView({ staff, onClose, onEdit, onDelete }) {
             <Edit3 className="w-4 h-4" /> Edit
           </button>
           <button onClick={() => { if (window.confirm(`Delete ${staff.name}?`)) { onDelete(staff.id); onClose(); } }}
-            className="flex-1 py-3 rounded-xl border-2 border-red-200 text-red-600 font-bold text-sm hover:bg-red-50 transition flex items-center justify-center gap-2">
+            className="flex-1 py-3 rounded-xl border-2 border-red-200 text-[#8A244B] font-bold text-sm hover:bg-red-50 transition flex items-center justify-center gap-2">
             <Trash2 className="w-4 h-4" /> Delete
           </button>
         </div>
@@ -660,7 +660,7 @@ export default function StaffManagement() {
               </GlassCard>
               <GlassCard className="p-5 text-center">
                 <p className="text-xs text-gray-500 mb-1">Inactive</p>
-                <p className="text-2xl font-black text-red-600">{stats.inactive}</p>
+                <p className="text-2xl font-black text-[#8A244B]">{stats.inactive}</p>
               </GlassCard>
             </div>
 
@@ -759,7 +759,7 @@ export default function StaffManagement() {
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => { if (window.confirm(`Delete ${staff.name}?`)) handleDeleteStaff(staff.id); }}
-                          className="p-2 rounded-lg border-2 border-red-200 text-red-600 hover:bg-red-50 transition">
+                          className="p-2 rounded-lg border-2 border-red-200 text-[#8A244B] hover:bg-red-50 transition">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -927,7 +927,7 @@ export default function StaffManagement() {
                   </div>
                   <div className="flex items-center justify-between p-4 rounded-xl bg-red-50">
                     <span className="font-medium">Inactive</span>
-                    <span className="text-2xl font-black text-red-600">{stats.inactive}</span>
+                    <span className="text-2xl font-black text-[#8A244B]">{stats.inactive}</span>
                   </div>
                 </div>
               </GlassCard>

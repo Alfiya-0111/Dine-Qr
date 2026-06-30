@@ -552,7 +552,7 @@ export default function RestaurantLogin() {
                         ? "text-green-600"
                         : getPasswordStrength() === "Medium"
                         ? "text-yellow-600"
-                        : "text-red-600"
+                        : "text-[#8A244B]"
                     }
                   >
                     {getPasswordStrength()}

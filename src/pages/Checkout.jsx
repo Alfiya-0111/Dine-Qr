@@ -1069,7 +1069,7 @@ roomNumber:  orderType === "room-service" ? roomNumber.trim() : null,
               }}>
               <FaCrown size={12} />
               {subscription.planName || subscription.planId || 'Free'}
-              {!isPlanActive && <span className="text-red-600">(Expired)</span>}
+              {!isPlanActive && <span className="text-[#8A244B]">(Expired)</span>}
             </div>
           )}
         </div>
