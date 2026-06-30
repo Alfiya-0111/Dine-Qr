@@ -2027,9 +2027,9 @@ const [isYearly, setIsYearly] = useState(false);
           </div>
         </section>
 
-        {/* ── COMING SOON — NEW FEATURES ────────────────────────────────── */}
+        {/* ── COMING SOON — HOTEL BOOKING FEATURE ───────────────────────── */}
         <section className="section-pad" style={{
-          background: isDark ? 'rgba(255,209,102,0.03)' : 'rgba(255,245,220,0.5)',
+          background: isDark ? 'rgba(138,36,75,0.05)' : 'rgba(138,36,75,0.03)',
           borderTop: '1px solid var(--glass-border)',
           borderBottom: '1px solid var(--glass-border)',
         }}>
@@ -2038,25 +2038,25 @@ const [isYearly, setIsYearly] = useState(false);
               <div style={{ textAlign: 'center', marginBottom: 48 }}>
                 <div style={{
                   display: 'inline-flex', alignItems: 'center', gap: 8,
-                  background: isDark ? 'rgba(255,209,102,0.12)' : 'rgba(255,209,102,0.25)',
-                  border: '1px solid rgba(196,125,0,0.3)',
+                  background: isDark ? 'rgba(138,36,75,0.2)' : 'rgba(138,36,75,0.1)',
+                  border: '1px solid rgba(138,36,75,0.3)',
                   borderRadius: 100, padding: '5px 16px', marginBottom: 16,
                   fontSize: 11, fontWeight: 700, letterSpacing: 2,
-                  color: isDark ? '#FFD166' : '#a06800',
+                  color: 'var(--maroon)',
                   fontFamily: 'var(--font-display)', textTransform: 'uppercase',
                 }}>
                   <Sparkles style={{ width: 12, height: 12 }} />
                   Coming Soon
                 </div>
                 <h2 className="section-h2">
-                  Khaatogo Mein <span style={{ color: 'var(--maroon)' }}>Kya Aa Raha Hai</span>
+                  Book Your Own <span style={{ color: 'var(--maroon)' }}>Hotel / Stay</span>
                 </h2>
                 <p style={{
                   fontFamily: 'var(--font-body)', fontSize: 16,
                   color: 'var(--text2)', lineHeight: 1.75,
                   maxWidth: 520, margin: '0 auto',
                 }}>
-                  Hum constantly build kar rahe hain. Early users ko pehle access milega — free mein.
+                  Ab restaurants ke saath saath hotels bhi manage karo. Room booking, availability, aur pricing — sab ek platform pe.
                 </p>
               </div>
             </Reveal>
@@ -2067,19 +2067,19 @@ const [isYearly, setIsYearly] = useState(false);
               gap: 20,
               marginBottom: 32,
             }}>
-              {/* Inventory — Featured / Live Soon */}
+              {/* Hotel Booking — Featured / Live Soon */}
               <Reveal delay={0}>
                 <div style={{
                   background: 'var(--card-bg)',
-                  border: `2px solid ${isDark ? 'rgba(255,209,102,0.4)' : 'rgba(196,125,0,0.35)'}`,
+                  border: `2px solid ${isDark ? 'rgba(138,36,75,0.5)' : 'rgba(138,36,75,0.35)'}`,
                   borderRadius: 24, padding: '28px 24px',
                   position: 'relative', overflow: 'hidden',
-                  boxShadow: isDark ? '0 8px 32px rgba(255,209,102,0.08)' : '0 8px 32px rgba(196,125,0,0.1)',
+                  boxShadow: isDark ? '0 8px 32px rgba(138,36,75,0.15)' : '0 8px 32px rgba(138,36,75,0.1)',
                 }}>
                   <div style={{
                     position: 'absolute', top: 0, right: 20,
-                    background: isDark ? '#FFD166' : '#c47d00',
-                    color: isDark ? '#000' : '#fff',
+                    background: 'var(--maroon)',
+                    color: '#fff',
                     fontSize: 10, fontWeight: 800, letterSpacing: 1.5,
                     padding: '5px 14px', borderRadius: '0 0 10px 10px',
                     fontFamily: 'var(--font-display)', textTransform: 'uppercase',
@@ -2090,49 +2090,49 @@ const [isYearly, setIsYearly] = useState(false);
                   <div style={{
                     position: 'absolute', top: -40, left: -40, width: 180, height: 180,
                     borderRadius: '50%',
-                    background: `radial-gradient(circle, ${isDark ? 'rgba(255,209,102,0.1)' : 'rgba(196,125,0,0.08)'} 0%, transparent 70%)`,
+                    background: `radial-gradient(circle, ${isDark ? 'rgba(138,36,75,0.15)' : 'rgba(138,36,75,0.08)'} 0%, transparent 70%)`,
                     pointerEvents: 'none',
                   }} />
 
                   <div style={{
                     width: 52, height: 52, borderRadius: 14,
-                    background: isDark ? 'rgba(255,209,102,0.15)' : 'rgba(196,125,0,0.1)',
-                    border: `1px solid ${isDark ? 'rgba(255,209,102,0.3)' : 'rgba(196,125,0,0.25)'}`,
+                    background: isDark ? 'rgba(138,36,75,0.2)' : 'rgba(138,36,75,0.1)',
+                    border: `1px solid ${isDark ? 'rgba(138,36,75,0.4)' : 'rgba(138,36,75,0.25)'}`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     marginBottom: 16,
                   }}>
-                    <Package style={{ width: 24, height: 24, color: isDark ? '#FFD166' : '#a06800' }} />
+                    <Building2 style={{ width: 24, height: 24, color: 'var(--maroon)' }} />
                   </div>
 
                   <h3 style={{
                     fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20,
                     color: 'var(--text1)', marginBottom: 8, letterSpacing: '-0.5px',
                   }}>
-                    Inventory Management
+                    Hotel & Stay Booking
                   </h3>
                   <p style={{
                     fontFamily: 'var(--font-body)', fontSize: 14,
                     color: 'var(--text2)', lineHeight: 1.75, marginBottom: 20,
                   }}>
-                    Real-time stock tracking, low-stock alerts, aur ingredient-level management — sab ek jagah se.
+                    Apne hotel ya lodge ka online booking system banao. Room availability, pricing, aur customer management — sab Khaatogo pe.
                   </p>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
                     {[
-                      'Real-time stock levels per dish',
-                      'Auto alerts jab stock kam ho',
-                      'Ingredient-wise tracking',
-                      'Purchase order history',
-                      'Wastage reports',
-                      'Supplier management',
+                      'Real-time room availability calendar',
+                      'Online booking with instant confirmation',
+                      'Room-wise pricing & seasonal rates',
+                      'Guest check-in / check-out management',
+                      'Booking history & guest profiles',
+                      'Multi-property support',
                     ].map((item, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{
                           width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                          background: isDark ? 'rgba(255,209,102,0.15)' : 'rgba(196,125,0,0.1)',
+                          background: isDark ? 'rgba(138,36,75,0.2)' : 'rgba(138,36,75,0.1)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                          <CheckCircle2 style={{ width: 11, height: 11, color: isDark ? '#FFD166' : '#a06800' }} />
+                          <CheckCircle2 style={{ width: 11, height: 11, color: 'var(--maroon)' }} />
                         </div>
                         <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--text2)' }}>
                           {item}
@@ -2144,7 +2144,7 @@ const [isYearly, setIsYearly] = useState(false);
                   <div style={{ marginBottom: 8 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                       <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--text3)' }}>Development progress</span>
-                      <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 11, color: isDark ? '#FFD166' : '#a06800' }}>70%</span>
+                      <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 11, color: 'var(--maroon)' }}>60%</span>
                     </div>
                     <div style={{
                       height: 6, borderRadius: 6,
@@ -2152,25 +2152,23 @@ const [isYearly, setIsYearly] = useState(false);
                       overflow: 'hidden',
                     }}>
                       <div style={{
-                        width: '70%', height: '100%', borderRadius: 6,
-                        background: isDark
-                          ? 'linear-gradient(90deg, #FFD166, #FCB53B)'
-                          : 'linear-gradient(90deg, #c47d00, #e09020)',
+                        width: '60%', height: '100%', borderRadius: 6,
+                        background: 'linear-gradient(90deg, var(--maroon), var(--maroon2))',
                       }} />
                     </div>
                   </div>
 
                   <button
-                    onClick={() => window.open('https://wa.me/916352799072?text=Hi%20Khaatogo%20team%2C%20Inventory%20Management%20feature%20ke%20liye%20early%20access%20chahiye!', '_blank')}
+                    onClick={() => window.open('https://wa.me/916352799072?text=Hi%20Khaatogo%20team%2C%20Hotel%20Booking%20feature%20ke%20liye%20early%20access%20chahiye!', '_blank')}
                     style={{
                       width: '100%', marginTop: 16, padding: '13px',
                       background: isDark
-                        ? 'linear-gradient(135deg, rgba(255,209,102,0.2), rgba(255,209,102,0.1))'
-                        : 'linear-gradient(135deg, rgba(196,125,0,0.12), rgba(196,125,0,0.06))',
-                      border: `1px solid ${isDark ? 'rgba(255,209,102,0.35)' : 'rgba(196,125,0,0.3)'}`,
+                        ? 'linear-gradient(135deg, rgba(138,36,75,0.3), rgba(138,36,75,0.15))'
+                        : 'linear-gradient(135deg, rgba(138,36,75,0.12), rgba(138,36,75,0.06))',
+                      border: `1px solid ${isDark ? 'rgba(138,36,75,0.5)' : 'rgba(138,36,75,0.3)'}`,
                       borderRadius: 12, cursor: 'pointer',
                       fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 13,
-                      color: isDark ? '#FFD166' : '#a06800',
+                      color: 'var(--maroon)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     }}
                   >
@@ -2180,7 +2178,7 @@ const [isYearly, setIsYearly] = useState(false);
                 </div>
               </Reveal>
 
-              {/* Supplier Management — Coming Later */}
+              {/* Room Management — Coming Later */}
               <Reveal delay={100}>
                 <div style={{
                   background: 'var(--card-bg)',
@@ -2197,28 +2195,28 @@ const [isYearly, setIsYearly] = useState(false);
                     fontFamily: 'var(--font-display)', color: 'var(--text3)',
                     textTransform: 'uppercase',
                   }}>
-                    Q4 2025
+                    Q3 2026
                   </div>
                   <div style={{ width: 48, height: 48, borderRadius: 14, background: 'var(--glass)', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                    <Truck style={{ width: 22, height: 22, color: 'var(--text3)' }} />
+                    <Calendar style={{ width: 22, height: 22, color: 'var(--text3)' }} />
                   </div>
                   <h3 style={{
                     fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16,
                     color: 'var(--text1)', marginBottom: 8,
                   }}>
-                    Supplier Management
+                    Room Management
                   </h3>
                   <p style={{
                     fontFamily: 'var(--font-body)', fontSize: 13,
                     color: 'var(--text3)', lineHeight: 1.7, margin: 0,
                   }}>
-                    Vendor contacts, purchase orders, aur payment history ek jagah.
+                    Room categories, housekeeping schedule, aur maintenance tracking ek jagah.
                   </p>
                   <div style={{
                     marginTop: 16,
                     display: 'flex', flexDirection: 'column', gap: 6,
                   }}>
-                    {['Vendor contact book', 'Auto reorder triggers', 'Bill tracking'].map((f, i) => (
+                    {['Room category setup', 'Housekeeping status', 'Maintenance alerts'].map((f, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--text3)' }}>
                         <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--text3)', flexShrink: 0 }} />
                         {f}
@@ -2228,7 +2226,7 @@ const [isYearly, setIsYearly] = useState(false);
                 </div>
               </Reveal>
 
-              {/* Advanced Reports — Coming Later */}
+              {/* Guest Analytics — Coming Later */}
               <Reveal delay={200}>
                 <div style={{
                   background: 'var(--card-bg)',
@@ -2254,19 +2252,19 @@ const [isYearly, setIsYearly] = useState(false);
                     fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16,
                     color: 'var(--text1)', marginBottom: 8,
                   }}>
-                    Advanced Reports
+                    Guest Analytics
                   </h3>
                   <p style={{
                     fontFamily: 'var(--font-body)', fontSize: 13,
                     color: 'var(--text3)', lineHeight: 1.7, margin: 0,
                   }}>
-                    GST-ready reports, P&L statements, aur custom Excel exports.
+                    Occupancy rates, revenue per room, aur guest preference reports.
                   </p>
                   <div style={{
                     marginTop: 16,
                     display: 'flex', flexDirection: 'column', gap: 6,
                   }}>
-                    {['GST invoice export', 'Profit & loss report', 'Custom date range'].map((f, i) => (
+                    {['Occupancy dashboard', 'Revenue per room', 'Guest preference tracking'].map((f, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--text3)' }}>
                         <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--text3)', flexShrink: 0 }} />
                         {f}
@@ -2281,36 +2279,36 @@ const [isYearly, setIsYearly] = useState(false);
             <Reveal delay={250}>
               <div style={{
                 background: 'var(--card-bg)',
-                border: `1px solid ${isDark ? 'rgba(255,209,102,0.2)' : 'rgba(196,125,0,0.2)'}`,
+                border: `1px solid ${isDark ? 'rgba(138,36,75,0.3)' : 'rgba(138,36,75,0.2)'}`,
                 borderRadius: 20, padding: '20px 24px',
                 display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
               }}>
                 <div style={{
                   width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-                  background: isDark ? 'rgba(255,209,102,0.1)' : 'rgba(196,125,0,0.08)',
+                  background: isDark ? 'rgba(138,36,75,0.15)' : 'rgba(138,36,75,0.08)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <Bell style={{ width: 18, height: 18, color: isDark ? '#FFD166' : '#a06800' }} />
+                  <Bell style={{ width: 18, height: 18, color: 'var(--maroon)' }} />
                 </div>
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <div style={{
                     fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 15,
                     color: 'var(--text1)', marginBottom: 3,
                   }}>
-                    Inventory Management launch hone wala hai!
+                    Hotel Booking launch hone wala hai!
                   </div>
                   <div style={{
                     fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--text3)',
                   }}>
-                    WhatsApp par notify karo — early users ko <strong style={{ color: isDark ? '#FFD166' : '#a06800' }}>15 din free access</strong> milega
+                    WhatsApp par notify karo — early users ko <strong style={{ color: 'var(--maroon)' }}>15 din free access</strong> milega
                   </div>
                 </div>
 
-                <a href="https://wa.me/916352799072?text=Hi%20Khaatogo%20team%2C%20Inventory%20Management%20feature%20ke%20liye%20early%20access%20chahiye!"
+                <a href="https://wa.me/916352799072?text=Hi%20Khaatogo%20team%2C%20Hotel%20Booking%20feature%20ke%20liye%20early%20access%20chahiye!"
                   target="_blank" rel="noreferrer"
                   style={{
-                    background: isDark ? '#FFD166' : '#c47d00',
-                    color: isDark ? '#000' : '#fff',
+                    background: 'var(--maroon)',
+                    color: '#fff',
                     border: 'none', padding: '12px 22px', borderRadius: 100,
                     fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 13,
                     cursor: 'pointer', textDecoration: 'none', whiteSpace: 'nowrap',
@@ -2326,7 +2324,7 @@ const [isYearly, setIsYearly] = useState(false);
           </div>
         </section>
 
-        {/* ── FAQ ───────────────────────────────────────────────────────── */}
+        {/* ── FAQ ───────────────────────────────────────────────────────── */}        {/* ── FAQ ───────────────────────────────────────────────────────── */}
         <section className="section-pad">
           <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 24px' }}>
             <Reveal>

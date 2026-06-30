@@ -50,6 +50,7 @@ const PLANS = [
       multiBranch: true,
       analytics: 'Full',
       support: 'WhatsApp',
+      inventoryTier: 'full',
     },
   },
   {
@@ -80,6 +81,7 @@ const PLANS = [
       adminCoupons: false,
       multiBranch: false,
       analytics: 'Basic',
+        inventoryTier: 'basic',
       support: 'Email',
     },
   },
@@ -113,6 +115,7 @@ const PLANS = [
       multiBranch: false,
       analytics: 'Full',
       support: 'Email + Chat',
+      inventoryTier: 'full',
     },
   },
   {
@@ -145,6 +148,7 @@ const PLANS = [
       multiBranch: true,
       analytics: 'Full + Reports',
       support: 'Priority + Call',
+       inventoryTier: 'full',
     },
   },
 ];
@@ -412,22 +416,23 @@ export default function SubscriptionPage() {
   };
 
   // Feature list for plan cards
-  const featureList = [
-    { key: 'dishes',           label: 'Dishes',            icon: <FaUtensils />,      format: (v) => v === 'Unlimited' ? '∞ Unlimited' : v },
-    { key: 'staffManagement',  label: 'Staff Management',  icon: <FaUsers /> },
-    { key: 'qrMenu',           label: 'QR Menu',           icon: <FaQrcode /> },
-    { key: 'whatsappOrders',   label: 'WhatsApp Orders',   icon: <FaWhatsapp /> },
-    { key: 'kds',              label: 'Kitchen Display',   icon: <FaClipboardList /> },
-    { key: 'tableBooking',     label: 'Table Booking',     icon: <FaChair /> },
-    { key: 'adminOrder',       label: 'Admin Order',       icon: <FaClipboardList /> },
-    { key: 'customerFeedback', label: 'Customer Feedback', icon: <FaCommentAlt /> },
-    { key: 'deliveryBoys',     label: 'Delivery Boys',     icon: <FaMotorcycle /> },
-    { key: 'revenueDashboard', label: 'Revenue Dashboard', icon: <FaChartBar /> },
-    { key: 'adminCoupons',     label: 'Admin Coupons',     icon: <FaTicketAlt /> },
-    { key: 'multiBranch',      label: 'Multi-Branch',      icon: <FaBuilding />,      highlight: true },
-    { key: 'arView',           label: 'AR Food View',      icon: <FaMobileAlt /> },
-    { key: 'analytics',        label: 'Analytics',         icon: <FaChartLine />,     format: (v) => v },
-  ];
+const featureList = [
+  { key: 'dishes',           label: 'Dishes',            icon: <FaUtensils />,      format: (v) => v === 'Unlimited' ? '∞ Unlimited' : v },
+  { key: 'staffManagement',  label: 'Staff Management',  icon: <FaUsers /> },
+  { key: 'qrMenu',           label: 'QR Menu',           icon: <FaQrcode /> },
+  { key: 'whatsappOrders',   label: 'WhatsApp Orders',   icon: <FaWhatsapp /> },
+  { key: 'kds',              label: 'Kitchen Display',   icon: <FaClipboardList /> },
+  { key: 'tableBooking',     label: 'Table Booking',     icon: <FaChair /> },
+  { key: 'adminOrder',       label: 'Admin Order',       icon: <FaClipboardList /> },
+  { key: 'customerFeedback', label: 'Customer Feedback', icon: <FaCommentAlt /> },
+  { key: 'deliveryBoys',     label: 'Delivery Boys',     icon: <FaMotorcycle /> },
+  { key: 'revenueDashboard', label: 'Revenue Dashboard', icon: <FaChartBar /> },
+  { key: 'adminCoupons',     label: 'Admin Coupons',     icon: <FaTicketAlt /> },
+  { key: 'multiBranch',      label: 'Multi-Branch',      icon: <FaBuilding />,      highlight: true },
+  { key: 'arView',           label: 'AR Food View',      icon: <FaMobileAlt /> },
+  { key: 'inventoryTier',    label: 'Inventory System',  icon: <FaClipboardList />, format: (v) => v === 'full' ? 'Full' : v === 'basic' ? 'Basic' : '—' }, // 👈 NEW
+  { key: 'analytics',        label: 'Analytics',         icon: <FaChartLine />,     format: (v) => v },
+];
 
   return (
     <div style={{ minHeight: '100vh', background: '#faf9f7', fontFamily: "'Sora', sans-serif", paddingBottom: 80 }}>
