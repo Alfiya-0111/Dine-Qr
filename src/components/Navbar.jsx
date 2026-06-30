@@ -218,24 +218,25 @@ const Navbar = ({ user, onToggleSidebar, sidebarOpen }) => {
     return colors[planId] || "#3b82f6";
   };
 
-  const navItems = [
-    { name: "Table Booking",        path: `/dashboard/${restaurantId}/bookingtable`,        icon: CalendarCheck,   route: "bookingtable" },
-    { name: "Admin Order",          path: `/dashboard/${restaurantId}/adminorder`,          icon: ClipboardList,   route: "adminorder" },
-    { name: "New Order",            path: `/dashboard/${restaurantId}/admin-order-entry`,  icon: PlusCircle,      route: "admin-order-entry" },
-    { name: "Restaurant Settings",  path: `/dashboard/${restaurantId}/restaurant-settings`, icon: Settings,        route: "restaurant-settings" },
-    { name: "Menu Items",           path: `/dashboard/${restaurantId}/menu`,                icon: UtensilsCrossed, route: "menu" },
-    { name: "Add Item",             path: `/dashboard/${restaurantId}/add-item`,            icon: PlusCircle,      route: "add-item" },
-    { name: "Customer Feedback",    path: `/dashboard/${restaurantId}/feedback`,            icon: MessageSquare,   route: "feedback" },
-    { name: "Home Feedback",        path: `/dashboard/${restaurantId}/feedback-admin`,      icon: FileText,        route: "feedback-admin" },
-    { name: "Staff Management",     path: `/dashboard/${restaurantId}/staff-management`,    icon: Users,           route: "staff-management" },
-    { name: "Delivery Boys",        path: `/dashboard/${restaurantId}/delivery-management`, icon: Bike,            route: "delivery-management" },
-    { name: "Kitchen Display",      path: `/dashboard/${restaurantId}/kitchen-display`,     icon: ChefHat,         route: "kitchen-display" },
-    { name: "Revenue Dashboard",    path: `/dashboard/${restaurantId}/revenue`,             icon: BarChart2,       route: "revenue" },
-    { name: "Payment Status",       path: `/dashboard/${restaurantId}/payment-status`,      icon: Wallet,          route: "payment-status" },
-    { name: "Admin Coupons",        path: `/dashboard/${restaurantId}/admin-coupen`,        icon: Ticket,          route: "admin-coupen" },
-    { name: "Multi-Branch",         path: `/dashboard/${restaurantId}/multi-branch`,        icon: GitBranch,       route: "multi-branch" },
-    { name: "Subscription",         path: `/dashboard/${restaurantId}/subscription`,        icon: CreditCard,      route: "subscription" },
-  ];
+const navItems = [
+  { name: "Table Booking",        path: `/dashboard/${restaurantId}/bookingtable`,        icon: CalendarCheck,   route: "bookingtable" },
+  { name: "Admin Order",          path: `/dashboard/${restaurantId}/adminorder`,          icon: ClipboardList,   route: "adminorder" },
+  { name: "New Order",            path: `/dashboard/${restaurantId}/admin-order-entry`,  icon: PlusCircle,      route: "admin-order-entry" },
+  { name: "Restaurant Settings",  path: `/dashboard/${restaurantId}/restaurant-settings`, icon: Settings,        route: "restaurant-settings" },
+  { name: "Menu Items",           path: `/dashboard/${restaurantId}/menu`,                icon: UtensilsCrossed, route: "menu" },
+  { name: "Add Item",             path: `/dashboard/${restaurantId}/add-item`,            icon: PlusCircle,      route: "add-item" },
+  { name: "Customer Feedback",    path: `/dashboard/${restaurantId}/feedback`,            icon: MessageSquare,   route: "feedback" },
+  { name: "Home Feedback",        path: `/dashboard/${restaurantId}/feedback-admin`,      icon: FileText,        route: "feedback-admin" },
+  { name: "Staff Management",     path: `/dashboard/${restaurantId}/staff-management`,    icon: Users,           route: "staff-management" },
+  { name: "Delivery Boys",        path: `/dashboard/${restaurantId}/delivery-management`, icon: Bike,            route: "delivery-management" },
+  { name: "Kitchen Display",      path: `/dashboard/${restaurantId}/kitchen-display`,     icon: ChefHat,         route: "kitchen-display" },
+  { name: "Revenue Dashboard",    path: `/dashboard/${restaurantId}/revenue`,             icon: BarChart2,       route: "revenue" },
+  { name: "Payment Status",       path: `/dashboard/${restaurantId}/payment-status`,      icon: Wallet,          route: "payment-status" },
+  { name: "Admin Coupons",        path: `/dashboard/${restaurantId}/admin-coupen`,        icon: Ticket,          route: "admin-coupen" },
+  { name: "Multi-Branch",         path: `/dashboard/${restaurantId}/multi-branch`,        icon: GitBranch,       route: "multi-branch" },
+  { name: "Inventory",            path: `/dashboard/${restaurantId}/inventory`,           icon: Package,         route: "inventory" },   // 👈 NEW
+  { name: "Subscription",         path: `/dashboard/${restaurantId}/subscription`,        icon: CreditCard,      route: "subscription" },
+];
 
   return (
     <>
