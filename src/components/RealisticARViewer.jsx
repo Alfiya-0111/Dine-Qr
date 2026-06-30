@@ -1,10 +1,11 @@
 // components/RealisticARViewer.jsx
-// Realistic Table-Top AR — dish appears naturally on table, clean bg removal
+// Realistic Table-Top AR — dish appears naturally on table, no borders — dish materializes in place (blur→clear, small→full) + slow auto-rotation
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   IoClose, IoExpand, IoContract, IoRefresh,
-  IoPhonePortraitOutline, IoLeaf, IoNutrition,
-  IoChevronDown,
+  IoPhonePortraitOutline, IoCheckmarkCircle,
+  IoLeaf, IoFlame, IoNutrition, IoWater,
+  IoChevronUp, IoChevronDown,
 } from "react-icons/io5";
 
 // ─── Smart ingredient → nutrition mapper ──────────────────────────────────
@@ -56,10 +57,6 @@ const INGREDIENT_DB = {
   turmeric:   { emoji: '🌿', cal: 354, protein: 8,   carbs: 65, fat: 10,  fiber: 21,  vitamins: ['C', 'B6'], minerals: ['Iron', 'Manganese'] },
   coriander:  { emoji: '🌿', cal: 23,  protein: 2.1, carbs: 3.7,fat: 0.5, fiber: 2.8, vitamins: ['K', 'A', 'C'], minerals: ['Potassium', 'Calcium'] },
   chilli:     { emoji: '🌶️', cal: 40,  protein: 1.9, carbs: 8.8,fat: 0.4, fiber: 1.5, vitamins: ['C', 'A', 'B6'], minerals: ['Potassium', 'Copper'] },
-  coffee:     { emoji: '☕', cal: 2,   protein: 0.1, carbs: 0,  fat: 0,   fiber: 0,   vitamins: ['B2', 'B5'], minerals: ['Potassium', 'Magnesium'] },
-  latte:      { emoji: '☕', cal: 150, protein: 8,   carbs: 12, fat: 8,   fiber: 0,   vitamins: ['A', 'D', 'B12'], minerals: ['Calcium', 'Phosphorus'] },
-  espresso:   { emoji: '☕', cal: 9,   protein: 0.1, carbs: 1.5,fat: 0.2, fiber: 0,   vitamins: ['B2', 'B3'], minerals: ['Potassium', 'Magnesium'] },
-  cappuccino: { emoji: '☕', cal: 120, protein: 6,   carbs: 10, fat: 6,   fiber: 0,   vitamins: ['A', 'D', 'B12'], minerals: ['Calcium', 'Phosphorus'] },
 };
 
 function guessIngredients(dishName = '', description = '') {
@@ -88,7 +85,6 @@ function guessIngredients(dishName = '', description = '') {
     ['turmeric', 'turmeric'], ['haldi', 'turmeric'],
     ['cumin', 'cumin'], ['jeera', 'cumin'],
     ['coriander', 'coriander'], ['dhania', 'coriander'],
-    ['coffee', 'coffee'], ['latte', 'latte'], ['espresso', 'espresso'], ['cappuccino', 'cappuccino'],
   ];
   const seen = new Set();
   for (const [keyword, dbKey] of checkMap) {
@@ -98,7 +94,7 @@ function guessIngredients(dishName = '', description = '') {
     }
   }
   if (found.length < 2) {
-    ['milk', 'sugar'].forEach(k => {
+    ['oil', 'salt', 'coriander'].forEach(k => {
       if (!seen.has(k)) {
         found.push({ key: k, name: k.charAt(0).toUpperCase() + k.slice(1), ...INGREDIENT_DB[k] });
         seen.add(k);
@@ -122,6 +118,20 @@ function calcNutrition(ingredients) {
   }), { cal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
 }
 
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 // ─── Easing helpers ───────────────────────────────────────────────────────
 const easeOutCubic  = t => 1 - Math.pow(1 - t, 3);
 const easeOutQuint  = t => 1 - Math.pow(1 - t, 5);
@@ -131,11 +141,11 @@ const easeInOutSine = t => -(Math.cos(Math.PI * t) - 1) / 2;
 export default function RealisticARViewer({ item, onClose, theme }) {
   const videoRef      = useRef(null);
   const canvasRef     = useRef(null);
+  const offscreenRef  = useRef(null); // offscreen canvas for blur effect
   const animRef       = useRef(null);
   const startTimeRef  = useRef(null);
   const touchStartX   = useRef(null);
-  const manualRotRef  = useRef(0);
-  const processedImgRef = useRef(null);
+  const manualRotRef  = useRef(0);    // user drag offset on top of auto-rotation
 
   const [camError, setCamError]   = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -149,172 +159,20 @@ export default function RealisticARViewer({ item, onClose, theme }) {
   const ingredients = guessIngredients(item?.name, item?.description);
   const nutrition   = calcNutrition(ingredients);
 
-  // ─── Advanced Background Removal ────────────────────────────────────────
-  const removeBackground = useCallback((img) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    ctx.drawImage(img, 0, 0);
-
-    const w = canvas.width;
-    const h = canvas.height;
-    const imageData = ctx.getImageData(0, 0, w, h);
-    const data = imageData.data;
-
-    // Step 1: Detect background color from all edges
-    const samples = [];
-    const sampleSize = 20;
-    for (let x = 0; x < w; x += Math.floor(w / sampleSize)) {
-      for (let y = 0; y < sampleSize; y++) {
-        const idx = (y * w + x) * 4;
-        samples.push({ r: data[idx], g: data[idx + 1], b: data[idx + 2] });
-      }
-      for (let y = h - sampleSize; y < h; y++) {
-        const idx = (y * w + x) * 4;
-        samples.push({ r: data[idx], g: data[idx + 1], b: data[idx + 2] });
-      }
-    }
-    for (let y = sampleSize; y < h - sampleSize; y += Math.floor(h / sampleSize)) {
-      for (let x = 0; x < sampleSize; x++) {
-        const idx = (y * w + x) * 4;
-        samples.push({ r: data[idx], g: data[idx + 1], b: data[idx + 2] });
-      }
-      for (let x = w - sampleSize; x < w; x++) {
-        const idx = (y * w + x) * 4;
-        samples.push({ r: data[idx], g: data[idx + 1], b: data[idx + 2] });
-      }
-    }
-
-    // Find dominant background color using k-means-like clustering
-    const bgColor = { r: 0, g: 0, b: 0 };
-    let count = 0;
-    samples.forEach(s => {
-      bgColor.r += s.r;
-      bgColor.g += s.g;
-      bgColor.b += s.b;
-      count++;
-    });
-    bgColor.r /= count;
-    bgColor.g /= count;
-    bgColor.b /= count;
-
-    const bgBrightness = (bgColor.r + bgColor.g + bgColor.b) / 3;
-
-    // Step 2: Flood-fill from edges to find connected background regions
-    const visited = new Uint8Array(w * h);
-    const queue = [];
-    const bgMask = new Uint8Array(w * h);
-
-    // Add all edge pixels to queue
-    for (let x = 0; x < w; x++) {
-      queue.push({ x, y: 0 });
-      queue.push({ x, y: h - 1 });
-    }
-    for (let y = 1; y < h - 1; y++) {
-      queue.push({ x: 0, y });
-      queue.push({ x: w - 1, y });
-    }
-
-    let head = 0;
-    const colorThreshold = 45;
-    const brightnessThreshold = bgBrightness > 180 ? 200 : 160;
-
-    while (head < queue.length) {
-      const { x, y } = queue[head++];
-      const idx = y * w + x;
-      if (visited[idx]) continue;
-
-      const r = data[idx * 4];
-      const g = data[idx * 4 + 1];
-      const b = data[idx * 4 + 2];
-      const brightness = (r + g + b) / 3;
-
-      const colorDiff = Math.abs(r - bgColor.r) + Math.abs(g - bgColor.g) + Math.abs(b - bgColor.b);
-      const isBg = colorDiff < colorThreshold || brightness > brightnessThreshold;
-
-      if (isBg) {
-        visited[idx] = 1;
-        bgMask[idx] = 1;
-
-        // Add neighbors
-        if (x > 0) queue.push({ x: x - 1, y });
-        if (x < w - 1) queue.push({ x: x + 1, y });
-        if (y > 0) queue.push({ x, y: y - 1 });
-        if (y < h - 1) queue.push({ x, y: y + 1 });
-      }
-    }
-
-    // Step 3: Apply transparency with feathering
-    const featherRadius = 3;
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const idx = y * w + x;
-        if (bgMask[idx]) {
-          // Check if near edge of bg mask for feathering
-          let nearEdge = false;
-          let minDist = featherRadius + 1;
-          for (let dy = -featherRadius; dy <= featherRadius; dy++) {
-            for (let dx = -featherRadius; dx <= featherRadius; dx++) {
-              const nx = x + dx;
-              const ny = y + dy;
-              if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-                if (!bgMask[ny * w + nx]) {
-                  const dist = Math.sqrt(dx * dx + dy * dy);
-                  if (dist < minDist) minDist = dist;
-                  nearEdge = true;
-                }
-              }
-            }
-          }
-
-          if (nearEdge) {
-            const alpha = Math.min(1, minDist / featherRadius);
-            data[idx * 4 + 3] = Math.floor(alpha * 255 * 0.15); // Very transparent for bg
-          } else {
-            data[idx * 4 + 3] = 0; // Fully transparent
-          }
-        } else {
-          // Keep non-bg pixels fully opaque
-          data[idx * 4 + 3] = 255;
-        }
-      }
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-
-    const processed = new Image();
-    processed.src = canvas.toDataURL('image/png');
-    return processed;
-  }, []);
-
   // ─── Load dish image ─────────────────────────────────────────────────
   useEffect(() => {
     const src = item?.imageUrl || item?.image;
     if (!src) { setDishImg(null); return; }
-
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const processed = removeBackground(img);
-      processed.onload = () => {
-        processedImgRef.current = processed;
-        setDishImg(processed);
-      };
-    };
+    img.onload = () => setDishImg(img);
     img.onerror = () => {
       const img2 = new Image();
-      img2.onload = () => {
-        const processed = removeBackground(img2);
-        processed.onload = () => {
-          processedImgRef.current = processed;
-          setDishImg(processed);
-        };
-      };
+      img2.onload = () => setDishImg(img2);
       img2.src = src;
     };
     img.src = src;
-  }, [item, removeBackground]);
+  }, [item]);
 
   // ─── Camera ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -339,256 +197,244 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     return () => { stream?.getTracks().forEach(t => t.stop()); };
   }, []);
 
+  // ─── Blur helper: draw dish blurred onto main canvas ─────────────────
+  // We use a multi-pass approach: draw to offscreen, then draw offscreen
+  // multiple times with small offsets to fake gaussian blur cheaply on canvas
+  const drawBlurredDish = useCallback((ctx, img, x, y, w, h, radius, rimRad) => {
+    if (!offscreenRef.current) {
+      offscreenRef.current = document.createElement('canvas');
+    }
+    const osc = offscreenRef.current;
+    // Make offscreen slightly bigger for blur overflow
+    const pad = Math.ceil(radius) * 3;
+    osc.width  = w + pad * 2;
+    osc.height = h + pad * 2;
+    const octx = osc.getContext('2d');
+    octx.clearRect(0, 0, osc.width, osc.height);
+
+    // Draw dish image onto offscreen (with clip)
+    octx.save();
+    roundRect(octx, pad, pad, w, h, rimRad);
+    octx.clip();
+    octx.drawImage(img, pad, pad, w, h);
+    octx.restore();
+
+    if (radius <= 0.5) {
+      // No blur needed — just draw directly
+      ctx.save();
+      roundRect(ctx, x, y, w, h, rimRad);
+      ctx.clip();
+      ctx.drawImage(img, x, y, w, h);
+      ctx.restore();
+      return;
+    }
+
+    // Fake gaussian blur: draw offscreen canvas multiple times
+    // with slight offset and low alpha — cheap but effective on canvas
+    const passes = Math.min(Math.ceil(radius / 2), 8);
+    const alphaPerPass = 1 / (passes * 2 + 1);
+    ctx.save();
+    ctx.globalAlpha *= alphaPerPass * (passes * 2 + 1) / (passes + 1);
+
+    for (let i = -passes; i <= passes; i++) {
+      const offsetX = (i / passes) * radius * 0.9;
+      for (let j = -passes; j <= passes; j++) {
+        const dist = Math.sqrt(i * i + j * j);
+        if (dist > passes * 1.2) continue;
+        const offsetY = (j / passes) * radius * 0.9;
+        const a = (1 - dist / (passes * 1.4)) * alphaPerPass;
+        ctx.globalAlpha = a;
+        ctx.drawImage(osc, x - pad + offsetX, y - pad + offsetY);
+      }
+    }
+    ctx.restore();
+  }, []);
+
   // ─── Canvas draw loop ─────────────────────────────────────────────────
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
-    const video = videoRef.current;
+    const video  = videoRef.current;
     if (!canvas || !video) return;
 
     const ctx = canvas.getContext('2d');
-    const W = canvas.width;
-    const H = canvas.height;
+    const W = canvas.width, H = canvas.height;
 
     ctx.clearRect(0, 0, W, H);
+    if (video.readyState >= 2) ctx.drawImage(video, 0, 0, W, H);
+    else { ctx.fillStyle = '#111'; ctx.fillRect(0, 0, W, H); }
 
-    // Draw camera feed
-    if (video.readyState >= 2) {
-      ctx.drawImage(video, 0, 0, W, H);
-    } else {
-      ctx.fillStyle = '#111';
-      ctx.fillRect(0, 0, W, H);
-    }
-
-    if (!dishImg) {
-      animRef.current = requestAnimationFrame(draw);
-      return;
-    }
+    if (!dishImg) { animRef.current = requestAnimationFrame(draw); return; }
 
     const now = performance.now();
     if (!startTimeRef.current) startTimeRef.current = now;
     const elapsed = now - startTimeRef.current;
     const t = elapsed / 1000;
 
-    // ── Entrance animation ──────────────────────────────────────────────
-    const ENTER_DUR = 3000;
+    // ── Entrance animation: 0 → 3.5s ──────────────────────────────────
+    // Phase 1 (0–1.2s): Materialize — scale 0.72→1, opacity 0→1, blur heavy→light
+    // Phase 2 (1.2–3.5s): Settle — scale tiny overshoot back to 1, blur clears fully
+    const ENTER_DUR = 3500;
     const enterP = Math.min(elapsed / ENTER_DUR, 1);
 
+    // Scale: starts at 0.72 (slightly small), grows to 1.04 (tiny overshoot), settles at 1
     let dishScale;
-    if (enterP < 0.5) {
-      const p = easeOutCubic(enterP / 0.5);
-      dishScale = 0.6 + p * 0.45;
+    if (enterP < 0.55) {
+      // Grow phase: 0.72 → 1.04
+      const p = easeOutCubic(enterP / 0.55);
+      dishScale = 0.72 + p * 0.32;
     } else {
-      const p = easeInOutSine((enterP - 0.5) / 0.5);
-      dishScale = 1.05 - p * 0.05;
+      // Settle phase: 1.04 → 1.00
+      const p = easeInOutSine((enterP - 0.55) / 0.45);
+      dishScale = 1.04 - p * 0.04;
     }
 
-    const dishAlpha = Math.min(1, easeOutQuint(enterP / 0.35));
-    const blurAmount = Math.max(0, 14 * (1 - easeOutCubic(Math.min(enterP / 0.7, 1))));
+    // Opacity: 0 → 1, completes at 40% of entrance
+    const dishAlpha = Math.min(1, easeOutQuint(enterP / 0.4));
+
+    // Blur radius: 18px → 0px, clears by 80% of entrance
+    const blurRadius = Math.max(0, 18 * (1 - easeOutCubic(Math.min(enterP / 0.8, 1))));
 
     if (enterP >= 1 && !entered) setEntered(true);
 
-    // ── Auto rotation ───────────────────────────────────────────────────
-    const autoRot = Math.sin(t * (Math.PI / 3.5)) * 12;
+    // ── Continuous auto-rotation (slow pendulum sway like 4D menu) ────
+    // Smooth sin wave: ±18deg, period ~6s — feels like floating turntable
+    const autoRot = Math.sin(t * (Math.PI / 3)) * 18;
+    // User drag adds on top
     const totalRot = autoRot + manualRotRef.current;
 
-    // ── Float bob ─────────────────────────────────────────────────────
-    const bobAmt = Math.min(1, Math.max(0, (enterP - 0.6) / 0.4));
-    const bobY = Math.sin(t * 1.1) * 5 * bobAmt;
+    // ── Float bob (gentle, after entry) ──────────────────────────────
+    const bobAmt  = Math.min(1, Math.max(0, (enterP - 0.7) / 0.3));
+    const bobY    = Math.sin(t * 1.3) * 7 * bobAmt;
+    const tiltX   = entered ? Math.sin(t * 0.85) * 2.5 : 0; // subtle tilt
 
-    // ── Dish positioning ──────────────────────────────────────────────
-    const BASE_W = Math.min(W * 0.60, 350) * scale;
-    const BASE_H = BASE_W * (dishImg.naturalHeight / dishImg.naturalWidth || 0.75);
+    const BASE_W = Math.min(W * 0.70, 400) * scale;
+    const BASE_H = BASE_W * 0.72;
     const cx = W / 2;
-    const panelOffset = showPanel ? -H * 0.05 : 0;
+    const panelOffset = showPanel ? -H * 0.07 : 0;
     const cy = H * 0.40 + bobY + panelOffset;
 
     const dw = BASE_W * dishScale;
     const dh = BASE_H * dishScale;
+    const rimRad = Math.min(dw, dh) * 0.12;
+    const rimPad = dw * 0.04;
 
-    // ── Realistic Table Shadow ────────────────────────────────────────
+    // ── Shadow — soft, scales with dish ──────────────────────────────
     ctx.save();
-    ctx.translate(cx, cy + dh * 0.52);
-    ctx.scale(1.1, 0.15);
-    const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, dw * 0.5);
-    sg.addColorStop(0, `rgba(0,0,0,${0.4 * dishAlpha})`);
-    sg.addColorStop(0.3, `rgba(0,0,0,${0.2 * dishAlpha})`);
-    sg.addColorStop(0.7, `rgba(0,0,0,${0.08 * dishAlpha})`);
+    ctx.translate(cx, cy + dh * 0.5 + 8);
+    ctx.scale(1 + 0.06 * (1 - dishScale), 0.22);
+    const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, BASE_W / 2);
+    sg.addColorStop(0, `rgba(0,0,0,${0.28 * dishAlpha})`);
     sg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.beginPath();
-    ctx.ellipse(0, 0, dw * 0.5, dh * 0.4, 0, 0, Math.PI * 2);
-    ctx.fillStyle = sg;
-    ctx.fill();
+    ctx.ellipse(0, 0, dw / 2, dh / 3, 0, 0, Math.PI * 2);
+    ctx.fillStyle = sg; ctx.fill();
     ctx.restore();
 
-    // ── Secondary soft shadow ─────────────────────────────────────────
-    ctx.save();
-    ctx.translate(cx, cy + dh * 0.50);
-    ctx.scale(0.8, 0.12);
-    const sg2 = ctx.createRadialGradient(0, 0, 0, 0, 0, dw * 0.4);
-    sg2.addColorStop(0, `rgba(0,0,0,${0.25 * dishAlpha})`);
-    sg2.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.beginPath();
-    ctx.ellipse(0, 0, dw * 0.4, dh * 0.3, 0, 0, Math.PI * 2);
-    ctx.fillStyle = sg2;
-    ctx.fill();
-    ctx.restore();
-
-    // ── Dish Image — NO BORDER, clean bg removed ──────────────────────
+    // ── Dish ─────────────────────────────────────────────────────────
     ctx.save();
     ctx.globalAlpha = dishAlpha;
     ctx.translate(cx, cy);
 
-    // 3D perspective
+    // Auto-rotation: 3D perspective skew based on sin rotation
+    // This gives the 4D menu "slow turntable" feel
     const rotRad = (totalRot * Math.PI) / 180;
-    const scaleX = Math.cos(rotRad * 0.4);
-    const skewX = Math.sin(rotRad) * 0.08;
-    ctx.transform(scaleX, Math.sin(rotRad * 0.02), skewX * 0.15, 1, 0, 0);
+    const skewX = Math.sin(rotRad) * 0.18; // horizontal perspective skew
+    const scaleX = Math.cos(rotRad * 0.6);  // slight width compression on turn
 
-    // Warm ambient light under dish
-    ctx.save();
-    const ambient = ctx.createRadialGradient(0, dh * 0.05, 0, 0, dh * 0.05, dw * 0.55);
-    ambient.addColorStop(0, `rgba(255,235,200,${0.06 * dishAlpha})`);
-    ambient.addColorStop(1, 'rgba(255,235,200,0)');
-    ctx.fillStyle = ambient;
-    ctx.beginPath();
-    ctx.ellipse(0, dh * 0.05, dw * 0.55, dh * 0.45, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    ctx.transform(scaleX, Math.sin(rotRad * 0.04), skewX * 0.3, 1, 0, 0);
 
-    // Draw dish with blur during entrance
-    if (blurAmount > 0.5) {
-      const steps = 4;
+    // No plate rim / border — dish floats naturally on table
+
+    // Dish image (with blur during entrance)
+    if (blurRadius > 1) {
+      // Use blur helper for entrance effect
+      ctx.save();
+      ctx.shadowBlur = 0;
+      // Draw the image multiple times offset to fake blur
+      const steps = 6;
       const a = 1 / (steps * 2 + 1);
       for (let ix = -steps; ix <= steps; ix++) {
         for (let iy = -steps; iy <= steps; iy++) {
           const dist = Math.sqrt(ix * ix + iy * iy);
-          if (dist > steps * 1.2) continue;
-          ctx.globalAlpha = dishAlpha * a * 1.2;
+          if (dist > steps * 1.1) continue;
+          ctx.globalAlpha = dishAlpha * a * 1.4;
           ctx.drawImage(dishImg,
-            -dw / 2 + (ix / steps) * blurAmount * 0.6,
-            -dh / 2 + (iy / steps) * blurAmount * 0.6,
+            -dw / 2 + (ix / steps) * blurRadius * 0.8,
+            -dh / 2 + (iy / steps) * blurRadius * 0.8,
             dw, dh
           );
         }
       }
+      ctx.restore();
     } else {
-      // Clean sharp dish
+      // Sharp — no blur
+      ctx.save();
+      ctx.shadowBlur = 0;
       ctx.globalAlpha = dishAlpha;
       ctx.drawImage(dishImg, -dw / 2, -dh / 2, dw, dh);
-
-      // Very subtle top-left highlight for 3D realism
-      ctx.save();
-      const hl = ctx.createLinearGradient(-dw / 2, -dh / 2, -dw / 2 + dw * 0.3, 0);
-      hl.addColorStop(0, 'rgba(255,255,255,0.04)');
-      hl.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = hl;
-      ctx.fillRect(-dw / 2, -dh / 2, dw * 0.4, dh * 0.3);
+      // Gloss overlay
+      const gloss = ctx.createLinearGradient(0, -dh / 2, 0, 0);
+      gloss.addColorStop(0, 'rgba(255,255,255,0.18)');
+      gloss.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gloss;
+      ctx.globalAlpha = dishAlpha;
+      ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
       ctx.restore();
     }
 
-    ctx.restore(); // end dish
+    // No rim border — clean dish only
 
-    // ── Floating label (pill style) ─────────────────────────────────
-    const labelAlpha = Math.min(1, Math.max(0, (enterP - 0.7) / 0.3));
+    ctx.restore(); // end dish transform
+
+    // ── Floating name label — fades in after entry ────────────────────
+    const labelAlpha = Math.min(1, Math.max(0, (enterP - 0.75) / 0.25));
     if (labelAlpha > 0.01) {
       ctx.save();
       ctx.globalAlpha = labelAlpha;
-      const nameText = item?.name || 'Dish';
+      const nameText  = item?.name || 'Dish';
       const priceText = `₹${item?.price || 0}`;
-      const labelY = cy - dh / 2 * dishScale - 18;
-
+      const labelY    = cy - dh / 2 * dishScale - 18;
       ctx.font = 'bold 14px -apple-system, sans-serif';
-      const nameW = ctx.measureText(nameText).width;
-      const priceW = ctx.measureText(priceText).width;
-      const lW = nameW + priceW + 52;
+      const lW = ctx.measureText(nameText).width + 64;
       const lH = 36;
       const lx = cx - lW / 2;
       const ly = labelY - lH;
 
-      // Shadow
-      ctx.shadowColor = 'rgba(0,0,0,0.2)';
-      ctx.shadowBlur = 16;
-      ctx.shadowOffsetY = 4;
-
-      // Pill background
-      ctx.beginPath();
-      ctx.moveTo(lx + lH / 2, ly);
-      ctx.lineTo(lx + lW - lH / 2, ly);
-      ctx.quadraticCurveTo(lx + lW, ly, lx + lW, ly + lH / 2);
-      ctx.lineTo(lx + lW, ly + lH - lH / 2);
-      ctx.quadraticCurveTo(lx + lW, ly + lH, lx + lW - lH / 2, ly + lH);
-      ctx.lineTo(lx + lH / 2, ly + lH);
-      ctx.quadraticCurveTo(lx, ly + lH, lx, ly + lH - lH / 2);
-      ctx.lineTo(lx, ly + lH / 2);
-      ctx.quadraticCurveTo(lx, ly, lx + lH / 2, ly);
-      ctx.closePath();
-      ctx.fillStyle = 'rgba(255,255,255,0.95)';
-      ctx.fill();
+      ctx.shadowColor = 'rgba(0,0,0,0.22)';
+      ctx.shadowBlur  = 14;
+      roundRect(ctx, lx, ly, lW, lH, lH / 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.96)'; ctx.fill();
       ctx.shadowBlur = 0;
 
-      // Name
-      ctx.fillStyle = '#1a1a1a';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = 'bold 13px -apple-system, sans-serif';
-      ctx.fillText(nameText, lx + 14, ly + lH / 2);
+      ctx.fillText(nameText, cx - 16, ly + lH / 2);
 
-      // Price badge
-      const bW = priceW + 22;
-      const bx = lx + lW - bW - 5;
-      const by = ly + 5;
-      const bH = lH - 10;
-      ctx.beginPath();
-      ctx.moveTo(bx + bH / 2, by);
-      ctx.lineTo(bx + bW - bH / 2, by);
-      ctx.quadraticCurveTo(bx + bW, by, bx + bW, by + bH / 2);
-      ctx.lineTo(bx + bW, by + bH - bH / 2);
-      ctx.quadraticCurveTo(bx + bW, by + bH, bx + bW - bH / 2, by + bH);
-      ctx.lineTo(bx + bH / 2, by + bH);
-      ctx.quadraticCurveTo(bx, by + bH, bx, by + bH - bH / 2);
-      ctx.lineTo(bx, by + bH / 2);
-      ctx.quadraticCurveTo(bx, by, bx + bH / 2, by);
-      ctx.closePath();
-      ctx.fillStyle = PRIMARY;
-      ctx.fill();
+      const bW = 40, bx = lx + lW - bW - 4, by = ly + 4;
+      roundRect(ctx, bx, by, bW, lH - 8, (lH - 8) / 2);
+      ctx.fillStyle = PRIMARY; ctx.fill();
       ctx.fillStyle = '#fff';
-      ctx.textAlign = 'center';
       ctx.font = 'bold 11px -apple-system, sans-serif';
-      ctx.fillText(priceText, bx + bW / 2, by + bH / 2 + 0.5);
+      ctx.fillText(priceText, bx + bW / 2, by + (lH - 8) / 2);
       ctx.restore();
     }
 
-    // ── "On Table" indicator ──────────────────────────────────────────
+    // ── Life size badge ───────────────────────────────────────────────
     if (entered) {
       ctx.save();
-      ctx.globalAlpha = 0.75;
-      const bt = '✦ ON TABLE';
-      ctx.font = 'bold 10px -apple-system, sans-serif';
-      const bW = ctx.measureText(bt).width + 24;
-      const badgeY = H - 88;
-
-      ctx.beginPath();
-      ctx.moveTo(cx - bW / 2 + 12, badgeY);
-      ctx.lineTo(cx + bW / 2 - 12, badgeY);
-      ctx.quadraticCurveTo(cx + bW / 2, badgeY, cx + bW / 2, badgeY + 12);
-      ctx.lineTo(cx + bW / 2, badgeY + 22 - 12);
-      ctx.quadraticCurveTo(cx + bW / 2, badgeY + 22, cx + bW / 2 - 12, badgeY + 22);
-      ctx.lineTo(cx - bW / 2 + 12, badgeY + 22);
-      ctx.quadraticCurveTo(cx - bW / 2, badgeY + 22, cx - bW / 2, badgeY + 22 - 12);
-      ctx.lineTo(cx - bW / 2, badgeY + 12);
-      ctx.quadraticCurveTo(cx - bW / 2, badgeY, cx - bW / 2 + 12, badgeY);
-      ctx.closePath();
-      ctx.fillStyle = 'rgba(0,0,0,0.45)';
-      ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(bt, cx, badgeY + 11);
+      ctx.globalAlpha = 0.85;
+      const bt = '✦ LIFE SIZE VIEW';
+      ctx.font = 'bold 11px -apple-system, sans-serif';
+      const bW = ctx.measureText(bt).width + 20;
+      roundRect(ctx, cx - bW / 2, H - 96, bW, 24, 12);
+      ctx.fillStyle = PRIMARY; ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(bt, cx, H - 84);
       ctx.restore();
     }
 
     animRef.current = requestAnimationFrame(draw);
-  }, [dishImg, scale, entered, item, PRIMARY, showPanel]);
+  }, [dishImg, scale, entered, item, PRIMARY, showPanel, drawBlurredDish]);
 
   useEffect(() => {
     if (!loading && !camError) {
@@ -601,7 +447,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
   useEffect(() => {
     const resize = () => {
       if (canvasRef.current) {
-        canvasRef.current.width = window.innerWidth;
+        canvasRef.current.width  = window.innerWidth;
         canvasRef.current.height = window.innerHeight;
       }
     };
@@ -610,11 +456,11 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     return () => window.removeEventListener('resize', resize);
   }, []);
 
-  // Touch / Mouse drag
+  // Touch drag — adds to manualRotRef (on top of auto-rotation)
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
-  const handleTouchMove = (e) => {
+  const handleTouchMove  = (e) => {
     if (touchStartX.current === null) return;
-    manualRotRef.current += (e.touches[0].clientX - touchStartX.current) * 0.4;
+    manualRotRef.current += (e.touches[0].clientX - touchStartX.current) * 0.5;
     touchStartX.current = e.touches[0].clientX;
   };
   const handleTouchEnd = () => { touchStartX.current = null; };
@@ -627,17 +473,15 @@ export default function RealisticARViewer({ item, onClose, theme }) {
           <IoPhonePortraitOutline className="w-10 h-10 text-gray-400" />
         </div>
         <p className="font-bold text-xl mb-2">Camera Access Required</p>
-        <p className="text-gray-500 text-sm mb-6">Allow camera to see the dish on your table.</p>
+        <p className="text-gray-500 text-sm mb-6">Allow camera to see the dish in 4D.</p>
         <button onClick={onClose} className="w-full py-3.5 rounded-2xl font-bold text-white"
           style={{ backgroundColor: PRIMARY }}>Close</button>
       </div>
     </div>
   );
 
-  const vitColor = {
-    A: '#f97316', B1: '#8b5cf6', B2: '#ec4899', B3: '#f59e0b', B5: '#06b6d4',
-    B6: '#10b981', B9: '#6366f1', B12: '#ef4444', C: '#22c55e', D: '#eab308', E: '#f97316', K: '#14b8a6'
-  };
+  const vitColor = { A:'#f97316', B1:'#8b5cf6', B2:'#ec4899', B3:'#f59e0b', B5:'#06b6d4',
+    B6:'#10b981', B9:'#6366f1', B12:'#ef4444', C:'#22c55e', D:'#eab308', E:'#f97316', K:'#14b8a6' };
 
   return (
     <div className="fixed inset-0 z-[10000] bg-black overflow-hidden touch-none">
@@ -651,10 +495,10 @@ export default function RealisticARViewer({ item, onClose, theme }) {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onMouseDown={e => { touchStartX.current = e.clientX; }}
-        onMouseMove={e => {
+        onMouseDown={e  => { touchStartX.current = e.clientX; }}
+        onMouseMove={e  => {
           if (e.buttons !== 1 || touchStartX.current === null) return;
-          manualRotRef.current += (e.clientX - touchStartX.current) * 0.4;
+          manualRotRef.current += (e.clientX - touchStartX.current) * 0.5;
           touchStartX.current = e.clientX;
         }}
         onMouseUp={() => { touchStartX.current = null; }}
@@ -720,11 +564,11 @@ export default function RealisticARViewer({ item, onClose, theme }) {
 
             <div className="grid grid-cols-5 gap-1.5 px-4 pb-3">
               {[
-                { label: 'Calories', val: Math.round(nutrition.cal), unit: 'kcal', color: '#f97316', icon: '🔥' },
-                { label: 'Protein', val: Math.round(nutrition.protein), unit: 'g', color: '#8b5cf6', icon: '💪' },
-                { label: 'Carbs', val: Math.round(nutrition.carbs), unit: 'g', color: '#f59e0b', icon: '⚡' },
-                { label: 'Fat', val: Math.round(nutrition.fat), unit: 'g', color: '#ef4444', icon: '🧈' },
-                { label: 'Fiber', val: Math.round(nutrition.fiber), unit: 'g', color: '#22c55e', icon: '🌾' },
+                { label: 'Calories', val: Math.round(nutrition.cal),     unit: 'kcal', color: '#f97316', icon: '🔥' },
+                { label: 'Protein',  val: Math.round(nutrition.protein), unit: 'g',    color: '#8b5cf6', icon: '💪' },
+                { label: 'Carbs',    val: Math.round(nutrition.carbs),   unit: 'g',    color: '#f59e0b', icon: '⚡' },
+                { label: 'Fat',      val: Math.round(nutrition.fat),     unit: 'g',    color: '#ef4444', icon: '🧈' },
+                { label: 'Fiber',    val: Math.round(nutrition.fiber),   unit: 'g',    color: '#22c55e', icon: '🌾' },
               ].map(m => (
                 <div key={m.label} className="flex flex-col items-center bg-gray-50 rounded-2xl py-2.5 px-1">
                   <span className="text-base">{m.icon}</span>
@@ -771,8 +615,8 @@ export default function RealisticARViewer({ item, onClose, theme }) {
                       <div className="flex flex-col gap-0.5 w-14 flex-shrink-0">
                         {[
                           { label: 'P', val: ing.protein, max: 30, color: '#8b5cf6' },
-                          { label: 'C', val: ing.carbs, max: 80, color: '#f59e0b' },
-                          { label: 'F', val: ing.fiber, max: 15, color: '#22c55e' },
+                          { label: 'C', val: ing.carbs,   max: 80, color: '#f59e0b' },
+                          { label: 'F', val: ing.fiber,   max: 15, color: '#22c55e' },
                         ].map(bar => (
                           <div key={bar.label} className="flex items-center gap-1">
                             <span className="text-[8px] text-gray-400 w-2">{bar.label}</span>
@@ -794,11 +638,11 @@ export default function RealisticARViewer({ item, onClose, theme }) {
                         </p>
                         <div className="grid grid-cols-3 gap-2 mb-3">
                           {[
-                            { label: '🔥 Calories', val: ing.cal, unit: 'kcal' },
-                            { label: '💪 Protein', val: ing.protein, unit: 'g' },
-                            { label: '⚡ Carbs', val: ing.carbs, unit: 'g' },
-                            { label: '🧈 Fat', val: ing.fat, unit: 'g' },
-                            { label: '🌾 Fiber', val: ing.fiber, unit: 'g' },
+                            { label: '🔥 Calories', val: ing.cal,     unit: 'kcal' },
+                            { label: '💪 Protein',  val: ing.protein, unit: 'g' },
+                            { label: '⚡ Carbs',    val: ing.carbs,   unit: 'g' },
+                            { label: '🧈 Fat',      val: ing.fat,     unit: 'g' },
+                            { label: '🌾 Fiber',    val: ing.fiber,   unit: 'g' },
                           ].map(n => (
                             <div key={n.label} className="bg-white rounded-xl p-2 text-center shadow-sm">
                               <p className="text-[10px] text-gray-500">{n.label}</p>
@@ -828,7 +672,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
                             <div className="flex flex-wrap gap-1.5">
                               {ing.minerals.map(m => (
                                 <span key={m} className="text-[10px] font-medium px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
-                                  {m}
+                                  ⚙️ {m}
                                 </span>
                               ))}
                             </div>
@@ -852,7 +696,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
         <div className="absolute bottom-0 left-0 right-0 z-30 p-5 pb-8">
           <div className="flex flex-col items-center gap-3">
             <p className="text-white/70 text-xs text-center bg-black/40 px-4 py-1.5 rounded-full backdrop-blur-sm">
-              Drag to rotate • Pinch to resize
+              👆 Drag to rotate • Pinch to resize
             </p>
             <div className="flex gap-2 w-full max-w-xs">
               <button
