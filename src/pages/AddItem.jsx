@@ -327,7 +327,10 @@ export default function AddItem() {
   const navigate = useNavigate();
   const location = useLocation();
   const editData = location.state?.editData || null;
-
+const [rawMaterialsList, setRawMaterialsList] = useState([]);
+const [recipeItems, setRecipeItems] = useState(editData?.recipe || []);
+const [selectedRawMaterial, setSelectedRawMaterial] = useState("");
+const [recipeQty, setRecipeQty] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [categories, setCategories] = useState([]);
   const [userId, setUserId] = useState(null);
@@ -482,7 +485,14 @@ remainingQuantity: editData.remainingQuantity ?? (editData.quantity ?? 50),
 
     return () => unsub();
   }, [editData]);
-
+useEffect(() => {
+  if (!userId) return;
+  const r = rtdbRef(realtimeDB, `restaurants/${userId}/inventory/rawMaterials`);
+  onValue(r, (snap) => {
+    if (snap.exists())
+      setRawMaterialsList(Object.entries(snap.val()).map(([id, d]) => ({ id, ...d })));
+  });
+}, [userId]);
   useEffect(() => {
     if (!userId) return;
     const r = rtdbRef(realtimeDB, `restaurants/${userId}/categories`);
@@ -649,7 +659,7 @@ remainingQuantity: editData.remainingQuantity ?? (editData.quantity ?? 50),
       restaurantId: userId,
       venueType,
       name: form.name,
-      
+    
       price: Number(form.price),
       description: form.description,
       servingSize: form.servingSize,
@@ -667,11 +677,13 @@ remainingQuantity: editData.remainingQuantity ?? (editData.quantity ?? 50),
       stats: { likes: 0, orders: 0 },
       updatedAt: Date.now(),
       saladConfig: form.saladConfig,
+      
     };
 
     if (!isDrinkSelected && form.vegType) payload.vegType = form.vegType;
     // Quantity fields
 payload.quantity = Number(form.quantity) || 0;
+payload.recipe = recipeItems;
 payload.lowStockThreshold = Number(form.lowStockThreshold) || 5;
 // ★ FIX: Edit mode mein existing quantityUsed preserve karo, naya add karte waqt 0
 const quantityChanged = editData && (Number(editData.quantity) !== payload.quantity);
@@ -952,7 +964,34 @@ payload.outOfStock = payload.remainingQuantity <= 0;
               </div>
             </div>
           </div>
-
+<div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 space-y-3">
+  <p className="text-sm font-semibold text-emerald-800">🧾 Recipe (Raw Materials Used)</p>
+  <p className="text-xs text-gray-500">Yeh dish banane mein kaunsa raw material kitna lagta hai set karo — order place hone par auto minus hoga.</p>
+  <div className="flex gap-2">
+    <select className="flex-1 border border-gray-300 p-2.5 rounded-xl text-sm bg-white"
+      value={selectedRawMaterial} onChange={(e) => setSelectedRawMaterial(e.target.value)}>
+      <option value="">-- Raw Material Select Karo --</option>
+      {rawMaterialsList.map((rm) => (
+        <option key={rm.id} value={rm.id}>{rm.name} ({rm.unit})</option>
+      ))}
+    </select>
+    <input type="number" min="0" step="0.01" placeholder="Qty" value={recipeQty}
+      onChange={(e) => setRecipeQty(e.target.value)} className="w-24 border border-gray-300 p-2.5 rounded-xl text-sm" />
+    <button type="button" onClick={() => {
+      if (!selectedRawMaterial || !recipeQty) return;
+      const rm = rawMaterialsList.find(r => r.id === selectedRawMaterial);
+      if (!rm) return;
+      setRecipeItems(prev => [...prev, { rawMaterialId: rm.id, rawMaterialName: rm.name, qtyPerUnit: Number(recipeQty), unit: rm.unit }]);
+      setSelectedRawMaterial(""); setRecipeQty("");
+    }} className="px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold">+ Add</button>
+  </div>
+  {recipeItems.map((r, idx) => (
+    <div key={idx} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 text-sm border border-emerald-100">
+      <span>{r.rawMaterialName} — {r.qtyPerUnit} {r.unit} / dish</span>
+      <button type="button" onClick={() => setRecipeItems(prev => prev.filter((_, i) => i !== idx))} className="text-red-500 text-xs font-bold">Remove</button>
+    </div>
+  ))}
+</div>
           {/* DESCRIPTION + AI */}
           <div className="space-y-1">
             <div className="flex items-center justify-between mb-1">

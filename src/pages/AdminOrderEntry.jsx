@@ -5,6 +5,7 @@ import {
   ref, get, set, update, onValue, update as updateRTDB,
 } from "firebase/database";
 import { realtimeDB } from "../firebaseConfig";
+import { deductRawMaterialsForOrder } from "../utils/recipeStock";
 import {
   Plus, Minus, Trash2, ChefHat, Search, X, User, Table2, Phone,
   StickyNote, Flame, Droplets, Hash, Send, UtensilsCrossed, Receipt,
@@ -409,6 +410,7 @@ try {
     console.error("Stock update error:", stockErr);
     // Order place ho gaya, bas stock update nahi hua - alert mat dikhao
 }
+await deductRawMaterialsForOrder(orderItems, userId);
       setSuccessOrderId(orderId); setShowSuccess(true);
       setOrderItems([]); setTableNumber(""); setCustomerName(""); setCustomerPhone("");
       setSpecialInstructions(""); setOrderNote("");

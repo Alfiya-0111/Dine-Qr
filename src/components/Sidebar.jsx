@@ -144,7 +144,7 @@ const navItems = [
   { to: "subscription",        label: "Subscription",        icon: CreditCard,      group: "settings" },
 
   // Coming Soon
-  { to: "inventory",           label: "Inventory",           icon: Package,         group: "settings", comingSoon: true },
+  { to: "inventory",           label: "Inventory",           icon: Package,         group: "settings" },
 ];
 
 const GROUP_LABELS = {

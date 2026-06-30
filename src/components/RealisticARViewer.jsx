@@ -1,5 +1,3 @@
-// components/RealisticARViewer.jsx
-// 4D Smart Menu Style — dish materializes in place (blur→clear, small→full) + slow auto-rotation
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   IoClose, IoExpand, IoContract, IoRefresh,
@@ -118,20 +116,6 @@ function calcNutrition(ingredients) {
   }), { cal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
 // ─── Easing helpers ───────────────────────────────────────────────────────
 const easeOutCubic  = t => 1 - Math.pow(1 - t, 3);
 const easeOutQuint  = t => 1 - Math.pow(1 - t, 5);
@@ -141,11 +125,11 @@ const easeInOutSine = t => -(Math.cos(Math.PI * t) - 1) / 2;
 export default function RealisticARViewer({ item, onClose, theme }) {
   const videoRef      = useRef(null);
   const canvasRef     = useRef(null);
-  const offscreenRef  = useRef(null); // offscreen canvas for blur effect
   const animRef       = useRef(null);
   const startTimeRef  = useRef(null);
   const touchStartX   = useRef(null);
-  const manualRotRef  = useRef(0);    // user drag offset on top of auto-rotation
+  const manualRotRef  = useRef(0);
+  const processedImgRef = useRef(null);
 
   const [camError, setCamError]   = useState(false);
   const [loading, setLoading]     = useState(true);
@@ -159,20 +143,99 @@ export default function RealisticARViewer({ item, onClose, theme }) {
   const ingredients = guessIngredients(item?.name, item?.description);
   const nutrition   = calcNutrition(ingredients);
 
+  // ─── Process dish image: remove white/light background ──────────────────
+  const processImage = useCallback((img) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    ctx.drawImage(img, 0, 0);
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    // Detect dominant background color from edges
+    let rSum = 0, gSum = 0, bSum = 0, count = 0;
+    const edgePixels = [];
+    const w = canvas.width, h = canvas.height;
+
+    // Sample edges
+    for (let x = 0; x < w; x += 4) {
+      edgePixels.push((0 * w + x) * 4);
+      edgePixels.push(((h - 1) * w + x) * 4);
+    }
+    for (let y = 0; y < h; y += 4) {
+      edgePixels.push((y * w + 0) * 4);
+      edgePixels.push((y * w + (w - 1)) * 4);
+    }
+
+    edgePixels.forEach(i => {
+      rSum += data[i];
+      gSum += data[i + 1];
+      bSum += data[i + 2];
+      count++;
+    });
+
+    const bgR = rSum / count;
+    const bgG = gSum / count;
+    const bgB = bSum / count;
+    const bgBrightness = (bgR + bgG + bgB) / 3;
+
+    // Threshold for background removal
+    const threshold = 35;
+    const brightnessThreshold = bgBrightness > 200 ? 200 : 100;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const brightness = (r + g + b) / 3;
+
+      // Check if pixel matches background color or is very bright (white bg)
+      const colorDiff = Math.abs(r - bgR) + Math.abs(g - bgG) + Math.abs(b - bgB);
+      const isBg = colorDiff < threshold || brightness > brightnessThreshold;
+
+      if (isBg) {
+        // Make it transparent with feathering
+        const alpha = Math.max(0, 1 - (brightness - 180) / 75);
+        data[i + 3] = Math.floor(alpha * 255 * 0.3); // Semi-transparent for soft blend
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+
+    const processed = new Image();
+    processed.src = canvas.toDataURL('image/png');
+    return processed;
+  }, []);
+
   // ─── Load dish image ─────────────────────────────────────────────────
   useEffect(() => {
     const src = item?.imageUrl || item?.image;
     if (!src) { setDishImg(null); return; }
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.onload = () => setDishImg(img);
+    img.onload = () => {
+      // Process image to remove background
+      const processed = processImage(img);
+      processed.onload = () => {
+        processedImgRef.current = processed;
+        setDishImg(processed);
+      };
+    };
     img.onerror = () => {
       const img2 = new Image();
-      img2.onload = () => setDishImg(img2);
+      img2.onload = () => {
+        const processed = processImage(img2);
+        processed.onload = () => {
+          processedImgRef.current = processed;
+          setDishImg(processed);
+        };
+      };
       img2.src = src;
     };
     img.src = src;
-  }, [item]);
+  }, [item, processImage]);
 
   // ─── Camera ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -197,59 +260,6 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     return () => { stream?.getTracks().forEach(t => t.stop()); };
   }, []);
 
-  // ─── Blur helper: draw dish blurred onto main canvas ─────────────────
-  // We use a multi-pass approach: draw to offscreen, then draw offscreen
-  // multiple times with small offsets to fake gaussian blur cheaply on canvas
-  const drawBlurredDish = useCallback((ctx, img, x, y, w, h, radius, rimRad) => {
-    if (!offscreenRef.current) {
-      offscreenRef.current = document.createElement('canvas');
-    }
-    const osc = offscreenRef.current;
-    // Make offscreen slightly bigger for blur overflow
-    const pad = Math.ceil(radius) * 3;
-    osc.width  = w + pad * 2;
-    osc.height = h + pad * 2;
-    const octx = osc.getContext('2d');
-    octx.clearRect(0, 0, osc.width, osc.height);
-
-    // Draw dish image onto offscreen (with clip)
-    octx.save();
-    roundRect(octx, pad, pad, w, h, rimRad);
-    octx.clip();
-    octx.drawImage(img, pad, pad, w, h);
-    octx.restore();
-
-    if (radius <= 0.5) {
-      // No blur needed — just draw directly
-      ctx.save();
-      roundRect(ctx, x, y, w, h, rimRad);
-      ctx.clip();
-      ctx.drawImage(img, x, y, w, h);
-      ctx.restore();
-      return;
-    }
-
-    // Fake gaussian blur: draw offscreen canvas multiple times
-    // with slight offset and low alpha — cheap but effective on canvas
-    const passes = Math.min(Math.ceil(radius / 2), 8);
-    const alphaPerPass = 1 / (passes * 2 + 1);
-    ctx.save();
-    ctx.globalAlpha *= alphaPerPass * (passes * 2 + 1) / (passes + 1);
-
-    for (let i = -passes; i <= passes; i++) {
-      const offsetX = (i / passes) * radius * 0.9;
-      for (let j = -passes; j <= passes; j++) {
-        const dist = Math.sqrt(i * i + j * j);
-        if (dist > passes * 1.2) continue;
-        const offsetY = (j / passes) * radius * 0.9;
-        const a = (1 - dist / (passes * 1.4)) * alphaPerPass;
-        ctx.globalAlpha = a;
-        ctx.drawImage(osc, x - pad + offsetX, y - pad + offsetY);
-      }
-    }
-    ctx.restore();
-  }, []);
-
   // ─── Canvas draw loop ─────────────────────────────────────────────────
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -271,191 +281,216 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     const t = elapsed / 1000;
 
     // ── Entrance animation: 0 → 3.5s ──────────────────────────────────
-    // Phase 1 (0–1.2s): Materialize — scale 0.72→1, opacity 0→1, blur heavy→light
-    // Phase 2 (1.2–3.5s): Settle — scale tiny overshoot back to 1, blur clears fully
     const ENTER_DUR = 3500;
     const enterP = Math.min(elapsed / ENTER_DUR, 1);
 
-    // Scale: starts at 0.72 (slightly small), grows to 1.04 (tiny overshoot), settles at 1
+    // Scale: starts small, grows with overshoot, settles
     let dishScale;
     if (enterP < 0.55) {
-      // Grow phase: 0.72 → 1.04
       const p = easeOutCubic(enterP / 0.55);
-      dishScale = 0.72 + p * 0.32;
+      dishScale = 0.65 + p * 0.40;
     } else {
-      // Settle phase: 1.04 → 1.00
       const p = easeInOutSine((enterP - 0.55) / 0.45);
-      dishScale = 1.04 - p * 0.04;
+      dishScale = 1.05 - p * 0.05;
     }
 
-    // Opacity: 0 → 1, completes at 40% of entrance
+    // Opacity
     const dishAlpha = Math.min(1, easeOutQuint(enterP / 0.4));
 
-    // Blur radius: 18px → 0px, clears by 80% of entrance
-    const blurRadius = Math.max(0, 18 * (1 - easeOutCubic(Math.min(enterP / 0.8, 1))));
+    // Blur during entrance
+    const blurAmount = Math.max(0, 16 * (1 - easeOutCubic(Math.min(enterP / 0.8, 1))));
 
     if (enterP >= 1 && !entered) setEntered(true);
 
-    // ── Continuous auto-rotation (slow pendulum sway like 4D menu) ────
-    // Smooth sin wave: ±18deg, period ~6s — feels like floating turntable
-    const autoRot = Math.sin(t * (Math.PI / 3)) * 18;
-    // User drag adds on top
+    // ── Continuous auto-rotation (slow pendulum) ────────────────────
+    const autoRot = Math.sin(t * (Math.PI / 3)) * 15;
     const totalRot = autoRot + manualRotRef.current;
 
-    // ── Float bob (gentle, after entry) ──────────────────────────────
-    const bobAmt  = Math.min(1, Math.max(0, (enterP - 0.7) / 0.3));
-    const bobY    = Math.sin(t * 1.3) * 7 * bobAmt;
-    const tiltX   = entered ? Math.sin(t * 0.85) * 2.5 : 0; // subtle tilt
+    // ── Float bob ─────────────────────────────────────────────────────
+    const bobAmt = Math.min(1, Math.max(0, (enterP - 0.7) / 0.3));
+    const bobY = Math.sin(t * 1.2) * 6 * bobAmt;
 
-    const BASE_W = Math.min(W * 0.70, 400) * scale;
-    const BASE_H = BASE_W * 0.72;
+    // ── Dish positioning ──────────────────────────────────────────────
+    const BASE_W = Math.min(W * 0.65, 380) * scale;
+    const BASE_H = BASE_W * 0.70;
     const cx = W / 2;
-    const panelOffset = showPanel ? -H * 0.07 : 0;
-    const cy = H * 0.40 + bobY + panelOffset;
+    const panelOffset = showPanel ? -H * 0.06 : 0;
+    const cy = H * 0.42 + bobY + panelOffset;
 
     const dw = BASE_W * dishScale;
     const dh = BASE_H * dishScale;
-    const rimRad = Math.min(dw, dh) * 0.12;
-    const rimPad = dw * 0.04;
 
-    // ── Shadow — soft, scales with dish ──────────────────────────────
+    // ── Realistic shadow on table ─────────────────────────────────────
     ctx.save();
-    ctx.translate(cx, cy + dh * 0.5 + 8);
-    ctx.scale(1 + 0.06 * (1 - dishScale), 0.22);
-    const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, BASE_W / 2);
-    sg.addColorStop(0, `rgba(0,0,0,${0.28 * dishAlpha})`);
+    ctx.translate(cx, cy + dh * 0.48);
+    // Perspective shadow - wider at bottom
+    ctx.scale(1 + 0.08 * (1 - dishScale), 0.18);
+    const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, dw * 0.55);
+    sg.addColorStop(0, `rgba(0,0,0,${0.35 * dishAlpha})`);
+    sg.addColorStop(0.5, `rgba(0,0,0,${0.15 * dishAlpha})`);
     sg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.beginPath();
-    ctx.ellipse(0, 0, dw / 2, dh / 3, 0, 0, Math.PI * 2);
-    ctx.fillStyle = sg; ctx.fill();
+    ctx.ellipse(0, 0, dw * 0.55, dh * 0.35, 0, 0, Math.PI * 2);
+    ctx.fillStyle = sg;
+    ctx.fill();
     ctx.restore();
 
-    // ── Dish ─────────────────────────────────────────────────────────
+    // ── Dish image — NO BORDER, NO FRAME, just the dish ───────────────
     ctx.save();
     ctx.globalAlpha = dishAlpha;
     ctx.translate(cx, cy);
 
-    // Auto-rotation: 3D perspective skew based on sin rotation
-    // This gives the 4D menu "slow turntable" feel
+    // 3D perspective based on rotation
     const rotRad = (totalRot * Math.PI) / 180;
-    const skewX = Math.sin(rotRad) * 0.18; // horizontal perspective skew
-    const scaleX = Math.cos(rotRad * 0.6);  // slight width compression on turn
+    const skewX = Math.sin(rotRad) * 0.12;
+    const scaleX = Math.cos(rotRad * 0.5);
+    ctx.transform(scaleX, Math.sin(rotRad * 0.03), skewX * 0.2, 1, 0, 0);
 
-    ctx.transform(scaleX, Math.sin(rotRad * 0.04), skewX * 0.3, 1, 0, 0);
-
-    // Plate rim (white card background)
+    // Subtle warm glow under dish
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.30)';
-    ctx.shadowBlur  = 32;
-    ctx.shadowOffsetY = 12;
-    roundRect(ctx, -dw / 2 - rimPad, -dh / 2 - rimPad, dw + rimPad * 2, dh + rimPad * 2, rimRad + 4);
-    const pg = ctx.createLinearGradient(0, -dh / 2, 0, dh / 2);
-    pg.addColorStop(0, 'rgba(255,255,255,0.98)');
-    pg.addColorStop(1, 'rgba(238,238,238,0.94)');
-    ctx.fillStyle = pg; ctx.fill();
+    const glow = ctx.createRadialGradient(0, dh * 0.1, 0, 0, dh * 0.1, dw * 0.6);
+    glow.addColorStop(0, `rgba(255,220,180,${0.08 * dishAlpha})`);
+    glow.addColorStop(1, 'rgba(255,220,180,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.ellipse(0, dh * 0.1, dw * 0.55, dh * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
 
-    // Dish image (with blur during entrance)
-    if (blurRadius > 1) {
-      // Use blur helper for entrance effect
-      ctx.save();
-      ctx.shadowBlur = 0;
-      roundRect(ctx, -dw / 2, -dh / 2, dw, dh, rimRad);
-      ctx.clip();
-      // Draw the image multiple times offset to fake blur
-      const steps = 6;
+    // Draw dish image with blur during entrance
+    if (blurAmount > 1) {
+      // Multi-pass blur for entrance
+      const steps = 5;
       const a = 1 / (steps * 2 + 1);
       for (let ix = -steps; ix <= steps; ix++) {
         for (let iy = -steps; iy <= steps; iy++) {
           const dist = Math.sqrt(ix * ix + iy * iy);
           if (dist > steps * 1.1) continue;
-          ctx.globalAlpha = dishAlpha * a * 1.4;
+          ctx.globalAlpha = dishAlpha * a * 1.3;
           ctx.drawImage(dishImg,
-            -dw / 2 + (ix / steps) * blurRadius * 0.8,
-            -dh / 2 + (iy / steps) * blurRadius * 0.8,
+            -dw / 2 + (ix / steps) * blurAmount * 0.7,
+            -dh / 2 + (iy / steps) * blurAmount * 0.7,
             dw, dh
           );
         }
       }
-      ctx.restore();
     } else {
-      // Sharp — no blur
-      ctx.save();
-      ctx.shadowBlur = 0;
-      roundRect(ctx, -dw / 2, -dh / 2, dw, dh, rimRad);
-      ctx.clip();
+      // Sharp dish — no border, no frame
       ctx.globalAlpha = dishAlpha;
       ctx.drawImage(dishImg, -dw / 2, -dh / 2, dw, dh);
-      // Gloss overlay
-      const gloss = ctx.createLinearGradient(0, -dh / 2, 0, 0);
-      gloss.addColorStop(0, 'rgba(255,255,255,0.18)');
-      gloss.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = gloss;
-      ctx.globalAlpha = dishAlpha;
-      ctx.fillRect(-dw / 2, -dh / 2, dw, dh);
-      ctx.restore();
-    }
 
-    // Rim border
-    ctx.save();
-    roundRect(ctx, -dw / 2, -dh / 2, dw, dh, rimRad);
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.lineWidth = 1.5;
-    ctx.globalAlpha = dishAlpha;
-    ctx.stroke();
-    ctx.restore();
+      // Very subtle inner highlight for realism (not a border)
+      const highlight = ctx.createLinearGradient(-dw / 2, -dh / 2, -dw / 2, 0);
+      highlight.addColorStop(0, 'rgba(255,255,255,0.06)');
+      highlight.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = highlight;
+      ctx.fillRect(-dw / 2, -dh / 2, dw, dh * 0.4);
+    }
 
     ctx.restore(); // end dish transform
 
-    // ── Floating name label — fades in after entry ────────────────────
+    // ── Floating name label ───────────────────────────────────────────
     const labelAlpha = Math.min(1, Math.max(0, (enterP - 0.75) / 0.25));
     if (labelAlpha > 0.01) {
       ctx.save();
       ctx.globalAlpha = labelAlpha;
-      const nameText  = item?.name || 'Dish';
+      const nameText = item?.name || 'Dish';
       const priceText = `₹${item?.price || 0}`;
-      const labelY    = cy - dh / 2 * dishScale - 18;
+      const labelY = cy - dh / 2 * dishScale - 22;
+
       ctx.font = 'bold 14px -apple-system, sans-serif';
-      const lW = ctx.measureText(nameText).width + 64;
-      const lH = 36;
+      const nameW = ctx.measureText(nameText).width;
+      const priceW = ctx.measureText(priceText).width;
+      const lW = nameW + priceW + 56;
+      const lH = 38;
       const lx = cx - lW / 2;
       const ly = labelY - lH;
 
-      ctx.shadowColor = 'rgba(0,0,0,0.22)';
-      ctx.shadowBlur  = 14;
-      roundRect(ctx, lx, ly, lW, lH, lH / 2);
-      ctx.fillStyle = 'rgba(255,255,255,0.96)'; ctx.fill();
+      // Glassmorphism label
+      ctx.shadowColor = 'rgba(0,0,0,0.25)';
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetY = 6;
+
+      // Rounded pill background
+      ctx.beginPath();
+      ctx.moveTo(lx + lH / 2, ly);
+      ctx.lineTo(lx + lW - lH / 2, ly);
+      ctx.quadraticCurveTo(lx + lW, ly, lx + lW, ly + lH / 2);
+      ctx.lineTo(lx + lW, ly + lH - lH / 2);
+      ctx.quadraticCurveTo(lx + lW, ly + lH, lx + lW - lH / 2, ly + lH);
+      ctx.lineTo(lx + lH / 2, ly + lH);
+      ctx.quadraticCurveTo(lx, ly + lH, lx, ly + lH - lH / 2);
+      ctx.lineTo(lx, ly + lH / 2);
+      ctx.quadraticCurveTo(lx, ly, lx + lH / 2, ly);
+      ctx.closePath();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.fill();
       ctx.shadowBlur = 0;
 
-      ctx.fillStyle = '#111'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      // Name text
+      ctx.fillStyle = '#1a1a1a';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
       ctx.font = 'bold 13px -apple-system, sans-serif';
-      ctx.fillText(nameText, cx - 16, ly + lH / 2);
+      ctx.fillText(nameText, lx + 16, ly + lH / 2);
 
-      const bW = 40, bx = lx + lW - bW - 4, by = ly + 4;
-      roundRect(ctx, bx, by, bW, lH - 8, (lH - 8) / 2);
-      ctx.fillStyle = PRIMARY; ctx.fill();
+      // Price badge
+      const bW = priceW + 24;
+      const bx = lx + lW - bW - 6;
+      const by = ly + 5;
+      ctx.beginPath();
+      ctx.moveTo(bx + (lH - 10) / 2, by);
+      ctx.lineTo(bx + bW - (lH - 10) / 2, by);
+      ctx.quadraticCurveTo(bx + bW, by, bx + bW, by + (lH - 10) / 2);
+      ctx.lineTo(bx + bW, by + (lH - 10) - (lH - 10) / 2);
+      ctx.quadraticCurveTo(bx + bW, by + (lH - 10), bx + bW - (lH - 10) / 2, by + (lH - 10));
+      ctx.lineTo(bx + (lH - 10) / 2, by + (lH - 10));
+      ctx.quadraticCurveTo(bx, by + (lH - 10), bx, by + (lH - 10) - (lH - 10) / 2);
+      ctx.lineTo(bx, by + (lH - 10) / 2);
+      ctx.quadraticCurveTo(bx, by, bx + (lH - 10) / 2, by);
+      ctx.closePath();
+      ctx.fillStyle = PRIMARY;
+      ctx.fill();
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 11px -apple-system, sans-serif';
-      ctx.fillText(priceText, bx + bW / 2, by + (lH - 8) / 2);
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 12px -apple-system, sans-serif';
+      ctx.fillText(priceText, bx + bW / 2, by + (lH - 10) / 2 + 0.5);
       ctx.restore();
     }
 
-    // ── Life size badge ───────────────────────────────────────────────
+    // ── "On Table" badge ──────────────────────────────────────────────
     if (entered) {
       ctx.save();
-      ctx.globalAlpha = 0.85;
-      const bt = '✦ LIFE SIZE VIEW';
-      ctx.font = 'bold 11px -apple-system, sans-serif';
+      ctx.globalAlpha = 0.8;
+      const bt = '✦ ON TABLE';
+      ctx.font = 'bold 10px -apple-system, sans-serif';
       const bW = ctx.measureText(bt).width + 20;
-      roundRect(ctx, cx - bW / 2, H - 96, bW, 24, 12);
-      ctx.fillStyle = PRIMARY; ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(bt, cx, H - 84);
+      const badgeY = H - 90;
+
+      ctx.beginPath();
+      ctx.moveTo(cx - bW / 2 + 12, badgeY);
+      ctx.lineTo(cx + bW / 2 - 12, badgeY);
+      ctx.quadraticCurveTo(cx + bW / 2, badgeY, cx + bW / 2, badgeY + 12);
+      ctx.lineTo(cx + bW / 2, badgeY + 22 - 12);
+      ctx.quadraticCurveTo(cx + bW / 2, badgeY + 22, cx + bW / 2 - 12, badgeY + 22);
+      ctx.lineTo(cx - bW / 2 + 12, badgeY + 22);
+      ctx.quadraticCurveTo(cx - bW / 2, badgeY + 22, cx - bW / 2, badgeY + 22 - 12);
+      ctx.lineTo(cx - bW / 2, badgeY + 12);
+      ctx.quadraticCurveTo(cx - bW / 2, badgeY, cx - bW / 2 + 12, badgeY);
+      ctx.closePath();
+
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(bt, cx, badgeY + 11);
       ctx.restore();
     }
 
     animRef.current = requestAnimationFrame(draw);
-  }, [dishImg, scale, entered, item, PRIMARY, showPanel, drawBlurredDish]);
+  }, [dishImg, scale, entered, item, PRIMARY, showPanel]);
 
   useEffect(() => {
     if (!loading && !camError) {
@@ -468,7 +503,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
   useEffect(() => {
     const resize = () => {
       if (canvasRef.current) {
-        canvasRef.current.width  = window.innerWidth;
+        canvasRef.current.width = window.innerWidth;
         canvasRef.current.height = window.innerHeight;
       }
     };
@@ -477,11 +512,11 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     return () => window.removeEventListener('resize', resize);
   }, []);
 
-  // Touch drag — adds to manualRotRef (on top of auto-rotation)
+  // Touch drag
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
-  const handleTouchMove  = (e) => {
+  const handleTouchMove = (e) => {
     if (touchStartX.current === null) return;
-    manualRotRef.current += (e.touches[0].clientX - touchStartX.current) * 0.5;
+    manualRotRef.current += (e.touches[0].clientX - touchStartX.current) * 0.4;
     touchStartX.current = e.touches[0].clientX;
   };
   const handleTouchEnd = () => { touchStartX.current = null; };
@@ -494,15 +529,17 @@ export default function RealisticARViewer({ item, onClose, theme }) {
           <IoPhonePortraitOutline className="w-10 h-10 text-gray-400" />
         </div>
         <p className="font-bold text-xl mb-2">Camera Access Required</p>
-        <p className="text-gray-500 text-sm mb-6">Allow camera to see the dish in 4D.</p>
+        <p className="text-gray-500 text-sm mb-6">Allow camera to see the dish on your table.</p>
         <button onClick={onClose} className="w-full py-3.5 rounded-2xl font-bold text-white"
           style={{ backgroundColor: PRIMARY }}>Close</button>
       </div>
     </div>
   );
 
-  const vitColor = { A:'#f97316', B1:'#8b5cf6', B2:'#ec4899', B3:'#f59e0b', B5:'#06b6d4',
-    B6:'#10b981', B9:'#6366f1', B12:'#ef4444', C:'#22c55e', D:'#eab308', E:'#f97316', K:'#14b8a6' };
+  const vitColor = {
+    A: '#f97316', B1: '#8b5cf6', B2: '#ec4899', B3: '#f59e0b', B5: '#06b6d4',
+    B6: '#10b981', B9: '#6366f1', B12: '#ef4444', C: '#22c55e', D: '#eab308', E: '#f97316', K: '#14b8a6'
+  };
 
   return (
     <div className="fixed inset-0 z-[10000] bg-black overflow-hidden touch-none">
@@ -516,10 +553,10 @@ export default function RealisticARViewer({ item, onClose, theme }) {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onMouseDown={e  => { touchStartX.current = e.clientX; }}
-        onMouseMove={e  => {
+        onMouseDown={e => { touchStartX.current = e.clientX; }}
+        onMouseMove={e => {
           if (e.buttons !== 1 || touchStartX.current === null) return;
-          manualRotRef.current += (e.clientX - touchStartX.current) * 0.5;
+          manualRotRef.current += (e.clientX - touchStartX.current) * 0.4;
           touchStartX.current = e.clientX;
         }}
         onMouseUp={() => { touchStartX.current = null; }}
@@ -546,7 +583,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
               <p className="font-bold text-sm text-gray-900 truncate">{item?.name}</p>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
-                  style={{ backgroundColor: PRIMARY }}>4D VIEW</span>
+                  style={{ backgroundColor: PRIMARY }}>AR VIEW</span>
                 <p className="text-xs text-gray-500">₹{item?.price}</p>
                 <p className="text-xs text-gray-400">• ~{Math.round(nutrition.cal)} kcal</p>
               </div>
@@ -585,11 +622,11 @@ export default function RealisticARViewer({ item, onClose, theme }) {
 
             <div className="grid grid-cols-5 gap-1.5 px-4 pb-3">
               {[
-                { label: 'Calories', val: Math.round(nutrition.cal),     unit: 'kcal', color: '#f97316', icon: '🔥' },
-                { label: 'Protein',  val: Math.round(nutrition.protein), unit: 'g',    color: '#8b5cf6', icon: '💪' },
-                { label: 'Carbs',    val: Math.round(nutrition.carbs),   unit: 'g',    color: '#f59e0b', icon: '⚡' },
-                { label: 'Fat',      val: Math.round(nutrition.fat),     unit: 'g',    color: '#ef4444', icon: '🧈' },
-                { label: 'Fiber',    val: Math.round(nutrition.fiber),   unit: 'g',    color: '#22c55e', icon: '🌾' },
+                { label: 'Calories', val: Math.round(nutrition.cal), unit: 'kcal', color: '#f97316', icon: '🔥' },
+                { label: 'Protein', val: Math.round(nutrition.protein), unit: 'g', color: '#8b5cf6', icon: '💪' },
+                { label: 'Carbs', val: Math.round(nutrition.carbs), unit: 'g', color: '#f59e0b', icon: '⚡' },
+                { label: 'Fat', val: Math.round(nutrition.fat), unit: 'g', color: '#ef4444', icon: '🧈' },
+                { label: 'Fiber', val: Math.round(nutrition.fiber), unit: 'g', color: '#22c55e', icon: '🌾' },
               ].map(m => (
                 <div key={m.label} className="flex flex-col items-center bg-gray-50 rounded-2xl py-2.5 px-1">
                   <span className="text-base">{m.icon}</span>
@@ -636,8 +673,8 @@ export default function RealisticARViewer({ item, onClose, theme }) {
                       <div className="flex flex-col gap-0.5 w-14 flex-shrink-0">
                         {[
                           { label: 'P', val: ing.protein, max: 30, color: '#8b5cf6' },
-                          { label: 'C', val: ing.carbs,   max: 80, color: '#f59e0b' },
-                          { label: 'F', val: ing.fiber,   max: 15, color: '#22c55e' },
+                          { label: 'C', val: ing.carbs, max: 80, color: '#f59e0b' },
+                          { label: 'F', val: ing.fiber, max: 15, color: '#22c55e' },
                         ].map(bar => (
                           <div key={bar.label} className="flex items-center gap-1">
                             <span className="text-[8px] text-gray-400 w-2">{bar.label}</span>
@@ -659,11 +696,11 @@ export default function RealisticARViewer({ item, onClose, theme }) {
                         </p>
                         <div className="grid grid-cols-3 gap-2 mb-3">
                           {[
-                            { label: '🔥 Calories', val: ing.cal,     unit: 'kcal' },
-                            { label: '💪 Protein',  val: ing.protein, unit: 'g' },
-                            { label: '⚡ Carbs',    val: ing.carbs,   unit: 'g' },
-                            { label: '🧈 Fat',      val: ing.fat,     unit: 'g' },
-                            { label: '🌾 Fiber',    val: ing.fiber,   unit: 'g' },
+                            { label: '🔥 Calories', val: ing.cal, unit: 'kcal' },
+                            { label: '💪 Protein', val: ing.protein, unit: 'g' },
+                            { label: '⚡ Carbs', val: ing.carbs, unit: 'g' },
+                            { label: '🧈 Fat', val: ing.fat, unit: 'g' },
+                            { label: '🌾 Fiber', val: ing.fiber, unit: 'g' },
                           ].map(n => (
                             <div key={n.label} className="bg-white rounded-xl p-2 text-center shadow-sm">
                               <p className="text-[10px] text-gray-500">{n.label}</p>
@@ -693,7 +730,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
                             <div className="flex flex-wrap gap-1.5">
                               {ing.minerals.map(m => (
                                 <span key={m} className="text-[10px] font-medium px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
-                                  ⚙️ {m}
+                                  {m}
                                 </span>
                               ))}
                             </div>
@@ -717,7 +754,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
         <div className="absolute bottom-0 left-0 right-0 z-30 p-5 pb-8">
           <div className="flex flex-col items-center gap-3">
             <p className="text-white/70 text-xs text-center bg-black/40 px-4 py-1.5 rounded-full backdrop-blur-sm">
-              👆 Drag to rotate • Pinch to resize
+              Drag to rotate • Pinch to resize
             </p>
             <div className="flex gap-2 w-full max-w-xs">
               <button

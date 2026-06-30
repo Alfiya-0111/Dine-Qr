@@ -969,24 +969,32 @@ roomNumber:  orderType === "room-service" ? roomNumber.trim() : null,
       planId:        subscription?.planId || 'starter',
     };
 
-    try {
-      const newOrderRef = await push(
+  try {
+    const newOrderRef = await push(
         ref(realtimeDB, `orders/${restaurantId}`),
         orderPayload
-      );
-      const orderId = newOrderRef.key;
+    );
+    const orderId = newOrderRef.key;
 
-      if (planFeatures.whatsappOrders && customerPhone) {
+    // ★ FIX: Decrement inventory stock for cart checkout
+    try {
+        const { decrementStock } = await import("../utils/recipeStock");
+        await decrementStock(validCart, restaurantId);
+    } catch (stockErr) {
+        console.error("Stock decrement failed for cart checkout:", stockErr);
+    }
+
+    if (planFeatures.whatsappOrders && customerPhone) {
         await sendWhatsAppNotification(orderId, validCart);
-      }
+    }
 
-      clearCart();
-      toast.success("🎉 Order place ho gaya!");
-      navigate(
+    clearCart();
+    toast.success("🎉 Order place ho gaya!");
+    navigate(
         orderType === "delivery"
-          ? `/track/${restaurantId}/${orderId}`
-          : `/menu/${restaurantId}`
-      );
+            ? `/track/${restaurantId}/${orderId}`
+            : `/menu/${restaurantId}`
+    );
     } catch (err) {
       console.error("Order failed:", err);
       toast.error("Order failed. Please try again.");

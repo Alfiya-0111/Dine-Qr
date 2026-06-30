@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { IoLogoInstagram, IoNavigate } from "react-icons/io5";
+import { deductRawMaterialsForOrder, decrementStock } from "../utils/recipeStock";
 import { ref as rtdbRef, onValue, update, remove, push, set } from "firebase/database";
 import {
   IoCartOutline,
@@ -1267,7 +1268,7 @@ Sent via DineQR
       
       // ★ STOCK DECREMENT
       await decrementStock(order.items, restaurantId);
-      
+  
       try {
         const whatsappOrderData = {
           ...order,
@@ -1922,6 +1923,7 @@ specialInstructions: orderData.specialInstructions || "",
         console.error(`Stock decrement failed for ${item.name}:`, e);
       }
     }
+        await deductRawMaterialsForOrder(items, restaurantId);
   };
 
   const generateBillText = (order) => {
@@ -3798,7 +3800,7 @@ const handleOrderClick = (item, action = "order") => {
 
                     <div className="flex gap-3 mt-4">
                       <button
-                        onClick={() => {
+                       onClick={async () => {
                           const payload = {
                             id: tasteItem.id,
                             name: tasteItem.name || "Unnamed Item",
@@ -3826,34 +3828,36 @@ const handleOrderClick = (item, action = "order") => {
                             setTasteItem(null);
                             setTasteAction(null);
                             setShowWhatsAppCustomerModal(true);
-                          } else if (tasteAction === "order") {
-                            // ★ ORDER NOW: Add to cart AND navigate to checkout with restaurantId
-                            addToCart(payload);
+      } else if (tasteAction === "order") {
+    // ★ ORDER NOW: Add to cart AND navigate to checkout with restaurantId
+    addToCart(payload);
+    
+    // ★ FIX: Decrement inventory stock immediately on Order Now
+    try {
+        await decrementStock([payload], restaurantId);
+    } catch (err) {
+        console.error("Stock decrement failed for direct order:", err);
+    }
 
-                            const rid = restaurantId || slug;
-                            if (rid) {
-const tableParam = tableNumber ? `?table=${encodeURIComponent(tableNumber)}` : "";
-navigate(`/checkout/${rid}${tableParam}`, {
-  state: {
-    cartItems: [payload],
-    restaurantId: rid,
-    restaurantName: restaurantName || restaurantSettings?.name,
-    fromDirectOrder: true,
-    tableNumber: tableNumber || "",
-  }
-});
-                            } else {
-                              toast.error("Restaurant ID missing. Cannot checkout.");
-                            }
+    const rid = restaurantId || slug;
+    if (rid) {
+        const tableParam = tableNumber ? `?table=${encodeURIComponent(tableNumber)}` : "";
+        navigate(`/checkout/${rid}${tableParam}`, {
+            state: {
+                cartItems: [payload],
+                restaurantId: rid,
+                restaurantName: restaurantName || restaurantSettings?.name,
+                fromDirectOrder: true,
+                tableNumber: tableNumber || "",
+            }
+        });
+    } else {
+        toast.error("Restaurant ID missing. Cannot checkout.");
+    }
 
-                            setTasteItem(null);
-                            setTasteAction(null);
-                          } else {
-                            // ★ ADD TO CART: Just add to cart, don't navigate
-                            addToCart(payload);
-                            setTasteItem(null);
-                            setTasteAction(null);
-                          }
+    setTasteItem(null);
+    setTasteAction(null);
+}
                         }}
                         style={{
                           backgroundColor: '#ffffff',
