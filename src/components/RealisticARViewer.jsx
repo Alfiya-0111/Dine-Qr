@@ -1,5 +1,5 @@
 // components/RealisticARViewer.jsx
-// Realistic Table-Top AR — dish appears naturally on table, no borders — dish materializes in place (blur→clear, small→full) + slow auto-rotation
+// 4D Smart Menu Style — dish materializes in place (blur→clear, small→full) + slow auto-rotation
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   IoClose, IoExpand, IoContract, IoRefresh,
@@ -155,9 +155,56 @@ export default function RealisticARViewer({ item, onClose, theme }) {
   const [showPanel, setShowPanel] = useState(false);
   const [activeIng, setActiveIng] = useState(null);
 
+  // Real device tilt (gyroscope) — layers on top of auto-rotation for a believable "looking around" effect
+  const deviceTiltRef = useRef({ beta: 0, gamma: 0 });
+  const tiltSmoothRef = useRef({ x: 0, y: 0 });
+  // Steam particles for hot dishes — cheap but big realism win
+  const particlesRef  = useRef([]);
+
   const PRIMARY = theme?.primary || '#8A244B';
   const ingredients = guessIngredients(item?.name, item?.description);
   const nutrition   = calcNutrition(ingredients);
+
+  const isHotDish = /soup|curry|biryani|tikka|fry|gravy|tandoori|grill|hot|paratha|tea|coffee|noodles|pasta|stew|sizzler|momos/i
+    .test((item?.name || '') + ' ' + (item?.description || ''));
+
+  // ─── Steam particle init ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!isHotDish) { particlesRef.current = []; return; }
+    particlesRef.current = Array.from({ length: 12 }, () => ({
+      x: (Math.random() - 0.5) * 0.55,
+      y: Math.random() * 0.25,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.22 + Math.random() * 0.22,
+      drift: (Math.random() - 0.5) * 0.5,
+      size: 12 + Math.random() * 16,
+      delay: Math.random() * 2.5,
+    }));
+  }, [isHotDish, item]);
+
+  // ─── Device orientation — real tilt instead of fake-only sine wave ────
+  useEffect(() => {
+    const handleOrientation = (e) => {
+      if (e.beta === null || e.gamma === null) return;
+      deviceTiltRef.current = {
+        beta:  Math.max(-25, Math.min(25, e.beta - 45)),
+        gamma: Math.max(-25, Math.min(25, e.gamma)),
+      };
+    };
+    const enable = async () => {
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        try {
+          const res = await DeviceOrientationEvent.requestPermission();
+          if (res === 'granted') window.addEventListener('deviceorientation', handleOrientation);
+        } catch { /* user denied — auto-rotation stays as fallback */ }
+      } else {
+        window.addEventListener('deviceorientation', handleOrientation);
+      }
+    };
+    enable();
+    return () => window.removeEventListener('deviceorientation', handleOrientation);
+  }, []);
 
   // ─── Load dish image ─────────────────────────────────────────────────
   useEffect(() => {
@@ -299,12 +346,19 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     // ── Continuous auto-rotation (slow pendulum sway like 4D menu) ────
     // Smooth sin wave: ±18deg, period ~6s — feels like floating turntable
     const autoRot = Math.sin(t * (Math.PI / 3)) * 18;
-    // User drag adds on top
-    const totalRot = autoRot + manualRotRef.current;
 
-    // ── Float bob (gentle, after entry) ──────────────────────────────
+    // Real device tilt (gamma = left/right) smoothed in — if no gyro data
+    // arrives this just stays at 0 and auto-rotation carries the effect
+    tiltSmoothRef.current.x += (deviceTiltRef.current.gamma - tiltSmoothRef.current.x) * 0.08;
+    tiltSmoothRef.current.y += (deviceTiltRef.current.beta  - tiltSmoothRef.current.y) * 0.08;
+    const gyroRot = tiltSmoothRef.current.x * 0.9;
+
+    // User drag adds on top
+    const totalRot = autoRot * 0.5 + gyroRot + manualRotRef.current;
+
+    // ── Float bob (gentle, after entry) + slight gyro-driven vertical tilt
     const bobAmt  = Math.min(1, Math.max(0, (enterP - 0.7) / 0.3));
-    const bobY    = Math.sin(t * 1.3) * 7 * bobAmt;
+    const bobY    = Math.sin(t * 1.3) * 7 * bobAmt + tiltSmoothRef.current.y * 0.3;
     const tiltX   = entered ? Math.sin(t * 0.85) * 2.5 : 0; // subtle tilt
 
     const BASE_W = Math.min(W * 0.70, 400) * scale;
@@ -343,13 +397,25 @@ export default function RealisticARViewer({ item, onClose, theme }) {
 
     ctx.transform(scaleX, Math.sin(rotRad * 0.04), skewX * 0.3, 1, 0, 0);
 
-    // No plate rim / border — dish floats naturally on table
+    // Plate rim (white card background)
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.30)';
+    ctx.shadowBlur  = 32;
+    ctx.shadowOffsetY = 12;
+    roundRect(ctx, -dw / 2 - rimPad, -dh / 2 - rimPad, dw + rimPad * 2, dh + rimPad * 2, rimRad + 4);
+    const pg = ctx.createLinearGradient(0, -dh / 2, 0, dh / 2);
+    pg.addColorStop(0, 'rgba(255,255,255,0.98)');
+    pg.addColorStop(1, 'rgba(238,238,238,0.94)');
+    ctx.fillStyle = pg; ctx.fill();
+    ctx.restore();
 
     // Dish image (with blur during entrance)
     if (blurRadius > 1) {
       // Use blur helper for entrance effect
       ctx.save();
       ctx.shadowBlur = 0;
+      roundRect(ctx, -dw / 2, -dh / 2, dw, dh, rimRad);
+      ctx.clip();
       // Draw the image multiple times offset to fake blur
       const steps = 6;
       const a = 1 / (steps * 2 + 1);
@@ -370,6 +436,8 @@ export default function RealisticARViewer({ item, onClose, theme }) {
       // Sharp — no blur
       ctx.save();
       ctx.shadowBlur = 0;
+      roundRect(ctx, -dw / 2, -dh / 2, dw, dh, rimRad);
+      ctx.clip();
       ctx.globalAlpha = dishAlpha;
       ctx.drawImage(dishImg, -dw / 2, -dh / 2, dw, dh);
       // Gloss overlay
@@ -382,9 +450,39 @@ export default function RealisticARViewer({ item, onClose, theme }) {
       ctx.restore();
     }
 
-    // No rim border — clean dish only
+    // Rim border
+    ctx.save();
+    roundRect(ctx, -dw / 2, -dh / 2, dw, dh, rimRad);
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = dishAlpha;
+    ctx.stroke();
+    ctx.restore();
 
     ctx.restore(); // end dish transform
+
+    // ── Steam particles — only for hot dishes, only once dish is visible ──
+    if (isHotDish && dishAlpha > 0.3 && particlesRef.current.length) {
+      ctx.save();
+      particlesRef.current.forEach(p => {
+        const localT = ((t + p.delay) * p.speed) % 1.6; // loop every ~1.6s cycles per particle
+        if (localT > 1.4) return; // brief gap before respawn
+        const rise = localT / 1.4;
+        const px = cx + p.x * dw + Math.sin((t + p.phase) * 1.8) * p.drift * dw * 0.15;
+        const py = cy - dh / 2 * dishScale - rise * dh * 0.55 - p.y * dh * 0.3;
+        const alpha = Math.sin(rise * Math.PI) * 0.35 * dishAlpha;
+        if (alpha <= 0.01) return;
+        const size = p.size * (0.6 + rise * 0.8);
+        const grad = ctx.createRadialGradient(px, py, 0, px, py, size);
+        grad.addColorStop(0, `rgba(255,255,255,${alpha})`);
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(px, py, size, size * 1.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
 
     // ── Floating name label — fades in after entry ────────────────────
     const labelAlpha = Math.min(1, Math.max(0, (enterP - 0.75) / 0.25));
@@ -525,7 +623,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
               <p className="font-bold text-sm text-gray-900 truncate">{item?.name}</p>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
-                  style={{ backgroundColor: PRIMARY }}>AR VIEW</span>
+                  style={{ backgroundColor: PRIMARY }}>4D VIEW</span>
                 <p className="text-xs text-gray-500">₹{item?.price}</p>
                 <p className="text-xs text-gray-400">• ~{Math.round(nutrition.cal)} kcal</p>
               </div>
