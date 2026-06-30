@@ -1,9 +1,10 @@
+// components/RealisticARViewer.jsx
+// Realistic Table-Top AR — dish appears naturally on table, clean bg removal
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   IoClose, IoExpand, IoContract, IoRefresh,
-  IoPhonePortraitOutline, IoCheckmarkCircle,
-  IoLeaf, IoFlame, IoNutrition, IoWater,
-  IoChevronUp, IoChevronDown,
+  IoPhonePortraitOutline, IoLeaf, IoNutrition,
+  IoChevronDown,
 } from "react-icons/io5";
 
 // ─── Smart ingredient → nutrition mapper ──────────────────────────────────
@@ -55,6 +56,10 @@ const INGREDIENT_DB = {
   turmeric:   { emoji: '🌿', cal: 354, protein: 8,   carbs: 65, fat: 10,  fiber: 21,  vitamins: ['C', 'B6'], minerals: ['Iron', 'Manganese'] },
   coriander:  { emoji: '🌿', cal: 23,  protein: 2.1, carbs: 3.7,fat: 0.5, fiber: 2.8, vitamins: ['K', 'A', 'C'], minerals: ['Potassium', 'Calcium'] },
   chilli:     { emoji: '🌶️', cal: 40,  protein: 1.9, carbs: 8.8,fat: 0.4, fiber: 1.5, vitamins: ['C', 'A', 'B6'], minerals: ['Potassium', 'Copper'] },
+  coffee:     { emoji: '☕', cal: 2,   protein: 0.1, carbs: 0,  fat: 0,   fiber: 0,   vitamins: ['B2', 'B5'], minerals: ['Potassium', 'Magnesium'] },
+  latte:      { emoji: '☕', cal: 150, protein: 8,   carbs: 12, fat: 8,   fiber: 0,   vitamins: ['A', 'D', 'B12'], minerals: ['Calcium', 'Phosphorus'] },
+  espresso:   { emoji: '☕', cal: 9,   protein: 0.1, carbs: 1.5,fat: 0.2, fiber: 0,   vitamins: ['B2', 'B3'], minerals: ['Potassium', 'Magnesium'] },
+  cappuccino: { emoji: '☕', cal: 120, protein: 6,   carbs: 10, fat: 6,   fiber: 0,   vitamins: ['A', 'D', 'B12'], minerals: ['Calcium', 'Phosphorus'] },
 };
 
 function guessIngredients(dishName = '', description = '') {
@@ -83,6 +88,7 @@ function guessIngredients(dishName = '', description = '') {
     ['turmeric', 'turmeric'], ['haldi', 'turmeric'],
     ['cumin', 'cumin'], ['jeera', 'cumin'],
     ['coriander', 'coriander'], ['dhania', 'coriander'],
+    ['coffee', 'coffee'], ['latte', 'latte'], ['espresso', 'espresso'], ['cappuccino', 'cappuccino'],
   ];
   const seen = new Set();
   for (const [keyword, dbKey] of checkMap) {
@@ -92,7 +98,7 @@ function guessIngredients(dishName = '', description = '') {
     }
   }
   if (found.length < 2) {
-    ['oil', 'salt', 'coriander'].forEach(k => {
+    ['milk', 'sugar'].forEach(k => {
       if (!seen.has(k)) {
         found.push({ key: k, name: k.charAt(0).toUpperCase() + k.slice(1), ...INGREDIENT_DB[k] });
         seen.add(k);
@@ -143,62 +149,135 @@ export default function RealisticARViewer({ item, onClose, theme }) {
   const ingredients = guessIngredients(item?.name, item?.description);
   const nutrition   = calcNutrition(ingredients);
 
-  // ─── Process dish image: remove white/light background ──────────────────
-  const processImage = useCallback((img) => {
+  // ─── Advanced Background Removal ────────────────────────────────────────
+  const removeBackground = useCallback((img) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
     ctx.drawImage(img, 0, 0);
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const w = canvas.width;
+    const h = canvas.height;
+    const imageData = ctx.getImageData(0, 0, w, h);
     const data = imageData.data;
 
-    // Detect dominant background color from edges
-    let rSum = 0, gSum = 0, bSum = 0, count = 0;
-    const edgePixels = [];
-    const w = canvas.width, h = canvas.height;
-
-    // Sample edges
-    for (let x = 0; x < w; x += 4) {
-      edgePixels.push((0 * w + x) * 4);
-      edgePixels.push(((h - 1) * w + x) * 4);
+    // Step 1: Detect background color from all edges
+    const samples = [];
+    const sampleSize = 20;
+    for (let x = 0; x < w; x += Math.floor(w / sampleSize)) {
+      for (let y = 0; y < sampleSize; y++) {
+        const idx = (y * w + x) * 4;
+        samples.push({ r: data[idx], g: data[idx + 1], b: data[idx + 2] });
+      }
+      for (let y = h - sampleSize; y < h; y++) {
+        const idx = (y * w + x) * 4;
+        samples.push({ r: data[idx], g: data[idx + 1], b: data[idx + 2] });
+      }
     }
-    for (let y = 0; y < h; y += 4) {
-      edgePixels.push((y * w + 0) * 4);
-      edgePixels.push((y * w + (w - 1)) * 4);
+    for (let y = sampleSize; y < h - sampleSize; y += Math.floor(h / sampleSize)) {
+      for (let x = 0; x < sampleSize; x++) {
+        const idx = (y * w + x) * 4;
+        samples.push({ r: data[idx], g: data[idx + 1], b: data[idx + 2] });
+      }
+      for (let x = w - sampleSize; x < w; x++) {
+        const idx = (y * w + x) * 4;
+        samples.push({ r: data[idx], g: data[idx + 1], b: data[idx + 2] });
+      }
     }
 
-    edgePixels.forEach(i => {
-      rSum += data[i];
-      gSum += data[i + 1];
-      bSum += data[i + 2];
+    // Find dominant background color using k-means-like clustering
+    const bgColor = { r: 0, g: 0, b: 0 };
+    let count = 0;
+    samples.forEach(s => {
+      bgColor.r += s.r;
+      bgColor.g += s.g;
+      bgColor.b += s.b;
       count++;
     });
+    bgColor.r /= count;
+    bgColor.g /= count;
+    bgColor.b /= count;
 
-    const bgR = rSum / count;
-    const bgG = gSum / count;
-    const bgB = bSum / count;
-    const bgBrightness = (bgR + bgG + bgB) / 3;
+    const bgBrightness = (bgColor.r + bgColor.g + bgColor.b) / 3;
 
-    // Threshold for background removal
-    const threshold = 35;
-    const brightnessThreshold = bgBrightness > 200 ? 200 : 100;
+    // Step 2: Flood-fill from edges to find connected background regions
+    const visited = new Uint8Array(w * h);
+    const queue = [];
+    const bgMask = new Uint8Array(w * h);
 
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
+    // Add all edge pixels to queue
+    for (let x = 0; x < w; x++) {
+      queue.push({ x, y: 0 });
+      queue.push({ x, y: h - 1 });
+    }
+    for (let y = 1; y < h - 1; y++) {
+      queue.push({ x: 0, y });
+      queue.push({ x: w - 1, y });
+    }
+
+    let head = 0;
+    const colorThreshold = 45;
+    const brightnessThreshold = bgBrightness > 180 ? 200 : 160;
+
+    while (head < queue.length) {
+      const { x, y } = queue[head++];
+      const idx = y * w + x;
+      if (visited[idx]) continue;
+
+      const r = data[idx * 4];
+      const g = data[idx * 4 + 1];
+      const b = data[idx * 4 + 2];
       const brightness = (r + g + b) / 3;
 
-      // Check if pixel matches background color or is very bright (white bg)
-      const colorDiff = Math.abs(r - bgR) + Math.abs(g - bgG) + Math.abs(b - bgB);
-      const isBg = colorDiff < threshold || brightness > brightnessThreshold;
+      const colorDiff = Math.abs(r - bgColor.r) + Math.abs(g - bgColor.g) + Math.abs(b - bgColor.b);
+      const isBg = colorDiff < colorThreshold || brightness > brightnessThreshold;
 
       if (isBg) {
-        // Make it transparent with feathering
-        const alpha = Math.max(0, 1 - (brightness - 180) / 75);
-        data[i + 3] = Math.floor(alpha * 255 * 0.3); // Semi-transparent for soft blend
+        visited[idx] = 1;
+        bgMask[idx] = 1;
+
+        // Add neighbors
+        if (x > 0) queue.push({ x: x - 1, y });
+        if (x < w - 1) queue.push({ x: x + 1, y });
+        if (y > 0) queue.push({ x, y: y - 1 });
+        if (y < h - 1) queue.push({ x, y: y + 1 });
+      }
+    }
+
+    // Step 3: Apply transparency with feathering
+    const featherRadius = 3;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = y * w + x;
+        if (bgMask[idx]) {
+          // Check if near edge of bg mask for feathering
+          let nearEdge = false;
+          let minDist = featherRadius + 1;
+          for (let dy = -featherRadius; dy <= featherRadius; dy++) {
+            for (let dx = -featherRadius; dx <= featherRadius; dx++) {
+              const nx = x + dx;
+              const ny = y + dy;
+              if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                if (!bgMask[ny * w + nx]) {
+                  const dist = Math.sqrt(dx * dx + dy * dy);
+                  if (dist < minDist) minDist = dist;
+                  nearEdge = true;
+                }
+              }
+            }
+          }
+
+          if (nearEdge) {
+            const alpha = Math.min(1, minDist / featherRadius);
+            data[idx * 4 + 3] = Math.floor(alpha * 255 * 0.15); // Very transparent for bg
+          } else {
+            data[idx * 4 + 3] = 0; // Fully transparent
+          }
+        } else {
+          // Keep non-bg pixels fully opaque
+          data[idx * 4 + 3] = 255;
+        }
       }
     }
 
@@ -213,11 +292,11 @@ export default function RealisticARViewer({ item, onClose, theme }) {
   useEffect(() => {
     const src = item?.imageUrl || item?.image;
     if (!src) { setDishImg(null); return; }
+
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      // Process image to remove background
-      const processed = processImage(img);
+      const processed = removeBackground(img);
       processed.onload = () => {
         processedImgRef.current = processed;
         setDishImg(processed);
@@ -226,7 +305,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     img.onerror = () => {
       const img2 = new Image();
       img2.onload = () => {
-        const processed = processImage(img2);
+        const processed = removeBackground(img2);
         processed.onload = () => {
           processedImgRef.current = processed;
           setDishImg(processed);
@@ -235,7 +314,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
       img2.src = src;
     };
     img.src = src;
-  }, [item, processImage]);
+  }, [item, removeBackground]);
 
   // ─── Camera ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -263,155 +342,175 @@ export default function RealisticARViewer({ item, onClose, theme }) {
   // ─── Canvas draw loop ─────────────────────────────────────────────────
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
-    const video  = videoRef.current;
+    const video = videoRef.current;
     if (!canvas || !video) return;
 
     const ctx = canvas.getContext('2d');
-    const W = canvas.width, H = canvas.height;
+    const W = canvas.width;
+    const H = canvas.height;
 
     ctx.clearRect(0, 0, W, H);
-    if (video.readyState >= 2) ctx.drawImage(video, 0, 0, W, H);
-    else { ctx.fillStyle = '#111'; ctx.fillRect(0, 0, W, H); }
 
-    if (!dishImg) { animRef.current = requestAnimationFrame(draw); return; }
+    // Draw camera feed
+    if (video.readyState >= 2) {
+      ctx.drawImage(video, 0, 0, W, H);
+    } else {
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    if (!dishImg) {
+      animRef.current = requestAnimationFrame(draw);
+      return;
+    }
 
     const now = performance.now();
     if (!startTimeRef.current) startTimeRef.current = now;
     const elapsed = now - startTimeRef.current;
     const t = elapsed / 1000;
 
-    // ── Entrance animation: 0 → 3.5s ──────────────────────────────────
-    const ENTER_DUR = 3500;
+    // ── Entrance animation ──────────────────────────────────────────────
+    const ENTER_DUR = 3000;
     const enterP = Math.min(elapsed / ENTER_DUR, 1);
 
-    // Scale: starts small, grows with overshoot, settles
     let dishScale;
-    if (enterP < 0.55) {
-      const p = easeOutCubic(enterP / 0.55);
-      dishScale = 0.65 + p * 0.40;
+    if (enterP < 0.5) {
+      const p = easeOutCubic(enterP / 0.5);
+      dishScale = 0.6 + p * 0.45;
     } else {
-      const p = easeInOutSine((enterP - 0.55) / 0.45);
+      const p = easeInOutSine((enterP - 0.5) / 0.5);
       dishScale = 1.05 - p * 0.05;
     }
 
-    // Opacity
-    const dishAlpha = Math.min(1, easeOutQuint(enterP / 0.4));
-
-    // Blur during entrance
-    const blurAmount = Math.max(0, 16 * (1 - easeOutCubic(Math.min(enterP / 0.8, 1))));
+    const dishAlpha = Math.min(1, easeOutQuint(enterP / 0.35));
+    const blurAmount = Math.max(0, 14 * (1 - easeOutCubic(Math.min(enterP / 0.7, 1))));
 
     if (enterP >= 1 && !entered) setEntered(true);
 
-    // ── Continuous auto-rotation (slow pendulum) ────────────────────
-    const autoRot = Math.sin(t * (Math.PI / 3)) * 15;
+    // ── Auto rotation ───────────────────────────────────────────────────
+    const autoRot = Math.sin(t * (Math.PI / 3.5)) * 12;
     const totalRot = autoRot + manualRotRef.current;
 
     // ── Float bob ─────────────────────────────────────────────────────
-    const bobAmt = Math.min(1, Math.max(0, (enterP - 0.7) / 0.3));
-    const bobY = Math.sin(t * 1.2) * 6 * bobAmt;
+    const bobAmt = Math.min(1, Math.max(0, (enterP - 0.6) / 0.4));
+    const bobY = Math.sin(t * 1.1) * 5 * bobAmt;
 
     // ── Dish positioning ──────────────────────────────────────────────
-    const BASE_W = Math.min(W * 0.65, 380) * scale;
-    const BASE_H = BASE_W * 0.70;
+    const BASE_W = Math.min(W * 0.60, 350) * scale;
+    const BASE_H = BASE_W * (dishImg.naturalHeight / dishImg.naturalWidth || 0.75);
     const cx = W / 2;
-    const panelOffset = showPanel ? -H * 0.06 : 0;
-    const cy = H * 0.42 + bobY + panelOffset;
+    const panelOffset = showPanel ? -H * 0.05 : 0;
+    const cy = H * 0.40 + bobY + panelOffset;
 
     const dw = BASE_W * dishScale;
     const dh = BASE_H * dishScale;
 
-    // ── Realistic shadow on table ─────────────────────────────────────
+    // ── Realistic Table Shadow ────────────────────────────────────────
     ctx.save();
-    ctx.translate(cx, cy + dh * 0.48);
-    // Perspective shadow - wider at bottom
-    ctx.scale(1 + 0.08 * (1 - dishScale), 0.18);
-    const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, dw * 0.55);
-    sg.addColorStop(0, `rgba(0,0,0,${0.35 * dishAlpha})`);
-    sg.addColorStop(0.5, `rgba(0,0,0,${0.15 * dishAlpha})`);
+    ctx.translate(cx, cy + dh * 0.52);
+    ctx.scale(1.1, 0.15);
+    const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, dw * 0.5);
+    sg.addColorStop(0, `rgba(0,0,0,${0.4 * dishAlpha})`);
+    sg.addColorStop(0.3, `rgba(0,0,0,${0.2 * dishAlpha})`);
+    sg.addColorStop(0.7, `rgba(0,0,0,${0.08 * dishAlpha})`);
     sg.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.beginPath();
-    ctx.ellipse(0, 0, dw * 0.55, dh * 0.35, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, dw * 0.5, dh * 0.4, 0, 0, Math.PI * 2);
     ctx.fillStyle = sg;
     ctx.fill();
     ctx.restore();
 
-    // ── Dish image — NO BORDER, NO FRAME, just the dish ───────────────
+    // ── Secondary soft shadow ─────────────────────────────────────────
+    ctx.save();
+    ctx.translate(cx, cy + dh * 0.50);
+    ctx.scale(0.8, 0.12);
+    const sg2 = ctx.createRadialGradient(0, 0, 0, 0, 0, dw * 0.4);
+    sg2.addColorStop(0, `rgba(0,0,0,${0.25 * dishAlpha})`);
+    sg2.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.beginPath();
+    ctx.ellipse(0, 0, dw * 0.4, dh * 0.3, 0, 0, Math.PI * 2);
+    ctx.fillStyle = sg2;
+    ctx.fill();
+    ctx.restore();
+
+    // ── Dish Image — NO BORDER, clean bg removed ──────────────────────
     ctx.save();
     ctx.globalAlpha = dishAlpha;
     ctx.translate(cx, cy);
 
-    // 3D perspective based on rotation
+    // 3D perspective
     const rotRad = (totalRot * Math.PI) / 180;
-    const skewX = Math.sin(rotRad) * 0.12;
-    const scaleX = Math.cos(rotRad * 0.5);
-    ctx.transform(scaleX, Math.sin(rotRad * 0.03), skewX * 0.2, 1, 0, 0);
+    const scaleX = Math.cos(rotRad * 0.4);
+    const skewX = Math.sin(rotRad) * 0.08;
+    ctx.transform(scaleX, Math.sin(rotRad * 0.02), skewX * 0.15, 1, 0, 0);
 
-    // Subtle warm glow under dish
+    // Warm ambient light under dish
     ctx.save();
-    const glow = ctx.createRadialGradient(0, dh * 0.1, 0, 0, dh * 0.1, dw * 0.6);
-    glow.addColorStop(0, `rgba(255,220,180,${0.08 * dishAlpha})`);
-    glow.addColorStop(1, 'rgba(255,220,180,0)');
-    ctx.fillStyle = glow;
+    const ambient = ctx.createRadialGradient(0, dh * 0.05, 0, 0, dh * 0.05, dw * 0.55);
+    ambient.addColorStop(0, `rgba(255,235,200,${0.06 * dishAlpha})`);
+    ambient.addColorStop(1, 'rgba(255,235,200,0)');
+    ctx.fillStyle = ambient;
     ctx.beginPath();
-    ctx.ellipse(0, dh * 0.1, dw * 0.55, dh * 0.4, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, dh * 0.05, dw * 0.55, dh * 0.45, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
-    // Draw dish image with blur during entrance
-    if (blurAmount > 1) {
-      // Multi-pass blur for entrance
-      const steps = 5;
+    // Draw dish with blur during entrance
+    if (blurAmount > 0.5) {
+      const steps = 4;
       const a = 1 / (steps * 2 + 1);
       for (let ix = -steps; ix <= steps; ix++) {
         for (let iy = -steps; iy <= steps; iy++) {
           const dist = Math.sqrt(ix * ix + iy * iy);
-          if (dist > steps * 1.1) continue;
-          ctx.globalAlpha = dishAlpha * a * 1.3;
+          if (dist > steps * 1.2) continue;
+          ctx.globalAlpha = dishAlpha * a * 1.2;
           ctx.drawImage(dishImg,
-            -dw / 2 + (ix / steps) * blurAmount * 0.7,
-            -dh / 2 + (iy / steps) * blurAmount * 0.7,
+            -dw / 2 + (ix / steps) * blurAmount * 0.6,
+            -dh / 2 + (iy / steps) * blurAmount * 0.6,
             dw, dh
           );
         }
       }
     } else {
-      // Sharp dish — no border, no frame
+      // Clean sharp dish
       ctx.globalAlpha = dishAlpha;
       ctx.drawImage(dishImg, -dw / 2, -dh / 2, dw, dh);
 
-      // Very subtle inner highlight for realism (not a border)
-      const highlight = ctx.createLinearGradient(-dw / 2, -dh / 2, -dw / 2, 0);
-      highlight.addColorStop(0, 'rgba(255,255,255,0.06)');
-      highlight.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = highlight;
-      ctx.fillRect(-dw / 2, -dh / 2, dw, dh * 0.4);
+      // Very subtle top-left highlight for 3D realism
+      ctx.save();
+      const hl = ctx.createLinearGradient(-dw / 2, -dh / 2, -dw / 2 + dw * 0.3, 0);
+      hl.addColorStop(0, 'rgba(255,255,255,0.04)');
+      hl.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = hl;
+      ctx.fillRect(-dw / 2, -dh / 2, dw * 0.4, dh * 0.3);
+      ctx.restore();
     }
 
-    ctx.restore(); // end dish transform
+    ctx.restore(); // end dish
 
-    // ── Floating name label ───────────────────────────────────────────
-    const labelAlpha = Math.min(1, Math.max(0, (enterP - 0.75) / 0.25));
+    // ── Floating label (pill style) ─────────────────────────────────
+    const labelAlpha = Math.min(1, Math.max(0, (enterP - 0.7) / 0.3));
     if (labelAlpha > 0.01) {
       ctx.save();
       ctx.globalAlpha = labelAlpha;
       const nameText = item?.name || 'Dish';
       const priceText = `₹${item?.price || 0}`;
-      const labelY = cy - dh / 2 * dishScale - 22;
+      const labelY = cy - dh / 2 * dishScale - 18;
 
       ctx.font = 'bold 14px -apple-system, sans-serif';
       const nameW = ctx.measureText(nameText).width;
       const priceW = ctx.measureText(priceText).width;
-      const lW = nameW + priceW + 56;
-      const lH = 38;
+      const lW = nameW + priceW + 52;
+      const lH = 36;
       const lx = cx - lW / 2;
       const ly = labelY - lH;
 
-      // Glassmorphism label
-      ctx.shadowColor = 'rgba(0,0,0,0.25)';
-      ctx.shadowBlur = 20;
-      ctx.shadowOffsetY = 6;
+      // Shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.2)';
+      ctx.shadowBlur = 16;
+      ctx.shadowOffsetY = 4;
 
-      // Rounded pill background
+      // Pill background
       ctx.beginPath();
       ctx.moveTo(lx + lH / 2, ly);
       ctx.lineTo(lx + lW - lH / 2, ly);
@@ -423,50 +522,50 @@ export default function RealisticARViewer({ item, onClose, theme }) {
       ctx.lineTo(lx, ly + lH / 2);
       ctx.quadraticCurveTo(lx, ly, lx + lH / 2, ly);
       ctx.closePath();
-
-      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
       ctx.fill();
       ctx.shadowBlur = 0;
 
-      // Name text
+      // Name
       ctx.fillStyle = '#1a1a1a';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
       ctx.font = 'bold 13px -apple-system, sans-serif';
-      ctx.fillText(nameText, lx + 16, ly + lH / 2);
+      ctx.fillText(nameText, lx + 14, ly + lH / 2);
 
       // Price badge
-      const bW = priceW + 24;
-      const bx = lx + lW - bW - 6;
+      const bW = priceW + 22;
+      const bx = lx + lW - bW - 5;
       const by = ly + 5;
+      const bH = lH - 10;
       ctx.beginPath();
-      ctx.moveTo(bx + (lH - 10) / 2, by);
-      ctx.lineTo(bx + bW - (lH - 10) / 2, by);
-      ctx.quadraticCurveTo(bx + bW, by, bx + bW, by + (lH - 10) / 2);
-      ctx.lineTo(bx + bW, by + (lH - 10) - (lH - 10) / 2);
-      ctx.quadraticCurveTo(bx + bW, by + (lH - 10), bx + bW - (lH - 10) / 2, by + (lH - 10));
-      ctx.lineTo(bx + (lH - 10) / 2, by + (lH - 10));
-      ctx.quadraticCurveTo(bx, by + (lH - 10), bx, by + (lH - 10) - (lH - 10) / 2);
-      ctx.lineTo(bx, by + (lH - 10) / 2);
-      ctx.quadraticCurveTo(bx, by, bx + (lH - 10) / 2, by);
+      ctx.moveTo(bx + bH / 2, by);
+      ctx.lineTo(bx + bW - bH / 2, by);
+      ctx.quadraticCurveTo(bx + bW, by, bx + bW, by + bH / 2);
+      ctx.lineTo(bx + bW, by + bH - bH / 2);
+      ctx.quadraticCurveTo(bx + bW, by + bH, bx + bW - bH / 2, by + bH);
+      ctx.lineTo(bx + bH / 2, by + bH);
+      ctx.quadraticCurveTo(bx, by + bH, bx, by + bH - bH / 2);
+      ctx.lineTo(bx, by + bH / 2);
+      ctx.quadraticCurveTo(bx, by, bx + bH / 2, by);
       ctx.closePath();
       ctx.fillStyle = PRIMARY;
       ctx.fill();
       ctx.fillStyle = '#fff';
       ctx.textAlign = 'center';
-      ctx.font = 'bold 12px -apple-system, sans-serif';
-      ctx.fillText(priceText, bx + bW / 2, by + (lH - 10) / 2 + 0.5);
+      ctx.font = 'bold 11px -apple-system, sans-serif';
+      ctx.fillText(priceText, bx + bW / 2, by + bH / 2 + 0.5);
       ctx.restore();
     }
 
-    // ── "On Table" badge ──────────────────────────────────────────────
+    // ── "On Table" indicator ──────────────────────────────────────────
     if (entered) {
       ctx.save();
-      ctx.globalAlpha = 0.8;
+      ctx.globalAlpha = 0.75;
       const bt = '✦ ON TABLE';
       ctx.font = 'bold 10px -apple-system, sans-serif';
-      const bW = ctx.measureText(bt).width + 20;
-      const badgeY = H - 90;
+      const bW = ctx.measureText(bt).width + 24;
+      const badgeY = H - 88;
 
       ctx.beginPath();
       ctx.moveTo(cx - bW / 2 + 12, badgeY);
@@ -479,8 +578,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
       ctx.lineTo(cx - bW / 2, badgeY + 12);
       ctx.quadraticCurveTo(cx - bW / 2, badgeY, cx - bW / 2 + 12, badgeY);
       ctx.closePath();
-
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
       ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.9)';
       ctx.textAlign = 'center';
@@ -512,7 +610,7 @@ export default function RealisticARViewer({ item, onClose, theme }) {
     return () => window.removeEventListener('resize', resize);
   }, []);
 
-  // Touch drag
+  // Touch / Mouse drag
   const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchMove = (e) => {
     if (touchStartX.current === null) return;
